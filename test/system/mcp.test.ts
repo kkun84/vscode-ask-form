@@ -1,21 +1,14 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Effect, Fiber, Ref, Result } from "effect"
+import { Effect, Fiber, Ref } from "effect"
 import type { McpSchema } from "effect/ai"
-import { initialValues, type CompiledForm } from "../../src/core/form.ts"
-import { compile } from "../../src/core/validate.ts"
+import { initialValues } from "../../src/core/form.ts"
 import { stableHash } from "../../src/core/hash.ts"
 import { resourceMimeType, resourceUri } from "../../src/mcp/server.ts"
-import { eventSpec } from "../fixtures/event.ts"
+import { eventForm, eventSpec } from "../fixtures/event.ts"
 import { testHtml, withHarness, type Harness } from "../support/server.ts"
 
-const form: CompiledForm = (() => {
-  const result = compile(eventSpec)
-  if (Result.isFailure(result)) {
-    throw new Error(result.failure.join("\n"))
-  }
-  return result.success
-})()
+const form = eventForm
 
 const structured = (result: McpSchema.CallToolResult): Record<string, unknown> =>
   (result.structuredContent ?? {}) as Record<string, unknown>

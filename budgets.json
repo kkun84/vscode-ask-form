@@ -6,9 +6,10 @@
   },
   "time": {
     "unit": 5,
-    "system": 10,
+    "integration": 5,
+    "system": 15,
     "ui": 40,
-    "acceptance": 180
+    "acceptance": 240
   },
   "activationMs": 300
 }

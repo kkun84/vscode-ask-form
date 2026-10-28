@@ -24,11 +24,13 @@
     "lint": "oxlint --deny-warnings && oxfmt --check && depcruise src test scripts && jscpd && knip && markdownlint-cli2 && node scripts/no-comments.ts && node scripts/manifest.ts --check",
     "format": "oxfmt",
     "test:unit": "node scripts/timed.ts unit node --test --test-timeout=5000 \"test/unit/**/*.test.ts\"",
-    "test:system": "node scripts/timed.ts system node --test --test-timeout=5000 \"test/system/**/*.test.ts\"",
-    "test:ui": "node scripts/timed.ts ui playwright test",
+    "test:system": "pnpm -s build && node scripts/timed.ts system node --test --test-timeout=5000 \"test/system/**/*.test.ts\"",
+    "test:ui": "pnpm -s build && node scripts/timed.ts ui playwright test",
     "budget": "node scripts/budget.ts",
-    "test": "pnpm test:unit && pnpm test:system && pnpm test:ui",
-    "prepare": "git config core.hooksPath .githooks"
+    "test": "pnpm test:unit && pnpm test:integration && pnpm test:system && pnpm test:ui",
+    "prepare": "git config core.hooksPath .githooks",
+    "test:integration": "node scripts/timed.ts integration node --test --test-timeout=5000 \"test/integration/**/*.test.ts\"",
+    "test:acceptance": "pnpm -s build && node scripts/timed.ts acceptance node scripts/acceptance.ts"
   },
   "dependencies": {
     "effect": "4.0.6"
@@ -39,6 +41,7 @@
     "@types/node": "22.18.0",
     "@types/vscode": "1.110.0",
     "@typescript/native": "npm:typescript@7.0.2",
+    "@vscode/test-web": "0.0.81",
     "axe-core": "4.14.0",
     "dependency-cruiser": "18.7.0",
     "esbuild": "0.25.10",

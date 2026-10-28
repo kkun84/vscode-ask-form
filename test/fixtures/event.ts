@@ -1,3 +1,7 @@
+import { Result } from "effect"
+import type { CompiledForm } from "../../src/core/form.ts"
+import { compile } from "../../src/core/validate.ts"
+
 export const eventSpec = {
   title: "交流会の条件",
   description: "去年の振り返りとREADMEから推測しました。",
@@ -38,3 +42,5 @@ export const eventSpec = {
     { id: "breakEven", label: "損益分岐", expression: "price > 0 ? ceil(cost / price) : 0", suffix: "人" }
   ]
 } as const
+
+export const eventForm: CompiledForm = compile(eventSpec).pipe(Result.getOrThrow)

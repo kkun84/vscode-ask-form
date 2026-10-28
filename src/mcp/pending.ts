@@ -37,8 +37,12 @@ export const PendingFormsLive = Layer.effect(
   Effect.gen(function* () {
     const indicator = yield* WaitingIndicator
     const ledger = yield* Ref.make<Ledger>(new Map())
+    const notifyIfChanged = (before: number, after: number) => (before === after ? Effect.void : indicator.update(after))
     const changeLedger = (f: (current: Ledger) => Ledger) =>
-      Ref.updateAndGet(ledger, f).pipe(Effect.flatMap((next) => indicator.update(total(next))))
+      Ref.modify(ledger, (current): readonly [readonly [number, number], Ledger] => {
+        const next = f(current)
+        return [[total(current), total(next)], next]
+      }).pipe(Effect.flatMap(([before, after]) => notifyIfChanged(before, after)))
 
     const wait = (form: CompiledForm) =>
       Effect.gen(function* () {
