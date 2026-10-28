@@ -91,3 +91,9 @@ export const withHarness = <A>(
   body: (h: Harness) => Effect.Effect<A, unknown, Scope.Scope>,
   options: { readonly failPosting?: boolean } = {}
 ): Promise<A> => runScoped(Effect.flatMap(harness(options), body))
+
+export const structured = (result: McpSchema.CallToolResult): Record<string, unknown> =>
+  (result.structuredContent ?? {}) as Record<string, unknown>
+
+export const text = (result: McpSchema.CallToolResult): string =>
+  result.content.map((item) => ("text" in item ? String(item.text) : "")).join("\n")

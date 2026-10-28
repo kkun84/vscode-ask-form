@@ -204,6 +204,15 @@ test.describe("SPEC-UI-008 アクセシビリティ", () => {
   })
 })
 
+test.describe("SPEC-UI-009 表示の言語", () => {
+  test("SPEC-UI-009 英語のロケールでは英語で表示する", async ({ page }) => {
+    const frame = await open(page, { context: { locale: "en-US" } })
+    await expect(frame.getByRole("button", { name: "Let AI decide" })).toBeVisible()
+    await expect(frame.getByRole("button", { name: "Answer in chat" })).toBeVisible()
+    await expect(frame.getByText("AI guess: README.mdより")).toBeVisible()
+  })
+})
+
 test.describe("ARCH-UI-001 画面の通信は1種類", () => {
   test("ARCH-UI-001 画面はMCP Appsの約束事どおりに初期化して回答する", async ({ page }) => {
     await open(page)

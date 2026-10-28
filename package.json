@@ -21,7 +21,7 @@
     "build": "node scripts/build.ts",
     "manifest": "node scripts/manifest.ts",
     "typecheck": "node scripts/typecheck.ts",
-    "lint": "oxlint --deny-warnings && oxfmt --check && depcruise src test scripts && jscpd && knip && markdownlint-cli2 && node scripts/no-comments.ts && node scripts/manifest.ts --check",
+    "lint": "oxlint --deny-warnings && oxfmt --check && depcruise src test scripts && jscpd && knip && markdownlint-cli2 && node scripts/no-comments.ts && node scripts/manifest.ts --check && node scripts/traceability.ts",
     "format": "oxfmt",
     "test:unit": "node scripts/timed.ts unit node --test --test-timeout=5000 \"test/unit/**/*.test.ts\"",
     "test:system": "pnpm -s build && node scripts/timed.ts system node --test --test-timeout=5000 \"test/system/**/*.test.ts\"",
@@ -30,7 +30,8 @@
     "test": "pnpm test:unit && pnpm test:integration && pnpm test:system && pnpm test:ui",
     "prepare": "git config core.hooksPath .githooks",
     "test:integration": "node scripts/timed.ts integration node --test --test-timeout=5000 \"test/integration/**/*.test.ts\"",
-    "test:acceptance": "pnpm -s build && node scripts/timed.ts acceptance node scripts/acceptance.ts"
+    "test:acceptance": "pnpm -s build && node scripts/timed.ts acceptance node scripts/acceptance.ts",
+    "traceability": "node scripts/traceability.ts --write"
   },
   "dependencies": {
     "effect": "4.0.6"
