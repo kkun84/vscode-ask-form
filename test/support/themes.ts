@@ -47,7 +47,8 @@ const palette = {
     "--vscode-button-background": "#000000",
     "--vscode-button-foreground": "#ffffff",
     "--vscode-input-background": "#000000",
-    "--vscode-input-border": "#6fc3df"
+    "--vscode-input-border": "#6fc3df",
+    "--vscode-contrastBorder": "#6fc3df"
   }
 } as const
 

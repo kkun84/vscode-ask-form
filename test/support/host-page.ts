@@ -24,7 +24,9 @@ document.body.style.background = setup.background
 const recorder: Recorder = { outcomes: [], resends: [], messages: [], cancel: () => undefined }
 ;(window as unknown as { harness: Recorder }).harness = recorder
 
-const frame = document.getElementById("form") as HTMLIFrameElement
+const frame = document.createElement("iframe")
+frame.id = "form"
+frame.title = "form"
 const post = (message: Record<string, unknown>) => frame.contentWindow?.postMessage(message, "*")
 
 const compiled = compile(setup.args)
@@ -68,3 +70,5 @@ window.addEventListener("message", (event: MessageEvent<Record<string, unknown>>
     }
   })
 })
+frame.src = "/form.html"
+document.body.append(frame)

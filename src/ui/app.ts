@@ -332,19 +332,30 @@ export class FormApp {
       class: "exact",
       "aria-label": field.label
     })
-    const update = (next: number) => {
-      const clamped = Math.min(field.max, Math.max(field.min, next))
-      slider.value = String(clamped)
-      exact.value = String(clamped)
-      const text = `${field.prefix ?? ""}${formatNumber(clamped)}${field.suffix ?? ""}`
+    const show = (next: number) => {
+      slider.value = String(next)
+      const text = `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`
       output.textContent = text
       slider.setAttribute("aria-valuetext", text)
-      this.setValue(field.id, clamped)
+      this.setValue(field.id, next)
+    }
+    const update = (next: number) => {
+      const clamped = Math.min(field.max, Math.max(field.min, next))
+      exact.value = String(clamped)
+      show(clamped)
     }
     on(slider, "input", () => update(Number(slider.value)))
+    on(exact, "input", () => {
+      const next = Number(exact.value)
+      if (exact.value !== "" && Number.isFinite(next) && next >= field.min && next <= field.max) {
+        show(next)
+      }
+    })
     on(exact, "change", () => {
       if (exact.value !== "" && Number.isFinite(Number(exact.value))) {
         update(Number(exact.value))
+      } else {
+        exact.value = slider.value
       }
     })
     return h(
@@ -410,7 +421,7 @@ export class FormApp {
   }
 
   private computedView(): HTMLElement {
-    const element = h("section", { class: "computed", "aria-live": "polite", "aria-label": this.m.details })
+    const element = h("section", { class: "computed", "aria-live": "polite", "aria-label": this.m.results })
     this.live.computed = element
     return element
   }
