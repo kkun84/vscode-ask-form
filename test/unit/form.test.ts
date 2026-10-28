@@ -1,14 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Result } from "effect"
-import {
-  changedFields,
-  computeValues,
-  initialValues,
-  outcomeFor,
-  resendMessage,
-  type CompiledForm
-} from "../../src/core/form.ts"
+import { changedFields, computeValues, initialValues, outcomeFor, resendMessage, type CompiledForm } from "../../src/core/form.ts"
 import { checkValues, compile } from "../../src/core/validate.ts"
 import { canonicalJson, stableHash } from "../../src/core/hash.ts"
 import { messages } from "../../src/core/messages.ts"
@@ -46,37 +39,46 @@ describe("DES-SPEC-001 設計図の読み取り", () => {
   })
 
   it("DES-SPEC-001 重複したidを指摘する", () => {
-    const found = problems(withFields(
-      [{ type: "toggle", id: "a", label: "A" }],
-      [{ id: "a", label: "A", expression: "1" }]
-    ))
+    const found = problems(withFields([{ type: "toggle", id: "a", label: "A" }], [{ id: "a", label: "A", expression: "1" }]))
     assert.ok(found.some((p) => p.includes("「a」が重複")))
   })
 
   it("DES-SPEC-001 数値の範囲の誤りを指摘する", () => {
-    assert.ok(problems(withFields([{ type: "number", id: "n", label: "N", min: 5, max: 5 }]))
-      .some((p) => p.includes("max以上")))
-    assert.ok(problems(withFields([{ type: "number", id: "n", label: "N", min: 0, max: 5, default: 9 }]))
-      .some((p) => p.includes("範囲外")))
+    assert.ok(problems(withFields([{ type: "number", id: "n", label: "N", min: 5, max: 5 }])).some((p) => p.includes("max以上")))
+    assert.ok(problems(withFields([{ type: "number", id: "n", label: "N", min: 0, max: 5, default: 9 }])).some((p) => p.includes("範囲外")))
   })
 
   it("DES-SPEC-001 選択肢の既定値の誤りを指摘する", () => {
-    const options = [{ value: "a", label: "A" }, { value: "b", label: "B" }]
-    assert.ok(problems(withFields([{ type: "choice", id: "c", label: "C", options, default: "z" }]))
-      .some((p) => p.includes("「z」が選択肢にありません")))
-    assert.ok(problems(withFields([{ type: "choice", id: "c", label: "C", options, default: "a", multiple: true }]))
-      .some((p) => p.includes("配列")))
-    assert.ok(problems(withFields([{ type: "choice", id: "c", label: "C", options: [options[0], options[0]] }]))
-      .some((p) => p.includes("valueが重複")))
+    const options = [
+      { value: "a", label: "A" },
+      { value: "b", label: "B" }
+    ]
+    assert.ok(
+      problems(withFields([{ type: "choice", id: "c", label: "C", options, default: "z" }])).some((p) =>
+        p.includes("「z」が選択肢にありません")
+      )
+    )
+    assert.ok(
+      problems(withFields([{ type: "choice", id: "c", label: "C", options, default: "a", multiple: true }])).some((p) => p.includes("配列"))
+    )
+    assert.ok(
+      problems(withFields([{ type: "choice", id: "c", label: "C", options: [options[0], options[0]] }])).some((p) =>
+        p.includes("valueが重複")
+      )
+    )
   })
 
   it("DES-SPEC-001 計算式の誤りと参照の誤りを指摘する", () => {
     const fields = [{ type: "number", id: "n", label: "N", min: 0, max: 1 }]
     assert.ok(problems(withFields(fields, [{ id: "x", label: "X", expression: "n +" }])).some((p) => p.includes("4文字目")))
-    assert.ok(problems(withFields(fields, [
-      { id: "x", label: "X", expression: "y" },
-      { id: "y", label: "Y", expression: "n" }
-    ])).some((p) => p.includes("「y」を参照")))
+    assert.ok(
+      problems(
+        withFields(fields, [
+          { id: "x", label: "X", expression: "y" },
+          { id: "y", label: "Y", expression: "n" }
+        ])
+      ).some((p) => p.includes("「y」を参照"))
+    )
   })
 })
 
@@ -85,7 +87,7 @@ describe("DES-SPEC-002 正規化と鍵", () => {
     const reordered = JSON.parse(JSON.stringify(eventSpec, Object.keys(eventSpec).reverse()))
     assert.equal(compiled(eventSpec).key, compiled({ ...reordered, ...eventSpec }).key)
     assert.equal(stableHash({ b: 1, a: [1, { d: 2, c: 3 }] }), stableHash({ a: [1, { c: 3, d: 2 }], b: 1 }))
-    assert.equal(canonicalJson({ b: 1, a: undefined, c: [] }), "{\"b\":1,\"c\":[]}")
+    assert.equal(canonicalJson({ b: 1, a: undefined, c: [] }), '{"b":1,"c":[]}')
   })
 
   it("DES-SPEC-002 内容が違えば鍵も違い、鍵は16桁の16進数", () => {
@@ -107,14 +109,24 @@ describe("DES-FORM-001 初期値", () => {
       extras: ["sticker"],
       venue: 140000
     })
-    const options = [{ value: "a", label: "A" }, { value: "b", label: "B" }]
-    assert.deepEqual(initialValues(compiled(withFields([
-      { type: "text", id: "t", label: "T" },
-      { type: "number", id: "n", label: "N", min: 3, max: 9 },
-      { type: "choice", id: "c", label: "C", options },
-      { type: "choice", id: "m", label: "M", options, multiple: true },
-      { type: "toggle", id: "g", label: "G" }
-    ])).spec), { t: "", n: 3, c: "a", m: [], g: false })
+    const options = [
+      { value: "a", label: "A" },
+      { value: "b", label: "B" }
+    ]
+    assert.deepEqual(
+      initialValues(
+        compiled(
+          withFields([
+            { type: "text", id: "t", label: "T" },
+            { type: "number", id: "n", label: "N", min: 3, max: 9 },
+            { type: "choice", id: "c", label: "C", options },
+            { type: "choice", id: "m", label: "M", options, multiple: true },
+            { type: "toggle", id: "g", label: "G" }
+          ])
+        ).spec
+      ),
+      { t: "", n: 3, c: "a", m: [], g: false }
+    )
   })
 })
 
@@ -125,11 +137,19 @@ describe("DES-FORM-002 計算結果の順序", () => {
   })
 
   it("DES-FORM-002 複数選択は選んだ数として、評価できない結果はnullとして扱う", () => {
-    const options = [{ value: "a", label: "A" }, { value: "b", label: "B" }]
-    const form = compiled(withFields(
-      [{ type: "choice", id: "m", label: "M", options, multiple: true, default: ["a", "b"] }],
-      [{ id: "count", label: "数", expression: "m" }, { id: "bad", label: "誤", expression: "count / 0" }]
-    ))
+    const options = [
+      { value: "a", label: "A" },
+      { value: "b", label: "B" }
+    ]
+    const form = compiled(
+      withFields(
+        [{ type: "choice", id: "m", label: "M", options, multiple: true, default: ["a", "b"] }],
+        [
+          { id: "count", label: "数", expression: "m" },
+          { id: "bad", label: "誤", expression: "count / 0" }
+        ]
+      )
+    )
     assert.deepEqual(computeValues(form, initialValues(form.spec)), { count: 2, bad: null })
   })
 })
@@ -144,10 +164,7 @@ describe("DES-FORM-003 差分", () => {
       "extras",
       "venue"
     ])
-    assert.deepEqual(
-      changedFields(form.spec, { ...before, extras: ["a", "b"] }, { ...before, extras: ["b", "a"] }),
-      []
-    )
+    assert.deepEqual(changedFields(form.spec, { ...before, extras: ["a", "b"] }, { ...before, extras: ["b", "a"] }), [])
   })
 
   it("DES-FORM-003 回答では推測値から変えた項目を changedByUser にする", () => {
@@ -190,7 +207,10 @@ describe("DES-FORM-004 値の検査", () => {
     for (const [values, id] of cases) {
       const result = checkValues(form.spec, values)
       assert.ok(Result.isFailure(result), id)
-      assert.ok(result.failure.some((p) => p.includes(`「${id}」`)), id)
+      assert.ok(
+        result.failure.some((p) => p.includes(`「${id}」`)),
+        id
+      )
     }
     assert.ok(Result.isFailure(checkValues(form.spec, [])))
   })
@@ -207,7 +227,7 @@ describe("DES-FORM-005 送り直しの文章", () => {
     )
     assert.equal(
       resendMessage(form.spec, before, { ...before, price: 2500 }, messages("en")),
-      "In \"交流会の条件\", I changed 参加費 to ¥2,500. Please apply it and continue."
+      'In "交流会の条件", I changed 参加費 to ¥2,500. Please apply it and continue.'
     )
   })
 

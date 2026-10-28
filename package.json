@@ -1,35 +1,48 @@
 {
   "name": "copilot-forms",
   "displayName": "Copilot Forms",
-  "description": "Lets GitHub Copilot ask you through interactive forms in the chat, prefilled with its best guesses.",
   "version": "0.1.0",
-  "publisher": "kkun84",
-  "license": "MIT",
   "private": true,
-  "type": "module",
-  "packageManager": "pnpm@12.16.1",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/kkun84/2026-10-28"
-  },
-  "engines": {
-    "vscode": "^1.110.0",
-    "node": ">=22.18.0"
-  },
+  "description": "Lets GitHub Copilot ask you through interactive forms in the chat, prefilled with its best guesses.",
   "categories": [
     "AI",
     "Chat"
   ],
-  "extensionKind": [
-    "ui",
-    "workspace"
-  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kkun84/2026-10-28"
+  },
+  "publisher": "kkun84",
+  "type": "module",
   "main": "./dist/node/extension.cjs",
   "browser": "./dist/web/extension.js",
-  "activationEvents": [
-    "onStartupFinished",
-    "onLanguageModelTool:copilot_forms_ask_form"
-  ],
+  "scripts": {
+    "build": "node scripts/build.ts",
+    "manifest": "node scripts/manifest.ts",
+    "typecheck": "node scripts/typecheck.ts",
+    "test:unit": "node --test \"test/unit/**/*.test.ts\"",
+    "test:system": "node --test \"test/system/**/*.test.ts\""
+  },
+  "dependencies": {
+    "effect": "4.0.6"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "0.56.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "22.18.0",
+    "@types/vscode": "1.110.0",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "axe-core": "4.14.0",
+    "dependency-cruiser": "18.7.0",
+    "esbuild": "0.25.10",
+    "jscpd": "5.4.2",
+    "knip": "6.43.0",
+    "markdownlint-cli2": "0.24.0",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
+    "typescript": "6.0.3"
+  },
   "contributes": {
     "mcpServerDefinitionProviders": [
       {
@@ -363,23 +376,17 @@
       }
     ]
   },
-  "scripts": {
-    "build": "node scripts/build.ts",
-    "manifest": "node scripts/manifest.ts",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json",
-    "test:unit": "node --test \"test/unit/**/*.test.ts\"",
-    "test:system": "node --test \"test/system/**/*.test.ts\""
+  "activationEvents": [
+    "onLanguageModelTool:copilot_forms_ask_form",
+    "onStartupFinished"
+  ],
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "engines": {
+    "node": ">=22.18.0",
+    "vscode": "^1.110.0"
   },
-  "dependencies": {
-    "effect": "4.0.6"
-  },
-  "devDependencies": {
-    "@effect/language-service": "0.87.5",
-    "@playwright/test": "1.63.0",
-    "@types/node": "22.18.0",
-    "@types/vscode": "1.110.0",
-    "axe-core": "4.14.0",
-    "esbuild": "0.25.10",
-    "typescript": "5.9.3"
-  }
+  "packageManager": "pnpm@12.9.0"
 }

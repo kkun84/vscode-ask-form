@@ -1,10 +1,7 @@
 import * as vscode from "vscode"
 import { Result } from "effect"
 import { createAppHost } from "../../core/appHost.ts"
-import {
-  outcomeText,
-  type Outcome
-} from "../../core/form.ts"
+import { outcomeText, type Outcome } from "../../core/form.ts"
 import { compile } from "../../core/validate.ts"
 import type { FormSpec } from "../../core/spec.ts"
 import { formHtml } from "../shared/assets.ts"
@@ -16,10 +13,10 @@ export const toolName = "copilot_forms_ask_form"
 
 const csp = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';"
 
-const rehoist = "<script>(()=>{const api=acquireVsCodeApi();const target={postMessage:(m)=>api.postMessage(m)};Object.defineProperty(window,'parent',{get:()=>target});})()</script>"
+const rehoist =
+  "<script>(()=>{const api=acquireVsCodeApi();const target={postMessage:(m)=>api.postMessage(m)};Object.defineProperty(window,'parent',{get:()=>target});})()</script>"
 
-const panelHtml = (): string =>
-  formHtml.replace("<head>", `<head><meta http-equiv="Content-Security-Policy" content="${csp}">${rehoist}`)
+const panelHtml = (): string => formHtml.replace("<head>", `<head><meta http-equiv="Content-Security-Policy" content="${csp}">${rehoist}`)
 
 const themeOf = (kind: vscode.ColorThemeKind): "light" | "dark" =>
   kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight ? "light" : "dark"
@@ -36,10 +33,15 @@ const askInPanel = (
     return Promise.reject(new Error(compiled.failure.join("\n")))
   }
   const form = compiled.success
-  const panel = vscode.window.createWebviewPanel("copilot-forms.form", form.spec.title, {
-    viewColumn: vscode.ViewColumn.Beside,
-    preserveFocus: false
-  }, { enableScripts: true, retainContextWhenHidden: true })
+  const panel = vscode.window.createWebviewPanel(
+    "copilot-forms.form",
+    form.spec.title,
+    {
+      viewColumn: vscode.ViewColumn.Beside,
+      preserveFocus: false
+    },
+    { enableScripts: true, retainContextWhenHidden: true }
+  )
   panel.webview.html = panelHtml()
   counter.value++
   waiting.update(counter.value)
@@ -83,13 +85,15 @@ export const activate = (context: vscode.ExtensionContext): void => {
   const waiting = createWaitingStatus(waitingLabel())
   const counter = { value: 0 }
   context.subscriptions.push(waiting)
-  context.subscriptions.push(vscode.lm.registerTool<FormSpec>(toolName, {
-    prepareInvocation: (options) => ({ invocationMessage: options.input.title }),
-    invoke: async (options, token) => {
-      const outcome = await askInPanel(context, waiting, counter, options.input as Readonly<Record<string, unknown>>, token)
-      return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(outcomeText(outcome))])
-    }
-  }))
+  context.subscriptions.push(
+    vscode.lm.registerTool<FormSpec>(toolName, {
+      prepareInvocation: (options) => ({ invocationMessage: options.input.title }),
+      invoke: async (options, token) => {
+        const outcome = await askInPanel(context, waiting, counter, options.input as Readonly<Record<string, unknown>>, token)
+        return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(outcomeText(outcome))])
+      }
+    })
+  )
 }
 
 export const deactivate = (): void => undefined

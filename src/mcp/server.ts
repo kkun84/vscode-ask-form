@@ -1,12 +1,6 @@
 import { Context, Effect, Layer, Result, Schema } from "effect"
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai"
-import {
-  outcomeFor,
-  outcomeText,
-  resendMessage,
-  type Action,
-  type Outcome
-} from "../core/form.ts"
+import { outcomeFor, outcomeText, resendMessage, type Action, type Outcome } from "../core/form.ts"
 import { checkValues, compile } from "../core/validate.ts"
 import { languageOf, messages } from "../core/messages.ts"
 import { PendingForms } from "./pending.ts"
@@ -18,7 +12,7 @@ export const resourceMimeType = "text/html;profile=mcp-app"
 
 export class FormHtml extends Context.Service<FormHtml, string>()("copilot-forms/FormHtml") {}
 
-export class FormRejected extends Schema.TaggedError<FormRejected>()("FormRejected", {
+export class FormRejected extends Schema.TaggedError<FormRejected, { readonly brand: unique symbol }>()("FormRejected", {
   message: Schema.String
 }) {}
 
@@ -74,8 +68,7 @@ export const FormAnswer = Tool.make("form_answer", {
   }),
   success: Schema.Struct({ accepted: Schema.Boolean }),
   failure: FormRejected
-})
-  .annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
+}).annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
 export const FormResend = Tool.make("form_resend", {
   description: "Post the changes the user made after answering as a new chat message. Only the form view calls this tool.",
@@ -87,85 +80,81 @@ export const FormResend = Tool.make("form_resend", {
   }),
   success: Schema.Struct({ posted: Schema.Boolean }),
   failure: FormRejected
-})
-  .annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
+}).annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
 export const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend)
 
 const reject = (problems: ReadonlyArray<string>) => Effect.fail(new FormRejected({ message: problems.join("\n") }))
 
-export const FormsHandlers = FormsToolkit.toLayer(Effect.gen(function*() {
-  const pending = yield* PendingForms
-  const poster = yield* ChatPoster
-  return FormsToolkit.of({
-    ask_form: (params) =>
-      Effect.gen(function*() {
-        const compiled = compile(params)
-        if (Result.isFailure(compiled)) {
-          return yield* reject(compiled.failure)
-        }
-        return withNext(yield* pending.wait(compiled.success))
-      }),
-    form_answer: ({ formKey, action, values }) =>
-      Effect.gen(function*() {
-        const form = yield* pending.peek(formKey)
-        if (form === undefined) {
-          return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
-        }
-        let checked: typeof Values.Type = {}
-        if (action === "submit") {
-          const result = checkValues(form.spec, values)
-          if (Result.isFailure(result)) {
-            return yield* reject(result.failure)
+export const FormsHandlers = FormsToolkit.toLayer(
+  Effect.gen(function* () {
+    const pending = yield* PendingForms
+    const poster = yield* ChatPoster
+    return FormsToolkit.of({
+      ask_form: (params) =>
+        Effect.gen(function* () {
+          const compiled = compile(params)
+          if (Result.isFailure(compiled)) {
+            return yield* reject(compiled.failure)
           }
-          checked = result.success
-        }
-        const accepted = yield* pending.resolve(formKey, (latest) => outcomeFor(latest, action as Action, checked))
-        if (!accepted) {
-          return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
-        }
-        return { accepted }
-      }),
-    form_resend: ({ spec, before, after, locale }) =>
-      Effect.gen(function*() {
-        const compiled = compile(spec)
-        if (Result.isFailure(compiled)) {
-          return yield* reject(compiled.failure)
-        }
-        const form = compiled.success
-        const previous = checkValues(form.spec, before)
-        const next = checkValues(form.spec, after)
-        if (Result.isFailure(previous) || Result.isFailure(next)) {
-          return yield* reject([
-            ...(Result.isFailure(previous) ? previous.failure : []),
-            ...(Result.isFailure(next) ? next.failure : [])
-          ])
-        }
-        const text = resendMessage(form.spec, previous.success, next.success, messages(languageOf(locale)))
-        if (text === undefined) {
-          return yield* reject(["no changes: 前回の送信から変更がありません"])
-        }
-        yield* poster.post({ text, title: form.spec.title, values: next.success }).pipe(
-          Effect.catch((error) => Effect.fail(new FormRejected({ message: error.message })))
-        )
-        return { posted: true }
-      })
+          return withNext(yield* pending.wait(compiled.success))
+        }),
+      form_answer: ({ formKey, action, values }) =>
+        Effect.gen(function* () {
+          const form = yield* pending.peek(formKey)
+          if (form === undefined) {
+            return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
+          }
+          let checked: typeof Values.Type = {}
+          if (action === "submit") {
+            const result = checkValues(form.spec, values)
+            if (Result.isFailure(result)) {
+              return yield* reject(result.failure)
+            }
+            checked = result.success
+          }
+          const accepted = yield* pending.resolve(formKey, (latest) => outcomeFor(latest, action as Action, checked))
+          if (!accepted) {
+            return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
+          }
+          return { accepted }
+        }),
+      form_resend: ({ spec, before, after, locale }) =>
+        Effect.gen(function* () {
+          const compiled = compile(spec)
+          if (Result.isFailure(compiled)) {
+            return yield* reject(compiled.failure)
+          }
+          const form = compiled.success
+          const previous = checkValues(form.spec, before)
+          const next = checkValues(form.spec, after)
+          if (Result.isFailure(previous) || Result.isFailure(next)) {
+            return yield* reject([...(Result.isFailure(previous) ? previous.failure : []), ...(Result.isFailure(next) ? next.failure : [])])
+          }
+          const text = resendMessage(form.spec, previous.success, next.success, messages(languageOf(locale)))
+          if (text === undefined) {
+            return yield* reject(["no changes: 前回の送信から変更がありません"])
+          }
+          yield* poster
+            .post({ text, title: form.spec.title, values: next.success })
+            .pipe(Effect.mapError((error) => new FormRejected({ message: error.message })))
+          return { posted: true }
+        })
+    })
   })
-}))
+)
 
 export const FormResource = McpServer.resource({
   uri: resourceUri,
   name: "Copilot Forms",
   description: "Interactive form view for ask_form",
   mimeType: resourceMimeType,
-  content: Effect.gen(function*() {
+  content: Effect.gen(function* () {
     const html = yield* FormHtml
-    return yield* Schema.decodeUnknownEffect(McpSchema.ReadResourceResult)({
+    return yield* Schema.decodeEffect(McpSchema.ReadResourceResult)({
       contents: [{ uri: resourceUri, mimeType: resourceMimeType, text: html }]
     }).pipe(Effect.orDie)
   })
 })
 
-export const FormsServer = Layer.mergeAll(McpServer.toolkit(FormsToolkit), FormResource).pipe(
-  Layer.provide(FormsHandlers)
-)
+export const FormsServer = Layer.mergeAll(McpServer.toolkit(FormsToolkit), FormResource).pipe(Layer.provide(FormsHandlers))

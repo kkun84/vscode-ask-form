@@ -17,6 +17,7 @@ export default defineConfig({
     browserName: "chromium",
     viewport: { width: 520, height: 900 },
     deviceScaleFactor: 1,
-    locale: "ja-JP"
+    locale: "ja-JP",
+    launchOptions: process.env["PLAYWRIGHT_CHROMIUM_EXECUTABLE"] === undefined ? {} : { executablePath: process.env["PLAYWRIGHT_CHROMIUM_EXECUTABLE"] }
   }
 })

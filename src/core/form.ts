@@ -45,8 +45,7 @@ export const initialValue = (field: Field): FieldValue => {
   }
 }
 
-export const initialValues = (spec: FormSpec): Values =>
-  Object.fromEntries(spec.fields.map((field) => [field.id, initialValue(field)]))
+export const initialValues = (spec: FormSpec): Values => Object.fromEntries(spec.fields.map((field) => [field.id, initialValue(field)]))
 
 const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefined => {
   if (value === undefined) {
@@ -83,14 +82,18 @@ const sameValue = (a: FieldValue | undefined, b: FieldValue | undefined): boolea
 export const changedFields = (spec: FormSpec, before: Values, after: Values): ReadonlyArray<string> =>
   spec.fields.filter((field) => !sameValue(before[field.id], after[field.id])).map((field) => field.id)
 
-const affixed = (text: string, prefix: string | undefined, suffix: string | undefined): string =>
-  `${prefix ?? ""}${text}${suffix ?? ""}`
+const affixed = (text: string, prefix: string | undefined, suffix: string | undefined): string => `${prefix ?? ""}${text}${suffix ?? ""}`
 
 export const formatNumber = (value: number, decimals?: number): string =>
-  value.toLocaleString("en-US", decimals === undefined ? { maximumFractionDigits: 4 } : {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  })
+  value.toLocaleString(
+    "en-US",
+    decimals === undefined
+      ? { maximumFractionDigits: 4 }
+      : {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals
+        }
+  )
 
 export const describeValue = (field: Field, value: FieldValue | undefined, m: Messages): string => {
   switch (field.type) {
@@ -134,11 +137,11 @@ export const resendMessage = (spec: FormSpec, before: Values, after: Values, m: 
 
 export type Outcome =
   | {
-    readonly status: "submitted"
-    readonly values: Values
-    readonly changedByUser: ReadonlyArray<string>
-    readonly computed: ComputedValues
-  }
+      readonly status: "submitted"
+      readonly values: Values
+      readonly changedByUser: ReadonlyArray<string>
+      readonly computed: ComputedValues
+    }
   | { readonly status: "delegated"; readonly values: Values; readonly computed: ComputedValues }
   | { readonly status: "answer_in_chat" }
 

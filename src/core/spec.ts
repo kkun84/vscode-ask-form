@@ -3,20 +3,23 @@ import { Schema } from "effect"
 const text = (max: number) => Schema.String.check(Schema.isMaxLength(max))
 const required = (max: number) => Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(max))
 
-const Identifier = Schema.String.check(
-  Schema.isMaxLength(40),
-  Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*$/)
-).annotate({ description: "Unique identifier: letters, digits and underscore, starting with a letter or underscore." })
+const Identifier = Schema.String.check(Schema.isMaxLength(40), Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*$/)).annotate({
+  description: "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+})
 
 const commonFields = {
   id: Identifier,
   label: required(60).annotate({ description: "Label shown to the user, in the user's language." }),
-  reason: Schema.optionalKey(text(120).annotate({
-    description: "Why you guessed the default value, citing the source (file, earlier message). Shown under the field."
-  })),
-  advanced: Schema.optionalKey(Schema.Boolean.annotate({
-    description: "Fold this field into the collapsed Details section."
-  }))
+  reason: Schema.optionalKey(
+    text(120).annotate({
+      description: "Why you guessed the default value, citing the source (file, earlier message). Shown under the field."
+    })
+  ),
+  advanced: Schema.optionalKey(
+    Schema.Boolean.annotate({
+      description: "Fold this field into the collapsed Details section."
+    })
+  )
 }
 
 export const TextField = Schema.Struct({
@@ -65,7 +68,8 @@ export const Computed = Schema.Struct({
   id: Identifier,
   label: required(60),
   expression: required(300).annotate({
-    description: "Arithmetic over field ids and earlier computed ids. Operators + - * / % < <= > >= == != && || ! ?: and min max abs floor ceil round."
+    description:
+      "Arithmetic over field ids and earlier computed ids. Operators + - * / % < <= > >= == != && || ! ?: and min max abs floor ceil round."
   }),
   prefix: Schema.optionalKey(text(8)),
   suffix: Schema.optionalKey(text(8)),

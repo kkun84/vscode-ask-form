@@ -15,13 +15,16 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
   const waiting = createWaitingStatus(waitingLabel())
   context.subscriptions.push(waiting)
   const services = Layer.mergeAll(
-    Layer.succeed(ChatPoster, ChatPoster.of({
-      post: (post) =>
-        Effect.tryPromise({
-          try: () => postToChat(context.globalStorageUri, post),
-          catch: (error) => new ChatPostFailed(error instanceof Error ? error.message : String(error))
-        })
-    })),
+    Layer.succeed(
+      ChatPoster,
+      ChatPoster.of({
+        post: (post) =>
+          Effect.tryPromise({
+            try: () => postToChat(context.globalStorageUri, post),
+            catch: (error) => new ChatPostFailed(error instanceof Error ? error.message : String(error))
+          })
+      })
+    ),
     Layer.succeed(WaitingIndicator, WaitingIndicator.of({ update: (count) => Effect.sync(() => waiting.update(count)) })),
     Layer.succeed(FormHtml, formHtml)
   )
@@ -31,12 +34,14 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
   const server = await Effect.runPromise(Scope.provide(serveForms({ token, version, services }), scope))
   const changed = new vscode.EventEmitter<void>()
   context.subscriptions.push(changed)
-  context.subscriptions.push(vscode.lm.registerMcpServerDefinitionProvider(providerId, {
-    onDidChangeMcpServerDefinitions: changed.event,
-    provideMcpServerDefinitions: () => [
-      new vscode.McpHttpServerDefinition("Copilot Forms", vscode.Uri.parse(server.url), { authorization: `Bearer ${token}` }, version)
-    ]
-  }))
+  context.subscriptions.push(
+    vscode.lm.registerMcpServerDefinitionProvider(providerId, {
+      onDidChangeMcpServerDefinitions: changed.event,
+      provideMcpServerDefinitions: () => [
+        new vscode.McpHttpServerDefinition("Copilot Forms", vscode.Uri.parse(server.url), { authorization: `Bearer ${token}` }, version)
+      ]
+    })
+  )
 }
 
 export const deactivate = (): void => undefined

@@ -23,13 +23,15 @@ const instructions =
 
 const appLayer = (options: FormsServerOptions) =>
   FormsServer.pipe(
-    Layer.provideMerge(McpServer.layerHttp({
-      name: "copilot-forms",
-      version: options.version,
-      instructions,
-      path: "/mcp",
-      protocols: [McpProtocol.v2025_11_25, McpProtocol.v2025_06_18]
-    })),
+    Layer.provideMerge(
+      McpServer.layerHttp({
+        name: "copilot-forms",
+        version: options.version,
+        instructions,
+        path: "/mcp",
+        protocols: [McpProtocol.v2025_11_25, McpProtocol.v2025_06_18]
+      })
+    ),
     Layer.provide(PendingFormsLive),
     Layer.provide(options.services)
   )
@@ -72,7 +74,7 @@ const writeResponse = async (response: Response, res: ServerResponse): Promise<v
 }
 
 export const serveForms = (options: FormsServerOptions): Effect.Effect<RunningFormsServer, never, Scope.Scope> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const web = yield* Effect.acquireRelease(
       Effect.sync(() => HttpRouter.toWebHandler(appLayer(options), { disableLogger: true })),
       (handler) => Effect.promise(() => handler.dispose())
@@ -94,13 +96,16 @@ export const serveForms = (options: FormsServerOptions): Effect.Effect<RunningFo
       })
       const address = server.address() as AddressInfo
       const request = toRequest(req, `http://127.0.0.1:${address.port}`, controller.signal)
-      web.handler(request).then((response) => writeResponse(response, res)).catch(() => {
-        if (!res.headersSent) {
-          reject(res, 500)
-        } else {
-          res.end()
-        }
-      })
+      web
+        .handler(request)
+        .then((response) => writeResponse(response, res))
+        .catch(() => {
+          if (!res.headersSent) {
+            reject(res, 500)
+          } else {
+            res.end()
+          }
+        })
     })
     const port = yield* Effect.acquireRelease(
       Effect.callback<number>((resume) => {

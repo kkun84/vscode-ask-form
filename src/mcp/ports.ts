@@ -7,14 +7,20 @@ export interface ChatPost {
   readonly values: Values
 }
 
-export class ChatPoster extends Context.Service<ChatPoster, {
-  readonly post: (post: ChatPost) => Effect.Effect<void, ChatPostFailed>
-}>()("copilot-forms/ChatPoster") {}
+export class ChatPoster extends Context.Service<
+  ChatPoster,
+  {
+    readonly post: (post: ChatPost) => Effect.Effect<void, ChatPostFailed>
+  }
+>()("copilot-forms/ChatPoster") {}
 
 export class ChatPostFailed extends Error {
   readonly _tag = "ChatPostFailed"
 }
 
-export class WaitingIndicator extends Context.Service<WaitingIndicator, {
-  readonly update: (waiting: number) => Effect.Effect<void>
-}>()("copilot-forms/WaitingIndicator") {}
+export class WaitingIndicator extends Context.Service<
+  WaitingIndicator,
+  {
+    readonly update: (waiting: number) => Effect.Effect<void>
+  }
+>()("copilot-forms/WaitingIndicator") {}

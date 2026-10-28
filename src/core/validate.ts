@@ -127,4 +127,3 @@ export const checkValues = (spec: FormSpec, input: unknown): Result.Result<Value
   }
   return Result.succeed(Object.fromEntries(spec.fields.map((field) => [field.id, record[field.id] as FieldValue])))
 }
-

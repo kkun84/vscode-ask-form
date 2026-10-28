@@ -25,9 +25,7 @@ const ui = await build({
 const script = (ui.outputFiles[0]?.text ?? "").replaceAll("</script", "<\\/script")
 const style = await build({ ...common, entryPoints: [path("src/ui/styles.css")], loader: { ".css": "css" }, write: false })
 const template = await readFile(path("src/ui/index.html"), "utf8")
-const html = template
-  .replace("/*STYLE*/", () => style.outputFiles[0]?.text ?? "")
-  .replace("/*SCRIPT*/", () => script)
+const html = template.replace("__STYLE__", () => style.outputFiles[0]?.text ?? "").replace("__SCRIPT__", () => script)
 
 await mkdir(path("dist"), { recursive: true })
 await writeFile(path("dist/form.html"), html)

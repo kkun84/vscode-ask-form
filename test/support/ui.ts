@@ -45,9 +45,11 @@ export const startServer = async (): Promise<HarnessServer> => {
       res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" }).end(script)
       return
     }
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(
-      "<!doctype html><html><head><meta charset=\"utf-8\"><style>body{margin:0;padding:16px;}iframe{width:100%;height:1400px;border:0}</style></head><body><script src=\"/host.js\"></script></body></html>"
-    )
+    res
+      .writeHead(200, { "content-type": "text/html; charset=utf-8" })
+      .end(
+        '<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:16px;}iframe{width:100%;height:1400px;border:0}</style></head><body><script src="/host.js"></script></body></html>'
+      )
   })
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   return {
@@ -63,16 +65,19 @@ export const backgrounds = {
 
 export const openForm = async (page: Page, server: HarnessServer, options: PageOptions): Promise<Frame> => {
   const context: HostContext = { theme: "dark", locale: "ja", ...options.context }
-  await page.addInitScript((setup) => {
-    ;(window as unknown as { harnessSetup: unknown }).harnessSetup = setup
-  }, {
-    args: options.args,
-    context,
-    expireOnAnswer: options.expireOnAnswer ?? false,
-    failResend: options.failResend ?? false,
-    restore: options.restore,
-    background: backgrounds[context.theme]
-  })
+  await page.addInitScript(
+    (setup) => {
+      ;(window as unknown as { harnessSetup: unknown }).harnessSetup = setup
+    },
+    {
+      args: options.args,
+      context,
+      expireOnAnswer: options.expireOnAnswer ?? false,
+      failResend: options.failResend ?? false,
+      restore: options.restore,
+      background: backgrounds[context.theme]
+    }
+  )
   await page.goto(server.url)
   const frame = page.frameLocator("#form")
   await frame.locator("form, .summary, .closed").first().waitFor()

@@ -19,20 +19,24 @@ export interface Harness {
 export const testHtml = "<!doctype html><html><head></head><body>form</body></html>"
 
 export const harness = (options: { readonly failPosting?: boolean } = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const posts = yield* Ref.make<ReadonlyArray<ChatPost>>([])
     const waiting = yield* Ref.make<ReadonlyArray<number>>([])
     const token = "test-token"
     const services = Layer.mergeAll(
-      Layer.succeed(ChatPoster, ChatPoster.of({
-        post: (post) =>
-          options.failPosting === true
-            ? Effect.fail(new ChatPostFailed("chat unavailable"))
-            : Ref.update(posts, (all) => [...all, post])
-      })),
-      Layer.succeed(WaitingIndicator, WaitingIndicator.of({
-        update: (count) => Ref.update(waiting, (all) => [...all, count])
-      })),
+      Layer.succeed(
+        ChatPoster,
+        ChatPoster.of({
+          post: (post) =>
+            options.failPosting === true ? Effect.fail(new ChatPostFailed("chat unavailable")) : Ref.update(posts, (all) => [...all, post])
+        })
+      ),
+      Layer.succeed(
+        WaitingIndicator,
+        WaitingIndicator.of({
+          update: (count) => Ref.update(waiting, (all) => [...all, count])
+        })
+      ),
       Layer.succeed(FormHtml, testHtml)
     )
     const { url } = yield* serveForms({ token, version: "0.0.0-test", services })
@@ -71,7 +75,6 @@ export const harness = (options: { readonly failPosting?: boolean } = {}): Effec
 export const runScoped = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>): Promise<A> =>
   Effect.runPromise(Effect.scoped(effect) as Effect.Effect<A>)
 
-export const forkCall = (h: Harness, name: string, args: Record<string, unknown>) =>
-  Effect.forkChild(h.call(name, args))
+export const forkCall = (h: Harness, name: string, args: Record<string, unknown>) => Effect.forkChild(h.call(name, args))
 
 export { Fiber }

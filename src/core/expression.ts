@@ -16,9 +16,7 @@ export interface ParseError {
   readonly position: number
 }
 
-export type ParseResult =
-  | { readonly ok: true; readonly expr: Expr }
-  | { readonly ok: false; readonly error: ParseError }
+export type ParseResult = { readonly ok: true; readonly expr: Expr } | { readonly ok: false; readonly error: ParseError }
 
 type Token =
   | { readonly kind: "number"; readonly value: number; readonly position: number }
@@ -64,7 +62,7 @@ const tokenize = (source: string): ReadonlyArray<Token> => {
       i += identMatch[0].length
       continue
     }
-    if (ch === "\"" || ch === "'") {
+    if (ch === '"' || ch === "'") {
       const end = source.indexOf(ch, i + 1)
       if (end === -1) {
         fail("文字列が閉じられていません", i)
@@ -257,8 +255,7 @@ export const references = (expr: Expr): ReadonlyArray<string> => {
 
 export type Scope = ReadonlyMap<string, Value | undefined>
 
-const numeric = (value: Value | undefined): number | undefined =>
-  typeof value === "number" && Number.isFinite(value) ? value : undefined
+const numeric = (value: Value | undefined): number | undefined => (typeof value === "number" && Number.isFinite(value) ? value : undefined)
 
 const finite = (value: number): number | undefined => (Number.isFinite(value) ? value : undefined)
 
@@ -375,7 +372,10 @@ export const evaluate = (expr: Expr, scope: Scope): Value | undefined => {
       if (args.some((arg) => arg === undefined)) {
         return undefined
       }
-      return callFunction(expr.name, args.filter((arg): arg is number => arg !== undefined))
+      return callFunction(
+        expr.name,
+        args.filter((arg): arg is number => arg !== undefined)
+      )
     }
   }
 }

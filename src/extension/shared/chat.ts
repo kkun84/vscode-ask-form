@@ -8,7 +8,10 @@ export interface ChatPostRequest {
 }
 
 const fileName = (title: string): string => {
-  const slug = title.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40)
+  const slug = title
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40)
   return `${slug === "" ? "form" : slug}.json`
 }
 

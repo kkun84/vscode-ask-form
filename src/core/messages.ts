@@ -31,7 +31,8 @@ const ja = {
   yes: "はい",
   no: "いいえ",
   sendFailed: "送信できませんでした",
-  resendSentence: (changes: ReadonlyArray<string>, title: string) => `「${title}」で${changes.join("、")}に変えたので、反映して続けてください。`,
+  resendSentence: (changes: ReadonlyArray<string>, title: string) =>
+    `「${title}」で${changes.join("、")}に変えたので、反映して続けてください。`,
   changeTo: (label: string, value: string) => `${label}を${value}`,
   attachmentNote: "フォームの全項目は添付のJSONにあります。"
 }
@@ -65,7 +66,8 @@ const en: typeof ja = {
   yes: "Yes",
   no: "No",
   sendFailed: "Could not send",
-  resendSentence: (changes: ReadonlyArray<string>, title: string) => `In "${title}", I changed ${changes.join(", ")}. Please apply it and continue.`,
+  resendSentence: (changes: ReadonlyArray<string>, title: string) =>
+    `In "${title}", I changed ${changes.join(", ")}. Please apply it and continue.`,
   changeTo: (label: string, value: string) => `${label} to ${value}`,
   attachmentNote: "All form values are in the attached JSON."
 }

@@ -8,31 +8,31 @@
 
 AIはフォームを次の形のJSONで指定する。
 
-| キー | 型 | 必須 | 制約 |
-|---|---|---|---|
-| `title` | 文字列 | ○ | 1〜80文字 |
-| `description` | 文字列 | | 300文字以下 |
-| `fields` | 項目の配列 | ○ | 1〜20個 |
-| `computed` | 計算結果の配列 | | 8個以下 |
-| `submitLabel` | 文字列 | | 20文字以下 |
+| キー          | 型             | 必須 | 制約        |
+| ------------- | -------------- | ---- | ----------- |
+| `title`       | 文字列         | ○    | 1〜80文字   |
+| `description` | 文字列         |      | 300文字以下 |
+| `fields`      | 項目の配列     | ○    | 1〜20個     |
+| `computed`    | 計算結果の配列 |      | 8個以下     |
+| `submitLabel` | 文字列         |      | 20文字以下  |
 
 項目は`type`で種類を区別し、すべての項目が次を持つ。
 
-| キー | 型 | 必須 | 制約 |
-|---|---|---|---|
-| `id` | 文字列 | ○ | 英字か`_`で始まり、英数字と`_`だけの40文字以下 |
-| `label` | 文字列 | ○ | 1〜60文字 |
-| `reason` | 文字列 | | 推測の根拠。120文字以下 |
-| `advanced` | 真偽値 | | 真なら「詳細」の中に畳む |
+| キー       | 型     | 必須 | 制約                                           |
+| ---------- | ------ | ---- | ---------------------------------------------- |
+| `id`       | 文字列 | ○    | 英字か`_`で始まり、英数字と`_`だけの40文字以下 |
+| `label`    | 文字列 | ○    | 1〜60文字                                      |
+| `reason`   | 文字列 |      | 推測の根拠。120文字以下                        |
+| `advanced` | 真偽値 |      | 真なら「詳細」の中に畳む                       |
 
 種類ごとのキーは次のとおり。
 
-| `type` | キー |
-|---|---|
-| `text` | `default`(500文字以下)、`placeholder`(80文字以下)、`multiline` |
-| `number` | `default`、`min`、`max`、`step`(正の数)、`prefix`と`suffix`(各8文字以下) |
+| `type`   | キー                                                                                                  |
+| -------- | ----------------------------------------------------------------------------------------------------- |
+| `text`   | `default`(500文字以下)、`placeholder`(80文字以下)、`multiline`                                        |
+| `number` | `default`、`min`、`max`、`step`(正の数)、`prefix`と`suffix`(各8文字以下)                              |
 | `choice` | `options`(2〜12個。各`value`と`label`は60文字以下、`description`は120文字以下)、`default`、`multiple` |
-| `toggle` | `default`、`note`(40文字以下) |
+| `toggle` | `default`、`note`(40文字以下)                                                                         |
 
 計算結果は`id`、`label`、`expression`(300文字以下)と、任意の`prefix`、`suffix`、`decimals`(0〜4)、`primary`を持つ。
 
@@ -82,11 +82,11 @@ MCPサーバーは`ui://copilot-forms/form.html`を、MIMEタイプ`text/html;pr
 
 `ask_form`は、画面から結果が届くまで結果を返さない。結果は次のいずれかで、`structuredContent`と、同じ内容のJSONを含む文章で返す。
 
-| `status` | 意味 | ほかのキー |
-|---|---|---|
-| `submitted` | 回答した | `values`、`changedByUser`(推測値から変えた項目の`id`)、`computed` |
-| `delegated` | AIに任せた | `values`(推測値のまま)、`computed` |
-| `answer_in_chat` | チャットで答える | なし |
+| `status`         | 意味             | ほかのキー                                                        |
+| ---------------- | ---------------- | ----------------------------------------------------------------- |
+| `submitted`      | 回答した         | `values`、`changedByUser`(推測値から変えた項目の`id`)、`computed` |
+| `delegated`      | AIに任せた       | `values`(推測値のまま)、`computed`                                |
+| `answer_in_chat` | チャットで答える | なし                                                              |
 
 `answer_in_chat`の文章には、作業を区切って利用者の発言を待つようAIへの指示を含める。
 

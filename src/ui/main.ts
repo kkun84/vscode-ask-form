@@ -10,15 +10,17 @@ if (root !== null) {
     onToolResult: (result) => app.setResult(result),
     onToolCancelled: () => app.setCancelled(),
     onHostContext: (context) => app.setContext(context)
-  }).then((bridge) => {
-    app.attach(bridge)
-    let last = 0
-    new ResizeObserver(() => {
-      const height = Math.ceil(document.documentElement.getBoundingClientRect().height)
-      if (height !== last) {
-        last = height
-        bridge.notifySize(height)
-      }
-    }).observe(document.documentElement)
-  }).catch(() => undefined)
+  })
+    .then((bridge) => {
+      app.attach(bridge)
+      let last = 0
+      new ResizeObserver(() => {
+        const height = Math.ceil(document.documentElement.getBoundingClientRect().height)
+        if (height !== last) {
+          last = height
+          bridge.notifySize(height)
+        }
+      }).observe(document.documentElement)
+    })
+    .catch(() => undefined)
 }

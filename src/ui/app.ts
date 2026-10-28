@@ -27,11 +27,9 @@ type Phase =
 
 type Action = "submit" | "delegate" | "chat"
 
-const isStatus = (value: unknown): value is Status =>
-  value === "submitted" || value === "delegated" || value === "answer_in_chat"
+const isStatus = (value: unknown): value is Status => value === "submitted" || value === "delegated" || value === "answer_in_chat"
 
-const resultText = (result: ToolResult): string =>
-  (result.content ?? []).map((item) => item.text ?? "").join("\n")
+const resultText = (result: ToolResult): string => (result.content ?? []).map((item) => item.text ?? "").join("\n")
 
 const isExpired = (result: ToolResult): boolean => result.isError === true && /expired/.test(resultText(result))
 
@@ -244,15 +242,23 @@ export class FormApp {
         h("h1", { id: titleId }, mode === "resending" ? `${spec.title}` : spec.title),
         spec.description === undefined ? null : h("p", { class: "description" }, spec.description)
       ),
-      h("div", { class: "fields" }, basic.map((field) => this.fieldView(field))),
+      h(
+        "div",
+        { class: "fields" },
+        basic.map((field) => this.fieldView(field))
+      ),
       advanced.length === 0
         ? null
         : h(
-          "details",
-          { class: "advanced" },
-          h("summary", {}, this.m.details),
-          h("div", { class: "fields" }, advanced.map((field) => this.fieldView(field)))
-        ),
+            "details",
+            { class: "advanced" },
+            h("summary", {}, this.m.details),
+            h(
+              "div",
+              { class: "fields" },
+              advanced.map((field) => this.fieldView(field))
+            )
+          ),
       (spec.computed ?? []).length === 0 ? null : this.computedView(),
       mode === "answering" ? this.answerFooter() : this.resendFooter()
     )
@@ -389,7 +395,12 @@ export class FormApp {
         "label",
         { for: inputId, class: "option" },
         input,
-        h("span", { class: "option-text" }, h("span", {}, option.label), option.description === undefined ? null : h("span", { class: "muted" }, option.description))
+        h(
+          "span",
+          { class: "option-text" },
+          h("span", {}, option.label),
+          option.description === undefined ? null : h("span", { class: "muted" }, option.description)
+        )
       )
     })
     return h(
@@ -415,7 +426,13 @@ export class FormApp {
     return h(
       "div",
       { class: "field toggle" },
-      h("div", { class: "row" }, h("label", { for: inputId }, field.label), field.note === undefined ? null : h("span", { class: "muted" }, field.note), input),
+      h(
+        "div",
+        { class: "row" },
+        h("label", { for: inputId }, field.label),
+        field.note === undefined ? null : h("span", { class: "muted" }, field.note),
+        input
+      ),
       this.hint(field, hintId)
     )
   }
@@ -467,9 +484,9 @@ export class FormApp {
       form === undefined || status === "answer_in_chat"
         ? null
         : on(h("button", { type: "button", class: "link" }, this.m.editAndResend), "click", () => {
-          this.phase = { kind: "resending" }
-          this.render()
-        })
+            this.phase = { kind: "resending" }
+            this.render()
+          })
     )
     if (form === undefined || status === "answer_in_chat") {
       return h("section", { class: "card summary", role: "status" }, head)
@@ -488,7 +505,13 @@ export class FormApp {
         )
       )
     )
-    return h("section", { class: "card summary" }, head, h("dl", {}, rows), this.error === undefined ? null : h("p", { class: "error", role: "alert" }, this.error))
+    return h(
+      "section",
+      { class: "card summary" },
+      head,
+      h("dl", {}, rows),
+      this.error === undefined ? null : h("p", { class: "error", role: "alert" }, this.error)
+    )
   }
 
   private refresh(): void {
@@ -528,7 +551,9 @@ export class FormApp {
       this.live.computed.replaceChildren(...items)
     }
     if (this.live.status !== undefined) {
-      this.live.status.textContent = this.error ?? (this.busy ? this.m.sending : resending ? (sinceSent.length === 0 ? this.m.noChanges : this.m.changedCount(sinceSent.length)) : "")
+      this.live.status.textContent =
+        this.error ??
+        (this.busy ? this.m.sending : resending ? (sinceSent.length === 0 ? this.m.noChanges : this.m.changedCount(sinceSent.length)) : "")
       this.live.status.classList.toggle("error", this.error !== undefined)
     }
     if (this.live.primary !== undefined) {

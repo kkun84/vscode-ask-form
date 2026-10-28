@@ -1,13 +1,5 @@
 import { Result } from "effect"
-import {
-  outcomeFor,
-  outcomeText,
-  resendMessage,
-  type Action,
-  type CompiledForm,
-  type Outcome,
-  type Values
-} from "./form.ts"
+import { outcomeFor, outcomeText, resendMessage, type Action, type CompiledForm, type Outcome, type Values } from "./form.ts"
 import { checkValues, compile } from "./validate.ts"
 import { languageOf, messages } from "./messages.ts"
 

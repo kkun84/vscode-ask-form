@@ -14,8 +14,7 @@ test.afterAll(async () => {
   await server.close()
 })
 
-const open = (page: Page, options: Partial<PageOptions> = {}): Promise<Frame> =>
-  openForm(page, server, { args: eventSpec, ...options })
+const open = (page: Page, options: Partial<PageOptions> = {}): Promise<Frame> => openForm(page, server, { args: eventSpec, ...options })
 
 interface OutcomeLike {
   readonly status: string
@@ -184,7 +183,9 @@ test.describe("SPEC-UI-008 アクセシビリティ", () => {
       const frame = await open(page, { context: themeContext(name) })
       await frame.locator("details.advanced summary").click()
       const results = await new AxeBuilder(frame).analyze()
-      expect(results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)).toEqual([])
+      expect(
+        results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
+      ).toEqual([])
     })
   }
 
@@ -208,11 +209,15 @@ test.describe("ARCH-UI-001 画面の通信は1種類", () => {
     await open(page)
     const frame = page.frame({ url: /form\.html$/ })
     await frame?.getByRole("button", { name: "AIに任せる" }).click()
-    await expect.poll(() => recorded<Record<string, unknown>>(page, "messages")).toEqual(expect.arrayContaining([
-      expect.objectContaining({ method: "ui/initialize" }),
-      expect.objectContaining({ method: "ui/notifications/initialized" }),
-      expect.objectContaining({ method: "tools/call", params: expect.objectContaining({ name: "form_answer" }) })
-    ]))
+    await expect
+      .poll(() => recorded<Record<string, unknown>>(page, "messages"))
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ method: "ui/initialize" }),
+          expect.objectContaining({ method: "ui/notifications/initialized" }),
+          expect.objectContaining({ method: "tools/call", params: expect.objectContaining({ name: "form_answer" }) })
+        ])
+      )
   })
 })
 

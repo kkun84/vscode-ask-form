@@ -22,35 +22,36 @@ const without = (ledger: Ledger, key: string, waiter: Waiter): Ledger => {
   return next
 }
 
-export class PendingForms extends Context.Service<PendingForms, {
-  readonly wait: (form: CompiledForm) => Effect.Effect<Outcome>
-  readonly peek: (key: string) => Effect.Effect<CompiledForm | undefined>
-  readonly resolve: (key: string, outcome: (form: CompiledForm) => Outcome) => Effect.Effect<boolean>
-  readonly size: Effect.Effect<number>
-}>()("copilot-forms/PendingForms") {}
+export class PendingForms extends Context.Service<
+  PendingForms,
+  {
+    readonly wait: (form: CompiledForm) => Effect.Effect<Outcome>
+    readonly peek: (key: string) => Effect.Effect<CompiledForm | undefined>
+    readonly resolve: (key: string, outcome: (form: CompiledForm) => Outcome) => Effect.Effect<boolean>
+    readonly size: Effect.Effect<number>
+  }
+>()("copilot-forms/PendingForms") {}
 
 export const PendingFormsLive = Layer.effect(
   PendingForms,
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const indicator = yield* WaitingIndicator
     const ledger = yield* Ref.make<Ledger>(new Map())
     const changeLedger = (f: (current: Ledger) => Ledger) =>
       Ref.updateAndGet(ledger, f).pipe(Effect.flatMap((next) => indicator.update(total(next))))
 
     const wait = (form: CompiledForm) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const deferred = yield* Deferred.make<Outcome>()
         const waiter: Waiter = { form, deferred }
         yield* changeLedger((current) => new Map(current).set(form.key, [...(current.get(form.key) ?? []), waiter]))
-        return yield* Deferred.await(deferred).pipe(
-          Effect.ensuring(changeLedger((current) => without(current, form.key, waiter)))
-        )
+        return yield* Deferred.await(deferred).pipe(Effect.ensuring(changeLedger((current) => without(current, form.key, waiter))))
       })
 
     const peek = (key: string) => Ref.get(ledger).pipe(Effect.map((current) => current.get(key)?.[0]?.form))
 
     const resolve = (key: string, outcome: (form: CompiledForm) => Outcome) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const waiter = yield* Ref.modify(ledger, (current): readonly [Waiter | undefined, Ledger] => {
           const first = current.get(key)?.[0]
           return first === undefined ? [undefined, current] : [first, without(current, key, first)]
