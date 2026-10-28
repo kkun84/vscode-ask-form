@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      update-screenshots:
+        description: Regenerate the screenshot baselines and commit them
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: nix develop --command bash -euo pipefail {0}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      - name: Install
+        run: |
+          pnpm check-env
+          pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Type check
+        run: pnpm typecheck
+      - name: Audit dependencies
+        run: pnpm audit --audit-level moderate
+      - name: Unit tests
+        run: pnpm test:unit
+      - name: Integration tests
+        run: pnpm test:integration
+      - name: System tests
+        run: pnpm test:system
+      - name: Update screenshots
+        if: inputs.update-screenshots
+        run: |
+          pnpm exec playwright test --update-snapshots=all
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add test/system/__screenshots__
+          git diff --cached --quiet || git commit -m "画面の基準画像をCIの環境で作り直す"
+          git push
+      - name: UI tests
+        run: pnpm test:ui
+      - name: Size budget
+        run: pnpm budget
+      - name: Acceptance tests
+        run: xvfb-run -a pnpm test:acceptance
+      - name: Package
+        run: pnpm package
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vsix
+          path: "*.vsix"
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: test-results
+          path: test-results
+          if-no-files-found: ignore
