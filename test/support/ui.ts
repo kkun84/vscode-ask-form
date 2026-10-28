@@ -46,7 +46,7 @@ export const startServer = async (): Promise<HarnessServer> => {
       return
     }
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(
-      "<!doctype html><html><head><meta charset=\"utf-8\"><style>body{margin:0;padding:16px;background:var(--bg)}iframe{width:100%;height:1400px;border:0}</style></head><body><iframe id=\"form\" title=\"form\" src=\"/form.html\"></iframe><script src=\"/host.js\"></script></body></html>"
+      "<!doctype html><html><head><meta charset=\"utf-8\"><style>body{margin:0;padding:16px;}iframe{width:100%;height:1400px;border:0}</style></head><body><iframe id=\"form\" title=\"form\" src=\"/form.html\"></iframe><script src=\"/host.js\"></script></body></html>"
     )
   })
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -65,7 +65,6 @@ export const openForm = async (page: Page, server: HarnessServer, options: PageO
   const context: HostContext = { theme: "dark", locale: "ja", ...options.context }
   await page.addInitScript((setup) => {
     ;(window as unknown as { harnessSetup: unknown }).harnessSetup = setup
-    document.documentElement.style.setProperty("--bg", setup.background)
   }, {
     args: options.args,
     context,

@@ -9,6 +9,7 @@ interface Setup {
   readonly expireOnAnswer: boolean
   readonly failResend: boolean
   readonly restore: Readonly<Record<string, unknown>> | undefined
+  readonly background: string
 }
 
 interface Recorder {
@@ -19,6 +20,7 @@ interface Recorder {
 }
 
 const setup = (window as unknown as { readonly harnessSetup: Setup }).harnessSetup
+document.body.style.background = setup.background
 const recorder: Recorder = { outcomes: [], resends: [], messages: [], cancel: () => undefined }
 ;(window as unknown as { harness: Recorder }).harness = recorder
 
