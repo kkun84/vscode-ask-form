@@ -51,10 +51,15 @@ export const startServer = async (): Promise<HarnessServer> => {
         '<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:16px;}iframe{width:100%;height:1400px;border:0}</style></head><body><script src="/host.js"></script></body></html>'
       )
   })
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", resolve)
+  })
   return {
     url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/`,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve()))
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve())
+      })
   }
 }
 

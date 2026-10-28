@@ -84,8 +84,8 @@ const askInPanel = (
 export const activate = (context: vscode.ExtensionContext): void => {
   const waiting = createWaitingStatus(waitingLabel())
   const counter = { value: 0 }
-  context.subscriptions.push(waiting)
   context.subscriptions.push(
+    waiting,
     vscode.lm.registerTool<FormSpec>(toolName, {
       prepareInvocation: (options) => ({ invocationMessage: options.input.title }),
       invoke: async (options, token) => {

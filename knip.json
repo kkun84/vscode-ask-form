@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/extension/node/main.ts",
+    "src/extension/web/main.ts",
+    "src/ui/main.ts",
+    "scripts/*.ts",
+    "test/**/*.test.ts",
+    "test/**/*.spec.ts"
+  ],
+  "project": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts", "*.ts"],
+  "ignoreDependencies": ["@typescript/native", "@effect/language-service", "axe-core"],
+  "rules": {
+    "duplicates": "error",
+    "enumMembers": "error",
+    "types": "error",
+    "exports": "error"
+  }
+}

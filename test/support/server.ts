@@ -73,7 +73,12 @@ export const harness = (options: { readonly failPosting?: boolean } = {}): Effec
   })
 
 export const runScoped = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>): Promise<A> =>
-  Effect.runPromise(Effect.scoped(effect) as Effect.Effect<A>)
+  Effect.runPromise(Effect.scoped(Effect.orDie(effect)))
+
+export const withHarness = <A>(
+  body: (h: Harness) => Effect.Effect<A, unknown, Scope.Scope>,
+  options: { readonly failPosting?: boolean } = {}
+): Promise<A> => runScoped(Effect.flatMap(harness(options), body))
 
 export const forkCall = (h: Harness, name: string, args: Record<string, unknown>) => Effect.forkChild(h.call(name, args))
 

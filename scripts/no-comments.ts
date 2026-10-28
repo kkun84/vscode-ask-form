@@ -19,7 +19,7 @@ const scriptComments = (file: string, text: string): ReadonlyArray<number> => {
         found.add(range.pos)
       }
     }
-    children.forEach(visit)
+    children.forEach((child) => visit(child))
   }
   visit(source)
   return [...found]

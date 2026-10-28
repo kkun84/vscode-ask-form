@@ -21,14 +21,14 @@ const semanticProblems = (spec: FormSpec): ReadonlyArray<string> => {
   const known = new Set(spec.fields.map((field) => field.id))
   for (const item of spec.computed ?? []) {
     const result = parse(item.expression)
-    if (!result.ok) {
-      problems.push(`計算結果「${item.id}」の式の${result.error.position + 1}文字目: ${result.error.message}`)
-    } else {
+    if (result.ok) {
       for (const name of references(result.expr)) {
         if (!known.has(name)) {
           problems.push(`計算結果「${item.id}」の式が未定義か後ろにある「${name}」を参照しています`)
         }
       }
+    } else {
+      problems.push(`計算結果「${item.id}」の式の${result.error.position + 1}文字目: ${result.error.message}`)
     }
     known.add(item.id)
   }

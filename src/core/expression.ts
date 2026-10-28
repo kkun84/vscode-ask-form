@@ -5,13 +5,13 @@ export type Expr =
   | { readonly kind: "ref"; readonly name: string }
   | { readonly kind: "unary"; readonly op: "-" | "!"; readonly operand: Expr }
   | { readonly kind: "binary"; readonly op: BinaryOp; readonly left: Expr; readonly right: Expr }
-  | { readonly kind: "conditional"; readonly test: Expr; readonly then: Expr; readonly otherwise: Expr }
+  | { readonly kind: "conditional"; readonly test: Expr; readonly whenTrue: Expr; readonly whenFalse: Expr }
   | { readonly kind: "call"; readonly name: FunctionName; readonly args: ReadonlyArray<Expr> }
 
 type BinaryOp = "+" | "-" | "*" | "/" | "%" | "<" | "<=" | ">" | ">=" | "==" | "!=" | "&&" | "||"
 type FunctionName = "min" | "max" | "abs" | "floor" | "ceil" | "round"
 
-export interface ParseError {
+interface ParseError {
   readonly message: string
   readonly position: number
 }
@@ -71,7 +71,8 @@ const tokenize = (source: string): ReadonlyArray<Token> => {
       i = end + 1
       continue
     }
-    const op = operators.find((candidate) => source.startsWith(candidate, i))
+    const at = i
+    const op = operators.find((candidate) => source.startsWith(candidate, at))
     if (op === undefined) {
       fail(`使えない文字「${ch}」があります`, i)
     } else {
@@ -128,10 +129,10 @@ class Parser {
       return test
     }
     this.advance()
-    const then = this.conditional()
+    const whenTrue = this.conditional()
     this.expectOp(":")
-    const otherwise = this.conditional()
-    return { kind: "conditional", test, then, otherwise }
+    const whenFalse = this.conditional()
+    return { kind: "conditional", test, whenTrue, whenFalse }
   }
 
   private binaryLevel(next: () => Expr, ops: ReadonlyArray<BinaryOp>): Expr {
@@ -247,7 +248,7 @@ export const references = (expr: Expr): ReadonlyArray<string> => {
     case "binary":
       return [...references(expr.left), ...references(expr.right)]
     case "conditional":
-      return [...references(expr.test), ...references(expr.then), ...references(expr.otherwise)]
+      return [...references(expr.test), ...references(expr.whenTrue), ...references(expr.whenFalse)]
     case "call":
       return expr.args.flatMap(references)
   }
@@ -365,7 +366,7 @@ export const evaluate = (expr: Expr, scope: Scope): Value | undefined => {
       if (typeof test !== "boolean") {
         return undefined
       }
-      return evaluate(test ? expr.then : expr.otherwise, scope)
+      return evaluate(test ? expr.whenTrue : expr.whenFalse, scope)
     }
     case "call": {
       const args = expr.args.map((arg) => numeric(evaluate(arg, scope)))

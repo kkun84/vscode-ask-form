@@ -18,6 +18,7 @@ export default defineConfig({
     viewport: { width: 520, height: 900 },
     deviceScaleFactor: 1,
     locale: "ja-JP",
-    launchOptions: process.env["PLAYWRIGHT_CHROMIUM_EXECUTABLE"] === undefined ? {} : { executablePath: process.env["PLAYWRIGHT_CHROMIUM_EXECUTABLE"] }
+    launchOptions:
+      process.env["PLAYWRIGHT_CHROMIUM_EXECUTABLE"] === undefined ? {} : { executablePath: process.env["PLAYWRIGHT_CHROMIUM_EXECUTABLE"] }
   }
 })

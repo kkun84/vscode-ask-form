@@ -1,0 +1,10 @@
+{
+  "globs": ["**/*.md"],
+  "ignores": ["node_modules/**", "dist/**", "test-results/**"],
+  "gitignore": true,
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD024": { "siblings_only": true }
+  }
+}

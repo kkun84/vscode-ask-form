@@ -1,11 +1,11 @@
 const canonicalize = (value: unknown): unknown => {
   if (Array.isArray(value)) {
-    return value.map(canonicalize)
+    return value.map((item) => canonicalize(item))
   }
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(
       Object.keys(value)
-        .sort()
+        .toSorted()
         .flatMap((key) => {
           const entry: unknown = (value as Record<string, unknown>)[key]
           return entry === undefined ? [] : [[key, canonicalize(entry)]]
@@ -20,7 +20,7 @@ export const canonicalJson = (value: unknown): string => JSON.stringify(canonica
 const fnv1a = (text: string, seed: number): string => {
   let hash = seed >>> 0
   for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i)
+    hash ^= text.codePointAt(i) ?? 0
     hash = Math.imul(hash, 0x01000193) >>> 0
   }
   return hash.toString(16).padStart(8, "0")

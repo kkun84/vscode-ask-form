@@ -12,7 +12,7 @@ export const resourceMimeType = "text/html;profile=mcp-app"
 
 export class FormHtml extends Context.Service<FormHtml, string>()("copilot-forms/FormHtml") {}
 
-export class FormRejected extends Schema.TaggedError<FormRejected, { readonly brand: unique symbol }>()("FormRejected", {
+class FormRejected extends Schema.TaggedError<FormRejected, { readonly brand: unique symbol }>()("FormRejected", {
   message: Schema.String
 }) {}
 
@@ -20,7 +20,7 @@ const FieldValue = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, S
 const Values = Schema.Record(Schema.String, FieldValue)
 const ComputedValues = Schema.Record(Schema.String, Schema.NullOr(Schema.Union([Schema.Finite, Schema.String, Schema.Boolean])))
 
-export const OutcomeResult = Schema.Union([
+const OutcomeResult = Schema.Union([
   Schema.Struct({
     status: Schema.Literal("submitted"),
     values: Values,
@@ -49,7 +49,7 @@ export const askFormDescription = [
   "The result tells you whether the user submitted values, delegated the decision to you, or will answer in chat."
 ].join(" ")
 
-export const AskForm = Tool.dynamic("ask_form", {
+const AskForm = Tool.dynamic("ask_form", {
   description: askFormDescription,
   parameters: formSpecJsonSchema,
   success: OutcomeResult,
@@ -59,7 +59,7 @@ export const AskForm = Tool.dynamic("ask_form", {
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Meta, { ui: { resourceUri } })
 
-export const FormAnswer = Tool.make("form_answer", {
+const FormAnswer = Tool.make("form_answer", {
   description: "Deliver the user's answer from the form view. Only the form view calls this tool.",
   parameters: Schema.Struct({
     formKey: Schema.String,
@@ -70,7 +70,7 @@ export const FormAnswer = Tool.make("form_answer", {
   failure: FormRejected
 }).annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
-export const FormResend = Tool.make("form_resend", {
+const FormResend = Tool.make("form_resend", {
   description: "Post the changes the user made after answering as a new chat message. Only the form view calls this tool.",
   parameters: Schema.Struct({
     spec: Schema.Unknown,
@@ -82,11 +82,11 @@ export const FormResend = Tool.make("form_resend", {
   failure: FormRejected
 }).annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
-export const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend)
+const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend)
 
 const reject = (problems: ReadonlyArray<string>) => Effect.fail(new FormRejected({ message: problems.join("\n") }))
 
-export const FormsHandlers = FormsToolkit.toLayer(
+const FormsHandlers = FormsToolkit.toLayer(
   Effect.gen(function* () {
     const pending = yield* PendingForms
     const poster = yield* ChatPoster
@@ -144,7 +144,7 @@ export const FormsHandlers = FormsToolkit.toLayer(
   })
 )
 
-export const FormResource = McpServer.resource({
+const FormResource = McpServer.resource({
   uri: resourceUri,
   name: "Copilot Forms",
   description: "Interactive form view for ask_form",

@@ -15,7 +15,7 @@ export interface CompiledForm {
 
 export const isMultiple = (field: ChoiceField): boolean => field.multiple === true
 
-export const parseExpressions = (spec: FormSpec): ReadonlyMap<string, Expr> => {
+const parseExpressions = (spec: FormSpec): ReadonlyMap<string, Expr> => {
   const expressions = new Map<string, Expr>()
   for (const item of spec.computed ?? []) {
     const result = parse(item.expression)
@@ -32,7 +32,7 @@ export const prepare = (spec: FormSpec, raw: unknown): CompiledForm => ({
   expressions: parseExpressions(spec)
 })
 
-export const initialValue = (field: Field): FieldValue => {
+const initialValue = (field: Field): FieldValue => {
   switch (field.type) {
     case "text":
       return field.default ?? ""
@@ -74,7 +74,7 @@ export const computeValues = (form: CompiledForm, values: Values): ComputedValue
 
 const sameValue = (a: FieldValue | undefined, b: FieldValue | undefined): boolean => {
   if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && [...a].sort().join("\u0000") === [...b].sort().join("\u0000")
+    return a.length === b.length && a.toSorted().join("\u0000") === b.toSorted().join("\u0000")
   }
   return a === b
 }

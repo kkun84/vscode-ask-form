@@ -84,7 +84,7 @@ describe("DES-SPEC-001 設計図の読み取り", () => {
 
 describe("DES-SPEC-002 正規化と鍵", () => {
   it("DES-SPEC-002 キーの順序に関係なく同じ鍵になる", () => {
-    const reordered = JSON.parse(JSON.stringify(eventSpec, Object.keys(eventSpec).reverse()))
+    const reordered = JSON.parse(JSON.stringify(eventSpec, Object.keys(eventSpec).toReversed()))
     assert.equal(compiled(eventSpec).key, compiled({ ...reordered, ...eventSpec }).key)
     assert.equal(stableHash({ b: 1, a: [1, { d: 2, c: 3 }] }), stableHash({ a: [1, { c: 3, d: 2 }], b: 1 }))
     assert.equal(canonicalJson({ b: 1, a: undefined, c: [] }), '{"b":1,"c":[]}')

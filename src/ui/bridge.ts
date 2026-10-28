@@ -36,7 +36,7 @@ type Message = {
   readonly error?: { readonly message?: string }
 }
 
-export const protocolVersion = "2026-01-26"
+const protocolVersion = "2026-01-26"
 
 export const connect = (handlers: BridgeHandlers, target: Window = window.parent): Promise<Bridge> => {
   let nextId = 1
@@ -61,10 +61,10 @@ export const connect = (handlers: BridgeHandlers, target: Window = window.parent
       const waiter = pending.get(message.id)
       if (waiter !== undefined) {
         pending.delete(message.id)
-        if (message.error !== undefined) {
-          waiter.reject(new Error(message.error.message ?? "request failed"))
-        } else {
+        if (message.error === undefined) {
           waiter.resolve(message.result)
+        } else {
+          waiter.reject(new Error(message.error.message ?? "request failed"))
         }
       }
       return

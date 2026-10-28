@@ -36,6 +36,8 @@ interface Incoming {
   readonly params?: Record<string, unknown>
 }
 
+type ToolResult = ReturnType<typeof textResult>
+
 const textResult = (text: string, isError: boolean, structuredContent?: Readonly<Record<string, unknown>>) => ({
   content: [{ type: "text", text }],
   isError,
@@ -44,54 +46,58 @@ const textResult = (text: string, isError: boolean, structuredContent?: Readonly
 
 const isAction = (value: unknown): value is Action => value === "submit" || value === "delegate" || value === "chat"
 
+interface HostState {
+  done: boolean
+}
+
+const answerWith = (options: AppHostOptions, state: HostState, params: Record<string, unknown>): ToolResult => {
+  if (state.done || params["formKey"] !== options.form.key || !isAction(params["action"])) {
+    return textResult("expired: このフォームはもう回答を受け付けていません", true)
+  }
+  const action = params["action"]
+  let values: Values = {}
+  if (action === "submit") {
+    const checked = checkValues(options.form.spec, params["values"])
+    if (Result.isFailure(checked)) {
+      return textResult(checked.failure.join("\n"), true)
+    }
+    values = checked.success
+  }
+  const outcome = outcomeFor(options.form, action, values)
+  state.done = true
+  const structured = { ...outcome, next: outcomeText(outcome) }
+  options.onOutcome(outcome)
+  options.post({ jsonrpc: "2.0", method: "ui/notifications/tool-result", params: textResult(structured.next, false, structured) })
+  return textResult(JSON.stringify({ accepted: true }), false, { accepted: true })
+}
+
+const resendWith = async (options: AppHostOptions, params: Record<string, unknown>): Promise<ToolResult> => {
+  const compiled = compile(params["spec"])
+  if (Result.isFailure(compiled)) {
+    return textResult(compiled.failure.join("\n"), true)
+  }
+  const before = checkValues(compiled.success.spec, params["before"])
+  const after = checkValues(compiled.success.spec, params["after"])
+  if (Result.isFailure(before) || Result.isFailure(after)) {
+    return textResult("invalid values", true)
+  }
+  const locale = typeof params["locale"] === "string" ? params["locale"] : options.context.locale
+  const text = resendMessage(compiled.success.spec, before.success, after.success, messages(languageOf(locale)))
+  if (text === undefined) {
+    return textResult("no changes: 前回の送信から変更がありません", true)
+  }
+  try {
+    await options.onResend({ text, title: compiled.success.spec.title, values: after.success })
+  } catch (error) {
+    return textResult(error instanceof Error ? error.message : String(error), true)
+  }
+  return textResult(JSON.stringify({ posted: true }), false, { posted: true })
+}
+
 export const createAppHost = (options: AppHostOptions): AppHost => {
-  let done = false
+  const state: HostState = { done: false }
   const notify = (method: string, params: unknown) => options.post({ jsonrpc: "2.0", method, params })
   const respond = (id: number | string, result: unknown) => options.post({ jsonrpc: "2.0", id, result })
-
-  const answer = (params: Record<string, unknown>) => {
-    if (done || params["formKey"] !== options.form.key || !isAction(params["action"])) {
-      return textResult("expired: このフォームはもう回答を受け付けていません", true)
-    }
-    const action = params["action"]
-    let values: Values = {}
-    if (action === "submit") {
-      const checked = checkValues(options.form.spec, params["values"])
-      if (Result.isFailure(checked)) {
-        return textResult(checked.failure.join("\n"), true)
-      }
-      values = checked.success
-    }
-    const outcome = outcomeFor(options.form, action, values)
-    done = true
-    const structured = { ...outcome, next: outcomeText(outcome) }
-    options.onOutcome(outcome)
-    notify("ui/notifications/tool-result", textResult(structured.next, false, structured))
-    return textResult(JSON.stringify({ accepted: true }), false, { accepted: true })
-  }
-
-  const resend = async (params: Record<string, unknown>) => {
-    const compiled = compile(params["spec"])
-    if (Result.isFailure(compiled)) {
-      return textResult(compiled.failure.join("\n"), true)
-    }
-    const before = checkValues(compiled.success.spec, params["before"])
-    const after = checkValues(compiled.success.spec, params["after"])
-    if (Result.isFailure(before) || Result.isFailure(after)) {
-      return textResult("invalid values", true)
-    }
-    const locale = typeof params["locale"] === "string" ? params["locale"] : options.context.locale
-    const text = resendMessage(compiled.success.spec, before.success, after.success, messages(languageOf(locale)))
-    if (text === undefined) {
-      return textResult("no changes: 前回の送信から変更がありません", true)
-    }
-    try {
-      await options.onResend({ text, title: compiled.success.spec.title, values: after.success })
-    } catch (error) {
-      return textResult(error instanceof Error ? error.message : String(error), true)
-    }
-    return textResult(JSON.stringify({ posted: true }), false, { posted: true })
-  }
 
   const receive = async (raw: unknown) => {
     if (raw === null || typeof raw !== "object") {
@@ -117,9 +123,9 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
         }
         const args = (params["arguments"] ?? {}) as Record<string, unknown>
         if (params["name"] === "form_answer") {
-          respond(message.id, answer(args))
+          respond(message.id, answerWith(options, state, args))
         } else if (params["name"] === "form_resend") {
-          respond(message.id, await resend(args))
+          respond(message.id, await resendWith(options, args))
         } else {
           options.post({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "unknown tool" } })
         }
@@ -135,11 +141,11 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
   return {
     receive,
     cancel: () => {
-      if (!done) {
-        done = true
+      if (!state.done) {
+        state.done = true
         notify("ui/notifications/tool-cancelled", { reason: "cancelled" })
       }
     },
-    settled: () => done
+    settled: () => state.done
   }
 }

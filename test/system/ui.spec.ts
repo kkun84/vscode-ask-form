@@ -53,7 +53,7 @@ test.describe("SPEC-UI-002 計算結果", () => {
     await expect(profit).toHaveText("¥130,000")
     await frame.getByRole("switch", { name: "ライブ配信" }).uncheck()
     await expect(profit).toHaveText("¥160,000")
-    const size = await profit.evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize))
+    const size = await profit.evaluate((node) => Number(getComputedStyle(node).fontSize.replace("px", "")))
     expect(size).toBeGreaterThan(16)
   })
 })

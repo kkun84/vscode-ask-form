@@ -33,8 +33,8 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push({ dispose: () => void Effect.runPromise(Scope.close(scope, Exit.void)) })
   const server = await Effect.runPromise(Scope.provide(serveForms({ token, version, services }), scope))
   const changed = new vscode.EventEmitter<void>()
-  context.subscriptions.push(changed)
   context.subscriptions.push(
+    changed,
     vscode.lm.registerMcpServerDefinitionProvider(providerId, {
       onDidChangeMcpServerDefinitions: changed.event,
       provideMcpServerDefinitions: () => [

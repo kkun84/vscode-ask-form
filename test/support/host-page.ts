@@ -21,7 +21,7 @@ interface Recorder {
 
 const setup = (window as unknown as { readonly harnessSetup: Setup }).harnessSetup
 document.body.style.background = setup.background
-const recorder: Recorder = { outcomes: [], resends: [], messages: [], cancel: () => undefined }
+const recorder: Recorder = { outcomes: [], resends: [], messages: [], cancel: () => {} }
 ;(window as unknown as { harness: Recorder }).harness = recorder
 
 const frame = document.createElement("iframe")
@@ -40,11 +40,12 @@ const host = createAppHost({
   context: setup.context,
   post,
   onOutcome: (outcome) => recorder.outcomes.push(outcome),
-  onResend: async (request) => {
+  onResend: (request) => {
     if (setup.failResend) {
-      throw new Error("chat unavailable")
+      return Promise.reject(new Error("chat unavailable"))
     }
     recorder.resends.push(request)
+    return Promise.resolve()
   }
 })
 recorder.cancel = () => host.cancel()
@@ -60,15 +61,19 @@ window.addEventListener("message", (event: MessageEvent<Record<string, unknown>>
     post({ jsonrpc: "2.0", id: message["id"], result: { isError: true, content: [{ type: "text", text: "expired" }] } })
     return
   }
-  void host.receive(message).then(() => {
-    if (message["method"] === "ui/initialize" && setup.restore !== undefined) {
-      post({
-        jsonrpc: "2.0",
-        method: "ui/notifications/tool-result",
-        params: { isError: false, content: [{ type: "text", text: "" }], structuredContent: setup.restore }
-      })
-    }
-  })
+  void relay(message)
 })
+
+const relay = async (message: Record<string, unknown>) => {
+  await host.receive(message)
+  if (message["method"] === "ui/initialize" && setup.restore !== undefined) {
+    post({
+      jsonrpc: "2.0",
+      method: "ui/notifications/tool-result",
+      params: { isError: false, content: [{ type: "text", text: "" }], structuredContent: setup.restore }
+    })
+  }
+}
+
 frame.src = "/form.html"
 document.body.append(frame)

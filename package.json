@@ -21,8 +21,14 @@
     "build": "node scripts/build.ts",
     "manifest": "node scripts/manifest.ts",
     "typecheck": "node scripts/typecheck.ts",
-    "test:unit": "node --test \"test/unit/**/*.test.ts\"",
-    "test:system": "node --test \"test/system/**/*.test.ts\""
+    "lint": "oxlint --deny-warnings && oxfmt --check && depcruise src test scripts && jscpd && knip && markdownlint-cli2 && node scripts/no-comments.ts && node scripts/manifest.ts --check",
+    "format": "oxfmt",
+    "test:unit": "node scripts/timed.ts unit node --test --test-timeout=5000 \"test/unit/**/*.test.ts\"",
+    "test:system": "node scripts/timed.ts system node --test --test-timeout=5000 \"test/system/**/*.test.ts\"",
+    "test:ui": "node scripts/timed.ts ui playwright test",
+    "budget": "node scripts/budget.ts",
+    "test": "pnpm test:unit && pnpm test:system && pnpm test:ui",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "effect": "4.0.6"

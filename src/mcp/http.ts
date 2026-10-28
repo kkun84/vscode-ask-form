@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
-import { Readable } from "node:stream"
+import { Readable, promises as streams } from "node:stream"
+import type { ReadableStream as NodeReadableStream } from "node:stream/web"
 import { Effect, Layer, type Scope } from "effect"
 import { McpProtocol, McpServer } from "effect/ai"
 import { HttpRouter } from "effect/http"
@@ -62,15 +63,7 @@ const writeResponse = async (response: Response, res: ServerResponse): Promise<v
     res.end()
     return
   }
-  const reader = response.body.getReader()
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) {
-      break
-    }
-    res.write(value)
-  }
-  res.end()
+  await streams.pipeline(Readable.fromWeb(response.body as unknown as NodeReadableStream<Uint8Array>), res)
 }
 
 export const serveForms = (options: FormsServerOptions): Effect.Effect<RunningFormsServer, never, Scope.Scope> =>
@@ -100,10 +93,10 @@ export const serveForms = (options: FormsServerOptions): Effect.Effect<RunningFo
         .handler(request)
         .then((response) => writeResponse(response, res))
         .catch(() => {
-          if (!res.headersSent) {
-            reject(res, 500)
-          } else {
+          if (res.headersSent) {
             res.end()
+          } else {
+            reject(res, 500)
           }
         })
     })

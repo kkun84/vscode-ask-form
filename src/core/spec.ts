@@ -41,7 +41,7 @@ export const NumberField = Schema.Struct({
   suffix: Schema.optionalKey(text(8))
 })
 
-export const ChoiceOption = Schema.Struct({
+const ChoiceOption = Schema.Struct({
   value: required(60),
   label: required(60),
   description: Schema.optionalKey(text(120))

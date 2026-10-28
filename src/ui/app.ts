@@ -443,34 +443,29 @@ export class FormApp {
     return element
   }
 
-  private answerFooter(): HTMLElement {
-    const primary = h("button", { type: "button", class: "primary" }, this.form?.spec.submitLabel ?? this.m.submit)
+  private footer(label: string, onPrimary: () => void, before: ReadonlyArray<HTMLElement>, after: ReadonlyArray<HTMLElement>): HTMLElement {
+    const primary = h("button", { type: "button", class: "primary" }, label)
     this.live.primary = primary
     const status = h("span", { class: "status", role: "status" })
     this.live.status = status
-    return h(
-      "footer",
-      { class: "actions" },
-      on(h("button", { type: "button", class: "ghost" }, this.m.delegate), "click", () => void this.answer("delegate")),
-      on(h("button", { type: "button", class: "ghost" }, this.m.answerInChat), "click", () => void this.answer("chat")),
-      status,
-      h("kbd", { class: "shortcut", "aria-hidden": "true" }, "⌘/Ctrl ⏎"),
-      on(primary, "click", () => void this.answer("submit"))
+    return h("footer", { class: "actions" }, ...before, status, ...after, on(primary, "click", onPrimary))
+  }
+
+  private ghost(label: string, onClick: () => void): HTMLElement {
+    return on(h("button", { type: "button", class: "ghost" }, label), "click", onClick)
+  }
+
+  private answerFooter(): HTMLElement {
+    return this.footer(
+      this.form?.spec.submitLabel ?? this.m.submit,
+      () => void this.answer("submit"),
+      [this.ghost(this.m.delegate, () => void this.answer("delegate")), this.ghost(this.m.answerInChat, () => void this.answer("chat"))],
+      [h("kbd", { class: "shortcut", "aria-hidden": "true" }, "⌘/Ctrl ⏎")]
     )
   }
 
   private resendFooter(): HTMLElement {
-    const primary = h("button", { type: "button", class: "primary" }, this.m.resend)
-    this.live.primary = primary
-    const status = h("span", { class: "status", role: "status" })
-    this.live.status = status
-    return h(
-      "footer",
-      { class: "actions" },
-      on(h("button", { type: "button", class: "ghost" }, this.m.cancel), "click", () => this.cancelResend()),
-      status,
-      on(primary, "click", () => void this.resend())
-    )
+    return this.footer(this.m.resend, () => void this.resend(), [this.ghost(this.m.cancel, () => this.cancelResend())], [])
   }
 
   private summary(status: Status): HTMLElement {
