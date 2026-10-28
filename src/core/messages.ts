@@ -1,0 +1,73 @@
+export type Language = "ja" | "en"
+
+export const languageOf = (locale: string | undefined): Language => (locale?.toLowerCase().startsWith("ja") === true ? "ja" : "en")
+
+const ja = {
+  submit: "この内容で進める",
+  delegate: "AIに任せる",
+  answerInChat: "チャットで答える",
+  details: "詳細",
+  aiGuess: "AIの推測",
+  changedByYou: "あなたが変更",
+  changedSinceSent: "前回の送信から変更",
+  answered: "回答しました",
+  delegated: "AIに任せました",
+  answeredInChat: "チャットで答えることにしました",
+  cancelled: "キャンセルされました",
+  expired: "この質問は終了しています",
+  editAndResend: "変更して送り直す",
+  resend: "変更を送信",
+  cancel: "キャンセル",
+  noChanges: "変更はまだありません",
+  changedCount: (n: number) => `${n}項目を変更`,
+  waiting: "回答を待っています",
+  sending: "送信中…",
+  on: "オン",
+  off: "オフ",
+  none: "なし",
+  empty: "(空欄)",
+  listSeparator: "、",
+  yes: "はい",
+  no: "いいえ",
+  sendFailed: "送信できませんでした",
+  resendSentence: (changes: ReadonlyArray<string>, title: string) => `「${title}」で${changes.join("、")}に変えたので、反映して続けてください。`,
+  changeTo: (label: string, value: string) => `${label}を${value}`,
+  attachmentNote: "フォームの全項目は添付のJSONにあります。"
+}
+
+const en: typeof ja = {
+  submit: "Continue with this",
+  delegate: "Let AI decide",
+  answerInChat: "Answer in chat",
+  details: "Details",
+  aiGuess: "AI guess",
+  changedByYou: "Changed by you",
+  changedSinceSent: "Changed since last sent",
+  answered: "Answered",
+  delegated: "Left to AI",
+  answeredInChat: "Answering in chat",
+  cancelled: "Cancelled",
+  expired: "This question has ended",
+  editAndResend: "Edit and resend",
+  resend: "Send changes",
+  cancel: "Cancel",
+  noChanges: "No changes yet",
+  changedCount: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
+  waiting: "Waiting for your answer",
+  sending: "Sending…",
+  on: "On",
+  off: "Off",
+  none: "None",
+  empty: "(empty)",
+  listSeparator: ", ",
+  yes: "Yes",
+  no: "No",
+  sendFailed: "Could not send",
+  resendSentence: (changes: ReadonlyArray<string>, title: string) => `In "${title}", I changed ${changes.join(", ")}. Please apply it and continue.`,
+  changeTo: (label: string, value: string) => `${label} to ${value}`,
+  attachmentNote: "All form values are in the attached JSON."
+}
+
+export type Messages = typeof ja
+
+export const messages = (language: Language): Messages => (language === "ja" ? ja : en)
