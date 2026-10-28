@@ -1,15 +1,384 @@
 {
   "name": "copilot-forms",
+  "displayName": "Copilot Forms",
+  "description": "Lets GitHub Copilot ask you through interactive forms in the chat, prefilled with its best guesses.",
+  "version": "0.1.0",
+  "publisher": "kkun84",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.16.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kkun84/2026-10-28"
+  },
+  "engines": {
+    "vscode": "^1.110.0",
+    "node": ">=22.18.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "main": "./dist/node/extension.cjs",
+  "browser": "./dist/web/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguageModelTool:copilot_forms_ask_form"
+  ],
+  "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "copilot-forms.mcp",
+        "label": "Copilot Forms"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "copilot_forms_ask_form",
+        "toolReferenceName": "askForm",
+        "displayName": "Ask with a form",
+        "userDescription": "Ask you through an interactive form prefilled with Copilot's guesses.",
+        "modelDescription": "Ask the user a question through an interactive form shown in the chat, and wait for the answer. Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those). For a single simple choice, prefer the built-in askQuestions tool instead. Always prefill every field with your best guess from the workspace and conversation, and explain the source in reason, so the user only fixes what is wrong. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The result tells you whether the user submitted values, delegated the decision to you, or will answer in chat.",
+        "canBeReferencedInPrompt": true,
+        "when": "isWeb",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "text"
+                        ]
+                      },
+                      "id": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60,
+                        "description": "Label shown to the user, in the user's language."
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "description": "Why you guessed the default value, citing the source (file, earlier message). Shown under the field."
+                      },
+                      "advanced": {
+                        "type": "boolean",
+                        "description": "Fold this field into the collapsed Details section."
+                      },
+                      "default": {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "placeholder": {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      "multiline": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "id",
+                      "label"
+                    ],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "number"
+                        ]
+                      },
+                      "id": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60,
+                        "description": "Label shown to the user, in the user's language."
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "description": "Why you guessed the default value, citing the source (file, earlier message). Shown under the field."
+                      },
+                      "advanced": {
+                        "type": "boolean",
+                        "description": "Fold this field into the collapsed Details section."
+                      },
+                      "default": {
+                        "type": "number"
+                      },
+                      "min": {
+                        "type": "number"
+                      },
+                      "max": {
+                        "type": "number"
+                      },
+                      "step": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "prefix": {
+                        "type": "string",
+                        "maxLength": 8
+                      },
+                      "suffix": {
+                        "type": "string",
+                        "maxLength": 8
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "id",
+                      "label",
+                      "min",
+                      "max"
+                    ],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "choice"
+                        ]
+                      },
+                      "id": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60,
+                        "description": "Label shown to the user, in the user's language."
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "description": "Why you guessed the default value, citing the source (file, earlier message). Shown under the field."
+                      },
+                      "advanced": {
+                        "type": "boolean",
+                        "description": "Fold this field into the collapsed Details section."
+                      },
+                      "options": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "description": {
+                              "type": "string",
+                              "maxLength": 120
+                            }
+                          },
+                          "required": [
+                            "value",
+                            "label"
+                          ],
+                          "additionalProperties": true
+                        },
+                        "minItems": 2,
+                        "maxItems": 12
+                      },
+                      "default": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        ]
+                      },
+                      "multiple": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "id",
+                      "label",
+                      "options"
+                    ],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "toggle"
+                        ]
+                      },
+                      "id": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60,
+                        "description": "Label shown to the user, in the user's language."
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "description": "Why you guessed the default value, citing the source (file, earlier message). Shown under the field."
+                      },
+                      "advanced": {
+                        "type": "boolean",
+                        "description": "Fold this field into the collapsed Details section."
+                      },
+                      "default": {
+                        "type": "boolean"
+                      },
+                      "note": {
+                        "type": "string",
+                        "maxLength": 40
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "id",
+                      "label"
+                    ],
+                    "additionalProperties": true
+                  }
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 20
+            },
+            "computed": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  "expression": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "description": "Arithmetic over field ids and earlier computed ids. Operators + - * / % < <= > >= == != && || ! ?: and min max abs floor ceil round."
+                  },
+                  "prefix": {
+                    "type": "string",
+                    "maxLength": 8
+                  },
+                  "suffix": {
+                    "type": "string",
+                    "maxLength": 8
+                  },
+                  "decimals": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4
+                  },
+                  "primary": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "expression"
+                ],
+                "additionalProperties": true
+              },
+              "maxItems": 8
+            },
+            "submitLabel": {
+              "type": "string",
+              "maxLength": 20
+            }
+          },
+          "required": [
+            "title",
+            "fields"
+          ],
+          "additionalProperties": true
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build.ts",
+    "manifest": "node scripts/manifest.ts",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json",
+    "test:unit": "node --test \"test/unit/**/*.test.ts\"",
+    "test:system": "node --test \"test/system/**/*.test.ts\""
+  },
   "dependencies": {
     "effect": "4.0.6"
   },
   "devDependencies": {
     "@effect/language-service": "0.87.5",
+    "@playwright/test": "1.63.0",
     "@types/node": "22.18.0",
-    "@types/vscode": "1.105.0",
+    "@types/vscode": "1.110.0",
+    "axe-core": "4.14.0",
     "esbuild": "0.25.10",
     "typescript": "5.9.3"
   }

@@ -1,9 +1,16 @@
 import { Context, Effect, Layer, Result, Schema } from "effect"
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai"
-import { checkValues, compile, outcomeFor, outcomeText, resendMessage, type Action, type Outcome } from "../core/form.ts"
+import {
+  outcomeFor,
+  outcomeText,
+  resendMessage,
+  type Action,
+  type Outcome
+} from "../core/form.ts"
+import { checkValues, compile } from "../core/validate.ts"
 import { languageOf, messages } from "../core/messages.ts"
-import { FormSpec } from "../core/spec.ts"
 import { PendingForms } from "./pending.ts"
+import { formSpecJsonSchema } from "./schema.ts"
 import { ChatPoster } from "./ports.ts"
 
 export const resourceUri = "ui://copilot-forms/form.html"
@@ -38,7 +45,7 @@ export const OutcomeResult = Schema.Union([
 
 const withNext = (outcome: Outcome): typeof OutcomeResult.Type => ({ ...outcome, next: outcomeText(outcome) })
 
-const askFormDescription = [
+export const askFormDescription = [
   "Ask the user a question through an interactive form shown in the chat, and wait for the answer.",
   "Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those).",
   "For a single simple choice, prefer the built-in askQuestions tool instead.",
@@ -48,9 +55,9 @@ const askFormDescription = [
   "The result tells you whether the user submitted values, delegated the decision to you, or will answer in chat."
 ].join(" ")
 
-export const AskForm = Tool.make("ask_form", {
+export const AskForm = Tool.dynamic("ask_form", {
   description: askFormDescription,
-  parameters: FormSpec,
+  parameters: formSpecJsonSchema,
   success: OutcomeResult,
   failure: FormRejected
 })

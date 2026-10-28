@@ -2,7 +2,12 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Effect, Fiber, Ref, Result } from "effect"
 import type { McpSchema } from "effect/ai"
-import { compile, initialValues, type CompiledForm } from "../../src/core/form.ts"
+import {
+  initialValues,
+  type CompiledForm
+} from "../../src/core/form.ts"
+import { compile } from "../../src/core/validate.ts"
+import { stableHash } from "../../src/core/hash.ts"
 import { resourceMimeType, resourceUri } from "../../src/mcp/server.ts"
 import { eventSpec } from "../fixtures/event.ts"
 import { harness, runScoped, testHtml, type Harness } from "../support/server.ts"
@@ -17,6 +22,16 @@ const form: CompiledForm = (() => {
 
 const structured = (result: McpSchema.CallToolResult): Record<string, unknown> =>
   (result.structuredContent ?? {}) as Record<string, unknown>
+
+const reverseKeys = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(reverseKeys)
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reverseKeys(item)]))
+  }
+  return value
+}
 
 const text = (result: McpSchema.CallToolResult): string =>
   result.content.map((item) => ("text" in item ? String(item.text) : "")).join("\n")
@@ -159,12 +174,14 @@ describe("SPEC-MCP-005 回答を受け取るツール", () => {
 })
 
 describe("SPEC-MCP-006 フォームの鍵", () => {
-  it("SPEC-MCP-006 キーの並びや未知のキーが違う設計図でも同じ鍵で回答できる", () =>
+  it("SPEC-MCP-006 画面が受け取った引数から計算した鍵で回答できる", () =>
     runScoped(Effect.gen(function*() {
       const h = yield* harness()
-      const reordered = { computed: eventSpec.computed, fields: eventSpec.fields, title: eventSpec.title, description: eventSpec.description, extra: true }
-      const fiber = yield* ask(h, reordered)
-      const answer = yield* h.call("form_answer", { formKey: form.key, action: "chat" })
+      const args = { computed: eventSpec.computed, fields: eventSpec.fields, title: eventSpec.title, extra: { nested: true } }
+      const fiber = yield* ask(h, args)
+      const reordered = reverseKeys(args)
+      assert.notEqual(stableHash(args), form.key)
+      const answer = yield* h.call("form_answer", { formKey: stableHash(reordered), action: "chat" })
       assert.equal(answer.isError, false)
       yield* Fiber.join(fiber)
     })))

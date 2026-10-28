@@ -3,14 +3,13 @@ import { describe, it } from "node:test"
 import { Result } from "effect"
 import {
   changedFields,
-  checkValues,
-  compile,
   computeValues,
   initialValues,
   outcomeFor,
   resendMessage,
   type CompiledForm
 } from "../../src/core/form.ts"
+import { checkValues, compile } from "../../src/core/validate.ts"
 import { canonicalJson, stableHash } from "../../src/core/hash.ts"
 import { messages } from "../../src/core/messages.ts"
 import { eventSpec } from "../fixtures/event.ts"
