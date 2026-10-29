@@ -1,0 +1,128 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  "entry": [
+    "src/extension/node/main.ts",
+    "src/extension/web/main.ts",
+    "src/ui/main.ts",
+    "scripts/*.ts",
+    "test/**/*.test.ts",
+    "test/**/*.spec.ts",
+    "test/acceptance/desktop.ts",
+    "test/acceptance/web.ts",
+    "test/support/host-page.ts",
+    "playwright.config.ts",
+    "src/ui/styles.css"
+  ],
+  "ignorePatterns": ["dist/**", "out/**"],
+  "ignoreDependencies": ["@effect/tsgo", "axe-core"],
+  "rulePacks": ["architecture.rules.json"],
+  "duplicates": {
+    "mode": "mild",
+    "minTokens": 40,
+    "minLines": 4,
+    "ignoreDefaults": false,
+    "threshold": 0.001
+  },
+  "boundaries": {
+    "zones": [
+      {
+        "name": "core-pure",
+        "patterns": ["src/core/expression.ts", "src/core/form.ts", "src/core/hash.ts", "src/core/messages.ts"]
+      },
+      {
+        "name": "core",
+        "patterns": ["src/core/**"]
+      },
+      {
+        "name": "ui",
+        "patterns": ["src/ui/**"]
+      },
+      {
+        "name": "ports",
+        "patterns": ["src/mcp/ports.ts"]
+      },
+      {
+        "name": "mcp-http",
+        "patterns": ["src/mcp/http.ts"]
+      },
+      {
+        "name": "mcp-tools",
+        "patterns": ["src/mcp/**"]
+      },
+      {
+        "name": "extension-node",
+        "patterns": ["src/extension/node/**"]
+      },
+      {
+        "name": "extension-web",
+        "patterns": ["src/extension/web/**"]
+      },
+      {
+        "name": "extension-shared",
+        "patterns": ["src/extension/shared/**"]
+      },
+      {
+        "name": "tests",
+        "patterns": ["test/**"]
+      },
+      {
+        "name": "tooling",
+        "patterns": ["scripts/**", "playwright.config.ts"]
+      }
+    ],
+    "rules": [
+      {
+        "from": "core-pure",
+        "allow": [],
+        "allowTypeOnly": ["core"]
+      },
+      {
+        "from": "core",
+        "allow": ["core-pure"]
+      },
+      {
+        "from": "ui",
+        "allow": ["core-pure"],
+        "allowTypeOnly": ["core"]
+      },
+      {
+        "from": "ports",
+        "allow": ["core-pure"]
+      },
+      {
+        "from": "mcp-tools",
+        "allow": ["ports", "core-pure", "core"]
+      },
+      {
+        "from": "mcp-http",
+        "allow": ["mcp-tools", "ports", "core-pure", "core"]
+      },
+      {
+        "from": "extension-node",
+        "allow": ["mcp-http", "mcp-tools", "ports", "extension-shared", "core-pure", "core"]
+      },
+      {
+        "from": "extension-web",
+        "allow": ["extension-shared", "core-pure", "core"]
+      },
+      {
+        "from": "extension-shared",
+        "allow": ["core-pure", "core"]
+      }
+    ],
+    "coverage": {
+      "requireAllFiles": true,
+      "allowUnmatched": ["*.cjs"]
+    }
+  },
+  "rules": {
+    "policy-violation": "error",
+    "unused-dev-dependencies": "error",
+    "dev-dependencies-in-production": "off"
+  },
+  "health": {
+    "maxCyclomatic": 20,
+    "maxCognitive": 15,
+    "maxCrap": 0
+  }
+}

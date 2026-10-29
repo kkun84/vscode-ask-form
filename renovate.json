@@ -22,7 +22,7 @@
       "groupName": "oxc"
     },
     {
-      "matchPackageNames": ["typescript", "@typescript/native", "@effect/tsgo", "effect"],
+      "matchPackageNames": ["typescript", "@effect/tsgo", "effect"],
       "groupName": "TypeScript and Effect"
     },
     {

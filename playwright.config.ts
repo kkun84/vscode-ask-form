@@ -8,7 +8,7 @@ export default defineConfig({
   retries: 0,
   timeout: 15_000,
   globalTimeout: 120_000,
-  reporter: [["list"]],
+  reporter: process.env["CI"] === undefined ? [["list"]] : [["list"], ["github"]],
   expect: {
     toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled", caret: "hide" }
   },

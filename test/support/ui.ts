@@ -63,7 +63,7 @@ export const startServer = async (): Promise<HarnessServer> => {
   }
 }
 
-export const backgrounds = {
+const backgrounds = {
   dark: "#1f1f1f",
   light: "#ffffff"
 } as const

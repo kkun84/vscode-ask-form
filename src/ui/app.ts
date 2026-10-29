@@ -27,6 +27,8 @@ type Phase =
 
 type Action = "submit" | "delegate" | "chat"
 
+const statusOf: Readonly<Record<Action, Status>> = { submit: "submitted", delegate: "delegated", chat: "answer_in_chat" }
+
 const isStatus = (value: unknown): value is Status => value === "submitted" || value === "delegated" || value === "answer_in_chat"
 
 const resultText = (result: ToolResult): string => (result.content ?? []).map((item) => item.text ?? "").join("\n")
@@ -126,50 +128,58 @@ export class FormApp {
     }
   }
 
-  private async answer(action: Action): Promise<void> {
-    const form = this.form
-    if (form === undefined || this.bridge === undefined || this.busy) {
+  private async whileBusy(task: (bridge: Bridge) => Promise<void>, failurePrefix = ""): Promise<void> {
+    if (this.bridge === undefined || this.busy) {
       return
     }
     this.busy = true
     this.error = undefined
     this.refresh()
     try {
-      const result = await this.bridge.callTool("form_answer", {
-        formKey: form.key,
-        action,
-        ...(action === "submit" ? { values: this.values } : {})
-      })
-      if (isExpired(result)) {
-        this.phase = { kind: "closed", reason: "expired" }
-      } else if (result.isError === true) {
-        this.error = resultText(result)
-      } else {
-        this.sent = action === "delegate" ? this.guesses : { ...this.values }
-        this.values = { ...this.sent }
-        this.phase = {
-          kind: "summary",
-          status: action === "submit" ? "submitted" : action === "delegate" ? "delegated" : "answer_in_chat"
-        }
-      }
+      await task(this.bridge)
     } catch (error) {
-      this.error = error instanceof Error ? error.message : String(error)
+      this.error = `${failurePrefix}${error instanceof Error ? error.message : String(error)}`
     } finally {
       this.busy = false
       this.render()
     }
   }
 
-  private async resend(): Promise<void> {
-    const form = this.form
-    if (form === undefined || this.bridge === undefined || this.busy || this.changedSinceSent().length === 0) {
+  private applyAnswer(action: Action, result: ToolResult): void {
+    if (isExpired(result)) {
+      this.phase = { kind: "closed", reason: "expired" }
       return
     }
-    this.busy = true
-    this.error = undefined
-    this.refresh()
-    try {
-      const result = await this.bridge.callTool("form_resend", {
+    if (result.isError === true) {
+      this.error = resultText(result)
+      return
+    }
+    this.sent = action === "delegate" ? this.guesses : { ...this.values }
+    this.values = { ...this.sent }
+    this.phase = { kind: "summary", status: statusOf[action] }
+  }
+
+  private answer(action: Action): Promise<void> {
+    const form = this.form
+    if (form === undefined) {
+      return Promise.resolve()
+    }
+    return this.whileBusy(async (bridge) => {
+      const result = await bridge.callTool("form_answer", {
+        formKey: form.key,
+        action,
+        ...(action === "submit" ? { values: this.values } : {})
+      })
+      this.applyAnswer(action, result)
+    })
+  }
+
+  private resend(): Promise<void> {
+    if (this.changedSinceSent().length === 0) {
+      return Promise.resolve()
+    }
+    return this.whileBusy(async (bridge) => {
+      const result = await bridge.callTool("form_resend", {
         spec: this.rawSpec,
         before: this.sent,
         after: this.values,
@@ -181,12 +191,7 @@ export class FormApp {
         this.sent = { ...this.values }
         this.phase = { kind: "summary", status: "submitted" }
       }
-    } catch (error) {
-      this.error = `${this.m.sendFailed}: ${error instanceof Error ? error.message : String(error)}`
-    } finally {
-      this.busy = false
-      this.render()
-    }
+    }, `${this.m.sendFailed}: `)
   }
 
   private changedSinceSent(): ReadonlyArray<string> {
@@ -509,50 +514,66 @@ export class FormApp {
     )
   }
 
+  private hintFor(field: Field, sinceSent: ReadonlyArray<string>, sinceGuess: ReadonlyArray<string>): readonly [string, string] {
+    if (this.phase.kind === "resending") {
+      return [sinceSent.includes(field.id) ? this.m.changedSinceSent : "", "hint changed"]
+    }
+    if (sinceGuess.includes(field.id)) {
+      return [this.m.changedByYou, "hint changed"]
+    }
+    return [field.reason === undefined ? "" : `${this.m.aiGuess}: ${field.reason}`, "hint"]
+  }
+
+  private refreshHints(form: CompiledForm, sinceSent: ReadonlyArray<string>): void {
+    const sinceGuess = changedFields(form.spec, this.guesses, this.values)
+    for (const field of form.spec.fields) {
+      const hint = this.live.hints.get(field.id)
+      if (hint !== undefined) {
+        ;[hint.textContent, hint.className] = this.hintFor(field, sinceSent, sinceGuess)
+      }
+    }
+  }
+
+  private refreshComputed(form: CompiledForm): void {
+    const values = computeValues(form, this.values)
+    const items = (form.spec.computed ?? []).map((item) =>
+      h(
+        "div",
+        { class: item.primary === true ? "metric primary" : "metric" },
+        h("span", { class: "metric-label" }, item.label),
+        h("span", { class: "metric-value" }, describeComputed(item, values[item.id], this.m))
+      )
+    )
+    this.live.computed?.replaceChildren(...items)
+  }
+
+  private statusText(sinceSent: ReadonlyArray<string>): string {
+    if (this.error !== undefined) {
+      return this.error
+    }
+    if (this.busy) {
+      return this.m.sending
+    }
+    if (this.phase.kind !== "resending") {
+      return ""
+    }
+    return sinceSent.length === 0 ? this.m.noChanges : this.m.changedCount(sinceSent.length)
+  }
+
   private refresh(): void {
     const form = this.form
     if (form === undefined) {
       return
     }
-    const resending = this.phase.kind === "resending"
     const sinceSent = this.changedSinceSent()
-    const sinceGuess = changedFields(form.spec, this.guesses, this.values)
-    for (const field of form.spec.fields) {
-      const hint = this.live.hints.get(field.id)
-      if (hint === undefined) {
-        continue
-      }
-      if (resending) {
-        hint.textContent = sinceSent.includes(field.id) ? this.m.changedSinceSent : ""
-        hint.className = "hint changed"
-      } else if (sinceGuess.includes(field.id)) {
-        hint.textContent = this.m.changedByYou
-        hint.className = "hint changed"
-      } else {
-        hint.textContent = field.reason === undefined ? "" : `${this.m.aiGuess}: ${field.reason}`
-        hint.className = "hint"
-      }
-    }
-    if (this.live.computed !== undefined) {
-      const values = computeValues(form, this.values)
-      const items = (form.spec.computed ?? []).map((item) =>
-        h(
-          "div",
-          { class: item.primary === true ? "metric primary" : "metric" },
-          h("span", { class: "metric-label" }, item.label),
-          h("span", { class: "metric-value" }, describeComputed(item, values[item.id], this.m))
-        )
-      )
-      this.live.computed.replaceChildren(...items)
-    }
+    this.refreshHints(form, sinceSent)
+    this.refreshComputed(form)
     if (this.live.status !== undefined) {
-      this.live.status.textContent =
-        this.error ??
-        (this.busy ? this.m.sending : resending ? (sinceSent.length === 0 ? this.m.noChanges : this.m.changedCount(sinceSent.length)) : "")
+      this.live.status.textContent = this.statusText(sinceSent)
       this.live.status.classList.toggle("error", this.error !== undefined)
     }
     if (this.live.primary !== undefined) {
-      this.live.primary.disabled = this.busy || (resending && sinceSent.length === 0)
+      this.live.primary.disabled = this.busy || (this.phase.kind === "resending" && sinceSent.length === 0)
     }
   }
 }

@@ -52,49 +52,43 @@ export const connect = (handlers: BridgeHandlers, target: Window = window.parent
 
   const respond = (id: number | string, result: unknown) => post({ id, result })
 
+  const settle = (message: Message & { readonly id: number | string }) => {
+    const waiter = pending.get(message.id)
+    if (waiter === undefined) {
+      return
+    }
+    pending.delete(message.id)
+    if (message.error === undefined) {
+      waiter.resolve(message.result)
+    } else {
+      waiter.reject(new Error(message.error.message ?? "request failed"))
+    }
+  }
+
+  const notifications: Readonly<Record<string, (params: Record<string, unknown>) => void>> = {
+    "ui/notifications/tool-input": (params) => handlers.onToolInput((params["arguments"] ?? {}) as Readonly<Record<string, unknown>>),
+    "ui/notifications/tool-result": (params) => handlers.onToolResult(params as ToolResult),
+    "ui/notifications/tool-cancelled": () => handlers.onToolCancelled(),
+    "ui/notifications/host-context-changed": (params) => handlers.onHostContext(params as HostContext)
+  }
+
+  const acknowledged: ReadonlySet<string> = new Set(["ui/resource-teardown", "ping"])
+
   const onMessage = (event: MessageEvent<Message>) => {
     const message = event.data
     if (message === null || typeof message !== "object") {
       return
     }
-    if (message.method === undefined && message.id !== undefined) {
-      const waiter = pending.get(message.id)
-      if (waiter !== undefined) {
-        pending.delete(message.id)
-        if (message.error === undefined) {
-          waiter.resolve(message.result)
-        } else {
-          waiter.reject(new Error(message.error.message ?? "request failed"))
-        }
+    const { id, method } = message
+    if (method === undefined) {
+      if (id !== undefined) {
+        settle({ ...message, id })
       }
       return
     }
-    const params = message.params ?? {}
-    switch (message.method) {
-      case "ui/notifications/tool-input":
-        handlers.onToolInput((params["arguments"] ?? {}) as Readonly<Record<string, unknown>>)
-        break
-      case "ui/notifications/tool-result":
-        handlers.onToolResult(params as ToolResult)
-        break
-      case "ui/notifications/tool-cancelled":
-        handlers.onToolCancelled()
-        break
-      case "ui/notifications/host-context-changed":
-        handlers.onHostContext(params as HostContext)
-        break
-      case "ui/resource-teardown":
-        if (message.id !== undefined) {
-          respond(message.id, {})
-        }
-        break
-      case "ping":
-        if (message.id !== undefined) {
-          respond(message.id, {})
-        }
-        break
-      default:
-        break
+    notifications[method]?.(message.params ?? {})
+    if (acknowledged.has(method) && id !== undefined) {
+      respond(id, {})
     }
   }
 

@@ -59,17 +59,17 @@
 
 | ID | 名前 | 派生元 | 派生先 | 検証 |
 | --- | --- | --- | --- | --- |
-| ARCH-CYCLE-001 | 循環参照がない | SPEC-MCP-001, SPEC-EXT-001 | - | `.dependency-cruiser.cjs` |
-| ARCH-LAYER-001 | 中核は純粋 | SPEC-FORM-001, SPEC-FORM-002, SPEC-EXPR-001, SPEC-MCP-006 | - | `.dependency-cruiser.cjs` |
-| ARCH-LAYER-002 | 画面はブラウザだけで動く | SPEC-UI-001, SPEC-EXT-004, SPEC-EXT-005 | - | `.dependency-cruiser.cjs` |
-| ARCH-LAYER-003 | MCPサーバーはVS Codeを知らない | SPEC-MCP-001 | - | `.dependency-cruiser.cjs` |
-| ARCH-LAYER-004 | web版の入口はNode.jsを使わない | SPEC-EXT-004 | - | `.dependency-cruiser.cjs` |
-| ARCH-LAYER-005 | 入口は互いに依存しない | SPEC-EXT-001, SPEC-EXT-004 | - | `.dependency-cruiser.cjs` |
-| ARCH-LAYER-006 | 画面が使う中核はEffectを使わない | SPEC-EXT-005, SPEC-UI-002 | - | `.dependency-cruiser.cjs` |
-| ARCH-EFFECT-001 | サービスの定義は実装を知らない | SPEC-EXT-002, SPEC-EXT-003 | - | `.dependency-cruiser.cjs` |
-| ARCH-EFFECT-002 | ツールの処理は通信手段を知らない | SPEC-MCP-003, SPEC-MCP-009 | - | `.dependency-cruiser.cjs` |
-| ARCH-EFFECT-003 | 層を組み立てるのは入口だけ | SPEC-EXT-001 | - | `.dependency-cruiser.cjs` |
-| ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | - | `.dependency-cruiser.cjs` |
+| ARCH-CYCLE-001 | 循環参照がない | SPEC-MCP-001, SPEC-EXT-001 | - | `test/integration/architecture.test.ts` |
+| ARCH-LAYER-001 | 中核は純粋 | SPEC-FORM-001, SPEC-FORM-002, SPEC-EXPR-001, SPEC-MCP-006 | - | `test/integration/architecture.test.ts` |
+| ARCH-LAYER-002 | 画面はブラウザだけで動く | SPEC-UI-001, SPEC-EXT-004, SPEC-EXT-005 | - | `test/integration/architecture.test.ts` |
+| ARCH-LAYER-003 | MCPサーバーはVS Codeを知らない | SPEC-MCP-001 | - | `test/integration/architecture.test.ts` |
+| ARCH-LAYER-004 | web版の入口はNode.jsを使わない | SPEC-EXT-004 | - | `test/integration/architecture.test.ts` |
+| ARCH-LAYER-005 | 入口は互いに依存しない | SPEC-EXT-001, SPEC-EXT-004 | - | `test/integration/architecture.test.ts` |
+| ARCH-LAYER-006 | 画面が使う中核はEffectを使わない | SPEC-EXT-005, SPEC-UI-002 | - | `test/integration/architecture.test.ts` |
+| ARCH-EFFECT-001 | サービスの定義は実装を知らない | SPEC-EXT-002, SPEC-EXT-003 | - | `test/integration/architecture.test.ts` |
+| ARCH-EFFECT-002 | ツールの処理は通信手段を知らない | SPEC-MCP-003, SPEC-MCP-009 | - | `test/integration/architecture.test.ts` |
+| ARCH-EFFECT-003 | 層を組み立てるのは入口だけ | SPEC-EXT-001 | - | `test/integration/architecture.test.ts` |
+| ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | - | `test/integration/architecture.test.ts` |
 | ARCH-PORT-001 | MCPサーバーへの差し込み口 | SPEC-EXT-002, SPEC-EXT-003, SPEC-MCP-008 | - | `test/integration/ports.test.ts` |
 | ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001 | - | `test/system/ui.spec.ts` |
 

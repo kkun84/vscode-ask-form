@@ -1,6 +1,6 @@
 # アーキテクチャ設計
 
-コードを層に分け、層どうしの依存の向きを決めます。各項目は結合テスト(`test/integration`)か、同じ名前を持つdependency-cruiserの規則(`.dependency-cruiser.cjs`)で検証します。
+コードを層に分け、層どうしの依存の向きを決めます。規則はfallowで検査します。層どうしの向きと循環参照は`.fallowrc.json`の`boundaries`に、外部モジュールへの依存は項目と同じIDを持つ`architecture.rules.json`の規則に書きます。各項目は、わざと規則を破るコードを足すとfallowがそれを見つけることを、結合テスト(`test/integration`)で確かめます。
 
 ```text
 src/

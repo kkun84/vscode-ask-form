@@ -21,7 +21,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
         post: (post) =>
           Effect.tryPromise({
             try: () => postToChat(context.globalStorageUri, post),
-            catch: (error) => new ChatPostFailed(error instanceof Error ? error.message : String(error))
+            catch: (error) => new ChatPostFailed({ message: error instanceof Error ? error.message : String(error) })
           })
       })
     ),

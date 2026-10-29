@@ -1,29 +1,12 @@
 import { readFile } from "node:fs/promises"
 import { execFileSync } from "node:child_process"
-import ts from "typescript"
+import { parseSync } from "oxc-parser"
 
 const tracked = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { encoding: "utf8" })
   .split("\n")
   .filter((file) => /\.(ts|cjs|mjs|js|css|html|nix)$/.test(file))
 
-const scriptComments = (file: string, text: string): ReadonlyArray<number> => {
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
-  const found = new Set<number>()
-  const visit = (node: ts.Node) => {
-    const children = node.getChildren(source)
-    if (children.length === 0) {
-      for (const range of ts.getLeadingCommentRanges(text, node.pos) ?? []) {
-        found.add(range.pos)
-      }
-      for (const range of ts.getTrailingCommentRanges(text, node.end) ?? []) {
-        found.add(range.pos)
-      }
-    }
-    children.forEach((child) => visit(child))
-  }
-  visit(source)
-  return [...found]
-}
+const scriptComments = (file: string, text: string): ReadonlyArray<number> => parseSync(file, text).comments.map((comment) => comment.start)
 
 const patternComments = (text: string, pattern: RegExp): ReadonlyArray<number> => [...text.matchAll(pattern)].map((match) => match.index)
 

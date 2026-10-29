@@ -16,6 +16,14 @@ test.afterAll(async () => {
 
 const open = (page: Page, options: Partial<PageOptions> = {}): Promise<Frame> => openForm(page, server, { args: eventSpec, ...options })
 
+const themes = ["dark", "light", "highContrast"] as const satisfies ReadonlyArray<ThemeName>
+
+const setPrice = async (frame: Frame, value: string) => {
+  const input = frame.getByRole("spinbutton", { name: "参加費" })
+  await input.fill(value)
+  await input.press("Tab")
+}
+
 interface OutcomeLike {
   readonly status: string
   readonly values?: Record<string, unknown>
@@ -48,8 +56,7 @@ test.describe("SPEC-UI-002 計算結果", () => {
     const frame = await open(page)
     const profit = frame.locator(".metric.primary .metric-value")
     await expect(profit).toHaveText("¥70,000")
-    await frame.getByRole("spinbutton", { name: "参加費" }).fill("2500")
-    await frame.getByRole("spinbutton", { name: "参加費" }).press("Tab")
+    await setPrice(frame, "2500")
     await expect(profit).toHaveText("¥130,000")
     await frame.getByRole("switch", { name: "ライブ配信" }).uncheck()
     await expect(profit).toHaveText("¥160,000")
@@ -122,8 +129,7 @@ test.describe("SPEC-UI-005 送り直し", () => {
     const send = frame.getByRole("button", { name: "変更を送信" })
     await expect(send).toBeDisabled()
     await expect(frame.getByText("変更はまだありません")).toBeVisible()
-    await frame.getByRole("spinbutton", { name: "参加費" }).fill("2500")
-    await frame.getByRole("spinbutton", { name: "参加費" }).press("Tab")
+    await setPrice(frame, "2500")
     await expect(frame.getByText("1項目を変更")).toBeVisible()
     await expect(frame.getByText("前回の送信から変更")).toBeVisible()
     await send.click()
@@ -168,27 +174,9 @@ test.describe("SPEC-UI-007 テーマ", () => {
     const background = await frame.locator("form.card").evaluate((node) => getComputedStyle(node).backgroundColor)
     expect(background).toBe("rgb(248, 248, 248)")
   })
-
-  for (const name of ["dark", "light", "highContrast"] as const satisfies ReadonlyArray<ThemeName>) {
-    test(`SPEC-UI-007 ${name}テーマの見た目が基準と一致する`, async ({ page }) => {
-      const frame = await open(page, { context: themeContext(name) })
-      await expect(frame.locator("form.card")).toHaveScreenshot(`form-${name}.png`)
-    })
-  }
 })
 
 test.describe("SPEC-UI-008 アクセシビリティ", () => {
-  for (const name of ["dark", "light", "highContrast"] as const satisfies ReadonlyArray<ThemeName>) {
-    test(`SPEC-UI-008 ${name}テーマでaxeの違反がない`, async ({ page }) => {
-      const frame = await open(page, { context: themeContext(name) })
-      await frame.locator("details.advanced summary").click()
-      const results = await new AxeBuilder(frame).analyze()
-      expect(
-        results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
-      ).toEqual([])
-    })
-  }
-
   test("SPEC-UI-008 キーボードだけで項目を移動して回答できる", async ({ page }) => {
     const frame = await open(page)
     await frame.getByLabel("イベント名").focus()
@@ -203,6 +191,23 @@ test.describe("SPEC-UI-008 アクセシビリティ", () => {
     await expect.poll(async () => (await recorded<OutcomeLike>(page, "outcomes"))[0]?.status).toBe("submitted")
   })
 })
+
+for (const name of themes) {
+  test.describe(`${name}テーマ`, () => {
+    test(`SPEC-UI-007 ${name}テーマの見た目が基準と一致する`, async ({ page }) => {
+      const frame = await open(page, { context: themeContext(name) })
+      await expect(frame.locator("form.card")).toHaveScreenshot(`form-${name}.png`)
+    })
+    test(`SPEC-UI-008 ${name}テーマでaxeの違反がない`, async ({ page }) => {
+      const frame = await open(page, { context: themeContext(name) })
+      await frame.locator("details.advanced summary").click()
+      const results = await new AxeBuilder(frame).analyze()
+      expect(
+        results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
+      ).toEqual([])
+    })
+  })
+}
 
 test.describe("SPEC-UI-009 表示の言語", () => {
   test("SPEC-UI-009 英語のロケールでは英語で表示する", async ({ page }) => {

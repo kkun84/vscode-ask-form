@@ -1,4 +1,4 @@
-import { Context, type Effect } from "effect"
+import { Context, Schema, type Effect } from "effect"
 import type { Values } from "../core/form.ts"
 
 export interface ChatPost {
@@ -14,9 +14,9 @@ export class ChatPoster extends Context.Service<
   }
 >()("copilot-forms/ChatPoster") {}
 
-export class ChatPostFailed extends Error {
-  readonly _tag = "ChatPostFailed"
-}
+export class ChatPostFailed extends Schema.TaggedError<ChatPostFailed, { readonly brand: unique symbol }>()("ChatPostFailed", {
+  message: Schema.String
+}) {}
 
 export class WaitingIndicator extends Context.Service<
   WaitingIndicator,

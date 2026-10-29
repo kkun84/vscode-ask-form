@@ -22,7 +22,7 @@ const commonFields = {
   )
 }
 
-export const TextField = Schema.Struct({
+const TextField = Schema.Struct({
   type: Schema.Literal("text"),
   ...commonFields,
   default: Schema.optionalKey(text(500)),
@@ -30,7 +30,7 @@ export const TextField = Schema.Struct({
   multiline: Schema.optionalKey(Schema.Boolean)
 })
 
-export const NumberField = Schema.Struct({
+const NumberField = Schema.Struct({
   type: Schema.Literal("number"),
   ...commonFields,
   default: Schema.optionalKey(Schema.Finite),
@@ -47,7 +47,7 @@ const ChoiceOption = Schema.Struct({
   description: Schema.optionalKey(text(120))
 })
 
-export const ChoiceField = Schema.Struct({
+const ChoiceField = Schema.Struct({
   type: Schema.Literal("choice"),
   ...commonFields,
   options: Schema.Array(ChoiceOption).check(Schema.isMinLength(2), Schema.isMaxLength(12)),
@@ -55,16 +55,16 @@ export const ChoiceField = Schema.Struct({
   multiple: Schema.optionalKey(Schema.Boolean)
 })
 
-export const ToggleField = Schema.Struct({
+const ToggleField = Schema.Struct({
   type: Schema.Literal("toggle"),
   ...commonFields,
   default: Schema.optionalKey(Schema.Boolean),
   note: Schema.optionalKey(text(40))
 })
 
-export const Field = Schema.Union([TextField, NumberField, ChoiceField, ToggleField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, ToggleField])
 
-export const Computed = Schema.Struct({
+const Computed = Schema.Struct({
   id: Identifier,
   label: required(60),
   expression: required(300).annotate({

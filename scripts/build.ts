@@ -16,6 +16,7 @@ const common: BuildOptions = {
 
 const ui = await build({
   ...common,
+  metafile: true,
   entryPoints: [path("src/ui/main.ts")],
   platform: "browser",
   format: "esm",
@@ -35,8 +36,9 @@ const define = {
   COPILOT_FORMS_VERSION: JSON.stringify(pkg.version)
 }
 
-await build({
+const node = await build({
   ...common,
+  metafile: true,
   entryPoints: [path("src/extension/node/main.ts")],
   outfile: path("dist/node/extension.cjs"),
   platform: "node",
@@ -46,8 +48,9 @@ await build({
   define
 })
 
-await build({
+const web = await build({
   ...common,
+  metafile: true,
   entryPoints: [path("src/extension/web/main.ts")],
   outfile: path("dist/web/extension.js"),
   platform: "browser",
@@ -56,3 +59,8 @@ await build({
   external: ["vscode"],
   define
 })
+
+await writeFile(
+  path("dist/meta.json"),
+  JSON.stringify({ inputs: { ...ui.metafile.inputs, ...node.metafile.inputs, ...web.metafile.inputs } })
+)

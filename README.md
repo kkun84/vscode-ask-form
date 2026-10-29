@@ -37,15 +37,15 @@ pnpm install
 pnpm build
 ```
 
-| コマンド               | 内容                                                                                           |
-| ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `pnpm lint`            | oxlint、oxfmt、dependency-cruiser、jscpd、knip、markdownlint、コメントとトレーサビリティの検査 |
-| `pnpm typecheck`       | TypeScript 7とEffectの診断による型検査                                                         |
-| `pnpm test`            | 単体、結合、システム、画面のテスト                                                             |
-| `pnpm test:acceptance` | 実際のVS Code(デスクトップ版とweb版)での受け入れテスト                                         |
-| `pnpm budget`          | 配布物の大きさの検査                                                                           |
-| `pnpm traceability`    | `docs/traceability.md`の生成                                                                   |
-| `pnpm package`         | `.vsix`の作成                                                                                  |
+| コマンド               | 内容                                                                                                                    |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`            | oxlint、oxfmt、fallow(未使用のコード、重複、循環参照、層の境界、複雑さ)、markdownlint、コメントとトレーサビリティの検査 |
+| `pnpm typecheck`       | TypeScript 7とEffectの診断による型検査                                                                                  |
+| `pnpm test`            | 単体、結合、システム、画面のテスト                                                                                      |
+| `pnpm test:acceptance` | 実際のVS Code(デスクトップ版とweb版)での受け入れテスト                                                                  |
+| `pnpm budget`          | 配布物の大きさの検査                                                                                                    |
+| `pnpm traceability`    | `docs/traceability.md`の生成                                                                                            |
+| `pnpm package`         | `.vsix`の作成                                                                                                           |
 
 コミットの前に`.githooks/pre-commit`が検査と単体テストを実行します。
 
@@ -53,12 +53,12 @@ pnpm build
 
 V字モデルに沿って、要求から設計までを段階ごとの文書に書き、各段階に対応するテストで検証します。
 
-| 文書                          | ID     | 検証                                                     |
-| ----------------------------- | ------ | -------------------------------------------------------- |
-| `docs/spec/requirements.md`   | `REQ`  | 受け入れテスト(`test/acceptance`)、手動受け入れ手順      |
-| `docs/spec/system.md`         | `SPEC` | システムテスト(`test/system`)                            |
-| `docs/design/architecture.md` | `ARCH` | 結合テスト(`test/integration`)、dependency-cruiserの規則 |
-| `docs/design/detailed.md`     | `DES`  | 単体テスト(`test/unit`)                                  |
+| 文書                          | ID     | 検証                                                |
+| ----------------------------- | ------ | --------------------------------------------------- |
+| `docs/spec/requirements.md`   | `REQ`  | 受け入れテスト(`test/acceptance`)、手動受け入れ手順 |
+| `docs/spec/system.md`         | `SPEC` | システムテスト(`test/system`)                       |
+| `docs/design/architecture.md` | `ARCH` | 結合テスト(`test/integration`)                      |
+| `docs/design/detailed.md`     | `DES`  | 単体テスト(`test/unit`)                             |
 
 テストの名前はIDで始めます。`scripts/traceability.ts`が、すべての項目に派生元と検証があることを確かめ、`docs/traceability.md`を作ります。
 

@@ -41,43 +41,60 @@ const fail = (message: string, position: number): never => {
   throw new Failure({ message, position })
 }
 
+type Scanned = { readonly token: Token; readonly length: number } | undefined
+
+const matching = (pattern: RegExp, source: string, at: number, make: (text: string) => Token): Scanned => {
+  const match = pattern.exec(source.slice(at))
+  return match === null ? undefined : { token: make(match[0]), length: match[0].length }
+}
+
+const scanString = (source: string, at: number): Scanned => {
+  const quote = source.charAt(at)
+  if (quote !== '"' && quote !== "'") {
+    return undefined
+  }
+  const end = source.indexOf(quote, at + 1)
+  if (end === -1) {
+    fail("文字列が閉じられていません", at)
+  }
+  return { token: { kind: "string", value: source.slice(at + 1, end), position: at }, length: end + 1 - at }
+}
+
+const scanOperator = (source: string, at: number): Scanned => {
+  const op = operators.find((candidate) => source.startsWith(candidate, at))
+  return op === undefined ? undefined : { token: { kind: "op", value: op, position: at }, length: op.length }
+}
+
+const scanners: ReadonlyArray<(source: string, at: number) => Scanned> = [
+  (source, at) =>
+    matching(/^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/, source, at, (text) => ({ kind: "number", value: Number(text), position: at })),
+  (source, at) => matching(/^[A-Za-z_][A-Za-z0-9_]*/, source, at, (text) => ({ kind: "ident", value: text, position: at })),
+  scanString,
+  scanOperator
+]
+
+const scan = (source: string, at: number): Scanned => {
+  for (const scanner of scanners) {
+    const scanned = scanner(source, at)
+    if (scanned !== undefined) {
+      return scanned
+    }
+  }
+  return fail(`使えない文字「${source.charAt(at)}」があります`, at)
+}
+
 const tokenize = (source: string): ReadonlyArray<Token> => {
   const tokens: Array<Token> = []
   let i = 0
   while (i < source.length) {
-    const ch = source.charAt(i)
-    if (/\s/.test(ch)) {
+    if (/\s/.test(source.charAt(i))) {
       i++
-      continue
-    }
-    const numberMatch = /^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/.exec(source.slice(i))
-    if (numberMatch !== null) {
-      tokens.push({ kind: "number", value: Number(numberMatch[0]), position: i })
-      i += numberMatch[0].length
-      continue
-    }
-    const identMatch = /^[A-Za-z_][A-Za-z0-9_]*/.exec(source.slice(i))
-    if (identMatch !== null) {
-      tokens.push({ kind: "ident", value: identMatch[0], position: i })
-      i += identMatch[0].length
-      continue
-    }
-    if (ch === '"' || ch === "'") {
-      const end = source.indexOf(ch, i + 1)
-      if (end === -1) {
-        fail("文字列が閉じられていません", i)
-      }
-      tokens.push({ kind: "string", value: source.slice(i + 1, end), position: i })
-      i = end + 1
-      continue
-    }
-    const at = i
-    const op = operators.find((candidate) => source.startsWith(candidate, at))
-    if (op === undefined) {
-      fail(`使えない文字「${ch}」があります`, i)
     } else {
-      tokens.push({ kind: "op", value: op, position: i })
-      i += op.length
+      const scanned = scan(source, i)
+      if (scanned !== undefined) {
+        tokens.push(scanned.token)
+        i += scanned.length
+      }
     }
   }
   tokens.push({ kind: "end", position: source.length })
@@ -301,27 +318,83 @@ const compare = (op: BinaryOp, a: Value, b: Value): boolean | undefined => {
   }
 }
 
-const callFunction = (name: FunctionName, args: ReadonlyArray<number>): number | undefined => {
-  const [first, second] = args
-  switch (name) {
-    case "min":
-      return args.length === 0 ? undefined : Math.min(...args)
-    case "max":
-      return args.length === 0 ? undefined : Math.max(...args)
-    case "abs":
-      return args.length === 1 && first !== undefined ? Math.abs(first) : undefined
-    case "floor":
-      return args.length === 1 && first !== undefined ? Math.floor(first) : undefined
-    case "ceil":
-      return args.length === 1 && first !== undefined ? Math.ceil(first) : undefined
-    case "round": {
-      if (first === undefined || args.length > 2) {
-        return undefined
-      }
-      const factor = 10 ** (second ?? 0)
-      return finite(Math.round(first * factor) / factor)
-    }
+const unaryFunctions: Readonly<Record<"abs" | "floor" | "ceil", (x: number) => number>> = {
+  abs: Math.abs,
+  floor: Math.floor,
+  ceil: Math.ceil
+}
+
+const round = (args: ReadonlyArray<number>): number | undefined => {
+  const [value, digits = 0] = args
+  if (value === undefined || args.length > 2) {
+    return undefined
   }
+  const factor = 10 ** digits
+  return finite(Math.round(value * factor) / factor)
+}
+
+const callFunction = (name: FunctionName, args: ReadonlyArray<number>): number | undefined => {
+  if (name === "min" || name === "max") {
+    return args.length === 0 ? undefined : Math[name](...args)
+  }
+  if (name === "round") {
+    return round(args)
+  }
+  const [value] = args
+  return args.length === 1 && value !== undefined ? unaryFunctions[name](value) : undefined
+}
+
+type Of<K extends Expr["kind"]> = Extract<Expr, { readonly kind: K }>
+
+const evaluateUnary = (expr: Of<"unary">, scope: Scope): Value | undefined => {
+  const operand = evaluate(expr.operand, scope)
+  if (expr.op === "!") {
+    return typeof operand === "boolean" ? !operand : undefined
+  }
+  const n = numeric(operand)
+  return n === undefined ? undefined : -n
+}
+
+const evaluateLogical = (expr: Of<"binary">, scope: Scope): Value | undefined => {
+  const left = evaluate(expr.left, scope)
+  if (typeof left !== "boolean") {
+    return undefined
+  }
+  if (expr.op === "&&" ? !left : left) {
+    return left
+  }
+  const right = evaluate(expr.right, scope)
+  return typeof right === "boolean" ? right : undefined
+}
+
+const comparisons: ReadonlySet<BinaryOp> = new Set(["<", "<=", ">", ">=", "==", "!="])
+
+const evaluateBinary = (expr: Of<"binary">, scope: Scope): Value | undefined => {
+  if (expr.op === "&&" || expr.op === "||") {
+    return evaluateLogical(expr, scope)
+  }
+  const left = evaluate(expr.left, scope)
+  const right = evaluate(expr.right, scope)
+  if (left === undefined || right === undefined) {
+    return undefined
+  }
+  if (comparisons.has(expr.op)) {
+    return compare(expr.op, left, right)
+  }
+  const a = numeric(left)
+  const b = numeric(right)
+  return a === undefined || b === undefined ? undefined : arithmetic(expr.op, a, b)
+}
+
+const evaluateConditional = (expr: Of<"conditional">, scope: Scope): Value | undefined => {
+  const test = evaluate(expr.test, scope)
+  return typeof test === "boolean" ? evaluate(test ? expr.whenTrue : expr.whenFalse, scope) : undefined
+}
+
+const evaluateCall = (expr: Of<"call">, scope: Scope): Value | undefined => {
+  const args = expr.args.map((arg) => numeric(evaluate(arg, scope)))
+  const numbers = args.filter((arg): arg is number => arg !== undefined)
+  return numbers.length === args.length ? callFunction(expr.name, numbers) : undefined
 }
 
 export const evaluate = (expr: Expr, scope: Scope): Value | undefined => {
@@ -330,53 +403,13 @@ export const evaluate = (expr: Expr, scope: Scope): Value | undefined => {
       return expr.value
     case "ref":
       return scope.get(expr.name)
-    case "unary": {
-      const operand = evaluate(expr.operand, scope)
-      if (expr.op === "!") {
-        return typeof operand === "boolean" ? !operand : undefined
-      }
-      const n = numeric(operand)
-      return n === undefined ? undefined : -n
-    }
-    case "binary": {
-      const left = evaluate(expr.left, scope)
-      if (expr.op === "&&" || expr.op === "||") {
-        if (typeof left !== "boolean") {
-          return undefined
-        }
-        if (expr.op === "&&" ? !left : left) {
-          return left
-        }
-        const right = evaluate(expr.right, scope)
-        return typeof right === "boolean" ? right : undefined
-      }
-      const right = evaluate(expr.right, scope)
-      if (left === undefined || right === undefined) {
-        return undefined
-      }
-      if (["<", "<=", ">", ">=", "==", "!="].includes(expr.op)) {
-        return compare(expr.op, left, right)
-      }
-      const a = numeric(left)
-      const b = numeric(right)
-      return a === undefined || b === undefined ? undefined : arithmetic(expr.op, a, b)
-    }
-    case "conditional": {
-      const test = evaluate(expr.test, scope)
-      if (typeof test !== "boolean") {
-        return undefined
-      }
-      return evaluate(test ? expr.whenTrue : expr.whenFalse, scope)
-    }
-    case "call": {
-      const args = expr.args.map((arg) => numeric(evaluate(arg, scope)))
-      if (args.some((arg) => arg === undefined)) {
-        return undefined
-      }
-      return callFunction(
-        expr.name,
-        args.filter((arg): arg is number => arg !== undefined)
-      )
-    }
+    case "unary":
+      return evaluateUnary(expr, scope)
+    case "binary":
+      return evaluateBinary(expr, scope)
+    case "conditional":
+      return evaluateConditional(expr, scope)
+    case "call":
+      return evaluateCall(expr, scope)
   }
 }

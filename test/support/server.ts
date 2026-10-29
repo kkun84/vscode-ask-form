@@ -52,7 +52,7 @@ export const connect = (url: string, token: string): Effect.Effect<Connection, u
 
 export const testHtml = "<!doctype html><html><head></head><body>form</body></html>"
 
-export const harness = (options: { readonly failPosting?: boolean } = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
+const harness = (options: { readonly failPosting?: boolean } = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
   Effect.gen(function* () {
     const posts = yield* Ref.make<ReadonlyArray<ChatPost>>([])
     const waiting = yield* Ref.make<ReadonlyArray<number>>([])
@@ -62,7 +62,9 @@ export const harness = (options: { readonly failPosting?: boolean } = {}): Effec
         ChatPoster,
         ChatPoster.of({
           post: (post) =>
-            options.failPosting === true ? Effect.fail(new ChatPostFailed("chat unavailable")) : Ref.update(posts, (all) => [...all, post])
+            options.failPosting === true
+              ? Effect.fail(new ChatPostFailed({ message: "chat unavailable" }))
+              : Ref.update(posts, (all) => [...all, post])
         })
       ),
       Layer.succeed(

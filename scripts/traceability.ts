@@ -1,5 +1,4 @@
 import { readFile, readdir, writeFile } from "node:fs/promises"
-import { createRequire } from "node:module"
 import { join, relative } from "node:path"
 
 type Level = "REQ" | "SPEC" | "ARCH" | "DES" | "MAT"
@@ -14,7 +13,7 @@ interface Item {
 
 interface Evidence {
   readonly id: string
-  readonly kind: "unit" | "integration" | "system" | "acceptance" | "rule"
+  readonly kind: "unit" | "integration" | "system" | "acceptance"
   readonly where: string
 }
 
@@ -40,7 +39,7 @@ const parentLevels: Readonly<Record<Level, ReadonlyArray<Level>>> = {
 const evidenceKinds: Readonly<Record<Exclude<Level, "MAT">, ReadonlyArray<Evidence["kind"]>>> = {
   REQ: ["acceptance"],
   SPEC: ["system"],
-  ARCH: ["integration", "system", "rule"],
+  ARCH: ["integration", "system"],
   DES: ["unit"]
 }
 
@@ -100,15 +99,8 @@ const testEvidence = async (): Promise<ReadonlyArray<Evidence>> => {
   return found.flat()
 }
 
-const ruleEvidence = (): ReadonlyArray<Evidence> => {
-  const config = createRequire(import.meta.url)(join(root, ".dependency-cruiser.cjs")) as {
-    readonly forbidden: ReadonlyArray<{ readonly name: string }>
-  }
-  return config.forbidden.map((rule) => ({ id: rule.name, kind: "rule", where: ".dependency-cruiser.cjs" }))
-}
-
 const items = (await Promise.all(docs.map((doc) => parseDoc(doc)))).flat()
-const evidence = [...(await testEvidence()), ...ruleEvidence()]
+const evidence = await testEvidence()
 const byId = new Map(items.map((item) => [item.id, item]))
 const problems: Array<string> = []
 

@@ -5,67 +5,66 @@ import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
-const semanticProblems = (spec: FormSpec): ReadonlyArray<string> => {
-  const problems: Array<string> = []
-  const seen = new Set<string>()
+const duplicateIds = (spec: FormSpec): ReadonlyArray<string> => {
   const ids = [...spec.fields.map((field) => field.id), ...(spec.computed ?? []).map((item) => item.id)]
-  for (const id of ids) {
-    if (seen.has(id)) {
-      problems.push(`id「${id}」が重複しています`)
-    }
-    seen.add(id)
-  }
-  for (const field of spec.fields) {
-    problems.push(...fieldProblems(field))
-  }
+  return ids.filter((id, index) => ids.indexOf(id) !== index).map((id) => `id「${id}」が重複しています`)
+}
+
+const expressionProblems = (spec: FormSpec): ReadonlyArray<string> => {
   const known = new Set(spec.fields.map((field) => field.id))
-  for (const item of spec.computed ?? []) {
+  return (spec.computed ?? []).flatMap((item) => {
     const result = parse(item.expression)
-    if (result.ok) {
-      for (const name of references(result.expr)) {
-        if (!known.has(name)) {
-          problems.push(`計算結果「${item.id}」の式が未定義か後ろにある「${name}」を参照しています`)
-        }
-      }
-    } else {
-      problems.push(`計算結果「${item.id}」の式の${result.error.position + 1}文字目: ${result.error.message}`)
-    }
+    const problems = result.ok
+      ? references(result.expr)
+          .filter((name) => !known.has(name))
+          .map((name) => `計算結果「${item.id}」の式が未定義か後ろにある「${name}」を参照しています`)
+      : [`計算結果「${item.id}」の式の${result.error.position + 1}文字目: ${result.error.message}`]
     known.add(item.id)
+    return problems
+  })
+}
+
+const semanticProblems = (spec: FormSpec): ReadonlyArray<string> => [
+  ...duplicateIds(spec),
+  ...spec.fields.flatMap((field) => fieldProblems(field)),
+  ...expressionProblems(spec)
+]
+
+const numberProblems = (field: NumberField): ReadonlyArray<string> => {
+  if (field.min >= field.max) {
+    return [`項目「${field.id}」のminがmax以上です`]
   }
-  return problems
+  const outside = field.default !== undefined && (field.default < field.min || field.default > field.max)
+  return outside ? [`項目「${field.id}」のdefaultが${field.min}〜${field.max}の範囲外です`] : []
+}
+
+const choiceDefaultProblems = (field: ChoiceField, values: ReadonlySet<string>): ReadonlyArray<string> => {
+  if (field.default === undefined) {
+    return []
+  }
+  const shape =
+    isMultiple(field) === Array.isArray(field.default)
+      ? []
+      : [`項目「${field.id}」のdefaultは${isMultiple(field) ? "配列" : "1つの文字列"}にしてください`]
+  const defaults = typeof field.default === "string" ? [field.default] : field.default
+  return [
+    ...shape,
+    ...defaults.filter((value) => !values.has(value)).map((value) => `項目「${field.id}」のdefault「${value}」が選択肢にありません`)
+  ]
+}
+
+const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
+  const values = new Set(field.options.map((option) => option.value))
+  const duplicated = values.size === field.options.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
+  return [...duplicated, ...choiceDefaultProblems(field, values)]
 }
 
 const fieldProblems = (field: Field): ReadonlyArray<string> => {
   switch (field.type) {
-    case "number": {
-      const problems: Array<string> = []
-      if (field.min >= field.max) {
-        problems.push(`項目「${field.id}」のminがmax以上です`)
-      } else if (field.default !== undefined && (field.default < field.min || field.default > field.max)) {
-        problems.push(`項目「${field.id}」のdefaultが${field.min}〜${field.max}の範囲外です`)
-      }
-      return problems
-    }
-    case "choice": {
-      const values = new Set(field.options.map((option) => option.value))
-      const problems: Array<string> = []
-      if (values.size !== field.options.length) {
-        problems.push(`項目「${field.id}」の選択肢のvalueが重複しています`)
-      }
-      if (field.default === undefined) {
-        return problems
-      }
-      const defaults = typeof field.default === "string" ? [field.default] : field.default
-      if (isMultiple(field) !== Array.isArray(field.default)) {
-        problems.push(`項目「${field.id}」のdefaultは${isMultiple(field) ? "配列" : "1つの文字列"}にしてください`)
-      }
-      for (const value of defaults) {
-        if (!values.has(value)) {
-          problems.push(`項目「${field.id}」のdefault「${value}」が選択肢にありません`)
-        }
-      }
-      return problems
-    }
+    case "number":
+      return numberProblems(field)
+    case "choice":
+      return choiceProblems(field)
     default:
       return []
   }

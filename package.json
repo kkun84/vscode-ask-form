@@ -21,7 +21,7 @@
     "build": "node scripts/build.ts",
     "manifest": "node scripts/manifest.ts",
     "typecheck": "node scripts/typecheck.ts",
-    "lint": "oxlint --deny-warnings && oxfmt --check && depcruise src test scripts && jscpd && knip && markdownlint-cli2 && node scripts/no-comments.ts && node scripts/manifest.ts --check && node scripts/traceability.ts",
+    "lint": "oxlint --deny-warnings && oxfmt --check && fallow --fail-on-issues && markdownlint-cli2 && node scripts/no-comments.ts && node scripts/manifest.ts --check && node scripts/traceability.ts",
     "format": "oxfmt",
     "test:unit": "node scripts/timed.ts unit node --test --test-timeout=5000 \"test/unit/**/*.test.ts\"",
     "test:system": "pnpm -s build && node scripts/timed.ts system node --test --test-timeout=5000 \"test/system/**/*.test.ts\"",
@@ -29,7 +29,7 @@
     "budget": "node scripts/budget.ts",
     "test": "pnpm test:unit && pnpm test:integration && pnpm test:system && pnpm test:ui",
     "prepare": "git config core.hooksPath .githooks",
-    "test:integration": "node scripts/timed.ts integration node --test --test-timeout=5000 \"test/integration/**/*.test.ts\"",
+    "test:integration": "pnpm -s build && node scripts/timed.ts integration node --test --test-timeout=10000 \"test/integration/**/*.test.ts\"",
     "test:acceptance": "pnpm -s build && node scripts/timed.ts acceptance node scripts/acceptance.ts",
     "traceability": "node scripts/traceability.ts --write",
     "package": "pnpm -s build && pnpm dlx @vscode/vsce@4.0.0 package --no-dependencies",
@@ -43,17 +43,15 @@
     "@playwright/test": "1.64.1",
     "@types/node": "22.18.0",
     "@types/vscode": "1.110.0",
-    "@typescript/native": "npm:typescript@7.0.2",
     "@vscode/test-web": "0.0.81",
     "axe-core": "4.14.0",
-    "dependency-cruiser": "18.7.0",
     "esbuild": "0.25.10",
-    "jscpd": "5.4.2",
-    "knip": "6.43.0",
+    "fallow": "3.36.0",
     "markdownlint-cli2": "0.24.0",
+    "oxc-parser": "0.155.0",
     "oxfmt": "0.74.0",
     "oxlint": "1.89.0",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "contributes": {
     "mcpServerDefinitionProviders": [

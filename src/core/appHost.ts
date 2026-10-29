@@ -99,42 +99,42 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
   const notify = (method: string, params: unknown) => options.post({ jsonrpc: "2.0", method, params })
   const respond = (id: number | string, result: unknown) => options.post({ jsonrpc: "2.0", id, result })
 
+  const initialize = (id: number | string) => {
+    respond(id, {
+      protocolVersion: "2026-01-26",
+      hostInfo: { name: "copilot-forms-panel", version: "1" },
+      hostCapabilities: { serverTools: {} },
+      hostContext: { ...options.context, displayMode: "inline" }
+    })
+    notify("ui/notifications/tool-input", { arguments: options.args })
+  }
+
+  const callTool = async (id: number | string, params: Record<string, unknown>) => {
+    const args = (params["arguments"] ?? {}) as Record<string, unknown>
+    switch (params["name"]) {
+      case "form_answer":
+        return respond(id, answerWith(options, state, args))
+      case "form_resend":
+        return respond(id, await resendWith(options, args))
+      default:
+        return options.post({ jsonrpc: "2.0", id, error: { code: -32601, message: "unknown tool" } })
+    }
+  }
+
   const receive = async (raw: unknown) => {
     if (raw === null || typeof raw !== "object") {
       return
     }
-    const message = raw as Incoming
-    const params = message.params ?? {}
-    switch (message.method) {
-      case "ui/initialize":
-        if (message.id !== undefined) {
-          respond(message.id, {
-            protocolVersion: "2026-01-26",
-            hostInfo: { name: "copilot-forms-panel", version: "1" },
-            hostCapabilities: { serverTools: {} },
-            hostContext: { ...options.context, displayMode: "inline" }
-          })
-          notify("ui/notifications/tool-input", { arguments: options.args })
-        }
-        return
-      case "tools/call": {
-        if (message.id === undefined) {
-          return
-        }
-        const args = (params["arguments"] ?? {}) as Record<string, unknown>
-        if (params["name"] === "form_answer") {
-          respond(message.id, answerWith(options, state, args))
-        } else if (params["name"] === "form_resend") {
-          respond(message.id, await resendWith(options, args))
-        } else {
-          options.post({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "unknown tool" } })
-        }
-        return
-      }
-      default:
-        if (message.id !== undefined && message.method !== undefined) {
-          respond(message.id, {})
-        }
+    const { id, method, params = {} } = raw as Incoming
+    if (id === undefined || method === undefined) {
+      return
+    }
+    if (method === "ui/initialize") {
+      initialize(id)
+    } else if (method === "tools/call") {
+      await callTool(id, params)
+    } else {
+      respond(id, {})
     }
   }
 

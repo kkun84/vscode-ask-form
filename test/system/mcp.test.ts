@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Effect, Fiber, Ref } from "effect"
+import type { McpSchema } from "effect/ai"
 import { initialValues } from "../../src/core/form.ts"
 import { stableHash } from "../../src/core/hash.ts"
 import { resourceMimeType, resourceUri } from "../../src/mcp/server.ts"
@@ -29,6 +30,14 @@ const ask = (h: Harness, spec: unknown = eventSpec) =>
     yield* h.waitUntil(1)
     return fiber
   })
+
+const expectError = (call: Effect.Effect<McpSchema.CallToolResult>, pattern: RegExp) =>
+  Effect.map(call, (result) => {
+    assert.equal(result.isError, true)
+    assert.match(text(result), pattern)
+  })
+
+const expectExpired = (h: Harness, formKey: string) => expectError(h.call("form_answer", { formKey, action: "chat" }), /expired/)
 
 const answered = (h: Harness, action: "delegate" | "chat") =>
   Effect.gen(function* () {
@@ -104,12 +113,10 @@ describe("SPEC-MCP-004 設計図の誤り", () => {
   it("SPEC-MCP-004 誤った設計図は待たずに問題の一覧を返す", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const result = yield* h.call("ask_form", {
-          title: "t",
-          fields: [{ type: "number", id: "n", label: "N", min: 9, max: 1 }]
-        })
-        assert.equal(result.isError, true)
-        assert.match(text(result), /minがmax以上/)
+        yield* expectError(
+          h.call("ask_form", { title: "t", fields: [{ type: "number", id: "n", label: "N", min: 9, max: 1 }] }),
+          /minがmax以上/
+        )
         assert.deepEqual(yield* Ref.get(h.waiting), [])
       })
     ))
@@ -164,14 +171,7 @@ describe("SPEC-MCP-005 回答を受け取るツール", () => {
       })
     ))
 
-  it("SPEC-MCP-005 待機のない鍵は受け付けない", () =>
-    withHarness((h) =>
-      Effect.gen(function* () {
-        const result = yield* h.call("form_answer", { formKey: "0000000000000000", action: "chat" })
-        assert.equal(result.isError, true)
-        assert.match(text(result), /expired/)
-      })
-    ))
+  it("SPEC-MCP-005 待機のない鍵は受け付けない", () => withHarness((h) => expectExpired(h, "0000000000000000")))
 })
 
 describe("SPEC-MCP-006 フォームの鍵", () => {
@@ -196,9 +196,7 @@ describe("SPEC-MCP-007 中断", () => {
         const fiber = yield* ask(h)
         yield* Fiber.interrupt(fiber)
         yield* h.waitUntil(0)
-        const result = yield* h.call("form_answer", { formKey: form.key, action: "chat" })
-        assert.equal(result.isError, true)
-        assert.match(text(result), /expired/)
+        yield* expectExpired(h, form.key)
       })
     ))
 })
@@ -225,9 +223,7 @@ describe("SPEC-MCP-008 送り直しのツール", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const values = initialValues(form.spec)
-        const result = yield* h.call("form_resend", { spec: eventSpec, before: values, after: values })
-        assert.equal(result.isError, true)
-        assert.match(text(result), /no changes/)
+        yield* expectError(h.call("form_resend", { spec: eventSpec, before: values, after: values }), /no changes/)
         assert.deepEqual(yield* Ref.get(h.posts), [])
       })
     ))
