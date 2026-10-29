@@ -33,7 +33,7 @@ await Promise.all([
 const desktop = async (): Promise<void> => {
   const executable = process.env["VSCODE_EXECUTABLE"]
   if (executable === undefined) {
-    throw new Error("VSCODE_EXECUTABLE is not set. Run inside `nix develop`.")
+    throw new Error("VSCODE_EXECUTABLE is not set. Run inside `nix develop .#acceptance`.")
   }
   const profile = await mkdtemp(join(tmpdir(), "copilot-forms-"))
   const env = { ...process.env }

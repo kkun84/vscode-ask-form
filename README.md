@@ -29,7 +29,7 @@ MCP Appsの表示には、設定`chat.mcp.apps.enabled`が有効である必要�
 
 ## 開発
 
-開発環境はnixで用意します。
+開発環境はnixで用意します。実機のVS Codeでの受け入れテストには、VS Codeを含む`nix develop .#acceptance`を使います。
 
 ```sh
 nix develop

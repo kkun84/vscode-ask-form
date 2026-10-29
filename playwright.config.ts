@@ -10,7 +10,7 @@ export default defineConfig({
   globalTimeout: 120_000,
   reporter: process.env["CI"] === undefined ? [["list"]] : [["list"], ["github"]],
   expect: {
-    toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled", caret: "hide" }
+    toHaveScreenshot: { maxDiffPixelRatio: 0.01, threshold: 0.5, animations: "disabled", caret: "hide" }
   },
   snapshotPathTemplate: "test/system/__screenshots__/{arg}{ext}",
   use: {

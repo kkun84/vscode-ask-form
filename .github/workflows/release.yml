@@ -33,7 +33,9 @@ jobs:
           pnpm typecheck
           pnpm test
           pnpm budget
-          xvfb-run -a pnpm test:acceptance
+      - name: Acceptance tests
+        shell: nix develop .#acceptance --command bash -euo pipefail {0}
+        run: xvfb-run -a pnpm test:acceptance
       - name: Package
         run: pnpm package
       - name: Create the GitHub release

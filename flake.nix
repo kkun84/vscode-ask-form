@@ -34,24 +34,30 @@
               pkgs.noto-fonts-cjk-sans
             ];
           };
-          linuxOnly = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.xvfb-run ];
-        in
-        {
-          default = pkgs.mkShellNoCC {
+          base = {
             packages = [
               pkgs.nodejs_22
               pkgs.pnpm_12
               pkgs.git
-              pkgs.vscode
-            ]
-            ++ linuxOnly;
+            ];
             env = {
               PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
               PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
               PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "1";
               PLAYWRIGHT_NIX_VERSION = pkgs.playwright-driver.version;
-              VSCODE_EXECUTABLE = "${pkgs.vscode}/bin/code";
               FONTCONFIG_FILE = "${fonts}";
+            };
+          };
+        in
+        {
+          default = pkgs.mkShellNoCC base;
+          acceptance = pkgs.mkShellNoCC {
+            packages =
+              base.packages
+              ++ [ pkgs.vscode ]
+              ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.xvfb-run ];
+            env = base.env // {
+              VSCODE_EXECUTABLE = "${pkgs.vscode}/bin/code";
             };
           };
         }

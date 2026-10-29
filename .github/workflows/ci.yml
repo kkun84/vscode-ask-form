@@ -62,6 +62,7 @@ jobs:
       - name: Size budget
         run: pnpm budget
       - name: Acceptance tests
+        shell: nix develop .#acceptance --command bash -euo pipefail {0}
         run: |
           if ! xvfb-run -a pnpm test:acceptance > acceptance.log 2>&1; then
             cat acceptance.log
