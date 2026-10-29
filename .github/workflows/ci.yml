@@ -62,7 +62,13 @@ jobs:
       - name: Size budget
         run: pnpm budget
       - name: Acceptance tests
-        run: xvfb-run -a pnpm test:acceptance
+        run: |
+          if ! xvfb-run -a pnpm test:acceptance > acceptance.log 2>&1; then
+            cat acceptance.log
+            printf '::error title=Acceptance tests::%s\n' "$(tail -n 80 acceptance.log | sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\r//g' -e 's/\n/%0A/g')"
+            exit 1
+          fi
+          cat acceptance.log
       - name: Package
         run: pnpm package
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

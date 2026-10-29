@@ -5,3 +5,4 @@ out/
 .vscode-test/
 .vscode-test-web/
 test-results/
+acceptance.log
