@@ -27,9 +27,9 @@ export const eventually = async (condition: () => boolean, message: string, time
 }
 
 export const extension = (): vscode.Extension<unknown> => {
-  const found = vscode.extensions.getExtension("kkun84.copilot-forms")
+  const found = vscode.extensions.getExtension("kkun84.ask-form")
   if (found === undefined) {
-    throw new Error("extension kkun84.copilot-forms is not installed")
+    throw new Error("extension kkun84.ask-form is not installed")
   }
   return found
 }

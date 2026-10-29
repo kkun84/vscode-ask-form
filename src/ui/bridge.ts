@@ -95,7 +95,7 @@ export const connect = (handlers: BridgeHandlers, target: Window = window.parent
   window.addEventListener("message", onMessage)
 
   return request("ui/initialize", {
-    appInfo: { name: "copilot-forms", version: "1" },
+    appInfo: { name: "ask-form", version: "1" },
     appCapabilities: {},
     protocolVersion
   }).then((result) => {

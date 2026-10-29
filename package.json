@@ -1,6 +1,6 @@
 {
-  "name": "copilot-forms",
-  "displayName": "Copilot Forms",
+  "name": "ask-form",
+  "displayName": "Ask Form",
   "version": "0.1.0",
   "private": true,
   "description": "Lets GitHub Copilot ask you through interactive forms in the chat, prefilled with its best guesses.",
@@ -11,7 +11,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kkun84/2026-10-28"
+    "url": "https://github.com/kkun84/vscode-ask-form"
   },
   "publisher": "kkun84",
   "type": "module",
@@ -56,8 +56,8 @@
   "contributes": {
     "mcpServerDefinitionProviders": [
       {
-        "id": "copilot-forms.mcp",
-        "label": "Copilot Forms"
+        "id": "ask-form.mcp",
+        "label": "Ask Form"
       }
     ],
     "languageModelTools": [

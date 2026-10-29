@@ -74,7 +74,7 @@ MCPサーバーは、AIから呼べるツール`ask_form`を公開する。
 
 ### SPEC-MCP-002 画面のリソース
 
-MCPサーバーは`ui://copilot-forms/form.html`を、MIMEタイプ`text/html;profile=mcp-app`の1つのHTMLとして返す。
+MCPサーバーは`ui://ask-form/form.html`を、MIMEタイプ`text/html;profile=mcp-app`の1つのHTMLとして返す。
 
 派生元: REQ-ASK-001
 

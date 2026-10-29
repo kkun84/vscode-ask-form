@@ -34,7 +34,7 @@ const askInPanel = (
   }
   const form = compiled.success
   const panel = vscode.window.createWebviewPanel(
-    "copilot-forms.form",
+    "ask-form.form",
     form.spec.title,
     {
       viewColumn: vscode.ViewColumn.Beside,

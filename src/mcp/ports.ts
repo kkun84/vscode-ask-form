@@ -12,7 +12,7 @@ export class ChatPoster extends Context.Service<
   {
     readonly post: (post: ChatPost) => Effect.Effect<void, ChatPostFailed>
   }
->()("copilot-forms/ChatPoster") {}
+>()("ask-form/ChatPoster") {}
 
 export class ChatPostFailed extends Schema.TaggedError<ChatPostFailed, { readonly brand: unique symbol }>()("ChatPostFailed", {
   message: Schema.String
@@ -23,4 +23,4 @@ export class WaitingIndicator extends Context.Service<
   {
     readonly update: (waiting: number) => Effect.Effect<void>
   }
->()("copilot-forms/WaitingIndicator") {}
+>()("ask-form/WaitingIndicator") {}

@@ -26,7 +26,7 @@ const appLayer = (options: FormsServerOptions) =>
   FormsServer.pipe(
     Layer.provideMerge(
       McpServer.layerHttp({
-        name: "copilot-forms",
+        name: "ask-form",
         version: options.version,
         instructions,
         path: "/mcp",

@@ -34,8 +34,8 @@ await mkdir(path("dist"), { recursive: true })
 await writeFile(path("dist/form.html"), html)
 
 const define = {
-  COPILOT_FORMS_HTML: JSON.stringify(html),
-  COPILOT_FORMS_VERSION: JSON.stringify(pkg.version)
+  ASK_FORM_HTML: JSON.stringify(html),
+  ASK_FORM_VERSION: JSON.stringify(pkg.version)
 }
 
 const node = await build({

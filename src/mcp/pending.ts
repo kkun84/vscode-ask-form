@@ -30,7 +30,7 @@ export class PendingForms extends Context.Service<
     readonly resolve: (key: string, outcome: (form: CompiledForm) => Outcome) => Effect.Effect<boolean>
     readonly size: Effect.Effect<number>
   }
->()("copilot-forms/PendingForms") {}
+>()("ask-form/PendingForms") {}
 
 export const PendingFormsLive = Layer.effect(
   PendingForms,

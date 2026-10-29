@@ -9,7 +9,7 @@ import { postToChat } from "../shared/chat.ts"
 import { waitingLabel } from "../shared/labels.ts"
 import { createWaitingStatus } from "../shared/waiting.ts"
 
-const providerId = "copilot-forms.mcp"
+const providerId = "ask-form.mcp"
 
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {
   const waiting = createWaitingStatus(waitingLabel())
@@ -38,7 +38,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
     vscode.lm.registerMcpServerDefinitionProvider(providerId, {
       onDidChangeMcpServerDefinitions: changed.event,
       provideMcpServerDefinitions: () => [
-        new vscode.McpHttpServerDefinition("Copilot Forms", vscode.Uri.parse(server.url), { authorization: `Bearer ${token}` }, version)
+        new vscode.McpHttpServerDefinition("Ask Form", vscode.Uri.parse(server.url), { authorization: `Bearer ${token}` }, version)
       ]
     })
   )

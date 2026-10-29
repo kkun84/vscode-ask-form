@@ -102,7 +102,7 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
   const initialize = (id: number | string) => {
     respond(id, {
       protocolVersion: "2026-01-26",
-      hostInfo: { name: "copilot-forms-panel", version: "1" },
+      hostInfo: { name: "ask-form-panel", version: "1" },
       hostCapabilities: { serverTools: {} },
       hostContext: { ...options.context, displayMode: "inline" }
     })

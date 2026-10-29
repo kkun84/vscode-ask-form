@@ -1,5 +1,5 @@
 {
-  description = "copilot-forms development environment";
+  description = "ask-form development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 

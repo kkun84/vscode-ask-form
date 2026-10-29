@@ -37,7 +37,7 @@ const desktop = async (): Promise<void> => {
   if (executable === undefined) {
     throw new Error("VSCODE_EXECUTABLE is not set. Run inside `nix develop .#acceptance`.")
   }
-  const profile = await mkdtemp(join(tmpdir(), "copilot-forms-"))
+  const profile = await mkdtemp(join(tmpdir(), "ask-form-"))
   const env = { ...process.env }
   delete env["ELECTRON_RUN_AS_NODE"]
   const code = await new Promise<number | null>((resolve, reject) => {

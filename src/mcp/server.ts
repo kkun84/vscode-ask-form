@@ -7,10 +7,10 @@ import { PendingForms } from "./pending.ts"
 import { formSpecJsonSchema } from "./schema.ts"
 import { ChatPoster } from "./ports.ts"
 
-export const resourceUri = "ui://copilot-forms/form.html"
+export const resourceUri = "ui://ask-form/form.html"
 export const resourceMimeType = "text/html;profile=mcp-app"
 
-export class FormHtml extends Context.Service<FormHtml, string>()("copilot-forms/FormHtml") {}
+export class FormHtml extends Context.Service<FormHtml, string>()("ask-form/FormHtml") {}
 
 class FormRejected extends Schema.TaggedError<FormRejected, { readonly brand: unique symbol }>()("FormRejected", {
   message: Schema.String
@@ -146,7 +146,7 @@ const FormsHandlers = FormsToolkit.toLayer(
 
 const FormResource = McpServer.resource({
   uri: resourceUri,
-  name: "Copilot Forms",
+  name: "Ask Form",
   description: "Interactive form view for ask_form",
   mimeType: resourceMimeType,
   content: Effect.gen(function* () {

@@ -25,7 +25,7 @@ const desktop = Effect.acquireRelease(
     const { vscode, recorder } = createVscode()
     const { context, dispose } = fakeContext()
     await loadBundle(nodeBundle, vscode, "node").activate(context)
-    const [definition] = recorder.providers.get("copilot-forms.mcp")?.provideMcpServerDefinitions() ?? []
+    const [definition] = recorder.providers.get("ask-form.mcp")?.provideMcpServerDefinitions() ?? []
     if (definition === undefined) {
       throw new Error("MCP server definition is missing")
     }

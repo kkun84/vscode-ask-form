@@ -5,7 +5,7 @@ Copilotの言語モデルが必要で自動化できない要求を、人が確�
 ## 準備
 
 1. リリースする`.vsix`をインストールし、VS Codeを再起動する。
-2. チャットをエージェントのモードにし、ツールの一覧で「Copilot Forms」が有効になっていることを確かめる。
+2. チャットをエージェントのモードにし、ツールの一覧で「Ask Form」が有効になっていることを確かめる。
 
 ## 手順
 
@@ -67,7 +67,7 @@ Copilotの言語モデルが必要で自動化できない要求を、人が確�
 
 検証: REQ-PERF-001
 
-1. 「Developer: Show Running Extensions」を開き、Copilot Formsの起動時間を確かめる。
+1. 「Developer: Show Running Extensions」を開き、Ask Formの起動時間を確かめる。
 2. リリースの`.vsix`の大きさが、前のリリースから大きく増えていないことを確かめる。
 
 ### MAT-SEC-001 なりすましの防止

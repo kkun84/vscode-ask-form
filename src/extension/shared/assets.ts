@@ -1,5 +1,5 @@
-declare const COPILOT_FORMS_HTML: string
-declare const COPILOT_FORMS_VERSION: string
+declare const ASK_FORM_HTML: string
+declare const ASK_FORM_VERSION: string
 
-export const formHtml: string = COPILOT_FORMS_HTML
-export const version: string = COPILOT_FORMS_VERSION
+export const formHtml: string = ASK_FORM_HTML
+export const version: string = ASK_FORM_VERSION
