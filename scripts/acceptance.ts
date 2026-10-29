@@ -7,8 +7,8 @@ import { build } from "esbuild"
 import { runTests } from "@vscode/test-web"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-const out = join(root, "out/acceptance")
 const extension = join(root, "out/extension")
+const out = join(extension, "acceptance")
 const targets = process.argv.slice(2).length === 0 ? ["desktop", "web"] : process.argv.slice(2)
 
 await Promise.all([

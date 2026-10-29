@@ -37,6 +37,7 @@ export const extension = (): vscode.Extension<unknown> => {
 export const run = async (): Promise<void> => {
   const failed: Array<string> = []
   for (const { name, body } of tests) {
+    console.log(`start ${name}`)
     try {
       await body()
       console.log(`ok ${name}`)
