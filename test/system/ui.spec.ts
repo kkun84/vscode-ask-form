@@ -24,6 +24,13 @@ const setPrice = async (frame: Frame, value: string) => {
   await input.press("Tab")
 }
 
+const openResend = async (page: Page, options: Partial<PageOptions>) => {
+  const frame = await open(page, options)
+  await frame.getByRole("button", { name: "この内容で進める" }).click()
+  await frame.getByRole("button", { name: "変更して送り直す" }).click()
+  return frame
+}
+
 interface OutcomeLike {
   readonly status: string
   readonly values?: Record<string, unknown>
@@ -93,6 +100,16 @@ test.describe("SPEC-UI-003 回答の操作", () => {
   })
 })
 
+test.describe("SPEC-UI-003 入力の確定", () => {
+  test("SPEC-UI-003 入力中の数値は⌘/Ctrl+Enterの前に範囲内に確定してから回答する", async ({ page }) => {
+    const frame = await open(page)
+    await frame.getByRole("spinbutton", { name: "参加者数" }).fill("900")
+    await frame.getByRole("spinbutton", { name: "参加者数" }).press("Control+Enter")
+    await expect.poll(async () => (await recorded<OutcomeLike>(page, "outcomes"))[0]?.values?.["attendees"]).toBe(300)
+    await expect(frame.locator(".summary-row", { hasText: "参加者数" })).toContainText("300人")
+  })
+})
+
 test.describe("SPEC-UI-004 回答後の要約", () => {
   test("SPEC-UI-004 回答後は要約になり、利用者が変えた項目に印を付ける", async ({ page }) => {
     const frame = await open(page)
@@ -142,13 +159,22 @@ test.describe("SPEC-UI-005 送り直し", () => {
   })
 
   test("SPEC-UI-005 送れなかったときは理由を示して編集を続けられる", async ({ page }) => {
-    const frame = await open(page, { failResend: true })
-    await frame.getByRole("button", { name: "この内容で進める" }).click()
-    await frame.getByRole("button", { name: "変更して送り直す" }).click()
+    const frame = await openResend(page, { failResend: true })
     await frame.getByRole("switch", { name: "ライブ配信" }).uncheck()
     await frame.getByRole("button", { name: "変更を送信" }).click()
     await expect(frame.getByText(/送信できませんでした/)).toBeVisible()
     await expect(frame.getByRole("button", { name: "変更を送信" })).toBeEnabled()
+  })
+})
+
+test.describe("SPEC-UI-005 送信中", () => {
+  test("SPEC-UI-005 送り直しの送信中は編集できず、送った値が要約に残る", async ({ page }) => {
+    const frame = await openResend(page, { holdResend: true })
+    await setPrice(frame, "2500")
+    await frame.getByRole("button", { name: "変更を送信" }).click()
+    await expect(frame.locator("form.card")).toHaveJSProperty("inert", true)
+    await page.evaluate(() => (window as unknown as { harness: { release: () => void } }).harness.release())
+    await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText("¥2,500")
   })
 })
 

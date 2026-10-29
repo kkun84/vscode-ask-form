@@ -51,7 +51,8 @@ export class FormApp {
     hints: new Map<string, HTMLElement>(),
     computed: undefined as HTMLElement | undefined,
     status: undefined as HTMLElement | undefined,
-    primary: undefined as HTMLButtonElement | undefined
+    primary: undefined as HTMLButtonElement | undefined,
+    form: undefined as HTMLElement | undefined
   }
 
   private readonly root: HTMLElement
@@ -145,7 +146,7 @@ export class FormApp {
     }
   }
 
-  private applyAnswer(action: Action, result: ToolResult): void {
+  private applyAnswer(action: Action, result: ToolResult, values: Values): void {
     if (isExpired(result)) {
       this.phase = { kind: "closed", reason: "expired" }
       return
@@ -154,7 +155,7 @@ export class FormApp {
       this.error = resultText(result)
       return
     }
-    this.sent = action === "delegate" ? this.guesses : { ...this.values }
+    this.sent = action === "delegate" ? this.guesses : values
     this.values = { ...this.sent }
     this.phase = { kind: "summary", status: statusOf[action] }
   }
@@ -164,13 +165,14 @@ export class FormApp {
     if (form === undefined) {
       return Promise.resolve()
     }
+    const values = { ...this.values }
     return this.whileBusy(async (bridge) => {
       const result = await bridge.callTool("form_answer", {
         formKey: form.key,
         action,
-        ...(action === "submit" ? { values: this.values } : {})
+        ...(action === "submit" ? { values } : {})
       })
-      this.applyAnswer(action, result)
+      this.applyAnswer(action, result, values)
     })
   }
 
@@ -178,17 +180,19 @@ export class FormApp {
     if (this.changedSinceSent().length === 0) {
       return Promise.resolve()
     }
+    const after = { ...this.values }
     return this.whileBusy(async (bridge) => {
       const result = await bridge.callTool("form_resend", {
         spec: this.rawSpec,
         before: this.sent,
-        after: this.values,
+        after,
         ...(this.locale === undefined ? {} : { locale: this.locale })
       })
       if (result.isError === true) {
         this.error = `${this.m.sendFailed}: ${resultText(result)}`
       } else {
-        this.sent = { ...this.values }
+        this.sent = after
+        this.values = { ...after }
         this.phase = { kind: "summary", status: "submitted" }
       }
     }, `${this.m.sendFailed}: `)
@@ -208,6 +212,7 @@ export class FormApp {
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
+    this.live.form = undefined
     this.root.replaceChildren(this.view())
     this.refresh()
   }
@@ -267,14 +272,16 @@ export class FormApp {
       (spec.computed ?? []).length === 0 ? null : this.computedView(),
       mode === "answering" ? this.answerFooter() : this.resendFooter()
     )
+    this.live.form = element
     on(element, "submit", (event) => {
       event.preventDefault()
     })
     on(element, "keydown", (event) => {
       if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault()
+        event.target?.dispatchEvent(new Event("change"))
         void (mode === "answering" ? this.answer("submit") : this.resend())
-      } else if (event.key === "Escape" && mode === "resending") {
+      } else if (event.key === "Escape" && mode === "resending" && !this.busy) {
         event.preventDefault()
         this.cancelResend()
       }
@@ -571,6 +578,9 @@ export class FormApp {
     if (this.live.status !== undefined) {
       this.live.status.textContent = this.statusText(sinceSent)
       this.live.status.classList.toggle("error", this.error !== undefined)
+    }
+    if (this.live.form !== undefined) {
+      this.live.form.inert = this.busy
     }
     if (this.live.primary !== undefined) {
       this.live.primary.disabled = this.busy || (this.phase.kind === "resending" && sinceSent.length === 0)

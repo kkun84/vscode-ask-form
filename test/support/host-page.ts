@@ -8,6 +8,7 @@ interface Setup {
   readonly context: HostContext
   readonly expireOnAnswer: boolean
   readonly failResend: boolean
+  readonly holdResend: boolean
   readonly restore: Readonly<Record<string, unknown>> | undefined
   readonly background: string
 }
@@ -17,11 +18,12 @@ interface Recorder {
   readonly resends: Array<ResendRequest>
   readonly messages: Array<unknown>
   cancel: () => void
+  release: () => void
 }
 
 const setup = (window as unknown as { readonly harnessSetup: Setup }).harnessSetup
 document.body.style.background = setup.background
-const recorder: Recorder = { outcomes: [], resends: [], messages: [], cancel: () => {} }
+const recorder: Recorder = { outcomes: [], resends: [], messages: [], cancel: () => {}, release: () => {} }
 ;(window as unknown as { harness: Recorder }).harness = recorder
 
 const frame = document.createElement("iframe")
@@ -45,7 +47,11 @@ const host = createAppHost({
       return Promise.reject(new Error("chat unavailable"))
     }
     recorder.resends.push(request)
-    return Promise.resolve()
+    return setup.holdResend
+      ? new Promise<void>((resolve) => {
+          recorder.release = resolve
+        })
+      : Promise.resolve()
   }
 })
 recorder.cancel = () => host.cancel()
