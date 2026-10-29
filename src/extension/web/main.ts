@@ -9,7 +9,7 @@ import { postToChat } from "../shared/chat.ts"
 import { waitingLabel } from "../shared/labels.ts"
 import { createWaitingStatus, type WaitingStatus } from "../shared/waiting.ts"
 
-export const toolName = "copilot_forms_ask_form"
+export const toolName = "forms_ask_form"
 
 const csp = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';"
 

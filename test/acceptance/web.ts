@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { eventSpec } from "../fixtures/event.ts"
 import { check, eventually, extension, run, test } from "./harness.ts"
 
-const toolName = "copilot_forms_ask_form"
+const toolName = "forms_ask_form"
 
 const formTab = (): boolean =>
   vscode.window.tabGroups.all.some((group) =>

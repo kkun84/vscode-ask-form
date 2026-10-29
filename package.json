@@ -62,7 +62,7 @@
     ],
     "languageModelTools": [
       {
-        "name": "copilot_forms_ask_form",
+        "name": "forms_ask_form",
         "toolReferenceName": "askForm",
         "displayName": "Ask with a form",
         "userDescription": "Ask you through an interactive form prefilled with Copilot's guesses.",
@@ -387,7 +387,7 @@
     ]
   },
   "activationEvents": [
-    "onLanguageModelTool:copilot_forms_ask_form",
+    "onLanguageModelTool:forms_ask_form",
     "onStartupFinished"
   ],
   "extensionKind": [

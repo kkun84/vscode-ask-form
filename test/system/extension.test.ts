@@ -9,7 +9,7 @@ import { cancellation, createVscode, fakeContext, loadBundle, type Recorder } fr
 
 const nodeBundle = new URL("../../dist/node/extension.cjs", import.meta.url).pathname
 const webBundle = new URL("../../dist/web/extension.js", import.meta.url).pathname
-const webTool = "copilot_forms_ask_form"
+const webTool = "forms_ask_form"
 
 const formKey = eventForm.key
 
@@ -153,6 +153,10 @@ describe("SPEC-EXT-004 web版", () => {
     }
     const declared = manifest.contributes.languageModelTools.find((item) => item.name === webTool)
     assert.equal(declared?.when, "isWeb")
+    for (const tool of manifest.contributes.languageModelTools) {
+      assert.match(tool.name, /^[\w-]+$/)
+      assert.doesNotMatch(tool.name, /^(?:vscode_|copilot_)/)
+    }
   })
 })
 
