@@ -1,7 +1,0 @@
-**
-!dist/node/**
-!dist/web/**
-!package.json
-!README.md
-!LICENSE
-!CHANGELOG.md

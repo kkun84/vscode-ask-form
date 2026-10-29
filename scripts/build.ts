@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { build, type BuildOptions } from "esbuild"
 
 const root = new URL("..", import.meta.url)
@@ -64,3 +65,24 @@ await writeFile(
   path("dist/meta.json"),
   JSON.stringify({ inputs: { ...ui.metafile.inputs, ...node.metafile.inputs, ...web.metafile.inputs } })
 )
+
+const stage = path("out/extension/")
+await rm(stage, { recursive: true, force: true })
+await mkdir(stage, { recursive: true })
+const {
+  type: _type,
+  scripts: _scripts,
+  devDependencies: _dev,
+  dependencies: _deps,
+  packageManager: _pm,
+  ...manifest
+} = JSON.parse(await readFile(path("package.json"), "utf8")) as Record<string, unknown>
+await writeFile(
+  join(stage, "package.json"),
+  `${JSON.stringify({ ...manifest, files: ["dist/**", "LICENSE", "CHANGELOG.md"] }, undefined, 2)}\n`
+)
+await Promise.all([
+  cp(path("dist/node"), join(stage, "dist/node"), { recursive: true }),
+  cp(path("dist/web"), join(stage, "dist/web"), { recursive: true }),
+  ...["README.md", "LICENSE", "CHANGELOG.md"].map((file) => cp(path(file), join(stage, file)))
+])

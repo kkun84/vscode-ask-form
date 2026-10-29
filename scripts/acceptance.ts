@@ -7,6 +7,7 @@ import { runTests } from "@vscode/test-web"
 
 const root = new URL("..", import.meta.url).pathname
 const out = join(root, "out/acceptance")
+const extension = join(root, "out/extension")
 const targets = process.argv.slice(2).length === 0 ? ["desktop", "web"] : process.argv.slice(2)
 
 await Promise.all([
@@ -42,7 +43,7 @@ const desktop = async (): Promise<void> => {
     const child = spawn(
       executable,
       [
-        `--extensionDevelopmentPath=${root}`,
+        `--extensionDevelopmentPath=${extension}`,
         `--extensionTestsPath=${join(out, "desktop.cjs")}`,
         `--user-data-dir=${join(profile, "user")}`,
         `--extensions-dir=${join(profile, "extensions")}`,
@@ -68,7 +69,7 @@ const web = (): Promise<void> =>
     browserType: "chromium",
     quality: "stable",
     headless: true,
-    extensionDevelopmentPath: root,
+    extensionDevelopmentPath: extension,
     extensionTestsPath: join(out, "web.js")
   })
 
