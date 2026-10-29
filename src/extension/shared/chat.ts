@@ -24,7 +24,6 @@ export const postToChat = async (storage: vscode.Uri, request: ChatPostRequest):
   await vscode.commands.executeCommand("workbench.action.chat.open", {
     query: request.text,
     isPartialQuery: false,
-    preserveInput: true,
     attachFiles: [file]
   })
 }

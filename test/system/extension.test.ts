@@ -90,6 +90,7 @@ describe("SPEC-EXT-003 投稿", () => {
         }
         assert.equal(options.query, "「交流会の条件」で参加費を¥2,500に変えたので、反映して続けてください。")
         assert.equal(options.isPartialQuery, false)
+        assert.equal("preserveInput" in options, false)
         const attached = recorder.files.get(options.attachFiles[0]?.path ?? "")
         assert.deepEqual(JSON.parse(attached ?? "{}"), { title: eventSpec.title, values: { ...before, price: 2500 } })
       })
