@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { describe, it } from "node:test"
@@ -7,8 +8,8 @@ import { eventForm, eventSpec } from "../fixtures/event.ts"
 import { connect, runScoped } from "../support/server.ts"
 import { cancellation, createVscode, fakeContext, loadBundle, type Recorder } from "../support/vscode-stub.ts"
 
-const nodeBundle = new URL("../../dist/node/extension.cjs", import.meta.url).pathname
-const webBundle = new URL("../../dist/web/extension.js", import.meta.url).pathname
+const nodeBundle = fileURLToPath(new URL("../../dist/node/extension.cjs", import.meta.url))
+const webBundle = fileURLToPath(new URL("../../dist/web/extension.js", import.meta.url))
 const webTool = "forms_ask_form"
 
 const formKey = eventForm.key

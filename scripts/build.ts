@@ -1,9 +1,10 @@
+import { fileURLToPath } from "node:url"
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { build, type BuildOptions } from "esbuild"
 
 const root = new URL("..", import.meta.url)
-const path = (relative: string) => new URL(relative, root).pathname
+const path = (relative: string) => fileURLToPath(new URL(relative, root))
 
 const pkg = JSON.parse(await readFile(path("package.json"), "utf8")) as { readonly version: string }
 

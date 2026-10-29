@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url"
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
 import { appendFileSync, cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs"
@@ -5,7 +6,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 
-const root = new URL("../..", import.meta.url).pathname
+const root = fileURLToPath(new URL("../..", import.meta.url))
 const fallow = join(root, "node_modules/.bin/fallow")
 const copied = ["src", "test/fixtures", "package.json", "tsconfig.json", ".fallowrc.json", "architecture.rules.json"]
 

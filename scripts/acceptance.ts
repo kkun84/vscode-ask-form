@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url"
 import { spawn } from "node:child_process"
 import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -5,7 +6,7 @@ import { join } from "node:path"
 import { build } from "esbuild"
 import { runTests } from "@vscode/test-web"
 
-const root = new URL("..", import.meta.url).pathname
+const root = fileURLToPath(new URL("..", import.meta.url))
 const out = join(root, "out/acceptance")
 const extension = join(root, "out/extension")
 const targets = process.argv.slice(2).length === 0 ? ["desktop", "web"] : process.argv.slice(2)

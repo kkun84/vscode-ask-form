@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url"
 import { readFile, readdir, writeFile } from "node:fs/promises"
 import { join, relative } from "node:path"
 
@@ -17,7 +18,7 @@ interface Evidence {
   readonly where: string
 }
 
-const root = new URL("..", import.meta.url).pathname
+const root = fileURLToPath(new URL("..", import.meta.url))
 const idPattern = /(?:REQ|SPEC|ARCH|DES|MAT)-[A-Z0-9]+-\d{3}/g
 const docs = [
   "docs/spec/requirements.md",

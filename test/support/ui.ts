@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url"
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { readFile } from "node:fs/promises"
@@ -18,7 +19,7 @@ let hostScript: Promise<string> | undefined
 
 const bundleHost = (): Promise<string> => {
   hostScript ??= build({
-    entryPoints: [new URL("./host-page.ts", import.meta.url).pathname],
+    entryPoints: [fileURLToPath(new URL("./host-page.ts", import.meta.url))],
     bundle: true,
     format: "iife",
     platform: "browser",
