@@ -66,7 +66,7 @@ jobs:
         run: |
           if ! xvfb-run -a pnpm test:acceptance > acceptance.log 2>&1; then
             cat acceptance.log
-            printf '::error title=Acceptance tests::%s\n' "$(tail -n 80 acceptance.log | sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\r//g' -e 's/\n/%0A/g')"
+            printf '::error title=Acceptance tests::%s\n' "$(tr "\r" "\n" < acceptance.log | grep -v "Downloading VS Code" | tail -n 40 | sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\r//g' -e 's/\n/%0A/g')"
             exit 1
           fi
           cat acceptance.log
