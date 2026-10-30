@@ -73,21 +73,6 @@ describe("SPEC-EXT-002 待機の表示", () => {
     ))
 })
 
-describe("SPEC-EXT-003 投稿", () => {
-  it("SPEC-EXT-003 送信のツールで、フォームの会話の入力欄にある発言をチャットに送信する", () =>
-    runScoped(
-      Effect.gen(function* () {
-        const { recorder, connection } = yield* desktopConnection
-        const result = yield* connection.call("form_send", {})
-        assert.equal(result.isError, false)
-        assert.deepEqual(
-          recorder.commands.map(({ command }) => command),
-          ["workbench.action.chat.submit"]
-        )
-      })
-    ))
-})
-
 const web = () => {
   const { vscode, recorder } = createVscode()
   const { context } = fakeContext()
@@ -101,6 +86,36 @@ const web = () => {
 
 const resultText = (result: unknown): string =>
   (result as { readonly content: ReadonlyArray<{ readonly value: string }> }).content[0]?.value ?? ""
+
+it("SPEC-EXT-003 web版ではJSONを保存して添付し、利用者が送信する下書きとして入力欄に入れる", async () => {
+  const { recorder, tool } = web()
+  const source = cancellation()
+  const pending = tool.invoke({ input: eventSpec }, source.token)
+  const panel = recorder.panels[0]
+  assert.ok(panel)
+  const before = initialValues(eventForm.spec)
+  panel.receive({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: { name: "form_answer", arguments: { formKey, action: "delegate" } }
+  })
+  await pending
+  const after = { ...before, price: 2500 }
+  panel.receive({
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: { name: "form_resend", arguments: { spec: eventSpec, before, after } }
+  })
+  await Effect.runPromise(until(() => recorder.commands.length > 0))
+  assert.equal(recorder.commands.length, 1)
+  const command = recorder.commands[0]
+  assert.equal(command?.command, "workbench.action.chat.open")
+  const draft = command?.args[0] as { readonly isPartialQuery: boolean; readonly attachFiles: ReadonlyArray<{ readonly path: string }> }
+  assert.equal(draft.isPartialQuery, true)
+  assert.deepEqual(JSON.parse(recorder.files.get(draft.attachFiles[0]?.path ?? "") ?? "null"), { title: eventSpec.title, values: after })
+})
 
 describe("SPEC-EXT-004 web版", () => {
   it("SPEC-EXT-004 ツールが呼ばれるとパネルにフォームを表示し、回答を結果として返す", async () => {

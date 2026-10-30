@@ -2,14 +2,14 @@ import { Effect, Layer, Ref, Schedule, type Scope } from "effect"
 import { McpClient, McpProtocol, type McpSchema } from "effect/ai"
 import { FetchHttpClient } from "effect/http"
 import { serveForms } from "../../src/mcp/http.ts"
-import { ChatPostFailed, ChatPoster, WaitingIndicator } from "../../src/mcp/ports.ts"
+import { AttachmentStore, WaitingIndicator } from "../../src/mcp/ports.ts"
 import { FormHtml } from "../../src/mcp/server.ts"
+import { memoryAttachments } from "./attachments.ts"
 
 export interface Harness {
   readonly url: string
   readonly token: string
   readonly client: McpClient.McpClient
-  readonly submits: Ref.Ref<number>
   readonly waiting: Ref.Ref<ReadonlyArray<number>>
   readonly tool: (name: string) => Effect.Effect<McpSchema.Tool>
   readonly call: (name: string, args: Record<string, unknown>) => Effect.Effect<McpSchema.CallToolResult>
@@ -53,25 +53,16 @@ export const connect = (url: string, token: string): Effect.Effect<Connection, u
 export const testHtml = "<!doctype html><html><head></head><body>form</body></html>"
 
 interface HarnessOptions {
-  readonly failPosting?: boolean
+  readonly attachments?: typeof AttachmentStore.Service
   readonly onWaiting?: (count: number) => Effect.Effect<void>
 }
 
 const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
   Effect.gen(function* () {
-    const submits = yield* Ref.make(0)
     const waiting = yield* Ref.make<ReadonlyArray<number>>([])
     const token = "test-token"
     const services = Layer.mergeAll(
-      Layer.succeed(
-        ChatPoster,
-        ChatPoster.of({
-          submit:
-            options.failPosting === true
-              ? Effect.fail(new ChatPostFailed({ message: "chat unavailable" }))
-              : Ref.update(submits, (count) => count + 1)
-        })
-      ),
+      Layer.succeed(AttachmentStore, options.attachments ?? memoryAttachments().store),
       Layer.succeed(
         WaitingIndicator,
         WaitingIndicator.of({
@@ -88,7 +79,7 @@ const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, 
         Effect.retry({ times: 500, schedule: Schedule.spaced("5 millis") }),
         Effect.orDie
       )
-    return { url, token, client, submits, waiting, tool, call, waitUntil }
+    return { url, token, client, waiting, tool, call, waitUntil }
   })
 
 export const runScoped = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>): Promise<A> =>

@@ -179,9 +179,7 @@ export const outcomeText = (outcome: Outcome): string => {
 }
 
 export const attachmentName = (title: string): string => {
-  const slug = title
-    .replaceAll(/[^\p{L}\p{N}]+/gu, "-")
-    .replaceAll(/^-|-$/g, "")
-    .slice(0, 40)
+  const normalized = title.replaceAll(/[^\p{L}\p{N}]+/gu, "-").replaceAll(/^-|-$/g, "")
+  const slug = [...normalized].slice(0, 40).join("")
   return `${slug === "" ? "form" : slug}.json`
 }

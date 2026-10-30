@@ -99,10 +99,6 @@ const answerAsDesktop = (message: Record<string, unknown>, params: Record<string
     })
     return true
   }
-  if (message["method"] === "tools/call" && params["name"] === "form_send") {
-    reply({ isError: false, content: [{ type: "text", text: "" }], structuredContent: { sent: true } })
-    return true
-  }
   return false
 }
 

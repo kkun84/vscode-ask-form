@@ -179,7 +179,7 @@ test("REQ-ANS-003 チャットで答えると、answer_in_chatがモデルに届
   expect(result).toContain("End your turn now and wait for the user's next message")
 })
 
-test("REQ-RES-002 変更して送り直すと、差分の発言とJSON添付がモデルに届く", async (session) => {
+test("REQ-RES-002 変更を入力欄に置き、利用者が送信すると差分の発言とJSON添付がモデルに届く", async (session) => {
   await editAnswer(session)
   const frame = theFrame(session)
   const price = frame.getByRole("spinbutton", { name: "参加費" })
@@ -187,6 +187,11 @@ test("REQ-RES-002 変更して送り直すと、差分の発言とJSON添付が�
   await price.press("Tab")
   const messageIndex = session.llm.userMessages.length
   await frame.getByRole("button", { name: "Send changes", exact: true }).click()
+  await expect(frame.locator(".summary .notice")).toHaveText("Placed in the chat input. Review it before sending.")
+  expect(session.llm.userMessages).toHaveLength(messageIndex)
+  await session.window.locator(".interactive-input-part .monaco-editor .view-lines").last().click()
+  await session.window.keyboard.press("End")
+  await session.window.keyboard.press("Enter")
   const difference = `In "${eventSpec.title}", I changed 参加費 to ¥2,500. Please apply it and continue.`
   const posted = session.window.locator(".interactive-request", { hasText: difference })
   await expect(posted).toBeVisible({ timeout: 30_000 })

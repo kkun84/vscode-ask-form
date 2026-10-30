@@ -175,6 +175,10 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
     workspace: {
       fs: {
         createDirectory: () => Promise.resolve(),
+        readFile: (target: FakeUri) => {
+          const text = recorder.files.get(target.path)
+          return text === undefined ? Promise.reject(new Error("file not found")) : Promise.resolve(new TextEncoder().encode(text))
+        },
         writeFile: (target: FakeUri, content: Uint8Array) => {
           recorder.files.set(target.path, new TextDecoder().decode(content))
           return Promise.resolve()

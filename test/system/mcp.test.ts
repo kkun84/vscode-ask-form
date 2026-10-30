@@ -1,9 +1,10 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Deferred, Effect, Fiber, Ref } from "effect"
+import { Deferred, Effect, Fiber, Ref, Result } from "effect"
 import type { McpSchema } from "effect/ai"
 import { initialValues } from "../../src/core/form.ts"
 import { stableHash } from "../../src/core/hash.ts"
+import { memoryAttachments } from "../support/attachments.ts"
 import { resourceMimeType, resourceUri } from "../../src/mcp/server.ts"
 import { eventForm, eventSpec } from "../fixtures/event.ts"
 import { structured, testHtml, text, withHarness, type Harness } from "../support/server.ts"
@@ -50,6 +51,8 @@ describe("SPEC-MCP-001 質問のツール", () => {
   it("SPEC-MCP-001 ask_formを読み取り専用で画面つきとして公開する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
+        const tools = yield* h.client.listTools()
+        assert.deepEqual(tools.map((tool) => tool.name).toSorted(), ["ask_form", "form_answer", "form_resend", "form_status"])
         const tool = yield* h.tool("ask_form")
         assert.equal(tool.annotations?.readOnlyHint, true)
         assert.equal(tool.annotations?.openWorldHint, false)
@@ -152,7 +155,7 @@ describe("SPEC-MCP-005 回答を受け取るツール", () => {
   it("SPEC-MCP-005 画面専用でAIからは見えない印を持つ", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        for (const name of ["form_answer", "form_resend", "form_send", "form_status"]) {
+        for (const name of ["form_answer", "form_resend", "form_status"]) {
           const tool = yield* h.tool(name)
           assert.deepEqual((tool._meta as Record<string, unknown>)["ui"], { resourceUri, visibility: ["app"] })
         }
@@ -307,7 +310,6 @@ describe("SPEC-MCP-008 送り直しのツール", () => {
         assert.equal(message.attachment.name, "交流会の条件.json")
         assert.match(message.attachment.uri, /^ask-form:\/\/answers\/[0-9a-f-]{36}\//)
         assert.deepEqual(yield* readAttachment(h, message.attachment.uri), { title: "交流会の条件", values: after })
-        assert.equal(yield* Ref.get(h.submits), 0)
       })
     ))
 
@@ -332,6 +334,47 @@ describe("SPEC-MCP-008 送り直しのツール", () => {
         )
       })
     ))
+})
+
+describe("SPEC-MCP-008 添付の永続化", () => {
+  it("SPEC-MCP-008 同じ保存先を使う新しいサーバーでも、64件を超える追加後も以前のURIを読める", async () => {
+    const { store } = memoryAttachments()
+    const before = initialValues(form.spec)
+    const after = { ...before, price: 2500 }
+    const uri = await withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          const result = yield* h.call("form_resend", { spec: eventSpec, before, after })
+          return (result.structuredContent as { readonly attachment: { readonly uri: string } }).attachment.uri
+        }),
+      { attachments: store }
+    )
+    await withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          yield* Effect.forEach(Array.from({ length: 65 }), () => h.call("form_resend", { spec: eventSpec, before, after }))
+          assert.deepEqual(yield* readAttachment(h, uri), { title: eventSpec.title, values: after })
+          yield* Effect.forEach([uri.replace(/[^/]+$/, "missing.json"), uri.replace(/[^/]+$/, "%2e%2e%2fsecret.json")], (invalid) =>
+            h.client.readResource({ uri: invalid }).pipe(
+              Effect.result,
+              Effect.map((result) => assert.ok(Result.isFailure(result)))
+            )
+          )
+        }),
+      { attachments: store }
+    )
+  })
+
+  it("SPEC-MCP-008 保存に失敗したら添付を返さず誤りを返す", () => {
+    const { store } = memoryAttachments("storage unavailable")
+    return withHarness(
+      (h) => {
+        const before = initialValues(form.spec)
+        return expectError(h.call("form_resend", { spec: eventSpec, before, after: { ...before, price: 0 } }), /storage unavailable/)
+      },
+      { attachments: store }
+    )
+  })
 
   it("SPEC-MCP-008 差分がなければ誤りを返す", () =>
     withHarness((h) =>
@@ -340,22 +383,6 @@ describe("SPEC-MCP-008 送り直しのツール", () => {
         yield* expectError(h.call("form_resend", { spec: eventSpec, before: values, after: values }), /no changes/)
       })
     ))
-})
-
-describe("SPEC-MCP-010 送信のツール", () => {
-  for (const failPosting of [false, true]) {
-    it(`SPEC-MCP-010 画面が入力欄に置いた発言を送信させ、${failPosting ? "送信できなければ誤りを返す" : "成功を返す"}`, () =>
-      withHarness(
-        (h) =>
-          Effect.gen(function* () {
-            const result = yield* h.call("form_send", {})
-            assert.equal(result.isError, failPosting)
-            assert.equal(yield* Ref.get(h.submits), failPosting ? 0 : 1)
-            assert.equal(/chat unavailable/.test(text(result)), failPosting)
-          }),
-        { failPosting }
-      ))
-  }
 })
 
 const post = (url: string, headers: Record<string, string>) =>

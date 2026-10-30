@@ -3,6 +3,7 @@ import { dirname, join } from "node:path"
 import { chromium, expect, type Browser, type Page } from "@playwright/test"
 import { open } from "@vscode/test-web"
 import { formFrame } from "./frames.ts"
+import { completeWebRun } from "./web-completion.ts"
 
 export interface WebPaths {
   readonly electron: string
@@ -47,29 +48,22 @@ const report = async (page: Page, results: string): Promise<void> => {
   }
 }
 
-const drive = (browser: Browser, endpoint: string, results: string): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const run = async () => {
-      const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
-      page.setDefaultTimeout(30_000)
-      await page.exposeFunction("codeAutomationLog", (type: "log" | "error" | "warn" | "info", args: ReadonlyArray<unknown>) => {
-        console[type](...args)
-      })
-      await page.exposeFunction("codeAutomationExit", (code: number) => {
-        if (code === 0) {
-          resolve()
-        } else {
-          void report(page, results).then(() => reject(new Error(`web acceptance tests failed with exit code ${code}`)))
-        }
-      })
+const drive = async (browser: Browser, endpoint: string, results: string): Promise<void> => {
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
+  page.setDefaultTimeout(30_000)
+  try {
+    await page.exposeFunction("codeAutomationLog", (type: "log" | "error" | "warn" | "info", args: ReadonlyArray<unknown>) => {
+      console[type](...args)
+    })
+    await completeWebRun(page, async () => {
       await page.goto(endpoint)
-      await answer(page).catch(async (error: unknown) => {
-        await report(page, results)
-        reject(error)
-      })
-    }
-    run().catch(reject)
-  })
+      await answer(page)
+    })
+  } catch (error) {
+    await report(page, results)
+    throw error
+  }
+}
 
 export const runWeb = async (paths: WebPaths): Promise<void> => {
   await mkdir(paths.results, { recursive: true })

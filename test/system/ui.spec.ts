@@ -148,14 +148,16 @@ test.describe("SPEC-UI-005 送り直し", () => {
     await expect(frame.getByText("変更はまだありません")).toBeVisible()
     await setPrice(frame, "2500")
     await expect(frame.getByText("1項目を変更")).toBeVisible()
-    await expect(frame.getByText("前回の送信から変更")).toBeVisible()
+    await expect(frame.getByText("回答から変更")).toBeVisible()
     await send.click()
     await expect.poll(() => recorded<{ readonly text: string }>(page, "resends")).toHaveLength(1)
     const [resend] = await recorded<{ readonly text: string }>(page, "resends")
     expect(resend?.text).toBe("「交流会の条件」で参加費を¥2,500に変えたので、反映して続けてください。")
     await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText("¥2,500")
     await frame.getByRole("button", { name: "変更して送り直す" }).click()
-    await expect(frame.getByRole("button", { name: "変更を送信" })).toBeDisabled()
+    await expect(send).toBeEnabled()
+    await setPrice(frame, "2000")
+    await expect(send).toBeDisabled()
   })
 
   test("SPEC-UI-005 送れなかったときは理由を示して編集を続けられる", async ({ page }) => {
@@ -173,7 +175,7 @@ const sendChange = async (frame: Frame) => {
 }
 
 test.describe("SPEC-UI-005 フォームの会話への送り直し", () => {
-  test("SPEC-UI-005 文章と添付をフォームの会話の入力欄に置いてから送信させる", async ({ page }) => {
+  test("SPEC-UI-005 文章と添付をフォームの会話の入力欄に置き、利用者による送信を案内する", async ({ page }) => {
     const frame = await openResend(page, { placeMessage: "placed" })
     await sendChange(frame)
     await expect(frame.locator(".summary-row", { hasText: "ライブ配信" })).toBeVisible()
@@ -188,12 +190,48 @@ test.describe("SPEC-UI-005 フォームの会話への送り直し", () => {
           ? [message.params.name]
           : []
     )
-    expect(order).toEqual(["form_resend", "ui/message", "form_send"])
+    expect(order).toEqual(["form_resend", "ui/message"])
+    await expect(frame.locator(".summary .notice")).toHaveText("チャットの入力欄に入れました。内容を確かめて送信してください")
     expect(messages.find((message) => message.method === "ui/message")?.params?.content).toEqual([
       { type: "text", text: "resent" },
       { type: "resource_link", uri: "ask-form://answers/1/form.json", name: "form.json", mimeType: "application/json" }
     ])
   })
+
+  for (const placeMessage of ["placed", undefined] as const) {
+    test(`SPEC-UI-005 ${placeMessage === undefined ? "web" : "デスクトップ"}の下書き後も回答を基準にし、最新の編集値を要約に保つ`, async ({
+      page
+    }) => {
+      const baseline = { ...defaults(), price: 3000 }
+      const frame = await open(page, {
+        ...(placeMessage === undefined ? {} : { placeMessage }),
+        restore: { status: "submitted", values: baseline, computed: {} }
+      })
+      const edit = frame.getByRole("button", { name: "変更して送り直す" })
+      const send = frame.getByRole("button", { name: "変更を送信" })
+      await edit.click()
+      for (const price of ["2500", "4000"]) {
+        await setPrice(frame, price)
+        await send.click()
+        await expect(frame.locator(".summary .notice")).toHaveText("チャットの入力欄に入れました。内容を確かめて送信してください")
+        await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText(`¥${Number(price).toLocaleString("en-US")}`)
+        await edit.click()
+        await expect(send).toBeEnabled()
+      }
+      const calls = await recorded<{ readonly params?: { readonly name?: string; readonly arguments?: { readonly before?: unknown } } }>(
+        page,
+        "messages"
+      )
+      expect(calls.filter((call) => call.params?.name === "form_resend").map((call) => call.params?.arguments?.before)).toEqual([
+        baseline,
+        baseline
+      ])
+      await setPrice(frame, "3000")
+      await expect(send).toBeDisabled()
+      await frame.getByRole("button", { name: "キャンセル", exact: true }).click()
+      await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText("¥4,000")
+    })
+  }
 
   test("SPEC-UI-005 入力欄に置けなければ送信させず、会話を開くよう示す", async ({ page }) => {
     const frame = await openResend(page, { placeMessage: "refused" })

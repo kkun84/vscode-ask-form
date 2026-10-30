@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import { Result } from "effect"
-import { changedFields, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
+import { attachmentName, changedFields, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
 import { messages } from "../../src/core/messages.ts"
 import { checkValues, compile } from "../../src/core/validate.ts"
 import { eventSpec } from "../fixtures/event.ts"
@@ -112,4 +112,13 @@ it("DES-SPEC-001 予約語と一致しないidは計算式から参照できる"
     computed: ids.map((id) => ({ id: `${id}Result`, label: id, expression: `${id} ? 1 : 0` }))
   }).pipe(Result.getOrThrow)
   assert.deepEqual(computeValues(form, initialValues(form.spec)), Object.fromEntries(ids.map((id) => [`${id}Result`, 0])))
+})
+
+it("DES-CHAT-001 添付名を40コードポイントで切り詰め、境界のサロゲートペアを保つ", () => {
+  const title = "a".repeat(39) + "𠮷"
+  for (const input of [title, title + "続き"]) {
+    const name = attachmentName(input)
+    assert.equal(name, `${title}.json`)
+    assert.equal(decodeURIComponent(encodeURIComponent(name)), name)
+  }
 })

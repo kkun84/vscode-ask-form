@@ -1,15 +1,19 @@
 import { Context, Schema, type Effect } from "effect"
 
-export class ChatPoster extends Context.Service<
-  ChatPoster,
+export class AttachmentStore extends Context.Service<
+  AttachmentStore,
   {
-    readonly submit: Effect.Effect<void, ChatPostFailed>
+    readonly write: (id: string, name: string, text: string) => Effect.Effect<void, AttachmentStoreFailed>
+    readonly read: (id: string, name: string) => Effect.Effect<string, AttachmentStoreFailed>
   }
->()("ask-form/ChatPoster") {}
+>()("ask-form/AttachmentStore") {}
 
-export class ChatPostFailed extends Schema.TaggedError<ChatPostFailed, { readonly brand: unique symbol }>()("ChatPostFailed", {
-  message: Schema.String
-}) {}
+export class AttachmentStoreFailed extends Schema.TaggedError<AttachmentStoreFailed, { readonly brand: unique symbol }>()(
+  "AttachmentStoreFailed",
+  {
+    message: Schema.String
+  }
+) {}
 
 export class WaitingIndicator extends Context.Service<
   WaitingIndicator,

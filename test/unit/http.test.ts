@@ -3,11 +3,12 @@ import { Server } from "node:http"
 import { it } from "node:test"
 import { Effect, Layer, Result } from "effect"
 import { FormsListenFailed, serveForms } from "../../src/mcp/http.ts"
-import { ChatPoster, WaitingIndicator } from "../../src/mcp/ports.ts"
+import { AttachmentStore, WaitingIndicator } from "../../src/mcp/ports.ts"
 import { FormHtml } from "../../src/mcp/server.ts"
+import { memoryAttachments } from "../support/attachments.ts"
 
 const services = Layer.mergeAll(
-  Layer.succeed(ChatPoster, ChatPoster.of({ submit: Effect.void })),
+  Layer.succeed(AttachmentStore, memoryAttachments().store),
   Layer.succeed(WaitingIndicator, WaitingIndicator.of({ update: () => Effect.void })),
   Layer.succeed(FormHtml, "")
 )

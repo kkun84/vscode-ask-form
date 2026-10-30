@@ -84,7 +84,7 @@ const resendWith = async (options: AppHostOptions, params: Record<string, unknow
   const locale = typeof params["locale"] === "string" ? params["locale"] : options.context.locale
   const text = resendMessage(compiled.success.spec, before.success, after.success, messages(languageOf(locale)))
   if (text === undefined) {
-    return textResult("no changes: 前回の送信から変更がありません", true)
+    return textResult("no changes: 回答から変更がありません", true)
   }
   try {
     await options.onResend({ text, title: compiled.success.spec.title, values: after.success })

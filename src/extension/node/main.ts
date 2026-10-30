@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto"
 import * as vscode from "vscode"
 import { Effect, Exit, Layer, Scope } from "effect"
 import { serveForms } from "../../mcp/http.ts"
-import { ChatPostFailed, ChatPoster, WaitingIndicator } from "../../mcp/ports.ts"
+import { WaitingIndicator } from "../../mcp/ports.ts"
 import { FormHtml } from "../../mcp/server.ts"
 import { formHtml, version } from "../shared/assets.ts"
 import { waitingLabel } from "../shared/labels.ts"
 import { createWaitingStatus } from "../shared/waiting.ts"
+import { attachmentStore } from "./attachments.ts"
 
 const providerId = "ask-form.mcp"
 
@@ -14,15 +15,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
   const waiting = createWaitingStatus(waitingLabel())
   context.subscriptions.push(waiting)
   const services = Layer.mergeAll(
-    Layer.succeed(
-      ChatPoster,
-      ChatPoster.of({
-        submit: Effect.tryPromise({
-          try: () => vscode.commands.executeCommand("workbench.action.chat.submit"),
-          catch: (error) => new ChatPostFailed({ message: error instanceof Error ? error.message : String(error) })
-        }).pipe(Effect.asVoid)
-      })
-    ),
+    attachmentStore(context.globalStorageUri),
     Layer.succeed(WaitingIndicator, WaitingIndicator.of({ update: (count) => Effect.sync(() => waiting.update(count)) })),
     Layer.succeed(FormHtml, formHtml)
   )

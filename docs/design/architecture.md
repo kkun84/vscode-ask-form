@@ -56,7 +56,7 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 `src/extension/web`と`src/extension/shared`は、Node.jsの組み込みモジュールと`src/mcp`に依存しない。
 
-- 投稿ごとの一意な保存先ディレクトリは共有の投稿処理で作り、両方の入口でWeb Cryptoを使う。添付名は題名由来の`<slug>.json`に保ち、UUIDはディレクトリ名に使う。ファイル操作はVS CodeのAPIに集める。
+- 投稿ごとの一意なUUIDはWeb Cryptoで作り、保存先ディレクトリは共有のファイル処理で作る。添付名は題名由来の`<slug>.json`に保ち、UUIDはディレクトリ名に使う。ファイル操作はVS CodeのAPIに集める。
 
 派生元: SPEC-EXT-004, SPEC-EXT-003
 
@@ -80,7 +80,7 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 `src/mcp/ports.ts`は`effect`と、ARCH-LAYER-006 の中核だけに依存する。
 
-派生元: SPEC-EXT-002, SPEC-EXT-003
+派生元: SPEC-EXT-002, SPEC-MCP-008
 
 ### ARCH-EFFECT-002 ツールの処理は通信手段を知らない
 
@@ -110,9 +110,12 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 ### ARCH-PORT-001 MCPサーバーへの差し込み口
 
-MCPサーバーはVS Codeに依存せずに送信と待機の表示を行うため、`ChatPoster`(入力欄の発言の送信)と`WaitingIndicator`(待機数の通知)をEffectのサービスとして要求する。デスクトップ版の入口がVS Codeを使う実装を与え、テストは記録するだけの実装を与える。
+MCPサーバーはVS Codeに依存せずに添付の保存・読込と待機の表示を行うため、`AttachmentStore`と`WaitingIndicator`をEffectのサービスとして要求する。
 
-派生元: SPEC-EXT-002, SPEC-EXT-003, SPEC-MCP-010
+- デスクトップ版の入口が永続ファイルを使う保存実装を与え、テストはメモリ内の保存実装を与える。MCPサーバーは保存先を所有せず、別のサーバーインスタンスにも同じ保存先を渡せる。
+- 自動送信のポートは持たない。デスクトップの画面が`ui/message`で自分の会話に下書きを置き、利用者が送信する。
+
+派生元: SPEC-EXT-002, SPEC-MCP-008, SPEC-UI-005
 
 ### ARCH-UI-001 画面の通信は1種類
 
@@ -121,4 +124,7 @@ MCPサーバーはVS Codeに依存せずに送信と待機の表示を行うた�
 - 画面の共通ブリッジが送り主とoriginを検証する。VS Code固有の送り主の橋渡しはweb版の入口に閉じ込める。
 - 中断の保持と初期化後の再通知は中核のホスト役が担当し、web版の入口は取り消しをホストへ渡す。
 
-派生元: SPEC-EXT-004, SPEC-UI-001, SPEC-UI-006, SPEC-UI-010
+- 画面が持つ回答の基準と要約用の編集値は分け、下書きの配置によって回答の基準を変えない。
+- web受け入れテストは拡張機能とブラウザの完了をテスト側で合流させ、片方の成功だけで終了しない。
+
+派生元: SPEC-EXT-004, SPEC-UI-001, SPEC-UI-005, SPEC-UI-006, SPEC-UI-010
