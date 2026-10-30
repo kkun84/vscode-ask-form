@@ -14,6 +14,7 @@ import { languageOf, messages, type Messages } from "../core/messages.ts"
 import type { ChoiceField, Field, FormSpec, NumberField, TextField, ToggleField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
+import { watchStatus } from "./status.ts"
 
 type Status = "submitted" | "delegated" | "answer_in_chat"
 
@@ -47,6 +48,7 @@ export class FormApp {
   private busy = false
   private error: string | undefined
   private bridge: Bridge | undefined
+  private stopStatus: (() => void) | undefined
   private readonly live = {
     hints: new Map<string, HTMLElement>(),
     computed: undefined as HTMLElement | undefined,
@@ -64,6 +66,7 @@ export class FormApp {
 
   attach(bridge: Bridge): void {
     this.bridge = bridge
+    this.syncStatus()
   }
 
   setContext(context: HostContext): void {
@@ -101,6 +104,9 @@ export class FormApp {
   }
 
   setResult(result: ToolResult): void {
+    if (this.phase.kind === "closed") {
+      return
+    }
     if (result.isError === true) {
       if (this.phase.kind === "loading" || this.phase.kind === "answering") {
         this.phase = { kind: "invalid", message: resultText(result) }
@@ -147,6 +153,9 @@ export class FormApp {
   }
 
   private applyAnswer(action: Action, result: ToolResult, values: Values): void {
+    if (this.phase.kind === "closed") {
+      return
+    }
     if (isExpired(result)) {
       this.phase = { kind: "closed", reason: "expired" }
       return
@@ -207,7 +216,17 @@ export class FormApp {
     this.refresh()
   }
 
+  private syncStatus(): void {
+    if (this.phase.kind === "answering" && this.form !== undefined && this.bridge !== undefined) {
+      this.stopStatus ??= watchStatus(this.bridge, this.form.key, () => this.setCancelled())
+    } else {
+      this.stopStatus?.()
+      this.stopStatus = undefined
+    }
+  }
+
   private render(): void {
+    this.syncStatus()
     this.live.hints.clear()
     this.live.computed = undefined
     this.live.status = undefined

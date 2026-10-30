@@ -68,4 +68,16 @@
 
 待機中の呼び出しを鍵ごとの先入れ先出しの列で持つ。呼び出しが取り消されたら列から外す。待機の総数が変わったときだけ`WaitingIndicator`へ知らせる。
 
+待機の登録と終了処理はEffectの`acquireUseRelease`で組にする。終了時に、回答が渡されたか中断されたかを記録する。終了状態は直近128個の鍵だけを保持し、同じ鍵で待機中の呼び出しがあれば終了状態より優先する。記録のない鍵は`unknown`とする。
+
 派生元: SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-007, SPEC-EXT-002
+
+## 画面の中断
+
+### DES-UI-001 中断状態の確認
+
+回答待ちの画面は、MCP Appsの`tools/call`で`form_status`を呼び、返答から1秒後に次の確認を行う。確認を重ねて送らず、通信の失敗や`unknown`を中断と扱わない。`cancelled`を受け取ると中断を一度だけ知らせる。回答待ちでなくなるとタイマーを止め、遅れて届いた返答を無視する。
+
+[MCP Appsの仕様](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)はホストに`ui/notifications/tool-cancelled`の送信を求めるが、[VS Code 1.142の画面ホスト](https://github.com/microsoft/vscode/blob/1.142.0/src/vs/workbench/contrib/chat/browser/widget/chatContentParts/toolInvocationParts/chatMcpAppModel.ts)はMCP出力がある結果だけを転送し、中断を通知しない。[MCPへの要求処理](https://github.com/microsoft/vscode/blob/1.142.0/src/vs/workbench/contrib/mcp/common/mcpServerRequestHandler.ts)は`notifications/cancelled`を送るため、画面はサーバーの終了状態でも中断を確認する。
+
+派生元: SPEC-UI-006, ARCH-UI-001

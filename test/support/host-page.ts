@@ -9,6 +9,8 @@ interface Setup {
   readonly expireOnAnswer: boolean
   readonly failResend: boolean
   readonly holdResend: boolean
+  readonly omitCancellation: boolean
+  readonly holdStatus: boolean
   readonly restore: Readonly<Record<string, unknown>> | undefined
   readonly background: string
 }
@@ -19,17 +21,22 @@ interface Recorder {
   readonly messages: Array<unknown>
   cancel: () => void
   release: () => void
+  releaseStatus: (result: Record<string, unknown>) => void
 }
 
 const setup = (window as unknown as { readonly harnessSetup: Setup }).harnessSetup
 document.body.style.background = setup.background
-const recorder: Recorder = { outcomes: [], resends: [], messages: [], cancel: () => {}, release: () => {} }
+const recorder: Recorder = { outcomes: [], resends: [], messages: [], cancel: () => {}, release: () => {}, releaseStatus: () => {} }
 ;(window as unknown as { harness: Recorder }).harness = recorder
 
 const frame = document.createElement("iframe")
 frame.id = "form"
 frame.title = "form"
-const post = (message: Record<string, unknown>) => frame.contentWindow?.postMessage(message, "*")
+const post = (message: Record<string, unknown>) => {
+  if (!(setup.omitCancellation && message["method"] === "ui/notifications/tool-cancelled")) {
+    frame.contentWindow?.postMessage(message, "*")
+  }
+}
 
 const compiled = compile(setup.args)
 if (Result.isFailure(compiled)) {
@@ -63,6 +70,10 @@ window.addEventListener("message", (event: MessageEvent<Record<string, unknown>>
   const message = event.data
   recorder.messages.push(message)
   const params = (message["params"] ?? {}) as Record<string, unknown>
+  if (setup.holdStatus && message["method"] === "tools/call" && params["name"] === "form_status") {
+    recorder.releaseStatus = (result) => post({ jsonrpc: "2.0", id: message["id"], result })
+    return
+  }
   if (setup.expireOnAnswer && message["method"] === "tools/call" && params["name"] === "form_answer") {
     post({ jsonrpc: "2.0", id: message["id"], result: { isError: true, content: [{ type: "text", text: "expired" }] } })
     return

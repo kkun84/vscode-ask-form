@@ -135,7 +135,7 @@ describe("SPEC-MCP-005 回答を受け取るツール", () => {
   it("SPEC-MCP-005 画面専用でAIからは見えない印を持つ", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        for (const name of ["form_answer", "form_resend"]) {
+        for (const name of ["form_answer", "form_resend", "form_status"]) {
           const tool = yield* h.tool(name)
           assert.deepEqual((tool._meta as Record<string, unknown>)["ui"], { resourceUri, visibility: ["app"] })
         }
@@ -197,10 +197,74 @@ describe("SPEC-MCP-007 中断", () => {
         const fiber = yield* ask(h)
         yield* Fiber.interrupt(fiber)
         yield* h.waitUntil(0)
+        assert.equal(structured(yield* h.call("form_status", { formKey: form.key }))["status"], "cancelled")
         yield* expectExpired(h, form.key)
       })
     ))
+
+  it("SPEC-MCP-007 HTTPを切断せずにnotifications/cancelledを送ると対象の待機だけが終了する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const rpc = yield* rawSession(h)
+        const call = yield* Effect.forkChild(
+          rpc({ id: "stop-me", method: "tools/call", params: { name: "ask_form", arguments: eventSpec } })
+        )
+        yield* h.waitUntil(1)
+        assert.equal(structured(yield* h.call("form_status", { formKey: form.key }))["status"], "pending")
+        const otherSpec = { ...eventSpec, title: "Another question" }
+        const other = yield* Effect.forkChild(h.call("ask_form", otherSpec))
+        yield* h.waitUntil(2)
+        const notification = yield* rpc({ method: "notifications/cancelled", params: { requestId: "stop-me" } })
+        assert.equal(notification.status, 202)
+        yield* h.waitUntil(1)
+        assert.equal(structured(yield* h.call("form_status", { formKey: form.key }))["status"], "cancelled")
+        yield* expectExpired(h, form.key)
+        yield* h.call("form_answer", { formKey: stableHash(otherSpec), action: "chat" })
+        assert.equal(structured(yield* Fiber.join(other))["status"], "answer_in_chat")
+        yield* h.waitUntil(0)
+        yield* Fiber.interrupt(call)
+      })
+    ))
+
+  it("SPEC-MCP-007 未知の鍵と回答済みの鍵は中断と区別し、状態の確認では待機数を変えない", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        assert.equal(structured(yield* h.call("form_status", { formKey: form.key }))["status"], "unknown")
+        yield* answered(h, "delegate")
+        assert.equal(structured(yield* h.call("form_status", { formKey: form.key }))["status"], "answered")
+        assert.deepEqual(yield* Ref.get(h.waiting), [1, 0])
+      })
+    ))
 })
+
+const rawSession = (h: Harness) =>
+  Effect.gen(function* () {
+    const controller = yield* Effect.acquireRelease(
+      Effect.sync(() => new AbortController()),
+      (value) => Effect.sync(() => value.abort())
+    )
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${h.token}`,
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "mcp-protocol-version": "2025-11-25"
+    }
+    const rpc = (message: Record<string, unknown>) =>
+      Effect.promise(() =>
+        fetch(h.url, { method: "POST", headers, body: JSON.stringify({ jsonrpc: "2.0", ...message }), signal: controller.signal })
+      )
+    const initialized = yield* rpc({
+      id: 0,
+      method: "initialize",
+      params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "stop-test", version: "1" } }
+    })
+    const sessionId = initialized.headers.get("mcp-session-id")
+    assert.ok(sessionId)
+    headers["mcp-session-id"] = sessionId
+    yield* Effect.promise(() => initialized.text())
+    yield* rpc({ method: "notifications/initialized" })
+    return rpc
+  })
 
 describe("SPEC-MCP-008 送り直しのツール", () => {
   it("SPEC-MCP-008 差分の文章と全項目の値を投稿させる", () =>

@@ -9,6 +9,16 @@ interface Waiter {
 
 type Ledger = ReadonlyMap<string, ReadonlyArray<Waiter>>
 
+type FormStatus = "pending" | "answered" | "cancelled" | "unknown"
+
+const remember = (recent: ReadonlyMap<string, FormStatus>, key: string, status: FormStatus): ReadonlyMap<string, FormStatus> =>
+  new Map(
+    [...recent]
+      .filter(([stored]) => stored !== key)
+      .concat([[key, status]])
+      .slice(-128)
+  )
+
 const total = (ledger: Ledger): number => [...ledger.values()].reduce((sum, waiters) => sum + waiters.length, 0)
 
 const without = (ledger: Ledger, key: string, waiter: Waiter): Ledger => {
@@ -28,6 +38,7 @@ export class PendingForms extends Context.Service<
     readonly wait: (form: CompiledForm) => Effect.Effect<Outcome>
     readonly peek: (key: string) => Effect.Effect<CompiledForm | undefined>
     readonly resolve: (key: string, outcome: (form: CompiledForm) => Outcome) => Effect.Effect<boolean>
+    readonly status: (key: string) => Effect.Effect<FormStatus>
     readonly size: Effect.Effect<number>
   }
 >()("ask-form/PendingForms") {}
@@ -37,6 +48,7 @@ export const PendingFormsLive = Layer.effect(
   Effect.gen(function* () {
     const indicator = yield* WaitingIndicator
     const ledger = yield* Ref.make<Ledger>(new Map())
+    const recent = yield* Ref.make<ReadonlyMap<string, FormStatus>>(new Map())
     const notifyIfChanged = (before: number, after: number) => (before === after ? Effect.void : indicator.update(after))
     const changeLedger = (f: (current: Ledger) => Ledger) =>
       Ref.modify(ledger, (current): readonly [readonly [number, number], Ledger] => {
@@ -45,14 +57,31 @@ export const PendingFormsLive = Layer.effect(
       }).pipe(Effect.flatMap(([before, after]) => notifyIfChanged(before, after)))
 
     const wait = (form: CompiledForm) =>
-      Effect.gen(function* () {
-        const deferred = yield* Deferred.make<Outcome>()
-        const waiter: Waiter = { form, deferred }
-        yield* changeLedger((current) => new Map(current).set(form.key, [...(current.get(form.key) ?? []), waiter]))
-        return yield* Deferred.await(deferred).pipe(Effect.ensuring(changeLedger((current) => without(current, form.key, waiter))))
-      })
+      Effect.acquireUseRelease(
+        Effect.gen(function* () {
+          const deferred = yield* Deferred.make<Outcome>()
+          const waiter: Waiter = { form, deferred }
+          yield* changeLedger((current) => new Map(current).set(form.key, [...(current.get(form.key) ?? []), waiter]))
+          return waiter
+        }),
+        (waiter) => Deferred.await(waiter.deferred),
+        (waiter) =>
+          Effect.gen(function* () {
+            const answered = yield* Deferred.isDone(waiter.deferred)
+            yield* Ref.update(recent, (current) => remember(current, form.key, answered ? "answered" : "cancelled"))
+            yield* changeLedger((current) => without(current, form.key, waiter))
+          })
+      )
 
     const peek = (key: string) => Ref.get(ledger).pipe(Effect.map((current) => current.get(key)?.[0]?.form))
+
+    const status = (key: string) =>
+      Effect.gen(function* () {
+        if ((yield* peek(key)) !== undefined) {
+          return "pending" as const
+        }
+        return (yield* Ref.get(recent)).get(key) ?? "unknown"
+      })
 
     const resolve = (key: string, outcome: (form: CompiledForm) => Outcome) =>
       Effect.gen(function* () {
@@ -67,6 +96,6 @@ export const PendingFormsLive = Layer.effect(
         return yield* Deferred.succeed(waiter.deferred, outcome(waiter.form))
       })
 
-    return PendingForms.of({ wait, peek, resolve, size: Ref.get(ledger).pipe(Effect.map(total)) })
+    return PendingForms.of({ wait, peek, resolve, status, size: Ref.get(ledger).pipe(Effect.map(total)) })
   })
 )

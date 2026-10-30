@@ -12,6 +12,8 @@ export interface PageOptions {
   readonly expireOnAnswer?: boolean
   readonly failResend?: boolean
   readonly holdResend?: boolean
+  readonly omitCancellation?: boolean
+  readonly holdStatus?: boolean
   readonly restore?: Readonly<Record<string, unknown>>
 }
 
@@ -74,6 +76,8 @@ export const openForm = async (page: Page, server: HarnessServer, options: PageO
       expireOnAnswer: options.expireOnAnswer ?? false,
       failResend: options.failResend ?? false,
       holdResend: options.holdResend ?? false,
+      omitCancellation: options.omitCancellation ?? false,
+      holdStatus: options.holdStatus ?? false,
       restore: options.restore,
       background: backgrounds[context.theme]
     }

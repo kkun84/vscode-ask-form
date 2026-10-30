@@ -257,7 +257,7 @@ test("REQ-CANCEL-001 待機中にチャットを停止すると、フォーム�
   await waiting(session).waitFor({ timeout: 30_000 })
   await stopButton(session).click()
   const frame = theFrame(session)
-  await expect(frame.getByRole("status")).toHaveText("Cancelled", { timeout: 30_000 })
+  await expect(frame.locator("#app > .closed[role='status']")).toHaveText("Cancelled", { timeout: 30_000 })
   await expect(frame.getByRole("button")).toHaveCount(0)
   await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
   await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
@@ -301,6 +301,19 @@ const report = async (paths: Paths, session: Session, log: string): Promise<void
   }
 }
 
+const closeApp = async (app: ElectronApplication): Promise<void> => {
+  const closed = await Promise.race([
+    app
+      .close()
+      .then(() => true)
+      .catch(() => false),
+    sleep(10_000).then(() => false)
+  ])
+  if (!closed) {
+    app.process().kill("SIGKILL")
+  }
+}
+
 export const runChat = async (paths: Paths): Promise<void> => {
   await mkdir(paths.results, { recursive: true })
   const log = join(paths.results, "driver.log")
@@ -331,8 +344,7 @@ export const runChat = async (paths: Paths): Promise<void> => {
     await window.screenshot({ path: join(paths.results, "chat-cancelled.png"), timeout: 10_000 })
   } finally {
     if (app !== undefined) {
-      await Promise.race([app.close().catch(() => null), sleep(10_000)])
-      app.process().kill("SIGKILL")
+      await closeApp(app)
     }
     await llm.close()
     await rm(profile, { recursive: true, force: true, maxRetries: 3 })

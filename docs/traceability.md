@@ -45,7 +45,7 @@
 | SPEC-UI-003 | 回答の操作 | REQ-ANS-001, REQ-ANS-002, REQ-ANS-003, REQ-ANS-004 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-004 | 回答後の要約 | REQ-RES-001 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-005 | 送り直し | REQ-RES-002, REQ-RES-003 | DES-FORM-003 | `test/system/ui.spec.ts` |
-| SPEC-UI-006 | 中断と期限切れ | REQ-CANCEL-001 | - | `test/system/ui.spec.ts` |
+| SPEC-UI-006 | 中断と期限切れ | REQ-CANCEL-001 | DES-UI-001 | `test/system/ui.spec.ts` |
 | SPEC-UI-007 | テーマ | REQ-LOOK-001 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-008 | アクセシビリティ | REQ-A11Y-001, REQ-ANS-004 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-009 | 表示の言語 | REQ-LOOK-001 | - | `test/system/ui.spec.ts` |
@@ -71,7 +71,7 @@
 | ARCH-EFFECT-003 | 層を組み立てるのは入口だけ | SPEC-EXT-001 | - | `test/integration/architecture.test.ts` |
 | ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | - | `test/integration/architecture.test.ts` |
 | ARCH-PORT-001 | MCPサーバーへの差し込み口 | SPEC-EXT-002, SPEC-EXT-003, SPEC-MCP-008 | - | `test/integration/ports.test.ts` |
-| ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001 | - | `test/system/ui.spec.ts` |
+| ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001 | DES-UI-001 | `test/system/ui.spec.ts` |
 
 ## 詳細設計
 
@@ -87,3 +87,4 @@
 | DES-FORM-004 | 値の検査 | SPEC-MCP-005 | - | `test/unit/form.test.ts` |
 | DES-FORM-005 | 送り直しの文章 | SPEC-MCP-008 | - | `test/unit/form.test.ts` |
 | DES-PEND-001 | 待機の台帳 | SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-007, SPEC-EXT-002 | - | `test/unit/pending.test.ts` |
+| DES-UI-001 | 中断状態の確認 | SPEC-UI-006, ARCH-UI-001 | - | `test/unit/status.test.ts` |

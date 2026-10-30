@@ -47,11 +47,11 @@ const textResult = (text: string, isError: boolean, structuredContent?: Readonly
 const isAction = (value: unknown): value is Action => value === "submit" || value === "delegate" || value === "chat"
 
 interface HostState {
-  done: boolean
+  status: "pending" | "answered" | "cancelled"
 }
 
 const answerWith = (options: AppHostOptions, state: HostState, params: Record<string, unknown>): ToolResult => {
-  if (state.done || params["formKey"] !== options.form.key || !isAction(params["action"])) {
+  if (state.status !== "pending" || params["formKey"] !== options.form.key || !isAction(params["action"])) {
     return textResult("expired: このフォームはもう回答を受け付けていません", true)
   }
   const action = params["action"]
@@ -64,7 +64,7 @@ const answerWith = (options: AppHostOptions, state: HostState, params: Record<st
     values = checked.success
   }
   const outcome = outcomeFor(options.form, action, values)
-  state.done = true
+  state.status = "answered"
   const structured = { ...outcome, next: outcomeText(outcome) }
   options.onOutcome(outcome)
   options.post({ jsonrpc: "2.0", method: "ui/notifications/tool-result", params: textResult(structured.next, false, structured) })
@@ -95,7 +95,7 @@ const resendWith = async (options: AppHostOptions, params: Record<string, unknow
 }
 
 export const createAppHost = (options: AppHostOptions): AppHost => {
-  const state: HostState = { done: false }
+  const state: HostState = { status: "pending" }
   const notify = (method: string, params: unknown) => options.post({ jsonrpc: "2.0", method, params })
   const respond = (id: number | string, result: unknown) => options.post({ jsonrpc: "2.0", id, result })
 
@@ -116,6 +116,10 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
         return respond(id, answerWith(options, state, args))
       case "form_resend":
         return respond(id, await resendWith(options, args))
+      case "form_status": {
+        const status = { status: args["formKey"] === options.form.key ? state.status : "unknown" }
+        return respond(id, textResult(JSON.stringify(status), false, status))
+      }
       default:
         return options.post({ jsonrpc: "2.0", id, error: { code: -32601, message: "unknown tool" } })
     }
@@ -141,11 +145,11 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
   return {
     receive,
     cancel: () => {
-      if (!state.done) {
-        state.done = true
+      if (state.status === "pending") {
+        state.status = "cancelled"
         notify("ui/notifications/tool-cancelled", { reason: "cancelled" })
       }
     },
-    settled: () => state.done
+    settled: () => state.status !== "pending"
   }
 }

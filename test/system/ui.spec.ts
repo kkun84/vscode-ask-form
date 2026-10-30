@@ -178,11 +178,72 @@ test.describe("SPEC-UI-005 送信中", () => {
   })
 })
 
+const statusRequests = async (page: Page) =>
+  (await recorded<{ readonly method?: string; readonly params?: { readonly name?: string } }>(page, "messages")).filter(
+    (message) => message.method === "tools/call" && message.params?.name === "form_status"
+  ).length
+
+const releaseStatus = (page: Page, result: Record<string, unknown>) =>
+  page.evaluate(
+    (value) => (window as unknown as { harness: { releaseStatus: (reply: Record<string, unknown>) => void } }).harness.releaseStatus(value),
+    result
+  )
+
+const openWithStatus = async (page: Page) => {
+  const frame = await open(page, { holdStatus: true })
+  await expect.poll(() => statusRequests(page)).toBe(1)
+  return frame
+}
+
 test.describe("SPEC-UI-006 中断と期限切れ", () => {
-  test("SPEC-UI-006 取り消されると回答できなくなる", async ({ page }) => {
+  for (const omitCancellation of [false, true]) {
+    test(`SPEC-UI-006 中断通知${omitCancellation ? "なしでもサーバーの状態から" : "で"}回答できなくなる`, async ({ page }) => {
+      const frame = await open(page, { omitCancellation, context: { locale: "en" } })
+      await expect.poll(() => statusRequests(page)).toBeGreaterThan(0)
+      await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
+      await expect(frame.locator("#app > .closed[role='status']")).toHaveText("Cancelled")
+      await expect(frame.getByRole("button")).toHaveCount(0)
+      const requests = await statusRequests(page)
+      await page.clock.install()
+      await page.clock.runFor(3000)
+      expect(await statusRequests(page)).toBe(requests)
+    })
+  }
+
+  test("SPEC-UI-006 未登録や通信の誤りを中断と扱わず、次の状態を確認する", async ({ page }) => {
+    const frame = await openWithStatus(page)
+    await releaseStatus(page, { structuredContent: { status: "unknown" } })
+    await expect.poll(() => statusRequests(page)).toBe(2)
+    await releaseStatus(page, { isError: true, structuredContent: { status: "cancelled" } })
+    await expect.poll(() => statusRequests(page)).toBe(3)
+    await expect(frame.locator("form.card")).toBeVisible()
+    await releaseStatus(page, { structuredContent: { status: "cancelled" } })
+    await expect(frame.locator(".closed")).toHaveText("キャンセルされました")
+  })
+
+  test("SPEC-UI-006 遅れて届いた中断の状態は回答済みの要約を閉じない", async ({ page }) => {
+    const frame = await openWithStatus(page)
+    await frame.getByRole("button", { name: "AIに任せる" }).click()
+    await expect(frame.locator(".summary")).toBeVisible()
+    await releaseStatus(page, { structuredContent: { status: "cancelled" } })
+    await page.clock.install()
+    await page.clock.runFor(3000)
+    await expect(frame.locator(".summary")).toBeVisible()
+    expect(await statusRequests(page)).toBe(1)
+  })
+
+  test("SPEC-UI-006 中断の後にツールの結果が届いてもフォームを再開しない", async ({ page }) => {
     const frame = await open(page)
     await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
-    await expect(frame.getByText("キャンセルされました")).toBeVisible()
+    await expect(frame.locator(".closed")).toBeVisible()
+    await frame.evaluate(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: "answer_in_chat" } } }
+        })
+      )
+    })
+    await expect(frame.locator(".closed")).toHaveText("キャンセルされました")
     await expect(frame.getByRole("button")).toHaveCount(0)
   })
 

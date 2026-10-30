@@ -83,7 +83,15 @@ const FormResend = Tool.make("form_resend", {
   failure: FormRejected
 }).annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
-const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend)
+const FormStatus = Tool.make("form_status", {
+  description: "Check whether the form is still waiting or was cancelled. Only the form view calls this tool.",
+  parameters: Schema.Struct({ formKey: Schema.String }),
+  success: Schema.Struct({ status: Schema.Literals(["pending", "answered", "cancelled", "unknown"]) })
+})
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
+
+const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend, FormStatus)
 
 const reject = (problems: ReadonlyArray<string>) => Effect.fail(new FormRejected({ message: problems.join("\n") }))
 
@@ -92,6 +100,7 @@ const FormsHandlers = FormsToolkit.toLayer(
     const pending = yield* PendingForms
     const poster = yield* ChatPoster
     return FormsToolkit.of({
+      form_status: ({ formKey }) => pending.status(formKey).pipe(Effect.map((status) => ({ status }))),
       ask_form: (params) =>
         Effect.gen(function* () {
           const compiled = compile(params)
