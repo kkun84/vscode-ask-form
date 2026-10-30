@@ -58,7 +58,11 @@
               ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.xvfb-run ];
             env = base.env // {
               VSCODE_EXECUTABLE = "${pkgs.vscode}/bin/code";
-              VSCODE_ELECTRON = "${pkgs.vscode}/lib/vscode/code";
+              VSCODE_ELECTRON =
+                if pkgs.stdenv.hostPlatform.isDarwin then
+                  "${pkgs.vscode}/Applications/Visual Studio Code.app/Contents/MacOS/Code"
+                else
+                  "${pkgs.vscode}/lib/vscode/code";
             };
           };
         }

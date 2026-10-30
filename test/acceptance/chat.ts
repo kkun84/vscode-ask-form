@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { DatabaseSync } from "node:sqlite"
@@ -53,25 +52,13 @@ const formFrame = (window: Page): Promise<Frame> =>
     120_000
   )
 
-const launch = async (paths: Paths, llm: FakeLlm, log: string): Promise<ElectronApplication> => {
-  const profile = await mkdtemp(join(tmpdir(), "ask-form-chat-"))
+const launch = async (paths: Paths, llm: FakeLlm, log: string, profile: string): Promise<ElectronApplication> => {
   const user = join(profile, "user")
   await mkdir(join(user, "User", "globalStorage"), { recursive: true })
   const state = new DatabaseSync(join(user, "User", "globalStorage", "state.vscdb"))
   state.exec("CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)")
   state.prepare("INSERT INTO ItemTable (key, value) VALUES (?, ?)").run("builtinChatExtensionEnablementMigration", "true")
   state.close()
-  const cli = process.env["VSCODE_EXECUTABLE"]
-  if (cli !== undefined) {
-    const installed = spawnSync(
-      cli,
-      [`--extensions-dir=${join(profile, "extensions")}`, `--user-data-dir=${user}`, "--install-extension", "github.copilot-chat"],
-      {
-        encoding: "utf8"
-      }
-    )
-    console.log(`install github.copilot-chat: ${installed.status} ${installed.stdout}${installed.stderr}`)
-  }
   await mkdir(join(user, "User"), { recursive: true })
   await writeFile(
     join(user, "User", "settings.json"),
@@ -167,7 +154,7 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
 })
 
 const report = async (paths: Paths, session: Session, log: string): Promise<void> => {
-  await session.window.screenshot({ path: join(paths.results, "chat-failure.png") }).catch(() => null)
+  await session.window.screenshot({ path: join(paths.results, "chat-failure.png"), timeout: 10_000 }).catch(() => null)
   console.error(await readFile(log, "utf8").catch(() => "(no driver log)"))
   console.error(`fake LLM received ${session.llm.requests.length} request(s)`)
   for (const request of session.llm.requests) {
@@ -185,9 +172,13 @@ export const runChat = async (paths: Paths): Promise<void> => {
   const log = join(paths.results, "driver.log")
   await rm(log, { force: true })
   const llm = await startFakeLlm(trigger, eventSpec)
-  const app = await launch(paths, llm, log)
-  const session: Session = { window: await app.firstWindow(), llm, frame: undefined }
+  const profile = await mkdtemp(join(tmpdir(), "ask-form-chat-"))
+  let app: ElectronApplication | undefined
   try {
+    app = await launch(paths, llm, log, profile)
+    const window = await app.firstWindow({ timeout: 60_000 })
+    window.context().setDefaultTimeout(30_000)
+    const session: Session = { window, llm, frame: undefined }
     for (const { name, body } of steps) {
       try {
         await body(session)
@@ -198,10 +189,13 @@ export const runChat = async (paths: Paths): Promise<void> => {
         throw error
       }
     }
-    await session.window.screenshot({ path: join(paths.results, "chat-answered.png") })
+    await window.screenshot({ path: join(paths.results, "chat-answered.png"), timeout: 10_000 })
   } finally {
-    await Promise.race([app.close().catch(() => null), sleep(10_000)])
-    app.process().kill("SIGKILL")
+    if (app !== undefined) {
+      await Promise.race([app.close().catch(() => null), sleep(10_000)])
+      app.process().kill("SIGKILL")
+    }
     await llm.close()
+    await rm(profile, { recursive: true, force: true, maxRetries: 3 })
   }
 }
