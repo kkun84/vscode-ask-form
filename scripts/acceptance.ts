@@ -99,9 +99,9 @@ const web = (): Promise<void> =>
   })
 
 const chat = (): Promise<void> => {
-  const executable = process.env["VSCODE_EXECUTABLE"]
+  const executable = process.env["VSCODE_ELECTRON"]
   if (executable === undefined) {
-    throw new Error("VSCODE_EXECUTABLE is not set. Run inside `nix develop .#acceptance`.")
+    throw new Error("VSCODE_ELECTRON is not set. Run inside `nix develop .#acceptance`.")
   }
   return runChat({ executable, extension, driver, results: join(root, "test-results/chat") })
 }

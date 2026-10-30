@@ -58,6 +58,7 @@
               ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.xvfb-run ];
             env = base.env // {
               VSCODE_EXECUTABLE = "${pkgs.vscode}/bin/code";
+              VSCODE_ELECTRON = "${pkgs.vscode}/lib/vscode/code";
             };
           };
         }
