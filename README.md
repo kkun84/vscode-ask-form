@@ -77,6 +77,8 @@ Copilotはワークスペースや会話から値を推測し、根拠と一緒�
 
 ## インストール
 
+0.1.xはプレリリースです。GitHub Releasesでもpre-releaseの印が付きます。配布条件は[リリースの基準](docs/release.md)を参照してください。
+
 ### GitHub Releasesから
 
 1. [Releases](https://github.com/kkun84/vscode-ask-form/releases)から`ask-form-<バージョン>.vsix`をダウンロードします。
@@ -194,6 +196,8 @@ Copilotには、秘密や認証情報をフォームで聞かないように指�
 </details>
 
 ## 開発
+
+配布の条件と手順は[リリースの基準](docs/release.md)にあります。
 
 開発環境はnixで用意します。実機のVS Codeでの受け入れテストには、VS Codeを含む`nix develop .#acceptance`を使います。
 

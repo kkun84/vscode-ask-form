@@ -80,3 +80,12 @@
 1. `lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN`などで、VS Codeの拡張機能ホストが待ち受けているポートを調べる。
 2. トークンなしで`curl -X POST http://127.0.0.1:<port>/mcp`を送る。
 3. 401が返ることを確かめる。
+
+### MAT-DIST-001 リリースの配布
+
+検証: REQ-DIST-001
+
+1. [リリースの基準](../release.md)の配布条件を確認し、対象版、mainのCI結果、前回からの変更をリリースのPRかIssueに記録する。正式版では7日以上の配布期間、影響8以上の不具合の報告と開いたIssueがないこと、実際のCopilotのモデルでデスクトップ版とweb版の手動受け入れを終えた結果も記録する。
+2. タグのワークフローが成功し、GitHub Releasesに対象版の変更履歴、VSIX、SHA256SUMS.txtがあることを確認する。VSIXのSHA256と出所の証明を確認する。
+3. 奇数minorにはpre-releaseの印があり、偶数minorにはないことを確認する。トークンを設定したMarketplaceとOpen VSXでも配布種別が一致し、インストールできることを確認する。
+4. CIのVSIX成果物がZIPを解凍せずに利用でき、失敗時のtest-resultsがZIPで保存されることを確認する。

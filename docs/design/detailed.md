@@ -145,3 +145,12 @@
 - `codeAutomationExit`の終了通知とブラウザ側の回答処理を別のPromiseとして待つ。終了コード0だけでは完了せず、入力操作と要約の確認も成功してからブラウザを閉じる。終了コードが非0か回答処理が失敗した場合は、他方の完了を待たず失敗とする。
 
 派生元: SPEC-EXT-004, ARCH-UI-001
+
+## リリース
+
+### DES-REL-001 版数と変更履歴の検査
+
+- `scripts/release.ts`の純粋な関数で版数、タグ、対象版の箇条書きを検査し、minorの奇偶と次の第2階層見出しまでの本文を返す。CRLFも受け付け、他の版の本文は混ぜない。
+- `scripts/release-check.ts`がNode.jsのファイル操作と環境変数を扱い、検査結果をワークフローへ渡す。パッケージ用スクリプト末尾のvsceに`--pre-release`を渡し、GitHub Releasesには`--prerelease`、MarketplaceとOpen VSXには`--pre-release`を渡す。
+
+派生元: SPEC-REL-001
