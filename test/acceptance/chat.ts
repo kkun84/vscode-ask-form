@@ -156,6 +156,17 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
 const report = async (paths: Paths, session: Session, log: string): Promise<void> => {
   await session.window.screenshot({ path: join(paths.results, "chat-failure.png"), timeout: 10_000 }).catch(() => null)
   console.error(await readFile(log, "utf8").catch(() => "(no driver log)"))
+  const chat = await session.window
+    .locator(".interactive-session")
+    .first()
+    .innerText({ timeout: 5000 })
+    .catch(() => "(no chat text)")
+  console.error(`chat panel: ${chat.replaceAll(/\s+/g, " ").slice(0, 1500)}`)
+  const form = await session.frame
+    ?.locator("body")
+    .innerText({ timeout: 5000 })
+    .catch(() => "(no form text)")
+  console.error(`form: ${(form ?? "(no frame)").replaceAll(/\s+/g, " ").slice(0, 800)}`)
   console.error(`fake LLM received ${session.llm.requests.length} request(s)`)
   for (const request of session.llm.requests) {
     console.error(
@@ -177,6 +188,11 @@ export const runChat = async (paths: Paths): Promise<void> => {
   try {
     app = await launch(paths, llm, log, profile)
     const window = await app.firstWindow({ timeout: 60_000 })
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const browserWindow of BrowserWindow.getAllWindows()) {
+        browserWindow.setBounds({ x: 0, y: 0, width: 1600, height: 1000 })
+      }
+    })
     window.context().setDefaultTimeout(30_000)
     const session: Session = { window, llm, frame: undefined }
     for (const { name, body } of steps) {
