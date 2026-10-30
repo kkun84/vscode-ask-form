@@ -43,7 +43,7 @@ const addGroup = async (group: Readonly<Record<string, unknown>>, attempt = 1): 
   }
 }
 
-const drive = async (url: string, query: string): Promise<void> => {
+const drive = async (context: vscode.ExtensionContext, url: string, query: string): Promise<void> => {
   const copilot = vscode.extensions.all
     .filter((item) => /copilot/i.test(item.id))
     .map((item) => `${item.id}@${String(item.packageJSON?.version)} active=${String(item.isActive)}`)
@@ -70,23 +70,32 @@ const drive = async (url: string, query: string): Promise<void> => {
   const model = await waitForModel()
   log(`model ${model === undefined ? "missing" : `${model.vendor}/${model.id}`}`)
   if (model === undefined) {
-    return
+    throw new Error("the fake model is unavailable")
   }
-  await vscode.commands.executeCommand("workbench.action.chat.open", {
-    query,
-    mode: "agent",
-    modelSelector: { vendor: model.vendor, id: model.id }
-  })
-  log("chat opened")
+  let scenario = 0
+  const openChat = async (): Promise<void> => {
+    scenario++
+    await vscode.commands.executeCommand("workbench.action.chat.newChat")
+    await vscode.commands.executeCommand("workbench.action.chat.open", {
+      query: `${query} Scenario ${scenario}.`,
+      mode: "agent",
+      modelSelector: { vendor: model.vendor, id: model.id }
+    })
+    log(`chat ${scenario} opened`)
+  }
+  context.subscriptions.push(vscode.commands.registerCommand("ask-form-e2e.newChat", openChat))
+  await openChat()
 }
 
-export const activate = (): void => {
+export const activate = (context: vscode.ExtensionContext): void => {
   const url = process.env["ASK_FORM_E2E_LLM_URL"]
   const query = process.env["ASK_FORM_E2E_QUERY"]
   if (url === undefined || query === undefined) {
     return
   }
-  drive(url, query).catch((error: unknown) => log(`error ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`))
+  drive(context, url, query).catch((error: unknown) =>
+    log(`error ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`)
+  )
 }
 
 export const deactivate = (): void => undefined

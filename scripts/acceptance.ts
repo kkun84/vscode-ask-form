@@ -52,7 +52,8 @@ await writeFile(
     version: "0.0.0",
     engines: { vscode: "^1.110.0" },
     main: "./driver.cjs",
-    activationEvents: ["onStartupFinished"]
+    activationEvents: ["onStartupFinished"],
+    contributes: { commands: [{ command: "ask-form-e2e.newChat", title: "Ask Form: New acceptance chat" }] }
   })
 )
 

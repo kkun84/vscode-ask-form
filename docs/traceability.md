@@ -10,13 +10,13 @@
 | REQ-ASK-002 | 推測値と根拠が見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.ts`, MAT-ASK-001 |
 | REQ-ASK-003 | 結果がその場で変わる | - | SPEC-FORM-001, SPEC-EXPR-001, SPEC-UI-002 | MAT-ASK-001 |
 | REQ-ANS-001 | 1回の操作で回答が届く | - | SPEC-MCP-001, SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-006, SPEC-UI-003 | `test/acceptance/chat.ts`, MAT-ANS-001 |
-| REQ-ANS-002 | AIに任せられる | - | SPEC-MCP-003, SPEC-UI-003 | MAT-ANS-002 |
-| REQ-ANS-003 | チャットで答えられる | - | SPEC-MCP-003, SPEC-UI-003 | MAT-ANS-002 |
+| REQ-ANS-002 | AIに任せられる | - | SPEC-MCP-003, SPEC-UI-003 | `test/acceptance/chat.ts`, MAT-ANS-002 |
+| REQ-ANS-003 | チャットで答えられる | - | SPEC-MCP-003, SPEC-UI-003 | `test/acceptance/chat.ts`, MAT-ANS-002 |
 | REQ-ANS-004 | キーボードだけで回答できる | - | SPEC-UI-003, SPEC-UI-008 | MAT-ANS-001 |
 | REQ-RES-001 | 回答の要約が残る | - | SPEC-UI-004 | `test/acceptance/chat.ts`, MAT-RES-001 |
-| REQ-RES-002 | 変更して送り直せる | - | SPEC-MCP-008, SPEC-UI-005, SPEC-EXT-003 | MAT-RES-001 |
-| REQ-RES-003 | 同じ内容は送り直せない | - | SPEC-MCP-008, SPEC-UI-005 | MAT-RES-001 |
-| REQ-CANCEL-001 | 中断が分かる | - | SPEC-MCP-005, SPEC-MCP-007, SPEC-UI-006 | MAT-CANCEL-001 |
+| REQ-RES-002 | 変更して送り直せる | - | SPEC-MCP-008, SPEC-UI-005, SPEC-EXT-003 | `test/acceptance/chat.ts`, MAT-RES-001 |
+| REQ-RES-003 | 同じ内容は送り直せない | - | SPEC-MCP-008, SPEC-UI-005 | `test/acceptance/chat.ts`, MAT-RES-001 |
+| REQ-CANCEL-001 | 中断が分かる | - | SPEC-MCP-005, SPEC-MCP-007, SPEC-UI-006 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
 | REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
 | REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/web.ts`, MAT-WEB-001 |
 | REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/desktop.ts`, MAT-PERF-001 |

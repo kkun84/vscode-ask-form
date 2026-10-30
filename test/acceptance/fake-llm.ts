@@ -17,14 +17,22 @@ interface ChatRequest {
   readonly tools?: ReadonlyArray<ChatTool>
 }
 
+interface ToolCall {
+  readonly id: string
+  readonly name: string
+  readonly args: string
+}
+
 export interface FakeLlm {
   readonly url: string
   readonly requests: Array<ChatRequest>
-  readonly toolResults: Array<string>
+  readonly toolCalls: Array<ToolCall>
+  readonly toolResults: Array<{ readonly callId: string | undefined; readonly text: string }>
+  readonly userMessages: Array<string>
   readonly close: () => Promise<void>
 }
 
-type Reply = { readonly kind: "text"; readonly text: string } | { readonly kind: "tool"; readonly name: string; readonly args: string }
+type Reply = { readonly kind: "text"; readonly text: string } | ({ readonly kind: "tool" } & ToolCall)
 
 const textOf = (content: unknown): string => {
   if (typeof content === "string") {
@@ -44,6 +52,8 @@ const readBody = async (req: IncomingMessage): Promise<string> => {
   return Buffer.concat(chunks).toString("utf8")
 }
 
+const toolCall = (call: ToolCall) => ({ id: call.id, type: "function", function: { name: call.name, arguments: call.args } })
+
 const completion = (reply: Reply) => ({
   id: "chatcmpl-fake",
   object: "chat.completion",
@@ -58,7 +68,7 @@ const completion = (reply: Reply) => ({
           : {
               role: "assistant",
               content: null,
-              tool_calls: [{ id: "call_ask_form", type: "function", function: { name: reply.name, arguments: reply.args } }]
+              tool_calls: [toolCall(reply)]
             },
       finish_reason: reply.kind === "text" ? "stop" : "tool_calls"
     }
@@ -76,7 +86,7 @@ const streamed = (reply: Reply): string => {
       : chunk(
           {
             role: "assistant",
-            tool_calls: [{ index: 0, id: "call_ask_form", type: "function", function: { name: reply.name, arguments: reply.args } }]
+            tool_calls: [{ index: 0, ...toolCall(reply) }]
           },
           null
         ) + chunk({}, "tool_calls")
@@ -85,25 +95,38 @@ const streamed = (reply: Reply): string => {
 
 export const startFakeLlm = async (trigger: string, args: Readonly<Record<string, unknown>>): Promise<FakeLlm> => {
   const requests: Array<ChatRequest> = []
-  const toolResults: Array<string> = []
+  const toolCalls: FakeLlm["toolCalls"] = []
+  const toolResults: FakeLlm["toolResults"] = []
+  const userMessages: Array<string> = []
 
   const decide = (request: ChatRequest): Reply => {
     const messages = request.messages ?? []
-    const toolMessage = messages.findLast((message) => message.role === "tool")
-    if (toolMessage !== undefined) {
-      toolResults.push(textOf(toolMessage.content))
+    const userIndex = messages.findLastIndex((message) => message.role === "user" && textOf(message.content).includes(trigger))
+    if (messages.slice(userIndex + 1).some((message) => message.role === "tool")) {
       return { kind: "text", text: "FAKE_LLM_DONE" }
     }
-    const asked = messages.some((message) => message.role === "user" && textOf(message.content).includes(trigger))
     const tool = (request.tools ?? [])
       .map((item) => item.function?.name ?? "")
       .find((name) => name.endsWith("ask_form") && !name.startsWith("forms_"))
-    return asked && tool !== undefined ? { kind: "tool", name: tool, args: JSON.stringify(args) } : { kind: "text", text: "ok" }
+    if (userIndex < 0 || tool === undefined) {
+      return { kind: "text", text: "ok" }
+    }
+    const call = { id: `call_ask_form_${toolCalls.length + 1}`, name: tool, args: JSON.stringify(args) }
+    toolCalls.push(call)
+    return { kind: "tool", ...call }
   }
 
   const handle = async (req: IncomingMessage, res: ServerResponse) => {
     const request = JSON.parse((await readBody(req)) || "{}") as ChatRequest
     requests.push(request)
+    for (const message of request.messages ?? []) {
+      const text = textOf(message.content)
+      if (message.role === "tool") {
+        toolResults.push({ callId: message.tool_call_id, text })
+      } else if (message.role === "user") {
+        userMessages.push(text)
+      }
+    }
     const reply = decide(request)
     if (request.stream === true) {
       res.writeHead(200, { "content-type": "text/event-stream" }).end(streamed(reply))
@@ -116,5 +139,5 @@ export const startFakeLlm = async (trigger: string, args: Readonly<Record<string
     void handle(req, res)
   })
   const { origin, close } = await listenLocally(server)
-  return { url: `${origin}/v1/chat/completions`, requests, toolResults, close }
+  return { url: `${origin}/v1/chat/completions`, requests, toolCalls, toolResults, userMessages, close }
 }
