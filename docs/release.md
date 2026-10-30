@@ -32,7 +32,7 @@
 
 `workflow_dispatch`で再実行できます。タグが既にあれば公開をスキップします。
 
-あとはリリースのワークフローがタグと版数、変更履歴を検査し、テスト、パッケージ、GitHub Releasesへの公開、ビルドの出所の証明を行います。GitHub Releasesの説明にはその版のCHANGELOGの項を使い、VSIXとSHA256SUMS.txtを添付します。プレリリースはパッケージと各配布先でプレリリースとして扱い、GitHub Releasesにもpre-releaseの印を付けます。
+あとはリリースのワークフローがタグと版数、変更履歴を検査し、テスト、パッケージ、GitHub Releasesへの公開、ビルドの出所の証明(公開リポジトリのときだけ。GitHubは非公開の個人リポジトリでこの機能を提供していない)を行います。GitHub Releasesの説明にはその版のCHANGELOGの項を使い、VSIXとSHA256SUMS.txtを添付します。プレリリースはパッケージと各配布先でプレリリースとして扱い、GitHub Releasesにもpre-releaseの印を付けます。
 
 ## 配布先
 
