@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import type { Values } from "../../core/form.ts"
+import { attachmentName, type Values } from "../../core/form.ts"
 
 export interface ChatPostRequest {
   readonly text: string
@@ -7,23 +7,15 @@ export interface ChatPostRequest {
   readonly values: Values
 }
 
-const fileName = (title: string): string => {
-  const slug = title
-    .replaceAll(/[^\p{L}\p{N}]+/gu, "-")
-    .replaceAll(/^-|-$/g, "")
-    .slice(0, 40)
-  return `${slug === "" ? "form" : slug}.json`
-}
-
 export const postToChat = async (storage: vscode.Uri, request: ChatPostRequest): Promise<void> => {
   const directory = vscode.Uri.joinPath(storage, "answers", crypto.randomUUID())
   await vscode.workspace.fs.createDirectory(directory)
-  const file = vscode.Uri.joinPath(directory, fileName(request.title))
+  const file = vscode.Uri.joinPath(directory, attachmentName(request.title))
   const body = JSON.stringify({ title: request.title, values: request.values }, undefined, 2)
   await vscode.workspace.fs.writeFile(file, new TextEncoder().encode(body))
   await vscode.commands.executeCommand("workbench.action.chat.open", {
     query: request.text,
-    isPartialQuery: false,
+    isPartialQuery: true,
     attachFiles: [file]
   })
 }

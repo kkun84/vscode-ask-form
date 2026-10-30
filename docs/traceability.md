@@ -14,7 +14,7 @@
 | REQ-ANS-003 | チャットで答えられる | - | SPEC-MCP-003, SPEC-UI-003 | `test/acceptance/chat.ts`, MAT-ANS-002 |
 | REQ-ANS-004 | キーボードだけで回答できる | - | SPEC-UI-003, SPEC-UI-008 | MAT-ANS-001 |
 | REQ-RES-001 | 回答の要約が残る | - | SPEC-UI-004 | `test/acceptance/chat.ts`, MAT-RES-001 |
-| REQ-RES-002 | 変更して送り直せる | - | SPEC-MCP-008, SPEC-UI-005, SPEC-EXT-003 | `test/acceptance/chat.ts`, MAT-RES-001 |
+| REQ-RES-002 | 変更して送り直せる | - | SPEC-MCP-008, SPEC-MCP-010, SPEC-UI-005, SPEC-EXT-003 | `test/acceptance/chat.ts`, MAT-RES-001 |
 | REQ-RES-003 | 同じ内容は送り直せない | - | SPEC-MCP-008, SPEC-UI-005 | `test/acceptance/chat.ts`, MAT-RES-001 |
 | REQ-CANCEL-001 | 中断が分かる | - | SPEC-MCP-005, SPEC-MCP-007, SPEC-UI-006, SPEC-UI-010, SPEC-EXT-004 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
 | REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
@@ -38,8 +38,9 @@
 | SPEC-MCP-005 | 回答を受け取るツール | REQ-ANS-001, REQ-CANCEL-001 | ARCH-EFFECT-002, DES-FORM-004, DES-PEND-001 | `test/system/mcp.test.ts` |
 | SPEC-MCP-006 | フォームの鍵 | REQ-ANS-001 | ARCH-LAYER-001, DES-SPEC-002 | `test/system/mcp.test.ts` |
 | SPEC-MCP-007 | 中断 | REQ-CANCEL-001 | DES-PEND-001 | `test/system/mcp.test.ts` |
-| SPEC-MCP-008 | 送り直しのツール | REQ-RES-002, REQ-RES-003 | ARCH-PORT-001, DES-FORM-005 | `test/system/mcp.test.ts` |
+| SPEC-MCP-008 | 送り直しのツール | REQ-RES-002, REQ-RES-003 | DES-FORM-005 | `test/system/mcp.test.ts` |
 | SPEC-MCP-009 | 接続の保護 | REQ-SEC-001 | ARCH-EFFECT-002, DES-HTTP-001 | `test/system/mcp.test.ts` |
+| SPEC-MCP-010 | 送信のツール | REQ-RES-002 | ARCH-PORT-001 | `test/system/mcp.test.ts` |
 | SPEC-UI-001 | 初期表示 | REQ-ASK-002 | ARCH-LAYER-002, ARCH-UI-001, DES-FORM-001, DES-FORM-003 | `test/system/ui.spec.ts` |
 | SPEC-UI-002 | 計算結果 | REQ-ASK-003 | ARCH-LAYER-006, DES-FORM-002 | `test/system/ui.spec.ts` |
 | SPEC-UI-003 | 回答の操作 | REQ-ANS-001, REQ-ANS-002, REQ-ANS-003, REQ-ANS-004 | - | `test/system/ui.spec.ts` |
@@ -71,7 +72,7 @@
 | ARCH-EFFECT-002 | ツールの処理は通信手段を知らない | SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-009 | - | `test/integration/architecture.test.ts` |
 | ARCH-EFFECT-003 | 層を組み立てるのは入口だけ | SPEC-EXT-001 | DES-HTTP-001 | `test/integration/architecture.test.ts` |
 | ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | DES-TOOLS-001 | `test/integration/architecture.test.ts` |
-| ARCH-PORT-001 | MCPサーバーへの差し込み口 | SPEC-EXT-002, SPEC-EXT-003, SPEC-MCP-008 | - | `test/integration/ports.test.ts` |
+| ARCH-PORT-001 | MCPサーバーへの差し込み口 | SPEC-EXT-002, SPEC-EXT-003, SPEC-MCP-010 | - | `test/integration/ports.test.ts` |
 | ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001, SPEC-UI-006, SPEC-UI-010 | DES-UI-001, DES-UI-002, DES-HOST-001 | `test/system/ui.spec.ts` |
 
 ## 詳細設計

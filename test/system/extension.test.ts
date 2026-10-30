@@ -74,49 +74,16 @@ describe("SPEC-EXT-002 待機の表示", () => {
 })
 
 describe("SPEC-EXT-003 投稿", () => {
-  it("SPEC-EXT-003 同じ題名で同時に送り直しても添付名を変えずに各投稿の値を保持する", () =>
+  it("SPEC-EXT-003 送信のツールで、フォームの会話の入力欄にある発言をチャットに送信する", () =>
     runScoped(
       Effect.gen(function* () {
         const { recorder, connection } = yield* desktopConnection
-        const before = initialValues(eventForm.spec)
-        const prices = [2500, 3000]
-        yield* Effect.forEach(prices, (price) => connection.call("form_resend", { spec: eventSpec, before, after: { ...before, price } }), {
-          concurrency: "unbounded"
-        })
-        assert.equal(recorder.files.size, prices.length)
-        const attached = recorder.commands.map(({ args }) => {
-          const options = args[0] as { readonly query: string; readonly attachFiles: ReadonlyArray<{ readonly path: string }> }
-          const path = options.attachFiles[0]?.path ?? ""
-          assert.equal(path.split("/").at(-1), `${eventSpec.title}.json`)
-          const body = JSON.parse(recorder.files.get(path) ?? "{}") as {
-            readonly values: { readonly price: number }
-          }
-          assert.ok(options.query.includes(body.values.price.toLocaleString("ja-JP")))
-          return body.values.price
-        })
-        assert.deepEqual(attached.toSorted(), prices)
-      })
-    ))
-
-  it("SPEC-EXT-003 送り直しの文章を、値のJSONを添付してチャットに送信する", () =>
-    runScoped(
-      Effect.gen(function* () {
-        const { recorder, connection } = yield* desktopConnection
-        const before = initialValues(eventForm.spec)
-        const result = yield* connection.call("form_resend", { spec: eventSpec, before, after: { ...before, price: 2500 }, locale: "ja" })
+        const result = yield* connection.call("form_send", {})
         assert.equal(result.isError, false)
-        const [sent] = recorder.commands
-        assert.equal(sent?.command, "workbench.action.chat.open")
-        const options = sent?.args[0] as {
-          readonly query: string
-          readonly isPartialQuery: boolean
-          readonly attachFiles: ReadonlyArray<{ readonly path: string }>
-        }
-        assert.equal(options.query, "「交流会の条件」で参加費を¥2,500に変えたので、反映して続けてください。")
-        assert.equal(options.isPartialQuery, false)
-        assert.equal("preserveInput" in options, false)
-        const attached = recorder.files.get(options.attachFiles[0]?.path ?? "")
-        assert.deepEqual(JSON.parse(attached ?? "{}"), { title: eventSpec.title, values: { ...before, price: 2500 } })
+        assert.deepEqual(
+          recorder.commands.map(({ command }) => command),
+          ["workbench.action.chat.submit"]
+        )
       })
     ))
 })

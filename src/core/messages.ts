@@ -31,6 +31,7 @@ const ja = {
   yes: "はい",
   no: "いいえ",
   sendFailed: "送信できませんでした",
+  openConversation: "このフォームのある会話を開き、入力欄を空にしてから、もう一度送ってください",
   resendSentence: (changes: ReadonlyArray<string>, title: string) =>
     `「${title}」で${changes.join("、")}に変えたので、反映して続けてください。`,
   changeTo: (label: string, value: string) => `${label}を${value}`,
@@ -66,6 +67,7 @@ const en: typeof ja = {
   yes: "Yes",
   no: "No",
   sendFailed: "Could not send",
+  openConversation: "Open the conversation with this form and clear its input, then send again",
   resendSentence: (changes: ReadonlyArray<string>, title: string) =>
     `In "${title}", I changed ${changes.join(", ")}. Please apply it and continue.`,
   changeTo: (label: string, value: string) => `${label} to ${value}`,

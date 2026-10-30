@@ -17,6 +17,7 @@ const monitor = (context: TestContext) => {
           requests.push({ resolve, reject })
         })
       },
+      placeMessage: () => Promise.resolve(false),
       notifySize: () => {}
     },
     "test-form",

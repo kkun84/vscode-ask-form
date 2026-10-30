@@ -14,6 +14,7 @@ export interface PageOptions {
   readonly holdResend?: boolean
   readonly omitCancellation?: boolean
   readonly holdStatus?: boolean
+  readonly placeMessage?: "placed" | "refused"
   readonly restore?: Readonly<Record<string, unknown>>
 }
 
@@ -78,6 +79,7 @@ export const openForm = async (page: Page, server: HarnessServer, options: PageO
       holdResend: options.holdResend ?? false,
       omitCancellation: options.omitCancellation ?? false,
       holdStatus: options.holdStatus ?? false,
+      placeMessage: options.placeMessage,
       restore: options.restore,
       background: backgrounds[context.theme]
     }

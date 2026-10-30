@@ -177,3 +177,11 @@ export const outcomeText = (outcome: Outcome): string => {
       return `The user will answer in the chat instead. End your turn now and wait for the user's next message.\n${json}`
   }
 }
+
+export const attachmentName = (title: string): string => {
+  const slug = title
+    .replaceAll(/[^\p{L}\p{N}]+/gu, "-")
+    .replaceAll(/^-|-$/g, "")
+    .slice(0, 40)
+  return `${slug === "" ? "form" : slug}.json`
+}

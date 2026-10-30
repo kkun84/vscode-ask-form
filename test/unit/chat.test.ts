@@ -5,7 +5,7 @@ import type * as Vscode from "vscode"
 import { withVscode } from "../support/source.ts"
 import { createVscode } from "../support/vscode-stub.ts"
 
-it("DES-CHAT-001 添付名を題名由来のまま保ち、同時投稿ごとに別のディレクトリと値を保持する", async (context) => {
+it("DES-CHAT-001 下書きとして入力欄に入れ、添付名を題名由来のまま保ち、同時投稿ごとに別のディレクトリと値を保持する", async (context) => {
   const { vscode, recorder } = createVscode()
   const { postToChat } = await withVscode(vscode, () => import("../../src/extension/shared/chat.ts"))
   const api = vscode as typeof Vscode
@@ -31,7 +31,11 @@ it("DES-CHAT-001 添付名を題名由来のまま保ち、同時投稿ごとに
   for (const post of posts) {
     const command = recorder.commands.find((entry) => (entry.args[0] as { readonly query: string }).query === post.text)
     assert.ok(command)
-    const { attachFiles } = command.args[0] as { readonly attachFiles: ReadonlyArray<{ readonly path: string }> }
+    const { attachFiles, isPartialQuery } = command.args[0] as {
+      readonly attachFiles: ReadonlyArray<{ readonly path: string }>
+      readonly isPartialQuery: boolean
+    }
+    assert.equal(isPartialQuery, true)
     const path = attachFiles[0]?.path ?? ""
     const directory = posix.dirname(path)
     assert.match(directory, /^\/storage\/answers\/[0-9a-f-]{36}$/)

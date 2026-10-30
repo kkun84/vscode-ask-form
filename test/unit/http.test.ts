@@ -7,7 +7,7 @@ import { ChatPoster, WaitingIndicator } from "../../src/mcp/ports.ts"
 import { FormHtml } from "../../src/mcp/server.ts"
 
 const services = Layer.mergeAll(
-  Layer.succeed(ChatPoster, ChatPoster.of({ post: () => Effect.void })),
+  Layer.succeed(ChatPoster, ChatPoster.of({ submit: Effect.void })),
   Layer.succeed(WaitingIndicator, WaitingIndicator.of({ update: () => Effect.void })),
   Layer.succeed(FormHtml, "")
 )

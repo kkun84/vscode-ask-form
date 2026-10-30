@@ -110,9 +110,9 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 ### ARCH-PORT-001 MCPサーバーへの差し込み口
 
-MCPサーバーはVS Codeに依存せずに投稿と待機の表示を行うため、`ChatPoster`(投稿)と`WaitingIndicator`(待機数の通知)をEffectのサービスとして要求する。デスクトップ版の入口がVS Codeを使う実装を与え、テストは記録するだけの実装を与える。
+MCPサーバーはVS Codeに依存せずに送信と待機の表示を行うため、`ChatPoster`(入力欄の発言の送信)と`WaitingIndicator`(待機数の通知)をEffectのサービスとして要求する。デスクトップ版の入口がVS Codeを使う実装を与え、テストは記録するだけの実装を与える。
 
-派生元: SPEC-EXT-002, SPEC-EXT-003, SPEC-MCP-008
+派生元: SPEC-EXT-002, SPEC-EXT-003, SPEC-MCP-010
 
 ### ARCH-UI-001 画面の通信は1種類
 

@@ -167,6 +167,44 @@ test.describe("SPEC-UI-005 送り直し", () => {
   })
 })
 
+const sendChange = async (frame: Frame) => {
+  await frame.getByRole("switch", { name: "ライブ配信" }).uncheck()
+  await frame.getByRole("button", { name: "変更を送信" }).click()
+}
+
+test.describe("SPEC-UI-005 フォームの会話への送り直し", () => {
+  test("SPEC-UI-005 文章と添付をフォームの会話の入力欄に置いてから送信させる", async ({ page }) => {
+    const frame = await openResend(page, { placeMessage: "placed" })
+    await sendChange(frame)
+    await expect(frame.locator(".summary-row", { hasText: "ライブ配信" })).toBeVisible()
+    const messages = await recorded<{ readonly method?: string; readonly params?: { readonly name?: string; readonly content?: unknown } }>(
+      page,
+      "messages"
+    )
+    const order = messages.flatMap((message) =>
+      message.method === "ui/message"
+        ? ["ui/message"]
+        : message.params?.name === "form_resend" || message.params?.name === "form_send"
+          ? [message.params.name]
+          : []
+    )
+    expect(order).toEqual(["form_resend", "ui/message", "form_send"])
+    expect(messages.find((message) => message.method === "ui/message")?.params?.content).toEqual([
+      { type: "text", text: "resent" },
+      { type: "resource_link", uri: "ask-form://answers/1/form.json", name: "form.json", mimeType: "application/json" }
+    ])
+  })
+
+  test("SPEC-UI-005 入力欄に置けなければ送信させず、会話を開くよう示す", async ({ page }) => {
+    const frame = await openResend(page, { placeMessage: "refused" })
+    await sendChange(frame)
+    await expect(frame.getByText("このフォームのある会話を開き、入力欄を空にしてから、もう一度送ってください")).toBeVisible()
+    await expect(frame.getByRole("button", { name: "変更を送信" })).toBeEnabled()
+    const messages = await recorded<{ readonly params?: { readonly name?: string } }>(page, "messages")
+    expect(messages.some((message) => message.params?.name === "form_send")).toBe(false)
+  })
+})
+
 test.describe("SPEC-UI-005 送信中", () => {
   test("SPEC-UI-005 送り直しの送信中は編集できず、送った値が要約に残る", async ({ page }) => {
     const frame = await openResend(page, { holdResend: true })

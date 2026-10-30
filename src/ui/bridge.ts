@@ -17,8 +17,13 @@ export interface BridgeHandlers {
   readonly onHostContext: (context: HostContext) => void
 }
 
+export type MessageContent =
+  | { readonly type: "text"; readonly text: string }
+  | { readonly type: "resource_link"; readonly uri: string; readonly name: string; readonly mimeType: string }
+
 export interface Bridge {
   readonly callTool: (name: string, args: Readonly<Record<string, unknown>>) => Promise<ToolResult>
+  readonly placeMessage: (content: ReadonlyArray<MessageContent>) => Promise<boolean>
   readonly notifySize: (height: number) => void
 }
 
@@ -130,6 +135,11 @@ export const connect = (handlers: BridgeHandlers, target: Window = window.parent
     post({ method: "ui/notifications/initialized", params: {} })
     return {
       callTool: (name, args) => request("tools/call", { name, arguments: args }) as Promise<ToolResult>,
+      placeMessage: (content) =>
+        request("ui/message", { role: "user", content }).then(
+          (placed) => (placed as { readonly isError?: boolean } | undefined)?.isError !== true,
+          () => false
+        ),
       notifySize: (height) => post({ method: "ui/notifications/size-changed", params: { height } })
     }
   })

@@ -11,6 +11,7 @@ interface Setup {
   readonly holdResend: boolean
   readonly omitCancellation: boolean
   readonly holdStatus: boolean
+  readonly placeMessage: "placed" | "refused" | undefined
   readonly restore: Readonly<Record<string, unknown>> | undefined
   readonly background: string
 }
@@ -74,12 +75,36 @@ window.addEventListener("message", (event: MessageEvent<Record<string, unknown>>
     recorder.releaseStatus = (result) => post({ jsonrpc: "2.0", id: message["id"], result })
     return
   }
+  if (setup.placeMessage !== undefined && answerAsDesktop(message, params)) {
+    return
+  }
   if (setup.expireOnAnswer && message["method"] === "tools/call" && params["name"] === "form_answer") {
     post({ jsonrpc: "2.0", id: message["id"], result: { isError: true, content: [{ type: "text", text: "expired" }] } })
     return
   }
   void relay(message)
 })
+
+const answerAsDesktop = (message: Record<string, unknown>, params: Record<string, unknown>): boolean => {
+  const reply = (result: Record<string, unknown>) => post({ jsonrpc: "2.0", id: message["id"], result })
+  if (message["method"] === "ui/message") {
+    reply({ isError: setup.placeMessage === "refused" })
+    return true
+  }
+  if (message["method"] === "tools/call" && params["name"] === "form_resend") {
+    reply({
+      isError: false,
+      content: [{ type: "text", text: "" }],
+      structuredContent: { text: "resent", attachment: { uri: "ask-form://answers/1/form.json", name: "form.json" } }
+    })
+    return true
+  }
+  if (message["method"] === "tools/call" && params["name"] === "form_send") {
+    reply({ isError: false, content: [{ type: "text", text: "" }], structuredContent: { sent: true } })
+    return true
+  }
+  return false
+}
 
 const relay = async (message: Record<string, unknown>) => {
   await host.receive(message)

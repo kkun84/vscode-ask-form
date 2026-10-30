@@ -199,12 +199,35 @@ export class FormApp {
       })
       if (result.isError === true) {
         this.error = `${this.m.sendFailed}: ${resultText(result)}`
-      } else {
+        return
+      }
+      const failure = await this.deliver(bridge, result)
+      if (failure === undefined) {
         this.sent = after
         this.values = { ...after }
         this.phase = { kind: "summary", status: "submitted" }
+      } else {
+        this.error = failure
       }
     }, `${this.m.sendFailed}: `)
+  }
+
+  private async deliver(bridge: Bridge, result: ToolResult): Promise<string | undefined> {
+    const message = result.structuredContent as
+      | { readonly text?: unknown; readonly attachment?: { readonly uri: string; readonly name: string } }
+      | undefined
+    if (typeof message?.text !== "string" || message.attachment === undefined) {
+      return undefined
+    }
+    const placed = await bridge.placeMessage([
+      { type: "text", text: message.text },
+      { type: "resource_link", uri: message.attachment.uri, name: message.attachment.name, mimeType: "application/json" }
+    ])
+    if (!placed) {
+      return this.m.openConversation
+    }
+    const sent = await bridge.callTool("form_send", {})
+    return sent.isError === true ? `${this.m.sendFailed}: ${resultText(sent)}` : undefined
   }
 
   private changedSinceSent(): ReadonlyArray<string> {

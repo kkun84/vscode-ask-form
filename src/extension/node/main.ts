@@ -5,7 +5,6 @@ import { serveForms } from "../../mcp/http.ts"
 import { ChatPostFailed, ChatPoster, WaitingIndicator } from "../../mcp/ports.ts"
 import { FormHtml } from "../../mcp/server.ts"
 import { formHtml, version } from "../shared/assets.ts"
-import { postToChat } from "../shared/chat.ts"
 import { waitingLabel } from "../shared/labels.ts"
 import { createWaitingStatus } from "../shared/waiting.ts"
 
@@ -18,11 +17,10 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
     Layer.succeed(
       ChatPoster,
       ChatPoster.of({
-        post: (post) =>
-          Effect.tryPromise({
-            try: () => postToChat(context.globalStorageUri, post),
-            catch: (error) => new ChatPostFailed({ message: error instanceof Error ? error.message : String(error) })
-          })
+        submit: Effect.tryPromise({
+          try: () => vscode.commands.executeCommand("workbench.action.chat.submit"),
+          catch: (error) => new ChatPostFailed({ message: error instanceof Error ? error.message : String(error) })
+        }).pipe(Effect.asVoid)
       })
     ),
     Layer.succeed(WaitingIndicator, WaitingIndicator.of({ update: (count) => Effect.sync(() => waiting.update(count)) })),

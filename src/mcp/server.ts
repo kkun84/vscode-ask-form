@@ -1,6 +1,14 @@
-import { Context, Effect, Layer, Result, Schema } from "effect"
+import { Context, Effect, Layer, Ref, Result, Schema } from "effect"
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai"
-import { outcomeFor, outcomeText, resendMessage, type Action, type Outcome } from "../core/form.ts"
+import {
+  attachmentName,
+  outcomeFor,
+  outcomeText,
+  resendMessage,
+  type Action,
+  type Outcome,
+  type Values as FormValues
+} from "../core/form.ts"
 import { checkValues, compile } from "../core/validate.ts"
 import { languageOf, messages } from "../core/messages.ts"
 import { PendingForms } from "./pending.ts"
@@ -79,7 +87,13 @@ const FormResend = Tool.make("form_resend", {
     after: Schema.Unknown,
     locale: Schema.optionalKey(Schema.String)
   }),
-  success: Schema.Struct({ posted: Schema.Boolean }),
+  success: Schema.Struct({ text: Schema.String, attachment: Schema.Struct({ uri: Schema.String, name: Schema.String }) }),
+  failure: FormRejected
+}).annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
+
+const FormSend = Tool.make("form_send", {
+  description: "Send the message the form view placed in its own conversation. Only the form view calls this tool.",
+  success: Schema.Struct({ sent: Schema.Boolean }),
   failure: FormRejected
 }).annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
@@ -91,7 +105,37 @@ const FormStatus = Tool.make("form_status", {
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
-const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend, FormStatus)
+const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend, FormSend, FormStatus)
+
+interface Attachment {
+  readonly title: string
+  readonly values: FormValues
+}
+
+class Attachments extends Context.Service<
+  Attachments,
+  {
+    readonly put: (attachment: Attachment) => Effect.Effect<{ readonly uri: string; readonly name: string }>
+    readonly get: (id: string) => Effect.Effect<Attachment | undefined>
+  }
+>()("ask-form/Attachments") {}
+
+const AttachmentsLive = Layer.effect(
+  Attachments,
+  Effect.gen(function* () {
+    const stored = yield* Ref.make<ReadonlyMap<string, Attachment>>(new Map())
+    return Attachments.of({
+      put: (attachment) =>
+        Effect.gen(function* () {
+          const id = crypto.randomUUID()
+          yield* Ref.update(stored, (current) => new Map([...current, [id, attachment] as const].slice(-64)))
+          const name = attachmentName(attachment.title)
+          return { uri: `ask-form://answers/${id}/${encodeURIComponent(name)}`, name }
+        }),
+      get: (id) => Ref.get(stored).pipe(Effect.map((current) => current.get(id)))
+    })
+  })
+)
 
 const reject = (problems: ReadonlyArray<string>) => Effect.fail(new FormRejected({ message: problems.join("\n") }))
 
@@ -99,6 +143,7 @@ const FormsHandlers = FormsToolkit.toLayer(
   Effect.gen(function* () {
     const pending = yield* PendingForms
     const poster = yield* ChatPoster
+    const attachments = yield* Attachments
     return FormsToolkit.of({
       form_status: ({ formKey }) => pending.status(formKey).pipe(Effect.map((status) => ({ status }))),
       ask_form: (params) =>
@@ -145,11 +190,14 @@ const FormsHandlers = FormsToolkit.toLayer(
           if (text === undefined) {
             return yield* reject(["no changes: 前回の送信から変更がありません"])
           }
-          yield* poster
-            .post({ text, title: form.spec.title, values: next.success })
-            .pipe(Effect.mapError((error) => new FormRejected({ message: error.message })))
-          return { posted: true }
-        })
+          const attachment = yield* attachments.put({ title: form.spec.title, values: next.success })
+          return { text, attachment }
+        }),
+      form_send: () =>
+        poster.submit.pipe(
+          Effect.mapError((error) => new FormRejected({ message: error.message })),
+          Effect.as({ sent: true })
+        )
     })
   })
 )
@@ -167,4 +215,22 @@ const FormResource = McpServer.resource({
   })
 })
 
-export const FormsServer = Layer.mergeAll(McpServer.toolkit(FormsToolkit), FormResource).pipe(Layer.provide(FormsHandlers))
+const AttachmentResource = McpServer.resource`ask-form://answers/${Schema.String}/${Schema.String}`({
+  name: "Resent answer",
+  description: "All values of a resent form answer",
+  mimeType: "application/json",
+  content: (_uri, id) =>
+    Effect.gen(function* () {
+      const attachments = yield* Attachments
+      const attachment = yield* attachments.get(id)
+      if (attachment === undefined) {
+        return yield* new FormRejected({ message: `unknown attachment ${id}` })
+      }
+      return JSON.stringify(attachment, undefined, 2)
+    })
+})
+
+export const FormsServer = Layer.mergeAll(McpServer.toolkit(FormsToolkit), FormResource, AttachmentResource).pipe(
+  Layer.provide(FormsHandlers),
+  Layer.provide(AttachmentsLive)
+)

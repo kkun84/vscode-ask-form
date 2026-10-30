@@ -152,7 +152,7 @@ describe("SPEC-MCP-005 回答を受け取るツール", () => {
   it("SPEC-MCP-005 画面専用でAIからは見えない印を持つ", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        for (const name of ["form_answer", "form_resend", "form_status"]) {
+        for (const name of ["form_answer", "form_resend", "form_send", "form_status"]) {
           const tool = yield* h.tool(name)
           assert.deepEqual((tool._meta as Record<string, unknown>)["ui"], { resourceUri, visibility: ["app"] })
         }
@@ -283,44 +283,79 @@ const rawSession = (h: Harness) =>
     return rpc
   })
 
+const readAttachment = (h: Harness, uri: string) =>
+  h.client.readResource({ uri }).pipe(
+    Effect.map((read) => {
+      const [content] = read.contents
+      return JSON.parse(content !== undefined && "text" in content ? content.text : "null") as unknown
+    })
+  )
+
 describe("SPEC-MCP-008 送り直しのツール", () => {
-  it("SPEC-MCP-008 差分の文章と全項目の値を投稿させる", () =>
+  it("SPEC-MCP-008 差分の文章と、全項目の値を読める添付を返す", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const before = initialValues(form.spec)
         const after = { ...before, price: 2500 }
         const result = yield* h.call("form_resend", { spec: eventSpec, before, after, locale: "ja" })
         assert.equal(result.isError, false)
-        assert.deepEqual(yield* Ref.get(h.posts), [
-          {
-            text: "「交流会の条件」で参加費を¥2,500に変えたので、反映して続けてください。",
-            title: "交流会の条件",
-            values: after
-          }
-        ])
+        const message = result.structuredContent as {
+          readonly text: string
+          readonly attachment: { readonly uri: string; readonly name: string }
+        }
+        assert.equal(message.text, "「交流会の条件」で参加費を¥2,500に変えたので、反映して続けてください。")
+        assert.equal(message.attachment.name, "交流会の条件.json")
+        assert.match(message.attachment.uri, /^ask-form:\/\/answers\/[0-9a-f-]{36}\//)
+        assert.deepEqual(yield* readAttachment(h, message.attachment.uri), { title: "交流会の条件", values: after })
+        assert.equal(yield* Ref.get(h.submits), 0)
       })
     ))
 
-  it("SPEC-MCP-008 差分がなければ誤りを返し、投稿しない", () =>
+  it("SPEC-MCP-008 同時に送り直しても、添付は送り直しごとに別の値を保つ", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const before = initialValues(form.spec)
+        const prices = [2500, 3000]
+        const results = yield* Effect.forEach(
+          prices,
+          (price) => h.call("form_resend", { spec: eventSpec, before, after: { ...before, price } }),
+          {
+            concurrency: "unbounded"
+          }
+        )
+        const uris = results.map((result) => (result.structuredContent as { readonly attachment: { readonly uri: string } }).attachment.uri)
+        assert.equal(new Set(uris).size, prices.length)
+        const read = yield* Effect.forEach(uris, (uri) => readAttachment(h, uri))
+        assert.deepEqual(
+          read.map((body) => (body as { readonly values: { readonly price: number } }).values.price),
+          prices
+        )
+      })
+    ))
+
+  it("SPEC-MCP-008 差分がなければ誤りを返す", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const values = initialValues(form.spec)
         yield* expectError(h.call("form_resend", { spec: eventSpec, before: values, after: values }), /no changes/)
-        assert.deepEqual(yield* Ref.get(h.posts), [])
       })
     ))
+})
 
-  it("SPEC-MCP-008 投稿できなかったことを誤りとして返す", () =>
-    withHarness(
-      (h) =>
-        Effect.gen(function* () {
-          const before = initialValues(form.spec)
-          const result = yield* h.call("form_resend", { spec: eventSpec, before, after: { ...before, price: 0 } })
-          assert.equal(result.isError, true)
-          assert.match(text(result), /chat unavailable/)
-        }),
-      { failPosting: true }
-    ))
+describe("SPEC-MCP-010 送信のツール", () => {
+  for (const failPosting of [false, true]) {
+    it(`SPEC-MCP-010 画面が入力欄に置いた発言を送信させ、${failPosting ? "送信できなければ誤りを返す" : "成功を返す"}`, () =>
+      withHarness(
+        (h) =>
+          Effect.gen(function* () {
+            const result = yield* h.call("form_send", {})
+            assert.equal(result.isError, failPosting)
+            assert.equal(yield* Ref.get(h.submits), failPosting ? 0 : 1)
+            assert.equal(/chat unavailable/.test(text(result)), failPosting)
+          }),
+        { failPosting }
+      ))
+  }
 })
 
 const post = (url: string, headers: Record<string, string>) =>
