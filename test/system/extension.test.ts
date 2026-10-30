@@ -74,6 +74,30 @@ describe("SPEC-EXT-002 待機の表示", () => {
 })
 
 describe("SPEC-EXT-003 投稿", () => {
+  it("SPEC-EXT-003 同じ題名で同時に送り直しても添付名を変えずに各投稿の値を保持する", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, connection } = yield* desktopConnection
+        const before = initialValues(eventForm.spec)
+        const prices = [2500, 3000]
+        yield* Effect.forEach(prices, (price) => connection.call("form_resend", { spec: eventSpec, before, after: { ...before, price } }), {
+          concurrency: "unbounded"
+        })
+        assert.equal(recorder.files.size, prices.length)
+        const attached = recorder.commands.map(({ args }) => {
+          const options = args[0] as { readonly query: string; readonly attachFiles: ReadonlyArray<{ readonly path: string }> }
+          const path = options.attachFiles[0]?.path ?? ""
+          assert.equal(path.split("/").at(-1), `${eventSpec.title}.json`)
+          const body = JSON.parse(recorder.files.get(path) ?? "{}") as {
+            readonly values: { readonly price: number }
+          }
+          assert.ok(options.query.includes(body.values.price.toLocaleString("ja-JP")))
+          return body.values.price
+        })
+        assert.deepEqual(attached.toSorted(), prices)
+      })
+    ))
+
   it("SPEC-EXT-003 送り直しの文章を、値のJSONを添付してチャットに送信する", () =>
     runScoped(
       Effect.gen(function* () {
@@ -137,7 +161,7 @@ describe("SPEC-EXT-004 web版", () => {
     assert.equal(visible(recorder), false)
   })
 
-  it("SPEC-EXT-004 呼び出しが取り消されるとチャットで答える結果を返す", async () => {
+  it("SPEC-EXT-004 読み込み中の取り消しも結果を返し、パネルの初期化後に再通知する", async () => {
     const { recorder, tool } = web()
     const { token, cancel } = cancellation()
     const pending = tool.invoke({ input: eventSpec }, token)
@@ -147,6 +171,12 @@ describe("SPEC-EXT-004 web版", () => {
       recorder.panels[0]?.sent.some((message) => message["method"] === "ui/notifications/tool-cancelled"),
       true
     )
+    const panel = recorder.panels[0]
+    assert.ok(panel)
+    panel.sent.length = 0
+    panel.receive({ jsonrpc: "2.0", id: 1, method: "ui/initialize", params: {} })
+    assert.equal(panel.sent.at(-1)?.["method"], "ui/notifications/tool-cancelled")
+    assert.equal(visible(recorder), false)
   })
 
   it("SPEC-EXT-004 ツールはweb版でだけ有効になる", async () => {

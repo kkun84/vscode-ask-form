@@ -56,7 +56,9 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 `src/extension/web`と`src/extension/shared`は、Node.jsの組み込みモジュールと`src/mcp`に依存しない。
 
-派生元: SPEC-EXT-004
+- 投稿ごとの一意な保存先ディレクトリは共有の投稿処理で作り、両方の入口でWeb Cryptoを使う。添付名は題名由来の`<slug>.json`に保ち、UUIDはディレクトリ名に使う。ファイル操作はVS CodeのAPIに集める。
+
+派生元: SPEC-EXT-004, SPEC-EXT-003
 
 ### ARCH-LAYER-005 入口は互いに依存しない
 
@@ -84,17 +86,23 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 `src/mcp/server.ts`、`src/mcp/pending.ts`、`src/mcp/schema.ts`は、Node.jsの組み込みモジュールと`src/mcp/http.ts`に依存しない。
 
-派生元: SPEC-MCP-003, SPEC-MCP-009
+- 待機の台帳の更新と回答の確定は`PendingForms`内で中断不可にし、差し込み口への待機数の通知は確定後の中断可能な処理に分ける。
+
+派生元: SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-009
 
 ### ARCH-EFFECT-003 層を組み立てるのは入口だけ
 
 `src/mcp/http.ts`に依存してよいのは、デスクトップ版の入口(`src/extension/node`)とテストだけ。
+
+- Node.jsの待ち受けエラーはHTTPの境界で型のあるEffectの失敗に変換し、入口へ伝える。内部のツールやサービスにNode.jsのイベントを持ち込まない。
 
 派生元: SPEC-EXT-001
 
 ### ARCH-DEPS-001 配布物の依存は限られる
 
 `src`は`effect`と`vscode`のほかの外部パッケージ、開発用の依存、`test`と`scripts`に依存しない。解決できない依存を持たない。
+
+- 検査の時間制限とプロセスグループの終了は`scripts`に置き、Node.jsとOSの機能で行う。配布物の依存は増やさない。
 
 派生元: SPEC-EXT-005
 
@@ -110,4 +118,7 @@ MCPサーバーはVS Codeに依存せずに投稿と待機の表示を行うた�
 
 画面はどの環境でもMCP Appsの画面側の約束事(postMessageによるJSON-RPC)だけで通信する。web版のパネルは、拡張機能がMCP Appsのホスト役を真似て応答する。
 
-派生元: SPEC-EXT-004, SPEC-UI-001
+- 画面の共通ブリッジが送り主とoriginを検証する。VS Code固有の送り主の橋渡しはweb版の入口に閉じ込める。
+- 中断の保持と初期化後の再通知は中核のホスト役が担当し、web版の入口は取り消しをホストへ渡す。
+
+派生元: SPEC-EXT-004, SPEC-UI-001, SPEC-UI-006, SPEC-UI-010

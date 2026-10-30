@@ -52,7 +52,12 @@ export const connect = (url: string, token: string): Effect.Effect<Connection, u
 
 export const testHtml = "<!doctype html><html><head></head><body>form</body></html>"
 
-const harness = (options: { readonly failPosting?: boolean } = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
+interface HarnessOptions {
+  readonly failPosting?: boolean
+  readonly onWaiting?: (count: number) => Effect.Effect<void>
+}
+
+const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
   Effect.gen(function* () {
     const posts = yield* Ref.make<ReadonlyArray<ChatPost>>([])
     const waiting = yield* Ref.make<ReadonlyArray<number>>([])
@@ -70,7 +75,7 @@ const harness = (options: { readonly failPosting?: boolean } = {}): Effect.Effec
       Layer.succeed(
         WaitingIndicator,
         WaitingIndicator.of({
-          update: (count) => Ref.update(waiting, (all) => [...all, count])
+          update: (count) => Ref.update(waiting, (all) => [...all, count]).pipe(Effect.andThen(options.onWaiting?.(count) ?? Effect.void))
         })
       ),
       Layer.succeed(FormHtml, testHtml)
@@ -89,10 +94,8 @@ const harness = (options: { readonly failPosting?: boolean } = {}): Effect.Effec
 export const runScoped = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>): Promise<A> =>
   Effect.runPromise(Effect.scoped(Effect.orDie(effect)))
 
-export const withHarness = <A>(
-  body: (h: Harness) => Effect.Effect<A, unknown, Scope.Scope>,
-  options: { readonly failPosting?: boolean } = {}
-): Promise<A> => runScoped(Effect.flatMap(harness(options), body))
+export const withHarness = <A>(body: (h: Harness) => Effect.Effect<A, unknown, Scope.Scope>, options: HarnessOptions = {}): Promise<A> =>
+  runScoped(Effect.flatMap(harness(options), body))
 
 export const structured = (result: McpSchema.CallToolResult): Record<string, unknown> =>
   (result.structuredContent ?? {}) as Record<string, unknown>

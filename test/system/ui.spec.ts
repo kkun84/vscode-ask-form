@@ -195,7 +195,21 @@ const openWithStatus = async (page: Page) => {
   return frame
 }
 
+const expectCancelled = async (frame: Frame) => {
+  await expect(frame.locator(".closed")).toHaveText("キャンセルされました")
+  await expect(frame.getByRole("button")).toHaveCount(0)
+}
+
 test.describe("SPEC-UI-006 中断と期限切れ", () => {
+  test("SPEC-UI-006 読み込み前の中断は初期化後すぐ表示し、状態の確認を待たない", async ({ page }) => {
+    await page.route("**/form.html", async (route) => {
+      await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
+      await route.continue()
+    })
+    const frame = await open(page, { holdStatus: true })
+    await expectCancelled(frame)
+  })
+
   for (const omitCancellation of [false, true]) {
     test(`SPEC-UI-006 中断通知${omitCancellation ? "なしでもサーバーの状態から" : "で"}回答できなくなる`, async ({ page }) => {
       const frame = await open(page, { omitCancellation, context: { locale: "en" } })
@@ -236,15 +250,15 @@ test.describe("SPEC-UI-006 中断と期限切れ", () => {
     const frame = await open(page)
     await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
     await expect(frame.locator(".closed")).toBeVisible()
-    await frame.evaluate(() => {
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          data: { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: "answer_in_chat" } } }
-        })
-      )
+    await page.evaluate(() => {
+      document
+        .querySelector<HTMLIFrameElement>("#form")
+        ?.contentWindow?.postMessage(
+          { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: "answer_in_chat" } } },
+          window.location.origin
+        )
     })
-    await expect(frame.locator(".closed")).toHaveText("キャンセルされました")
-    await expect(frame.getByRole("button")).toHaveCount(0)
+    await expectCancelled(frame)
   })
 
   test("SPEC-UI-006 受け付けられないと返されると期限切れを示す", async ({ page }) => {
@@ -253,6 +267,27 @@ test.describe("SPEC-UI-006 中断と期限切れ", () => {
     await expect(frame.getByText("この質問は終了しています")).toBeVisible()
     await expect(frame.getByRole("button")).toHaveCount(0)
   })
+})
+
+test("SPEC-UI-010 別のフレームから偽の中断や結果が届いても回答を続けられる", async ({ page }) => {
+  const frame = await open(page)
+  await page.evaluate(() => {
+    const sibling = document.createElement("iframe")
+    sibling.name = "untrusted"
+    document.body.append(sibling)
+  })
+  const sibling = page.frame("untrusted")
+  expect(sibling).not.toBeNull()
+  await sibling?.evaluate(() => {
+    const form = window.parent.document.querySelector<HTMLIFrameElement>("#form")?.contentWindow
+    form?.postMessage({ jsonrpc: "2.0", method: "ui/notifications/tool-cancelled" }, "*")
+    form?.postMessage(
+      { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: "answer_in_chat" } } },
+      "*"
+    )
+  })
+  await frame.getByRole("button", { name: "この内容で進める" }).click()
+  await expect.poll(() => recorded<OutcomeLike>(page, "outcomes")).toEqual([expect.objectContaining({ status: "submitted" })])
 })
 
 test.describe("SPEC-UI-007 テーマ", () => {

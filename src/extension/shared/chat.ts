@@ -16,7 +16,7 @@ const fileName = (title: string): string => {
 }
 
 export const postToChat = async (storage: vscode.Uri, request: ChatPostRequest): Promise<void> => {
-  const directory = vscode.Uri.joinPath(storage, "answers")
+  const directory = vscode.Uri.joinPath(storage, "answers", crypto.randomUUID())
   await vscode.workspace.fs.createDirectory(directory)
   const file = vscode.Uri.joinPath(directory, fileName(request.title))
   const body = JSON.stringify({ title: request.title, values: request.values }, undefined, 2)

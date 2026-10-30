@@ -84,17 +84,20 @@ export const PendingFormsLive = Layer.effect(
       })
 
     const resolve = (key: string, outcome: (form: CompiledForm) => Outcome) =>
-      Effect.gen(function* () {
-        const waiter = yield* Ref.modify(ledger, (current): readonly [Waiter | undefined, Ledger] => {
-          const first = current.get(key)?.[0]
-          return first === undefined ? [undefined, current] : [first, without(current, key, first)]
+      Effect.uninterruptibleMask((restore) =>
+        Effect.gen(function* () {
+          const waiter = yield* Ref.modify(ledger, (current): readonly [Waiter | undefined, Ledger] => {
+            const first = current.get(key)?.[0]
+            return first === undefined ? [undefined, current] : [first, without(current, key, first)]
+          })
+          if (waiter === undefined) {
+            return false
+          }
+          const completed = yield* Deferred.succeed(waiter.deferred, outcome(waiter.form))
+          yield* restore(Ref.get(ledger).pipe(Effect.flatMap((next) => indicator.update(total(next)))))
+          return completed
         })
-        if (waiter === undefined) {
-          return false
-        }
-        yield* Ref.get(ledger).pipe(Effect.flatMap((next) => indicator.update(total(next))))
-        return yield* Deferred.succeed(waiter.deferred, outcome(waiter.form))
-      })
+      )
 
     return PendingForms.of({ wait, peek, resolve, status, size: Ref.get(ledger).pipe(Effect.map(total)) })
   })

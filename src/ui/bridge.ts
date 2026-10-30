@@ -38,10 +38,38 @@ type Message = {
 
 const protocolVersion = "2026-01-26"
 
+const originOf = (target: Window): string | undefined => {
+  try {
+    return target.location.origin
+  } catch {
+    return undefined
+  }
+}
+
+const channelTo = (target: Window) => {
+  let origin = originOf(target)
+  return {
+    post: (message: Record<string, unknown>) =>
+      target.postMessage({ jsonrpc: "2.0", ...message }, origin === "null" ? "*" : (origin ?? "*")),
+    listen: (receive: (message: Message) => void) =>
+      window.addEventListener("message", (event: MessageEvent<Message>) => {
+        if (event.source !== target || (origin !== undefined && event.origin !== origin)) {
+          return
+        }
+        const message = event.data
+        if (message === null || typeof message !== "object" || message.jsonrpc !== "2.0") {
+          return
+        }
+        origin ??= event.origin
+        receive(message)
+      })
+  }
+}
+
 export const connect = (handlers: BridgeHandlers, target: Window = window.parent): Promise<Bridge> => {
   let nextId = 1
   const pending = new Map<number | string, Pending>()
-  const post = (message: Record<string, unknown>) => target.postMessage({ jsonrpc: "2.0", ...message }, "*")
+  const { post, listen } = channelTo(target)
 
   const request = (method: string, params: Record<string, unknown>): Promise<unknown> =>
     new Promise((resolve, reject) => {
@@ -74,11 +102,7 @@ export const connect = (handlers: BridgeHandlers, target: Window = window.parent
 
   const acknowledged: ReadonlySet<string> = new Set(["ui/resource-teardown", "ping"])
 
-  const onMessage = (event: MessageEvent<Message>) => {
-    const message = event.data
-    if (message === null || typeof message !== "object") {
-      return
-    }
+  const onMessage = (message: Message) => {
     const { id, method } = message
     if (method === undefined) {
       if (id !== undefined) {
@@ -92,7 +116,7 @@ export const connect = (handlers: BridgeHandlers, target: Window = window.parent
     }
   }
 
-  window.addEventListener("message", onMessage)
+  listen(onMessage)
 
   return request("ui/initialize", {
     appInfo: { name: "ask-form", version: "1" },

@@ -1,17 +1,20 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Effect, Fiber, Layer, Ref } from "effect"
+import { Deferred, Effect, Fiber, Layer, Ref } from "effect"
 import { PendingForms, PendingFormsLive } from "../../src/mcp/pending.ts"
 import { WaitingIndicator } from "../../src/mcp/ports.ts"
 import { eventForm } from "../fixtures/event.ts"
 
-const run = <A>(body: (pending: PendingForms["Service"], counts: Ref.Ref<ReadonlyArray<number>>) => Effect.Effect<A>) =>
+const run = <A>(
+  body: (pending: PendingForms["Service"], counts: Ref.Ref<ReadonlyArray<number>>) => Effect.Effect<A>,
+  onCount: (count: number) => Effect.Effect<void> = () => Effect.void
+) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const counts = yield* Ref.make<ReadonlyArray<number>>([])
       const indicator = Layer.succeed(
         WaitingIndicator,
-        WaitingIndicator.of({ update: (count) => Ref.update(counts, (all) => [...all, count]) })
+        WaitingIndicator.of({ update: (count) => Ref.update(counts, (all) => [...all, count]).pipe(Effect.andThen(onCount(count))) })
       )
       return yield* PendingForms.pipe(
         Effect.flatMap((pending) => body(pending, counts)),
@@ -24,6 +27,25 @@ const startWaiting = (pending: PendingForms["Service"], form = eventForm) =>
   Effect.forkChild(pending.wait(form)).pipe(Effect.tap(() => Effect.yieldNow))
 
 describe("DES-PEND-001 待機の台帳", () => {
+  it("DES-PEND-001 回答側を待機数の通知中に中断しても待機は回答を受け取る", () => {
+    const notifying = Deferred.makeUnsafe<boolean>()
+    return run(
+      (pending) =>
+        Effect.gen(function* () {
+          const waiting = yield* startWaiting(pending)
+          const answering = yield* Effect.forkChild(pending.resolve(eventForm.key, () => ({ status: "answer_in_chat" })))
+          yield* Deferred.await(notifying)
+          yield* Fiber.interrupt(answering)
+          yield* Effect.yieldNow
+          assert.ok(waiting.pollUnsafe(), "removed waiter must already have its answer")
+          assert.deepEqual(yield* Fiber.join(waiting), { status: "answer_in_chat" })
+          assert.equal(yield* pending.size, 0)
+          assert.equal(yield* pending.status(eventForm.key), "answered")
+        }),
+      (count) => (count === 0 ? Deferred.succeed(notifying, true).pipe(Effect.andThen(Effect.never)) : Effect.void)
+    )
+  })
+
   it("DES-PEND-001 同じ鍵の待機は先に始まったものから順に結果を受け取る", () =>
     run((pending) =>
       Effect.gen(function* () {

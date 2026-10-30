@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process"
 import { readFile } from "node:fs/promises"
+import { runCommand } from "./process.ts"
 
 interface Budgets {
   readonly time: Readonly<Record<string, number>>
@@ -16,13 +16,8 @@ if (limit === undefined || program === undefined) {
 }
 
 const started = performance.now()
-const child = spawn(program, args, { stdio: "inherit", shell: process.platform === "win32" })
-const timer = setTimeout(() => child.kill("SIGTERM"), limit * 1000)
-
-child.on("exit", (code) => {
-  clearTimeout(timer)
-  const seconds = (performance.now() - started) / 1000
-  const over = seconds > limit
-  process.stdout.write(`${over ? "over" : "ok  "} ${name} ${seconds.toFixed(1)}s / ${limit}s\n`)
-  process.exitCode = over ? 1 : (code ?? 1)
-})
+const code = await runCommand(program, args, limit * 1000)
+const seconds = (performance.now() - started) / 1000
+const over = seconds > limit
+process.stdout.write(`${over ? "over" : "ok  "} ${name} ${seconds.toFixed(1)}s / ${limit}s\n`)
+process.exitCode = over ? 1 : code

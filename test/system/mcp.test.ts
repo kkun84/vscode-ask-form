@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Effect, Fiber, Ref } from "effect"
+import { Deferred, Effect, Fiber, Ref } from "effect"
 import type { McpSchema } from "effect/ai"
 import { initialValues } from "../../src/core/form.ts"
 import { stableHash } from "../../src/core/hash.ts"
@@ -132,6 +132,23 @@ describe("SPEC-MCP-004 設計図の誤り", () => {
 })
 
 describe("SPEC-MCP-005 回答を受け取るツール", () => {
+  it("SPEC-MCP-005 回答の呼び出しを待機数の通知中に中断しても質問は結果を受け取る", () => {
+    const notifying = Deferred.makeUnsafe<boolean>()
+    return withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          const waiting = yield* ask(h)
+          const answering = yield* Effect.forkChild(h.call("form_answer", { formKey: form.key, action: "chat" }))
+          yield* Deferred.await(notifying)
+          yield* Fiber.interrupt(answering)
+          const result = yield* Fiber.join(waiting).pipe(Effect.timeout("1 second"))
+          assert.equal(structured(result)["status"], "answer_in_chat")
+          assert.equal(structured(yield* h.call("form_status", { formKey: form.key }))["status"], "answered")
+        }),
+      { onWaiting: (count) => (count === 0 ? Deferred.succeed(notifying, true).pipe(Effect.andThen(Effect.never)) : Effect.void) }
+    )
+  })
+
   it("SPEC-MCP-005 画面専用でAIからは見えない印を持つ", () =>
     withHarness((h) =>
       Effect.gen(function* () {

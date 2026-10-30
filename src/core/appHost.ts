@@ -107,6 +107,9 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
       hostContext: { ...options.context, displayMode: "inline" }
     })
     notify("ui/notifications/tool-input", { arguments: options.args })
+    if (state.status === "cancelled") {
+      notify("ui/notifications/tool-cancelled", { reason: "cancelled" })
+    }
   }
 
   const callTool = async (id: number | string, params: Record<string, unknown>) => {

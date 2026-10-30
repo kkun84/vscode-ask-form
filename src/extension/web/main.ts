@@ -4,19 +4,12 @@ import { createAppHost } from "../../core/appHost.ts"
 import { outcomeText, type Outcome } from "../../core/form.ts"
 import { compile } from "../../core/validate.ts"
 import type { FormSpec } from "../../core/spec.ts"
-import { formHtml } from "../shared/assets.ts"
 import { postToChat } from "../shared/chat.ts"
 import { waitingLabel } from "../shared/labels.ts"
 import { createWaitingStatus, type WaitingStatus } from "../shared/waiting.ts"
+import { panelHtml } from "./panel.ts"
 
 export const toolName = "forms_ask_form"
-
-const csp = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';"
-
-const rehoist =
-  "<script>(()=>{const api=acquireVsCodeApi();const target={postMessage:(m)=>api.postMessage(m)};Object.defineProperty(window,'parent',{get:()=>target});})()</script>"
-
-const panelHtml = (): string => formHtml.replace("<head>", `<head><meta http-equiv="Content-Security-Policy" content="${csp}">${rehoist}`)
 
 const themeOf = (kind: vscode.ColorThemeKind): "light" | "dark" =>
   kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight ? "light" : "dark"

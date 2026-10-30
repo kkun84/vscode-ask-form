@@ -82,6 +82,8 @@
 
 待機の登録と終了処理はEffectの`acquireUseRelease`で組にする。終了時に、回答が渡されたか中断されたかを記録する。終了状態は直近128個の鍵だけを保持し、同じ鍵で待機中の呼び出しがあれば終了状態より優先する。記録のない鍵は`unknown`とする。
 
+- 回答時は`uninterruptibleMask`の中で台帳から対象を外し、`Deferred`を完了する。待機数の通知はその後に`restore`で中断可能に戻して行い、通知が待ち続けても質問への回答を失わない。
+
 派生元: SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-007, SPEC-EXT-002
 
 ## 画面の中断
@@ -93,3 +95,43 @@
 [MCP Appsの仕様](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)はホストに`ui/notifications/tool-cancelled`の送信を求めるが、[VS Code 1.142の画面ホスト](https://github.com/microsoft/vscode/blob/1.142.0/src/vs/workbench/contrib/chat/browser/widget/chatContentParts/toolInvocationParts/chatMcpAppModel.ts)はMCP出力がある結果だけを転送し、中断を通知しない。[MCPへの要求処理](https://github.com/microsoft/vscode/blob/1.142.0/src/vs/workbench/contrib/mcp/common/mcpServerRequestHandler.ts)は`notifications/cancelled`を送るため、画面はサーバーの終了状態でも中断を確認する。
 
 派生元: SPEC-UI-006, ARCH-UI-001
+
+### DES-UI-002 メッセージの送り主の検査
+
+- `src/ui/bridge.ts`は通知と返答の両方について`event.source`が接続先と同一であることを確かめてから処理する。接続先の`location.origin`を読める場合はそのoriginを使い、読めない場合は検証済みの送り主の最初のJSON-RPCからoriginを固定する。送信先にもそのoriginを使い、未確定か不透明な`null`の場合だけ`*`とする。
+- web版はVS Codeが`window.parent`を置き換えるため、専用の橋渡しをパネルに埋め込む。同じoriginで、子フレームの一覧にこの画面を持つ実際の親からのイベントだけを接続先の送り主に変換する。画面自身、別のフレーム、送り主のないイベントは渡さない。リスナーの削除にも同じラッパーを使う。
+
+派生元: SPEC-UI-010, SPEC-EXT-004, ARCH-UI-001
+
+### DES-HOST-001 初期化前の中断
+
+- `createAppHost`は中断状態を保持し、初期化に応答して設計図を送った直後に中断を再通知する。初期化が繰り返されても同様に通知し、中断済みのフォームへの回答は拒否する。
+
+派生元: SPEC-EXT-004, SPEC-UI-006, ARCH-UI-001
+
+## HTTPの起動
+
+### DES-HTTP-001 待ち受けの失敗
+
+- `listen`より先に`error`の受け口を登録し、非同期のエラーと同期の例外を原因つきの`FormsListenFailed`としてEffectの失敗にする。成功と失敗のどちらでも起動用の`error`と`listening`の受け口を外し、サーバー自身の受け口は残す。失敗時もEffectのスコープがWebハンドラーを解放する。
+
+派生元: SPEC-EXT-001, SPEC-MCP-009, ARCH-EFFECT-003
+
+## 投稿
+
+### DES-CHAT-001 投稿ごとの添付
+
+- 投稿ごとにWeb Cryptoの`randomUUID()`でディレクトリ名を作り、`<storage>/answers/<uuid>/<slug>.json`にJSONを保存する。`slug`は題名を整形して40文字までに切り詰め、空なら`form`とする。添付の表示名は`<slug>.json`とし、UUIDを含めない。
+- 同じ題名、同じ整形結果、空になる題名でも投稿ごとのディレクトリで以前の添付を再利用しない。ディレクトリの作成とファイルの書き込みの完了後に、そのファイルを指定して投稿する。
+
+派生元: SPEC-EXT-003, ARCH-LAYER-004
+
+## 検査の実行
+
+### DES-TOOLS-001 時間の予算による終了
+
+- `scripts/process.ts`はPOSIXでは子を新しいプロセスグループで起動し、予算超過時はグループに`SIGTERM`を送り、1秒後に`SIGKILL`を送る。受け入れテストの子はそのグループを引き継ぐ。グループが既に消えている場合の`ESRCH`は無視する。
+- Windowsでは`taskkill /T`でツリーを対象とし、強制終了では`/F`も使う。
+- 直下の子が先に終了しても猶予のタイマーを残し、強制終了の処理を終えてから失敗を返す。通常終了と起動失敗ではタイマーとシグナルの受け口を片付ける。実行スクリプト自身の`SIGINT`と`SIGTERM`も同じ終了処理につなぐ。
+
+派生元: SPEC-EXT-005, ARCH-DEPS-001
