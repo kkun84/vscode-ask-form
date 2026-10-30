@@ -56,7 +56,7 @@
 | SPEC-EXT-003 | web版の下書き | REQ-RES-002 | ARCH-LAYER-004, DES-CHAT-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-004 | web版 | REQ-WEB-001, REQ-CANCEL-001 | ARCH-LAYER-002, ARCH-LAYER-004, ARCH-LAYER-005, ARCH-UI-001, DES-UI-002, DES-HOST-001, DES-TOOLS-002 | `test/system/extension.test.ts` |
 | SPEC-EXT-005 | 起動・サイズ・検査の予算 | REQ-PERF-001 | ARCH-LAYER-002, ARCH-LAYER-006, ARCH-DEPS-001, DES-TOOLS-001 | `test/system/extension.test.ts`, `test/system/process.test.ts` |
-| SPEC-REL-001 | 配布前の検査と公開 | REQ-DIST-001 | DES-REL-001 | `test/system/release-check.test.ts` |
+| SPEC-REL-001 | 配布前の検査と公開 | REQ-DIST-001 | ARCH-REL-001, DES-REL-001 | `test/system/release-check.test.ts`, `test/system/release-workflow.test.ts` |
 
 ## アーキテクチャ設計
 
@@ -75,6 +75,7 @@
 | ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | DES-TOOLS-001 | `test/integration/architecture.test.ts` |
 | ARCH-PORT-001 | MCPサーバーへの差し込み口 | SPEC-EXT-002, SPEC-MCP-008, SPEC-UI-005 | DES-CHAT-001 | `test/integration/ports.test.ts` |
 | ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001, SPEC-UI-005, SPEC-UI-006, SPEC-UI-010 | DES-UI-001, DES-UI-002, DES-HOST-001, DES-TOOLS-002 | `test/system/ui.spec.ts` |
+| ARCH-REL-001 | 検出と公開の権限を分ける | SPEC-REL-001 | DES-REL-001 | `test/system/release-workflow.test.ts` |
 
 ## 詳細設計
 
@@ -97,4 +98,4 @@
 | DES-CHAT-001 | 投稿ごとの添付 | SPEC-EXT-003, SPEC-MCP-008, ARCH-LAYER-004, ARCH-PORT-001 | - | `test/unit/attachments.test.ts`, `test/unit/chat.test.ts`, `test/unit/form-edge-cases.test.ts` |
 | DES-TOOLS-001 | 時間の予算による終了 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/process.test.ts` |
 | DES-TOOLS-002 | web受け入れテストの完了 | SPEC-EXT-004, ARCH-UI-001 | - | `test/unit/web-completion.test.ts` |
-| DES-REL-001 | 版数と変更履歴の検査 | SPEC-REL-001 | - | `test/unit/release-check.test.ts` |
+| DES-REL-001 | 版数と変更履歴の検査 | SPEC-REL-001, ARCH-REL-001 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |

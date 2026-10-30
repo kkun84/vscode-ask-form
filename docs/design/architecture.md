@@ -128,3 +128,11 @@ MCPサーバーはVS Codeに依存せずに添付の保存・読込と待機の�
 - web受け入れテストは拡張機能とブラウザの完了をテスト側で合流させ、片方の成功だけで終了しない。
 
 派生元: SPEC-EXT-004, SPEC-UI-001, SPEC-UI-005, SPEC-UI-006, SPEC-UI-010
+
+## リリース
+
+### ARCH-REL-001 検出と公開の権限を分ける
+
+- ワークフローの先頭のdetectジョブはcontents:readで版数とoriginのタグを確認する。書き込み権限を持つreleaseジョブはdetectに依存し、release出力がtrueの場合だけ公開する。ワークフロー全体をconcurrencyグループreleaseで直列化し、cancel-in-progressはfalseとする。
+
+派生元: SPEC-REL-001

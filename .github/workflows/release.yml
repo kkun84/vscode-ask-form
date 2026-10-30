@@ -2,7 +2,13 @@ name: Release
 
 on:
   push:
-    tags: ["v*.*.*"]
+    branches: [main]
+    paths: [package.json, CHANGELOG.md]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -12,7 +18,37 @@ defaults:
     shell: nix develop --command bash -euo pipefail {0}
 
 jobs:
+  detect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+      tag: ${{ steps.detect.outputs.tag }}
+      release: ${{ steps.detect.outputs.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Detect a new version
+        id: detect
+        shell: bash -euo pipefail {0}
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          TAG="v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG"; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            status=$?
+            if [[ "$status" -ne 2 ]]; then exit "$status"; fi
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
   release:
+    needs: detect
+    if: needs.detect.outputs.release == 'true'
+    env:
+      TAG: ${{ needs.detect.outputs.tag }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -25,7 +61,7 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
       - name: Check the release
         id: release
-        run: node scripts/release-check.ts "$GITHUB_REF_NAME" "$RUNNER_TEMP/release-notes.md"
+        run: node scripts/release-check.ts "$TAG" "$RUNNER_TEMP/release-notes.md"
       - name: Install
         run: |
           pnpm check-env
@@ -57,7 +93,7 @@ jobs:
         run: |
           args=()
           if [[ "$PRERELEASE" == true ]]; then args+=(--prerelease); fi
-          gh release create "$GITHUB_REF_NAME" ./*.vsix SHA256SUMS.txt --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag "${args[@]}"
+          gh release create "$TAG" ./*.vsix SHA256SUMS.txt --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --target "$GITHUB_SHA" "${args[@]}"
       - name: Find publishing tokens
         id: tokens
         env:

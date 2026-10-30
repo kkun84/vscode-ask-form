@@ -153,4 +153,6 @@
 - `scripts/release.ts`の純粋な関数で版数、タグ、対象版の箇条書きを検査し、minorの奇偶と次の第2階層見出しまでの本文を返す。CRLFも受け付け、他の版の本文は混ぜない。
 - `scripts/release-check.ts`がNode.jsのファイル操作と環境変数を扱い、検査結果をワークフローへ渡す。パッケージ用スクリプト末尾のvsceに`--pre-release`を渡し、GitHub Releasesには`--prerelease`、MarketplaceとOpen VSXには`--pre-release`を渡す。
 
-派生元: SPEC-REL-001
+- detectはpackage.jsonからversionと`v<version>`のtagを出力し、`git ls-remote --exit-code --tags origin "refs/tags/$TAG"`の終了コード0ならrelease=false、2ならrelease=trueを出力する。それ以外は失敗とする。releaseはdetectのtagを検査CLIの第1引数と公開に使い、`gh release create`の`--target "$GITHUB_SHA"`でタグを作る。
+
+派生元: SPEC-REL-001, ARCH-REL-001

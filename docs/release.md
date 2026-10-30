@@ -28,7 +28,9 @@
 
 1. 配布の条件を確認します。
 2. package.jsonのversionとCHANGELOG.mdを更新するコミットをmainに入れます。
-3. `v<version>`のタグを付けてpushします。
+3. originに`v<version>`のタグがまだなければ、ワークフローがそのコミットにタグとリリースを作ります。手でタグを付けません。
+
+`workflow_dispatch`で再実行できます。タグが既にあれば公開をスキップします。
 
 あとはリリースのワークフローがタグと版数、変更履歴を検査し、テスト、パッケージ、GitHub Releasesへの公開、ビルドの出所の証明を行います。GitHub Releasesの説明にはその版のCHANGELOGの項を使い、VSIXとSHA256SUMS.txtを添付します。プレリリースはパッケージと各配布先でプレリリースとして扱い、GitHub Releasesにもpre-releaseの印を付けます。
 
