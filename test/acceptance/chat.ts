@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process"
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -54,6 +55,17 @@ const formFrame = (window: Page): Promise<Frame> =>
 const launch = async (paths: Paths, llm: FakeLlm, log: string): Promise<ElectronApplication> => {
   const profile = await mkdtemp(join(tmpdir(), "ask-form-chat-"))
   const user = join(profile, "user")
+  const cli = process.env["VSCODE_EXECUTABLE"]
+  if (cli !== undefined) {
+    const installed = spawnSync(
+      cli,
+      [`--extensions-dir=${join(profile, "extensions")}`, `--user-data-dir=${user}`, "--install-extension", "github.copilot-chat"],
+      {
+        encoding: "utf8"
+      }
+    )
+    console.log(`install github.copilot-chat: ${installed.status} ${installed.stdout}${installed.stderr}`)
+  }
   await mkdir(join(user, "User"), { recursive: true })
   await writeFile(
     join(user, "User", "settings.json"),

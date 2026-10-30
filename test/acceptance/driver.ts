@@ -24,8 +24,26 @@ const waitForModel = async (): Promise<vscode.LanguageModelChat | undefined> => 
   return undefined
 }
 
+const addGroup = async (group: Readonly<Record<string, unknown>>): Promise<void> => {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await vscode.commands.executeCommand("lm.addLanguageModelsProviderGroup", group)
+      return
+    } catch (error) {
+      if (attempt >= 120) {
+        throw error
+      }
+      await sleep(500)
+    }
+  }
+}
+
 const drive = async (url: string, query: string): Promise<void> => {
-  await vscode.commands.executeCommand("lm.addLanguageModelsProviderGroup", {
+  const copilot = vscode.extensions.all
+    .filter((item) => /copilot/i.test(item.id))
+    .map((item) => `${item.id}@${String(item.packageJSON?.version)} active=${String(item.isActive)}`)
+  log(`copilot extensions: ${copilot.join(", ") || "none"}`)
+  await addGroup({
     name: "Fake",
     vendor: "customendpoint",
     apiKey: "fake-key",
