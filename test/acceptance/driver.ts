@@ -43,6 +43,11 @@ const drive = async (url: string, query: string): Promise<void> => {
     .filter((item) => /copilot/i.test(item.id))
     .map((item) => `${item.id}@${String(item.packageJSON?.version)} active=${String(item.isActive)}`)
   log(`copilot extensions: ${copilot.join(", ") || "none"}`)
+  if (copilot.length === 0) {
+    log("enabling AI features")
+    await vscode.workspace.getConfiguration("chat").update("disableAIFeatures", false, vscode.ConfigurationTarget.Global)
+    return
+  }
   await addGroup({
     name: "Fake",
     vendor: "customendpoint",
