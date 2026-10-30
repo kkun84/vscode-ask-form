@@ -4,8 +4,8 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { build } from "esbuild"
-import { runTests } from "@vscode/test-web"
 import { runChat } from "../test/acceptance/chat.ts"
+import { runWeb } from "../test/acceptance/web-browser.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const extension = join(root, "out/extension")
@@ -91,21 +91,17 @@ const desktop = async (): Promise<void> => {
 }
 
 const web = (): Promise<void> =>
-  runTests({
-    browserType: "chromium",
-    quality: "stable",
-    headless: true,
-    extensionDevelopmentPath: extension,
-    extensionTestsPath: join(out, "web.js")
-  })
+  runWeb({ electron: electron(), extension, tests: join(out, "web.js"), results: join(root, "test-results/web") })
 
-const chat = (): Promise<void> => {
+const electron = (): string => {
   const executable = process.env["VSCODE_ELECTRON"]
   if (executable === undefined) {
     throw new Error("VSCODE_ELECTRON is not set. Run inside `nix develop .#acceptance`.")
   }
-  return runChat({ executable, extension, driver, results: join(root, "test-results/chat") })
+  return executable
 }
+
+const chat = (): Promise<void> => runChat({ executable: electron(), extension, driver, results: join(root, "test-results/chat") })
 
 const runners: Readonly<Record<string, () => Promise<void>>> = { desktop, web, chat }
 

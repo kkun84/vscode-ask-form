@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { _electron as electron, expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
+import { formFrame, sleep, until } from "./frames.ts"
 
 interface Paths {
   readonly executable: string
@@ -14,43 +15,6 @@ interface Paths {
 }
 
 const trigger = "ASK_FORM_E2E"
-
-const sleep = (ms: number) =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
-
-const until = async <T>(probe: () => Promise<T | null | undefined>, message: string, timeoutMs: number): Promise<T> => {
-  const deadline = Date.now() + timeoutMs
-  for (;;) {
-    const value = await probe()
-    if (value !== undefined && value !== null) {
-      return value
-    }
-    if (Date.now() > deadline) {
-      throw new Error(`timed out: ${message}`)
-    }
-    await sleep(250)
-  }
-}
-
-const formFrame = (window: Page, previous: ReadonlyArray<Frame> = []): Promise<Frame> =>
-  until(
-    async () => {
-      for (const frame of window.frames().filter((candidate) => !previous.includes(candidate))) {
-        const found = await frame
-          .locator("form.card button.primary")
-          .count()
-          .catch(() => 0)
-        if (found > 0) {
-          return frame
-        }
-      }
-      return null
-    },
-    "the form appears in the chat",
-    120_000
-  )
 
 const launch = async (paths: Paths, llm: FakeLlm, log: string, profile: string): Promise<ElectronApplication> => {
   const user = join(profile, "user")
