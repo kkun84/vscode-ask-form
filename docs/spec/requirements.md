@@ -1,6 +1,6 @@
 # 要求仕様
 
-利用者から見て何ができるべきかを定めます。各項目は受け入れテスト(`test/acceptance`)か手動受け入れ手順(`docs/test/manual-acceptance.md`)で検証します。
+利用者から見て何ができるべきかを定めます。各項目は受け入れテスト(`test/acceptance`)か手動受け入れ手順(`docs/test/manual-acceptance.md`)で検証します。受け入れテストは実際のVS Codeを動かし、チャットのモデルには、決まった応答を返す偽のLLM APIをBYOK(Custom Endpoint)としてつなぎます。実際のモデルがフォームを使いこなせるかは、手動受け入れ手順で確かめます。
 
 ## フォームでの質問
 

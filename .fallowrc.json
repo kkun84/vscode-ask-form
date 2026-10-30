@@ -11,7 +11,8 @@
     "test/acceptance/web.ts",
     "test/support/host-page.ts",
     "playwright.config.ts",
-    "src/ui/styles.css"
+    "src/ui/styles.css",
+    "test/acceptance/driver.ts"
   ],
   "ignorePatterns": ["dist/**", "out/**"],
   "ignoreDependencies": ["@effect/tsgo", "axe-core"],

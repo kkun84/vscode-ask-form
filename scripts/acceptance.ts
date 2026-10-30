@@ -1,15 +1,17 @@
 import { fileURLToPath } from "node:url"
 import { spawn } from "node:child_process"
-import { mkdtemp } from "node:fs/promises"
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { build } from "esbuild"
 import { runTests } from "@vscode/test-web"
+import { runChat } from "../test/acceptance/chat.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const extension = join(root, "out/extension")
 const out = join(extension, "acceptance")
-const targets = process.argv.slice(2).length === 0 ? ["desktop", "web"] : process.argv.slice(2)
+const driver = join(root, "out/e2e-driver")
+const targets = process.argv.slice(2).length === 0 ? ["desktop", "web", "chat"] : process.argv.slice(2)
 
 await Promise.all([
   build({
@@ -29,8 +31,30 @@ await Promise.all([
     format: "cjs",
     external: ["vscode"],
     logLevel: "warning"
+  }),
+  build({
+    entryPoints: [join(root, "test/acceptance/driver.ts")],
+    outfile: join(driver, "driver.cjs"),
+    bundle: true,
+    platform: "node",
+    format: "cjs",
+    external: ["vscode"],
+    logLevel: "warning"
   })
 ])
+
+await mkdir(driver, { recursive: true })
+await writeFile(
+  join(driver, "package.json"),
+  JSON.stringify({
+    name: "ask-form-e2e-driver",
+    publisher: "kkun84",
+    version: "0.0.0",
+    engines: { vscode: "^1.110.0" },
+    main: "./driver.cjs",
+    activationEvents: ["onStartupFinished"]
+  })
+)
 
 const desktop = async (): Promise<void> => {
   const executable = process.env["VSCODE_EXECUTABLE"]
@@ -74,7 +98,15 @@ const web = (): Promise<void> =>
     extensionTestsPath: join(out, "web.js")
   })
 
-const runners: Readonly<Record<string, () => Promise<void>>> = { desktop, web }
+const chat = (): Promise<void> => {
+  const executable = process.env["VSCODE_EXECUTABLE"]
+  if (executable === undefined) {
+    throw new Error("VSCODE_EXECUTABLE is not set. Run inside `nix develop .#acceptance`.")
+  }
+  return runChat({ executable, extension, driver, results: join(root, "test-results/chat") })
+}
+
+const runners: Readonly<Record<string, () => Promise<void>>> = { desktop, web, chat }
 
 for (const target of targets) {
   const runner = runners[target]

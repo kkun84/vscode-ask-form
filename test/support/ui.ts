@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url"
 import { createServer, type Server } from "node:http"
-import type { AddressInfo } from "node:net"
 import { readFile } from "node:fs/promises"
 import { build } from "esbuild"
+import { listenLocally } from "./listen.ts"
 import type { Frame, Page } from "@playwright/test"
 import type { HostContext } from "../../src/core/appHost.ts"
 
@@ -53,16 +53,8 @@ export const startServer = async (): Promise<HarnessServer> => {
         '<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:16px;}iframe{width:100%;height:1400px;border:0}</style></head><body><script src="/host.js"></script></body></html>'
       )
   })
-  await new Promise<void>((resolve) => {
-    server.listen(0, "127.0.0.1", resolve)
-  })
-  return {
-    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/`,
-    close: () =>
-      new Promise<void>((resolve) => {
-        server.close(() => resolve())
-      })
-  }
+  const { origin, close } = await listenLocally(server)
+  return { url: `${origin}/`, close }
 }
 
 const backgrounds = {
