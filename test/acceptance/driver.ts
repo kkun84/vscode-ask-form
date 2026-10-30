@@ -77,7 +77,7 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
     scenario++
     await vscode.commands.executeCommand("workbench.action.chat.newChat")
     await vscode.commands.executeCommand("workbench.action.chat.open", {
-      query: `${query} Scenario ${scenario}.`,
+      query: scenario === 1 ? query : `${query} Scenario ${scenario}.`,
       mode: "agent",
       modelSelector: { vendor: model.vendor, id: model.id }
     })

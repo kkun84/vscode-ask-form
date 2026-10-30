@@ -1,63 +1,17 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { DatabaseSync } from "node:sqlite"
 import { join } from "node:path"
-import { _electron as electron, expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
+import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
-import { formFrame, sleep, until } from "./frames.ts"
+import { formFrame, until } from "./frames.ts"
+import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
 
-interface Paths {
-  readonly executable: string
-  readonly extension: string
-  readonly driver: string
+interface Paths extends VscodePaths {
   readonly results: string
 }
 
 const trigger = "ASK_FORM_E2E"
-
-const launch = async (paths: Paths, llm: FakeLlm, log: string, profile: string): Promise<ElectronApplication> => {
-  const user = join(profile, "user")
-  await mkdir(join(user, "User", "globalStorage"), { recursive: true })
-  const state = new DatabaseSync(join(user, "User", "globalStorage", "state.vscdb"))
-  state.exec("CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)")
-  state.prepare("INSERT INTO ItemTable (key, value) VALUES (?, ?)").run("builtinChatExtensionEnablementMigration", "true")
-  state.close()
-  await mkdir(join(user, "User"), { recursive: true })
-  await writeFile(
-    join(user, "User", "settings.json"),
-    JSON.stringify({
-      "chat.mcp.apps.enabled": true,
-      "workbench.startupEditor": "none",
-      "telemetry.telemetryLevel": "off",
-      "update.mode": "none",
-      "extensions.autoUpdate": false
-    })
-  )
-  const env: Record<string, string> = {}
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && key !== "ELECTRON_RUN_AS_NODE") {
-      env[key] = value
-    }
-  }
-  return electron.launch({
-    executablePath: paths.executable,
-    args: [
-      `--extensionDevelopmentPath=${paths.extension}`,
-      `--extensionDevelopmentPath=${paths.driver}`,
-      `--user-data-dir=${user}`,
-      `--extensions-dir=${join(profile, "extensions")}`,
-      "--disable-workspace-trust",
-      "--disable-gpu",
-      "--no-sandbox",
-      "--skip-welcome",
-      "--skip-release-notes",
-      "--locale=en",
-      "--password-store=basic"
-    ],
-    env: { ...env, ASK_FORM_E2E_LLM_URL: llm.url, ASK_FORM_E2E_QUERY: `${trigger} Please ask me with a form.`, ASK_FORM_E2E_LOG: log }
-  })
-}
 
 const check = (condition: boolean, message: string): void => {
   if (!condition) {
@@ -270,19 +224,6 @@ const report = async (paths: Paths, session: Session, log: string): Promise<void
   }
 }
 
-const closeApp = async (app: ElectronApplication): Promise<void> => {
-  const closed = await Promise.race([
-    app
-      .close()
-      .then(() => true)
-      .catch(() => false),
-    sleep(10_000).then(() => false)
-  ])
-  if (!closed) {
-    app.process().kill("SIGKILL")
-  }
-}
-
 export const runChat = async (paths: Paths): Promise<void> => {
   await mkdir(paths.results, { recursive: true })
   const log = join(paths.results, "driver.log")
@@ -291,13 +232,8 @@ export const runChat = async (paths: Paths): Promise<void> => {
   const profile = await mkdtemp(join(tmpdir(), "ask-form-chat-"))
   let app: ElectronApplication | undefined
   try {
-    app = await launch(paths, llm, log, profile)
-    const window = await app.firstWindow({ timeout: 60_000 })
-    await app.evaluate(({ BrowserWindow }) => {
-      for (const browserWindow of BrowserWindow.getAllWindows()) {
-        browserWindow.setBounds({ x: 0, y: 0, width: 1600, height: 1000 })
-      }
-    })
+    app = await launchVscode(paths, { llm, log, profile, locale: "en", query: `${trigger} Please ask me with a form.` })
+    const window = await fitWindow(app, { width: 1600, height: 1000 })
     window.context().setDefaultTimeout(30_000)
     const session: Session = { window, llm, frame: undefined, callId: undefined }
     for (const { name, body } of steps) {
@@ -312,10 +248,6 @@ export const runChat = async (paths: Paths): Promise<void> => {
     }
     await window.screenshot({ path: join(paths.results, "chat-cancelled.png"), timeout: 10_000 })
   } finally {
-    if (app !== undefined) {
-      await closeApp(app)
-    }
-    await llm.close()
-    await rm(profile, { recursive: true, force: true, maxRetries: 3 })
+    await cleanUp(app, llm, profile)
   }
 }

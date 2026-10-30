@@ -1,10 +1,11 @@
 import { fileURLToPath } from "node:url"
 import { spawn } from "node:child_process"
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
+import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { build } from "esbuild"
 import { runChat } from "../test/acceptance/chat.ts"
+import { buildDriver } from "../test/acceptance/driver-build.ts"
 import { runWeb } from "../test/acceptance/web-browser.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
@@ -32,30 +33,8 @@ await Promise.all([
     external: ["vscode"],
     logLevel: "warning"
   }),
-  build({
-    entryPoints: [join(root, "test/acceptance/driver.ts")],
-    outfile: join(driver, "driver.cjs"),
-    bundle: true,
-    platform: "node",
-    format: "cjs",
-    external: ["vscode"],
-    logLevel: "warning"
-  })
+  buildDriver(root, driver)
 ])
-
-await mkdir(driver, { recursive: true })
-await writeFile(
-  join(driver, "package.json"),
-  JSON.stringify({
-    name: "ask-form-e2e-driver",
-    publisher: "kkun84",
-    version: "0.0.0",
-    engines: { vscode: "^1.110.0" },
-    main: "./driver.cjs",
-    activationEvents: ["onStartupFinished"],
-    contributes: { commands: [{ command: "ask-form-e2e.newChat", title: "Ask Form: New acceptance chat" }] }
-  })
-)
 
 const desktop = async (): Promise<void> => {
   const executable = process.env["VSCODE_EXECUTABLE"]

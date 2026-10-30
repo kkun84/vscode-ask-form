@@ -54,7 +54,10 @@
           acceptance = pkgs.mkShellNoCC {
             packages =
               base.packages
-              ++ [ pkgs.vscode ]
+              ++ [
+                pkgs.vscode
+                pkgs.ffmpeg-headless
+              ]
               ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.xvfb-run ];
             env = base.env // {
               VSCODE_EXECUTABLE = "${pkgs.vscode}/bin/code";

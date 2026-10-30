@@ -31,6 +31,7 @@
     "prepare": "git config core.hooksPath .githooks",
     "test:integration": "pnpm -s build && node scripts/timed.ts integration node --test --test-timeout=10000 \"test/integration/**/*.test.ts\"",
     "test:acceptance": "pnpm -s build && node scripts/timed.ts acceptance node scripts/acceptance.ts",
+    "media": "pnpm -s build && node scripts/media.ts",
     "traceability": "node scripts/traceability.ts --write",
     "package": "pnpm -s build && cd out/extension && pnpm dlx @vscode/vsce@4.0.0 package --no-dependencies --out ../..",
     "check-env": "node scripts/check-env.ts"

@@ -93,7 +93,12 @@ const streamed = (reply: Reply): string => {
   return `${body}data: [DONE]\n\n`
 }
 
-export const startFakeLlm = async (trigger: string, args: Readonly<Record<string, unknown>>): Promise<FakeLlm> => {
+export const startFakeLlm = async (
+  trigger: string,
+  args: Readonly<Record<string, unknown>>,
+  done = "FAKE_LLM_DONE",
+  other = "ok"
+): Promise<FakeLlm> => {
   const requests: Array<ChatRequest> = []
   const toolCalls: FakeLlm["toolCalls"] = []
   const toolResults: FakeLlm["toolResults"] = []
@@ -102,14 +107,17 @@ export const startFakeLlm = async (trigger: string, args: Readonly<Record<string
   const decide = (request: ChatRequest): Reply => {
     const messages = request.messages ?? []
     const userIndex = messages.findLastIndex((message) => message.role === "user" && textOf(message.content).includes(trigger))
+    if (messages.findLastIndex((message) => message.role === "user") !== userIndex) {
+      return { kind: "text", text: other }
+    }
     if (messages.slice(userIndex + 1).some((message) => message.role === "tool")) {
-      return { kind: "text", text: "FAKE_LLM_DONE" }
+      return { kind: "text", text: done }
     }
     const tool = (request.tools ?? [])
       .map((item) => item.function?.name ?? "")
       .find((name) => name.endsWith("ask_form") && !name.startsWith("forms_"))
     if (userIndex < 0 || tool === undefined) {
-      return { kind: "text", text: "ok" }
+      return { kind: "text", text: other }
     }
     const call = { id: `call_ask_form_${toolCalls.length + 1}`, name: tool, args: JSON.stringify(args) }
     toolCalls.push(call)
