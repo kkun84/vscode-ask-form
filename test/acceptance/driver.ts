@@ -24,17 +24,22 @@ const waitForModel = async (): Promise<vscode.LanguageModelChat | undefined> => 
   return undefined
 }
 
-const addGroup = async (group: Readonly<Record<string, unknown>>): Promise<void> => {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await vscode.commands.executeCommand("lm.addLanguageModelsProviderGroup", group)
-      return
-    } catch (error) {
-      if (attempt >= 120) {
-        throw error
-      }
-      await sleep(500)
+const describe = (error: unknown): string => {
+  const chat = vscode.extensions.getExtension("github.copilot-chat")
+  const state = chat === undefined ? "missing" : `active=${String(chat.isActive)}`
+  return `${error instanceof Error ? error.message : String(error)} copilot=${state}`
+}
+
+const addGroup = async (group: Readonly<Record<string, unknown>>, attempt = 1): Promise<void> => {
+  try {
+    await vscode.commands.executeCommand("lm.addLanguageModelsProviderGroup", group)
+  } catch (error) {
+    log(`attempt ${attempt}: ${describe(error)}`)
+    if (attempt >= 120) {
+      throw error
     }
+    await sleep(500)
+    await addGroup(group, attempt + 1)
   }
 }
 
@@ -43,11 +48,6 @@ const drive = async (url: string, query: string): Promise<void> => {
     .filter((item) => /copilot/i.test(item.id))
     .map((item) => `${item.id}@${String(item.packageJSON?.version)} active=${String(item.isActive)}`)
   log(`copilot extensions: ${copilot.join(", ") || "none"}`)
-  if (copilot.length === 0) {
-    log("enabling AI features")
-    await vscode.workspace.getConfiguration("chat").update("disableAIFeatures", false, vscode.ConfigurationTarget.Global)
-    return
-  }
   await addGroup({
     name: "Fake",
     vendor: "customendpoint",

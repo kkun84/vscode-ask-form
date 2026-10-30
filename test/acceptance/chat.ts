@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process"
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
+import { DatabaseSync } from "node:sqlite"
 import { join } from "node:path"
 import { _electron as electron, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
@@ -55,6 +56,11 @@ const formFrame = (window: Page): Promise<Frame> =>
 const launch = async (paths: Paths, llm: FakeLlm, log: string): Promise<ElectronApplication> => {
   const profile = await mkdtemp(join(tmpdir(), "ask-form-chat-"))
   const user = join(profile, "user")
+  await mkdir(join(user, "User", "globalStorage"), { recursive: true })
+  const state = new DatabaseSync(join(user, "User", "globalStorage", "state.vscdb"))
+  state.exec("CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)")
+  state.prepare("INSERT INTO ItemTable (key, value) VALUES (?, ?)").run("builtinChatExtensionEnablementMigration", "true")
+  state.close()
   const cli = process.env["VSCODE_EXECUTABLE"]
   if (cli !== undefined) {
     const installed = spawnSync(
@@ -95,7 +101,8 @@ const launch = async (paths: Paths, llm: FakeLlm, log: string): Promise<Electron
       "--no-sandbox",
       "--skip-welcome",
       "--skip-release-notes",
-      "--locale=en"
+      "--locale=en",
+      "--password-store=basic"
     ],
     env: { ...env, ASK_FORM_E2E_LLM_URL: llm.url, ASK_FORM_E2E_QUERY: `${trigger} Please ask me with a form.`, ASK_FORM_E2E_LOG: log }
   })
@@ -176,6 +183,7 @@ const report = async (paths: Paths, session: Session, log: string): Promise<void
 export const runChat = async (paths: Paths): Promise<void> => {
   await mkdir(paths.results, { recursive: true })
   const log = join(paths.results, "driver.log")
+  await rm(log, { force: true })
   const llm = await startFakeLlm(trigger, eventSpec)
   const app = await launch(paths, llm, log)
   const session: Session = { window: await app.firstWindow(), llm, frame: undefined }
@@ -190,8 +198,10 @@ export const runChat = async (paths: Paths): Promise<void> => {
         throw error
       }
     }
+    await session.window.screenshot({ path: join(paths.results, "chat-answered.png") })
   } finally {
-    await app.close().catch(() => null)
+    await Promise.race([app.close().catch(() => null), sleep(10_000)])
+    app.process().kill("SIGKILL")
     await llm.close()
   }
 }

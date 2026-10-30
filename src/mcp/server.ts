@@ -57,6 +57,7 @@ const AskForm = Tool.dynamic("ask_form", {
 })
   .annotate(Tool.Title, "Ask with a form")
   .annotate(Tool.Readonly, true)
+  .annotate(Tool.OpenWorld, false)
   .annotate(Tool.Meta, { ui: { resourceUri } })
 
 const FormAnswer = Tool.make("form_answer", {

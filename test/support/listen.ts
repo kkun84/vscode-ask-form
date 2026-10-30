@@ -15,6 +15,7 @@ export const listenLocally = async (server: Server): Promise<Listening> => {
     close: () =>
       new Promise<void>((resolve) => {
         server.close(() => resolve())
+        server.closeAllConnections()
       })
   }
 }

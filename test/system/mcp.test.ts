@@ -52,6 +52,7 @@ describe("SPEC-MCP-001 質問のツール", () => {
       Effect.gen(function* () {
         const tool = yield* h.tool("ask_form")
         assert.equal(tool.annotations?.readOnlyHint, true)
+        assert.equal(tool.annotations?.openWorldHint, false)
         assert.deepEqual((tool._meta as Record<string, unknown>)["ui"], { resourceUri })
         const properties = (tool.inputSchema as { properties?: Record<string, unknown> }).properties ?? {}
         assert.deepEqual(Object.keys(properties).toSorted(), ["computed", "description", "fields", "submitLabel", "title"])

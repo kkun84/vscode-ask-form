@@ -67,7 +67,7 @@ AIはフォームを次の形のJSONで指定する。
 MCPサーバーは、AIから呼べるツール`ask_form`を公開する。
 
 - 入力は SPEC-FORM-001 の設計図
-- 読み取り専用の注釈を持ち、実行前の確認を求めない
+- 読み取り専用で外の世界に触れない注釈(`readOnlyHint: true`、`openWorldHint: false`)を持ち、実行前の確認も結果の確認も求めない
 - `_meta.ui.resourceUri`で SPEC-MCP-002 の画面を指す
 
 派生元: REQ-ASK-001, REQ-ANS-001
