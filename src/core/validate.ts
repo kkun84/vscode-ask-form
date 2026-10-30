@@ -47,8 +47,10 @@ const choiceDefaultProblems = (field: ChoiceField, values: ReadonlySet<string>):
       ? []
       : [`項目「${field.id}」のdefaultは${isMultiple(field) ? "配列" : "1つの文字列"}にしてください`]
   const defaults = typeof field.default === "string" ? [field.default] : field.default
+  const duplicated = new Set(defaults).size === defaults.length ? [] : [`項目「${field.id}」のdefaultが重複しています`]
   return [
     ...shape,
+    ...duplicated,
     ...defaults.filter((value) => !values.has(value)).map((value) => `項目「${field.id}」のdefault「${value}」が選択肢にありません`)
   ]
 }
@@ -93,9 +95,11 @@ const numberProblem = (field: NumberField, value: unknown): string | undefined =
 const choiceProblem = (field: ChoiceField, value: unknown): string | undefined => {
   const allowed = new Set(field.options.map((option) => option.value))
   if (isMultiple(field)) {
-    return Array.isArray(value) && value.every((item) => typeof item === "string" && allowed.has(item))
+    return Array.isArray(value) &&
+      new Set(value).size === value.length &&
+      value.every((item) => typeof item === "string" && allowed.has(item))
       ? undefined
-      : `項目「${field.id}」は選択肢の配列が必要です`
+      : `項目「${field.id}」は重複のない選択肢の配列が必要です`
   }
   return typeof value === "string" && allowed.has(value) ? undefined : `項目「${field.id}」は選択肢のどれかが必要です`
 }

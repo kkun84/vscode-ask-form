@@ -3,8 +3,8 @@ import { Schema } from "effect"
 const text = (max: number) => Schema.String.check(Schema.isMaxLength(max))
 const required = (max: number) => Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(max))
 
-const Identifier = Schema.String.check(Schema.isMaxLength(40), Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*$/)).annotate({
-  description: "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+const Identifier = Schema.String.check(Schema.isMaxLength(40), Schema.isPattern(/^(?!(?:true|false)$)[A-Za-z_][A-Za-z0-9_]*$/)).annotate({
+  description: "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
 })
 
 const commonFields = {

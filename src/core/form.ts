@@ -62,19 +62,20 @@ export const computeValues = (form: CompiledForm, values: Values): ComputedValue
   for (const field of form.spec.fields) {
     scope.set(field.id, scopeValue(field, values[field.id]))
   }
-  const result: Record<string, Value | null> = {}
-  for (const item of form.spec.computed ?? []) {
-    const expr = form.expressions.get(item.id)
-    const value = expr === undefined ? undefined : evaluate(expr, scope as Scope)
-    scope.set(item.id, value)
-    result[item.id] = value ?? null
-  }
-  return result
+  return Object.fromEntries(
+    (form.spec.computed ?? []).map((item) => {
+      const expr = form.expressions.get(item.id)
+      const value = expr === undefined ? undefined : evaluate(expr, scope as Scope)
+      scope.set(item.id, value)
+      return [item.id, value ?? null]
+    })
+  )
 }
 
 const sameValue = (a: FieldValue | undefined, b: FieldValue | undefined): boolean => {
   if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && a.toSorted().join("\u0000") === b.toSorted().join("\u0000")
+    const sortedB = b.toSorted()
+    return a.length === b.length && a.toSorted().every((value, index) => value === sortedB[index])
   }
   return a === b
 }

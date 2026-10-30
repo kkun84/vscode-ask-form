@@ -97,7 +97,7 @@
                       "id": {
                         "type": "string",
                         "maxLength": 40,
-                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
                       },
                       "label": {
                         "type": "string",
@@ -145,7 +145,7 @@
                       "id": {
                         "type": "string",
                         "maxLength": 40,
-                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
                       },
                       "label": {
                         "type": "string",
@@ -205,7 +205,7 @@
                       "id": {
                         "type": "string",
                         "maxLength": 40,
-                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
                       },
                       "label": {
                         "type": "string",
@@ -288,7 +288,7 @@
                       "id": {
                         "type": "string",
                         "maxLength": 40,
-                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
                       },
                       "label": {
                         "type": "string",
@@ -333,7 +333,7 @@
                   "id": {
                     "type": "string",
                     "maxLength": 40,
-                    "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore."
+                    "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
                   },
                   "label": {
                     "type": "string",

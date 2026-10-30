@@ -400,7 +400,7 @@ const evaluateCall = (expr: Of<"call">, scope: Scope): Value | undefined => {
 export const evaluate = (expr: Expr, scope: Scope): Value | undefined => {
   switch (expr.kind) {
     case "literal":
-      return expr.value
+      return typeof expr.value === "number" ? finite(expr.value) : expr.value
     case "ref":
       return scope.get(expr.name)
     case "unary":

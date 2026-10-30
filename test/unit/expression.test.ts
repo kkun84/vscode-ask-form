@@ -75,6 +75,16 @@ describe("DES-EXPR-002 評価", () => {
     assert.equal(run("'a' < 'b'"), undefined)
   })
 
+  it("DES-EXPR-002 桁あふれの数値リテラルは単独でも式の中でも評価できない", () => {
+    for (const source of ["1e999", "-1e999", "1e999 > 0", "1e999 == 1e999", "1 / 1e999", "true ? 1e999 : 7", "max(1, 1e999)"]) {
+      assert.equal(run(source), undefined, source)
+    }
+    assert.equal(run("1.7976931348623157e308"), Number.MAX_VALUE)
+    assert.equal(run("1e-999"), 0)
+    assert.equal(run("false ? 1e999 : 42"), 42)
+    assert.equal(run("true || (1e999 > 0)"), true)
+  })
+
   it("DES-EXPR-002 論理演算は短絡評価する", () => {
     assert.equal(run("false && missing"), false)
     assert.equal(run("true || missing"), true)

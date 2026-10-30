@@ -36,6 +36,8 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 `src/core`は`effect`と`src/core`のほかに依存しない。`vscode`、Node.jsの組み込みモジュール、ほかの層には依存しない。
 
+- 予約語の`id`と複数選択の重複は中核のSchemaと検査で拒否する。デスクトップ版とweb版は同じ検査を通し、画面からの回答も計算に渡す前に重複を検査する。
+
 派生元: SPEC-FORM-001, SPEC-FORM-002, SPEC-EXPR-001, SPEC-MCP-006
 
 ### ARCH-LAYER-002 画面はブラウザだけで動く
@@ -66,7 +68,9 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 `src/core`のうち`expression.ts`、`form.ts`、`hash.ts`、`messages.ts`は、実行時にはこの4つのほかに依存しない。画面のバンドルを小さく保つため。
 
-派生元: SPEC-EXT-005, SPEC-UI-002
+- 数値リテラルの有限性、NUL文字を含む複数選択の差分、`__proto__`を含む計算結果の保持は、この純粋な処理にまとめる。画面と回答を作る側で同じ処理を使い、依存を増やさない。
+
+派生元: SPEC-EXT-005, SPEC-UI-002, SPEC-EXPR-001, SPEC-MCP-003, SPEC-UI-005
 
 ## Effectの層
 
