@@ -171,5 +171,8 @@ export const typeNumber = async (pointer: Pointer, recorder: Recorder, frame: Fr
     recorder.sound("key")
     await sleep(200)
   }
-  await frame.locator("h1").click()
+  await input.evaluate((element) => {
+    element.dispatchEvent(new Event("change", { bubbles: true }))
+    ;(element as HTMLElement).blur()
+  })
 }

@@ -21,24 +21,26 @@ html, body { margin: 0; width: ${viewport.width}px; height: ${viewport.height}px
 body { font-family: "Noto Sans CJK JP", "Noto Sans JP", sans-serif; color: #e8edf5;
   background: radial-gradient(900px 600px at 0% 0%, #1d3b66 0%, transparent 60%), radial-gradient(800px 500px at 100% 100%, #2a1f5c 0%, transparent 55%), #0b1020 !important; }
 body > iframe#form { position: absolute; left: -9999px; }
-#stage { position: absolute; inset: 0; display: grid; grid-template-columns: 430px 1fr; gap: 28px; padding: 32px 36px 32px 44px; box-sizing: border-box; }
-#caption { align-self: center; position: relative; z-index: 60; }
-#caption .step { font-size: 22px; font-weight: 700; letter-spacing: 3px; color: #5cc8ff; margin-bottom: 18px; white-space: pre; }
-#caption .text { font-size: 38px; font-weight: 800; line-height: 1.35; }
+#stage { position: absolute; inset: 0; }
+#caption { position: absolute; left: 0; right: 0; top: 30px; z-index: 60; display: flex; align-items: center; justify-content: center; gap: 22px; }
+#caption .step { font-size: 24px; font-weight: 800; color: #0b1020; background: #5cc8ff; border-radius: 999px; padding: 6px 20px; white-space: pre; }
+#caption .text { font-size: 46px; font-weight: 800; }
+#viewport { position: absolute; left: 32px; right: 32px; top: 128px; bottom: 24px; overflow: hidden; border-radius: 16px; }
+#camera { position: absolute; left: 0; top: 0; transform-origin: 0 0; transition: transform 900ms cubic-bezier(.45,0,.2,1); }
 #caption em { font-style: normal; color: #5cc8ff; }
 #caption.swap { animation: swap 450ms ease-out; }
 @keyframes swap { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
-.window { display: grid; grid-template-rows: 34px 1fr 26px; background: #1f1f1f; border-radius: 14px; overflow: hidden;
+.window { width: 680px; min-height: 760px; display: grid; grid-template-rows: 34px 1fr 26px; background: #1f1f1f; border-radius: 14px; overflow: hidden;
   box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); font-family: "Noto Sans CJK JP", sans-serif; }
 .titlebar { display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #181818; color: #9d9d9d; font-size: 13px; border-bottom: 1px solid #2b2b2b; }
 .titlebar i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
 .titlebar .name { margin-left: 14px; }
-.main { display: grid; grid-template-columns: 46px 1fr; min-height: 0; }
+.main { display: grid; grid-template-columns: 46px 1fr; }
 .activity { background: #181818; border-right: 1px solid #2b2b2b; display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 14px; }
 .activity span { width: 20px; height: 20px; border-radius: 5px; border: 2px solid #6e6e6e; opacity: .7; }
-.chat { display: grid; grid-template-rows: 32px 1fr auto; min-height: 0; }
+.chat { display: grid; grid-template-rows: 32px 1fr auto; }
 .chat-header { display: flex; align-items: center; padding: 0 18px; font-size: 12px; letter-spacing: 1px; color: #bbbbbb; border-bottom: 1px solid #2b2b2b; }
-#messages { overflow: hidden; padding: 18px 26px 10px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
+#messages { min-height: 520px; padding: 18px 26px 10px; display: flex; flex-direction: column; gap: 14px; }
 .user { align-self: flex-end; max-width: 78%; background: #2a2d2e; border: 1px solid #3c3c3c; border-radius: 12px; padding: 9px 14px; font-size: 14px; line-height: 1.6; animation: pop 300ms ease-out; }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #cccccc; background: #2b2b2b; border: 1px solid #3c3c3c; border-radius: 5px; padding: 2px 8px; margin-bottom: 6px; }
 .chip b { color: #e8c07d; font-weight: 400; }
@@ -57,8 +59,10 @@ body > iframe#form { position: absolute; left: -9999px; }
 .status { display: flex; align-items: center; gap: 16px; padding: 0 12px; background: #181818; border-top: 1px solid #2b2b2b; font-size: 12px; color: #9d9d9d; }
 #waiting { margin-left: auto; background: #6c5b00; color: #fff3c4; padding: 2px 10px; border-radius: 3px; opacity: 0; transition: opacity 300ms; }
 #waiting.on { opacity: 1; }
-#focus { position: fixed; border: 3px solid #5cc8ff; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(5,10,25,.45), 0 0 24px rgba(92,200,255,.6); pointer-events: none; opacity: 0; transition: opacity 350ms; z-index: 50; }
+#focus { position: fixed; border: 3px solid #5cc8ff; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(5,10,25,.62), 0 0 24px rgba(92,200,255,.6); pointer-events: none; opacity: 0; transition: opacity 350ms; z-index: 50; }
 #focus.on { opacity: 1; }
+#focus .label { position: absolute; left: -3px; bottom: calc(100% + 10px); background: #5cc8ff; color: #0b1020; font-weight: 800; font-size: 30px; padding: 6px 18px; border-radius: 9px; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+#focus.below .label { bottom: auto; top: calc(100% + 10px); }
 @keyframes pop { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
 @keyframes rise { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: none } }
 @keyframes spin { to { transform: rotate(360deg) } }
@@ -67,7 +71,7 @@ body > iframe#form { position: absolute; left: -9999px; }
 const markup = `
 <div id="stage">
   <div id="caption"><div class="step"></div><div class="text"></div></div>
-  <div class="window">
+  <div id="viewport"><div id="camera"><div class="window">
     <div class="titlebar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span class="name">api-gateway — Visual Studio Code</span></div>
     <div class="main">
       <div class="activity"><span></span><span></span><span></span><span></span></div>
@@ -78,9 +82,9 @@ const markup = `
       </div>
     </div>
     <div class="status"><span>main</span><span>0 ⚠ 0</span><span id="waiting">Copilotが回答を待っています</span></div>
-  </div>
+  </div></div></div>
 </div>
-<div id="focus"></div>`
+<div id="focus"><div class="label"></div></div>`
 
 const build = (page: Page) =>
   page.evaluate(
@@ -125,23 +129,6 @@ const caption = (page: Page, index: number) =>
     captions[index] ?? { step: "", text: "" }
   )
 
-const scrollTo = (page: Page, selector: string, align: "start" | "end") =>
-  page.evaluate(
-    (options) => {
-      const list = document.querySelector<HTMLElement>("#messages")
-      const target = document.querySelector<HTMLElement>(options.selector)
-      if (list === null || target === null) {
-        return
-      }
-      const top =
-        options.align === "start"
-          ? target.offsetTop - list.offsetTop - 14
-          : target.offsetTop - list.offsetTop + target.offsetHeight - list.clientHeight + 14
-      list.scrollTo({ top: Math.max(0, top), behavior: "smooth" })
-    },
-    { selector, align }
-  )
-
 const append = (page: Page, html: string) =>
   page.evaluate((content) => {
     document.querySelector("#messages")?.insertAdjacentHTML("beforeend", content)
@@ -163,25 +150,85 @@ const stream = async (page: Page, id: string, text: string, order: number): Prom
   }
 }
 
-const focusOn = async (page: Page, target: Locator | null): Promise<void> => {
+const focusOn = async (page: Page, target: Locator | null, label = ""): Promise<void> => {
   const box = target === null ? null : await target.boundingBox()
-  await page.evaluate((rect) => {
-    const focus = document.querySelector<HTMLElement>("#focus")
-    if (focus === null) {
-      return
-    }
-    if (rect === null) {
-      focus.classList.remove("on")
-      return
-    }
-    Object.assign(focus.style, {
-      left: `${rect.x - 8}px`,
-      top: `${rect.y - 8}px`,
-      width: `${rect.width + 16}px`,
-      height: `${rect.height + 16}px`
-    })
-    focus.classList.add("on")
-  }, box)
+  await page.evaluate(
+    ({ rect, text }) => {
+      const focus = document.querySelector<HTMLElement>("#focus")
+      if (focus === null) {
+        return
+      }
+      if (rect === null) {
+        focus.classList.remove("on")
+        return
+      }
+      Object.assign(focus.style, {
+        left: `${rect.x - 8}px`,
+        top: `${rect.y - 8}px`,
+        width: `${rect.width + 16}px`,
+        height: `${rect.height + 16}px`
+      })
+      const tag = focus.querySelector(".label")
+      if (tag !== null) {
+        tag.textContent = text
+      }
+      focus.classList.toggle("below", rect.y < 200)
+      focus.classList.add("on")
+    },
+    { rect: box, text: label }
+  )
+}
+
+const boxOf = async (...targets: ReadonlyArray<Locator>) => {
+  const boxes = (await Promise.all(targets.map((target) => target.boundingBox()))).filter((box) => box !== null)
+  if (boxes.length === 0) {
+    return null
+  }
+  const left = Math.min(...boxes.map((box) => box.x))
+  const top = Math.min(...boxes.map((box) => box.y))
+  return {
+    x: left,
+    y: top,
+    width: Math.max(...boxes.map((box) => box.x + box.width)) - left,
+    height: Math.max(...boxes.map((box) => box.y + box.height)) - top
+  }
+}
+
+const camera = async (page: Page, targets: ReadonlyArray<Locator>, pad: number, most: number, still = false): Promise<void> => {
+  const rect = targets.length === 0 ? null : await boxOf(...targets)
+  await page.evaluate(
+    (shot) => {
+      const { rect: area, pad: margin, most: limit, still: cut } = shot
+      const view = document.querySelector<HTMLElement>("#viewport")?.getBoundingClientRect()
+      const lens = document.querySelector<HTMLElement>("#camera")
+      if (view === undefined || lens === null) {
+        return
+      }
+      const state = (window as unknown as { lens?: { s: number; x: number; y: number } }).lens ?? { s: 1, x: 0, y: 0 }
+      const local =
+        area === null
+          ? { x: 0, y: 0, width: 680, height: document.querySelector<HTMLElement>(".window")?.offsetHeight ?? 760 }
+          : {
+              x: (area.x - view.x - state.x) / state.s,
+              y: (area.y - view.y - state.y) / state.s,
+              width: area.width / state.s,
+              height: area.height / state.s
+            }
+      const width = local.width + margin * 2
+      const height = local.height + margin * 2
+      const s = Math.min(view.width / width, view.height / height, limit)
+      const next = {
+        s,
+        x: (view.width - width * s) / 2 - (local.x - margin) * s,
+        y: (view.height - height * s) / 2 - (local.y - margin) * s
+      }
+      ;(window as unknown as { lens?: { s: number; x: number; y: number } }).lens = next
+      lens.style.transition = cut ? "none" : ""
+      lens.style.transform = `translate(${next.x}px, ${next.y}px) scale(${next.s})`
+    },
+    { rect, pad, most, still }
+  )
+  await sleep(still ? 50 : 1000)
 }
 
 const typeInto = async (page: Page, recorder: Recorder, text: string, delay: number): Promise<void> => {
@@ -213,21 +260,29 @@ const send = async (page: Page, pointer: Pointer, html: string): Promise<void> =
 
 const chip = (file: string) => `<div class="chip"><b>{ }</b>${file}</div>`
 
-const ask = async (page: Page, pointer: Pointer, recorder: Recorder): Promise<void> => {
+const look = async (page: Page, targets: ReadonlyArray<Locator>, spot: Locator, label: string, hold: number): Promise<void> => {
+  await focusOn(page, null)
+  await camera(page, targets, 24, 2.4)
+  await focusOn(page, spot, label)
+  await sleep(hold)
+}
+
+const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
+  await camera(page, [], 0, 1, true)
   await caption(page, 0)
-  await sleep(700)
+  await sleep(500)
+  await look(page, [page.locator("#input")], page.locator("#input"), "ここに頼む", 200)
   await pointer.click(page.locator("#input .text"))
   await page.evaluate(() => document.querySelector("#input")?.classList.add("focus"))
   recorder.mark("typing")
-  await typeInto(page, recorder, query, 40)
+  await typeInto(page, recorder, query, 38)
+  await focusOn(page, null)
   await send(page, pointer, `<div class="user" style="order:1">${query}</div>`)
   recorder.mark("send")
-  await sleep(500)
   await append(
     page,
     '<div class="tool" id="tool" style="order:2"><span class="spin"></span><span id="tool-label">Ask with a form を実行しています</span></div>'
   )
-  await sleep(700)
   await caption(page, 1)
   await page.evaluate(() => {
     const box = document.querySelector<HTMLElement>(".formbox")
@@ -238,20 +293,23 @@ const ask = async (page: Page, pointer: Pointer, recorder: Recorder): Promise<vo
   })
   recorder.mark("form")
   await sleep(300)
-  await scrollTo(page, ".formbox", "start")
-  await sleep(2400)
+  await sleep(500)
+  const first = frame.locator(".hint").first()
+  await look(page, [frame.locator("form.card h1"), first], first, "AIの推測と根拠", 1800)
 }
 
 const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await caption(page, 2)
+  const replicas = frame.getByRole("spinbutton", { name: "レプリカ数" })
+  await look(page, [replicas, frame.locator(".computed")], replicas, "5台に直す", 200)
   await typeNumber(pointer, recorder, frame, "レプリカ数", "5")
-  await focusOn(page, frame.locator(".metrics, .computed, .result").first())
-  await sleep(1800)
-  await focusOn(page, null)
+  await focusOn(page, frame.locator(".computed"), "処理量と費用がすぐ変わる")
+  await sleep(1600)
   await caption(page, 3)
-  await scrollTo(page, ".formbox", "end")
-  await sleep(600)
-  await pointer.click(frame.getByRole("button", { name: "この設定で進める" }))
+  const proceed = frame.getByRole("button", { name: "この設定で進める" })
+  await look(page, [frame.locator("footer.actions")], proceed, "クリックで回答", 400)
+  await focusOn(page, null)
+  await pointer.click(proceed)
   await frame.locator(".summary").waitFor()
   recorder.mark("answered")
   await page.evaluate(() => {
@@ -262,23 +320,27 @@ const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorde
     }
     document.querySelector("#waiting")?.classList.remove("on")
   })
-  await sleep(400)
   await stream(page, "reply", reply, 4)
-  await scrollTo(page, "#reply", "end")
-  await sleep(1400)
+  await sleep(300)
+  await look(page, [page.locator("#reply")], page.locator("#reply"), "Copilotがそのまま続ける", 1500)
 }
 
 const resendStep = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   const resend = resendText()
   await caption(page, 4)
-  await scrollTo(page, ".formbox", "start")
-  await sleep(500)
-  await pointer.click(frame.getByRole("button", { name: "変更して送り直す" }))
-  await sleep(500)
+  const again = frame.getByRole("button", { name: "変更して送り直す" })
+  await look(page, [frame.locator(".summary")], again, "後から直せる", 500)
+  await focusOn(page, null)
+  await pointer.click(again)
+  await sleep(300)
+  const cpu = frame.getByRole("spinbutton", { name: "CPU(1台あたり)" })
+  await look(page, [cpu, frame.locator(".computed")], cpu, "CPUを1000mに", 200)
   await typeNumber(pointer, recorder, frame, "CPU(1台あたり)", "1000")
-  await scrollTo(page, ".formbox", "end")
-  await sleep(700)
-  await pointer.click(frame.getByRole("button", { name: "変更を送信" }))
+  await sleep(400)
+  const submit = frame.getByRole("button", { name: "変更を送信" })
+  await look(page, [frame.locator("footer.actions")], submit, "変更を送信", 400)
+  await focusOn(page, null)
+  await pointer.click(submit)
   await frame.locator(".summary .notice").waitFor()
   await page.evaluate(
     ({ text, chipHtml }) => {
@@ -292,22 +354,18 @@ const resendStep = async (page: Page, frame: Frame, pointer: Pointer, recorder: 
     { text: resend.text, chipHtml: chip(resend.file) }
   )
   recorder.mark("placed")
-  await focusOn(page, page.locator("#input"))
-  await sleep(1500)
+  await look(page, [page.locator("#input")], page.locator("#input"), "差分とJSONが入力欄に入る", 1700)
   await focusOn(page, null)
   await send(page, pointer, `<div class="user" id="resent" style="order:5">${chip(resend.file)}<div>${resend.text}</div></div>`)
-  await sleep(300)
-  await scrollTo(page, "#resent", "start")
-  await sleep(400)
   await stream(page, "follow", followUp, 6)
   recorder.mark("followed")
-  await scrollTo(page, "#follow", "end")
-  await sleep(1500)
+  await sleep(300)
+  await look(page, [page.locator("#follow")], page.locator("#follow"), "変更を反映して続ける", 1400)
   recorder.mark("end")
 }
 
 const scene = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
-  await ask(page, pointer, recorder)
+  await ask(page, frame, pointer, recorder)
   await editAndAnswer(page, frame, pointer, recorder)
   await resendStep(page, frame, pointer, recorder)
 }

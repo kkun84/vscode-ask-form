@@ -30,16 +30,16 @@ const chords: ReadonlyArray<ReadonlyArray<number>> = [
 
 const samples: Readonly<Record<CueKind, ReadonlyArray<{ readonly file: string; readonly gain: number; readonly offset: number }>>> = {
   key: [
-    { file: "click_002.wav", gain: 0.35, offset: 0 },
-    { file: "click_003.wav", gain: 0.35, offset: 0 },
-    { file: "click_005.wav", gain: 0.35, offset: 0 }
+    { file: "click_002.wav", gain: 0.03, offset: 0 },
+    { file: "click_003.wav", gain: 0.03, offset: 0 },
+    { file: "click_005.wav", gain: 0.03, offset: 0 }
   ],
-  click: [{ file: "ui_click1.wav", gain: 0.6, offset: 0 }],
-  whoosh: [{ file: "maximize_004.wav", gain: 0.45, offset: -0.15 }],
-  pop: [{ file: "drop_004.wav", gain: 0.6, offset: 0 }],
-  success: [{ file: "confirmation_002.wav", gain: 0.55, offset: 0 }],
-  chime: [{ file: "confirmation_004.wav", gain: 0.5, offset: 0 }],
-  impact: [{ file: "bong_001.wav", gain: 0.8, offset: 0 }]
+  click: [{ file: "ui_click1.wav", gain: 0.1, offset: 0 }],
+  whoosh: [{ file: "maximize_004.wav", gain: 0.08, offset: -0.15 }],
+  pop: [{ file: "drop_004.wav", gain: 0.11, offset: 0 }],
+  success: [{ file: "confirmation_002.wav", gain: 0.11, offset: 0 }],
+  chime: [{ file: "confirmation_004.wav", gain: 0.09, offset: 0 }],
+  impact: [{ file: "bong_001.wav", gain: 0.16, offset: 0 }]
 }
 
 const frequency = (note: number) => 440 * 2 ** ((note - 69) / 12)

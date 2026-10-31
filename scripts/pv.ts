@@ -111,11 +111,11 @@ const fitted = (all: ReadonlyArray<Scene>): ReadonlyArray<Scene> => {
 }
 
 const authored = (take: Recording): ReadonlyArray<Scene> => [
-  { kind: "card", name: "title", duration: 2.5, body: titleCard },
-  { kind: "card", name: "problem", duration: 4, body: problemCard },
+  { kind: "card", name: "title", duration: 2, body: titleCard },
+  { kind: "card", name: "problem", duration: 3.5, body: problemCard },
   { kind: "take", name: "demo", from: Math.max(0, (take.marks["typing"] ?? 0) - 0.8), to: take.marks["end"] ?? 0, speed: 1 },
-  { kind: "card", name: "features", duration: 3.5, body: featureCard },
-  { kind: "card", name: "end", duration: 3, body: endCard }
+  { kind: "card", name: "features", duration: 3, body: featureCard },
+  { kind: "card", name: "end", duration: 2.5, body: endCard }
 ]
 
 const scenes = (take: Recording): ReadonlyArray<Scene> => fitted(authored(take))
@@ -242,7 +242,7 @@ run([
   "-c:v",
   "copy",
   "-af",
-  "highshelf=f=7000:g=-4,loudnorm=I=-30:TP=-12:LRA=11",
+  "highshelf=f=7000:g=-4,loudnorm=I=-30:TP=-9:LRA=11",
   "-ar",
   "48000",
   "-c:a",
