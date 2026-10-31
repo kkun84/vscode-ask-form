@@ -1,4 +1,6 @@
+import { spawnSync } from "node:child_process"
 import { writeFile } from "node:fs/promises"
+import { fileURLToPath } from "node:url"
 
 export type CueKind = "whoosh" | "key" | "click" | "pop" | "success" | "chime" | "impact"
 
@@ -15,16 +17,30 @@ export interface Arrangement {
 }
 
 const rate = 48_000
-const tempo = 100
+const tempo = 140
 const beat = 60 / tempo
 const bar = beat * 4
 
 const chords: ReadonlyArray<ReadonlyArray<number>> = [
-  [53, 57, 60, 64],
-  [55, 59, 62, 64],
-  [52, 55, 59, 62],
-  [57, 60, 64, 67]
+  [62, 66, 69, 74],
+  [57, 61, 64, 69],
+  [59, 62, 66, 71],
+  [55, 59, 62, 67]
 ]
+
+const samples: Readonly<Record<CueKind, ReadonlyArray<{ readonly file: string; readonly gain: number; readonly offset: number }>>> = {
+  key: [
+    { file: "click_002.wav", gain: 0.35, offset: 0 },
+    { file: "click_003.wav", gain: 0.35, offset: 0 },
+    { file: "click_005.wav", gain: 0.35, offset: 0 }
+  ],
+  click: [{ file: "ui_click1.wav", gain: 0.6, offset: 0 }],
+  whoosh: [{ file: "maximize_004.wav", gain: 0.45, offset: -0.15 }],
+  pop: [{ file: "drop_004.wav", gain: 0.6, offset: 0 }],
+  success: [{ file: "confirmation_002.wav", gain: 0.55, offset: 0 }],
+  chime: [{ file: "confirmation_004.wav", gain: 0.5, offset: 0 }],
+  impact: [{ file: "bong_001.wav", gain: 0.8, offset: 0 }]
+}
 
 const frequency = (note: number) => 440 * 2 ** ((note - 69) / 12)
 
@@ -58,42 +74,44 @@ class Track {
   }
 }
 
-const envelope = (time: number, attack: number, decay: number) => (time < attack ? time / attack : Math.exp(-(time - attack) / decay))
+const pump = (time: number) => 0.45 + 0.55 * Math.min(1, ((time % beat) / beat) * 2.2)
 
-const pad = (track: Track, at: number, length: number, note: number): void => {
+const pad = (track: Track, at: number, note: number, groove: boolean): void => {
   const base = frequency(note)
-  track.add(at, length + 1, 0.05, random() * 0.6, (time) => {
-    const swell = Math.min(1, time / 0.6) * (time > length ? Math.exp(-(time - length) / 0.4) : 1)
+  track.add(at, bar + 0.4, 0.045, random() * 0.7, (time) => {
+    const swell = Math.min(1, time / 0.05) * (time > bar ? Math.exp(-(time - bar) / 0.15) : 1)
     const tone =
       Math.sin(2 * Math.PI * base * time) +
-      0.6 * Math.sin(2 * Math.PI * base * 1.003 * time) +
-      0.6 * Math.sin(2 * Math.PI * base * 0.997 * time) +
-      0.15 * Math.sin(4 * Math.PI * base * time)
-    return swell * tone
+      0.5 * Math.sin(2 * Math.PI * base * 1.004 * time) +
+      0.5 * Math.sin(2 * Math.PI * base * 0.996 * time) +
+      0.25 * Math.sin(4 * Math.PI * base * time) +
+      0.12 * Math.sin(6 * Math.PI * base * time)
+    return swell * tone * (groove ? pump(time) : 1)
   })
 }
 
-const pluck = (track: Track, at: number, note: number, pan: number, gain: number): void => {
+const pluck = (track: Track, at: number, note: number, pan: number): void => {
   const base = frequency(note)
-  track.add(at, 1.2, gain, pan, (time) => {
-    const tone = Math.sin(2 * Math.PI * base * time) + 0.3 * Math.sin(6 * Math.PI * base * time) * Math.exp(-time / 0.08)
-    return envelope(time, 0.004, 0.32) * tone
+  track.add(at, 0.5, 0.06, pan, (time) => {
+    const tone =
+      Math.sin(2 * Math.PI * base * time) + 0.5 * Math.sin(4 * Math.PI * base * time) + 0.25 * Math.sin(6 * Math.PI * base * time)
+    return Math.min(1, time / 0.003) * Math.exp(-time / 0.14) * tone
   })
 }
 
-const bass = (track: Track, at: number, length: number, note: number): void => {
+const bass = (track: Track, at: number, note: number): void => {
   const base = frequency(note)
-  track.add(at, length, 0.2, 0, (time) => {
-    const tone = Math.sin(2 * Math.PI * base * time) + 0.25 * Math.sin(4 * Math.PI * base * time)
-    return Math.min(1, time / 0.01) * Math.exp(-time / 0.9) * tone
+  track.add(at, beat / 2, 0.22, 0, (time) => {
+    const tone = Math.sin(2 * Math.PI * base * time) + 0.3 * Math.sin(4 * Math.PI * base * time)
+    return Math.min(1, time / 0.005) * Math.exp(-time / 0.18) * tone
   })
 }
 
 const kick = (track: Track, at: number): void => {
   let phase = 0
-  track.add(at, 0.45, 0.55, 0, (time) => {
-    phase += (2 * Math.PI * (45 + 90 * Math.exp(-time / 0.035))) / rate
-    return Math.exp(-time / 0.16) * Math.sin(phase)
+  track.add(at, 0.35, 0.6, 0, (time) => {
+    phase += (2 * Math.PI * (50 + 110 * Math.exp(-time / 0.03))) / rate
+    return Math.exp(-time / 0.13) * Math.sin(phase)
   })
 }
 
@@ -102,35 +120,32 @@ const noise = (track: Track, at: number, length: number, gain: number, pan: numb
   let smooth = 0
   track.add(at, length, gain, pan, (time) => {
     const white = random()
-    smooth += (white - smooth) * brightness
+    smooth += (white - smooth) * 0.3
     const high = white - previous
     previous = white
     return Math.exp(-time / decay) * (high * brightness + smooth * (1 - brightness))
   })
 }
 
-const arpeggio = [0, 2, 1, 3, 2, 1, 3, 2]
+const arpeggio = [0, 1, 2, 3, 2, 1, 2, 3]
 
 const harmony = (track: Track, at: number, chord: ReadonlyArray<number>, groove: boolean): void => {
   for (const note of chord) {
-    pad(track, at, bar, note - 12)
+    pad(track, at, note - 12, groove)
   }
   for (const [step, index] of arpeggio.entries()) {
-    pluck(track, at + (step * beat) / 2, (chord[index] ?? 60) + 12, step % 2 === 0 ? -0.35 : 0.35, groove ? 0.07 : 0.05)
+    pluck(track, at + (step * beat) / 2, (chord[index] ?? 74) + 12, step % 2 === 0 ? -0.3 : 0.3)
   }
 }
 
 const rhythm = (track: Track, at: number, root: number): void => {
-  bass(track, at, beat * 2, root)
-  bass(track, at + beat * 2, beat * 2, root)
-  for (const step of [0, 2]) {
+  for (let step = 0; step < 4; step++) {
     kick(track, at + step * beat)
+    bass(track, at + step * beat + beat / 2, root)
+    noise(track, at + step * beat + beat / 2, 0.12, 0.05, 0.35, 0.04, 0.55)
   }
   for (const step of [1, 3]) {
-    noise(track, at + step * beat, 0.3, 0.12, 0, 0.08, 0.3)
-  }
-  for (let step = 0; step < 8; step++) {
-    noise(track, at + (step * beat) / 2 + beat / 4, 0.08, 0.035, 0.4, 0.015, 0.6)
+    noise(track, at + step * beat, 0.25, 0.13, 0, 0.07, 0.35)
   }
 }
 
@@ -139,10 +154,10 @@ const music = (track: Track, arrangement: Arrangement): void => {
   for (let index = 0; index < bars; index++) {
     const chord = chords[index % chords.length] ?? []
     const at = index * bar
-    const groove = at >= arrangement.beatsFrom && at < arrangement.beatsUntil
+    const groove = at >= arrangement.beatsFrom - bar / 2 && at < arrangement.beatsUntil
     harmony(track, at, chord, groove)
     if (groove) {
-      rhythm(track, at, (chord[0] ?? 48) - 24)
+      rhythm(track, at, (chord[0] ?? 62) - 24)
     }
   }
 }
@@ -157,7 +172,7 @@ const reverb = (track: Track, mix: number): void => {
       let cursor = 0
       for (let index = 0; index < dry.length; index++) {
         const out = buffer[cursor] ?? 0
-        buffer[cursor] = (dry[index] ?? 0) + out * 0.78
+        buffer[cursor] = (dry[index] ?? 0) + out * 0.72
         cursor = (cursor + 1) % delay
         wet[index] = (wet[index] ?? 0) + out / delays.length
       }
@@ -168,55 +183,37 @@ const reverb = (track: Track, mix: number): void => {
   }
 }
 
-const bell = (track: Track, at: number, note: number, gain: number, pan: number): void => {
-  const base = frequency(note)
-  track.add(at, 1.6, gain, pan, (time) => {
-    const tone = Math.sin(2 * Math.PI * base * time) + 0.4 * Math.sin(2 * Math.PI * base * 2.76 * time) * Math.exp(-time / 0.2)
-    return envelope(time, 0.003, 0.5) * tone
-  })
-}
+const decoded = new Map<string, Float32Array>()
 
-const whoosh = (track: Track, at: number): void => {
-  let smooth = 0
-  track.add(at, 0.6, 0.16, 0, (time) => {
-    const sweep = Math.sin((Math.PI * time) / 0.6)
-    smooth += (random() - smooth) * (0.01 + 0.1 * sweep)
-    return sweep * sweep * smooth * 3
+const load = (file: string): Float32Array => {
+  const cached = decoded.get(file)
+  if (cached !== undefined) {
+    return cached
+  }
+  const path = fileURLToPath(new URL(`sounds/${file}`, import.meta.url))
+  const result = spawnSync("ffmpeg", ["-loglevel", "error", "-i", path, "-f", "f32le", "-ac", "1", "-ar", String(rate), "-"], {
+    maxBuffer: 64 * 1024 * 1024
   })
+  if (result.status !== 0) {
+    throw new Error(`decoding ${file} failed: ${result.stderr.toString()}`)
+  }
+  const pcm = new Float32Array(result.stdout.buffer, result.stdout.byteOffset, result.stdout.byteLength / 4)
+  decoded.set(file, pcm)
+  return pcm
 }
 
 const effects = (track: Track, cues: ReadonlyArray<Cue>): void => {
+  const counts = new Map<CueKind, number>()
   for (const cue of cues) {
-    switch (cue.kind) {
-      case "whoosh":
-        whoosh(track, cue.at - 0.3)
-        break
-      case "key":
-        noise(track, cue.at, 0.03, 0.16, 0.15 + random() * 0.2, 0.005, 0.25)
-        break
-      case "click":
-        noise(track, cue.at, 0.04, 0.3, 0, 0.004, 0.45)
-        bell(track, cue.at, 96, 0.06, 0)
-        break
-      case "pop":
-        bell(track, cue.at, 88, 0.16, -0.2)
-        bell(track, cue.at + 0.09, 95, 0.14, 0.2)
-        break
-      case "success":
-        for (const [index, note] of [84, 88, 91, 96].entries()) {
-          bell(track, cue.at + index * 0.075, note, 0.13, (index - 1.5) * 0.25)
-        }
-        break
-      case "chime":
-        bell(track, cue.at, 91, 0.12, -0.1)
-        bell(track, cue.at + 0.11, 96, 0.1, 0.1)
-        break
-      case "impact":
-        track.add(cue.at, 2, 0.5, 0, (time) => Math.exp(-time / 0.6) * Math.sin(2 * Math.PI * (38 + 30 * Math.exp(-time / 0.08)) * time))
-        bell(track, cue.at + 0.05, 84, 0.1, -0.3)
-        bell(track, cue.at + 0.05, 91, 0.1, 0.3)
-        break
+    const choices = samples[cue.kind]
+    const count = counts.get(cue.kind) ?? 0
+    counts.set(cue.kind, count + 1)
+    const choice = choices[count % choices.length]
+    if (choice === undefined) {
+      continue
     }
+    const pcm = load(choice.file)
+    track.add(cue.at + choice.offset, pcm.length / rate, choice.gain, 0, (time) => pcm[Math.floor(time * rate)] ?? 0)
   }
 }
 
@@ -245,18 +242,17 @@ const wav = (left: Float32Array, right: Float32Array): Buffer => {
 export const renderAudio = async (arrangement: Arrangement, path: string): Promise<void> => {
   const background = new Track(arrangement.duration)
   music(background, arrangement)
-  reverb(background, 0.35)
+  reverb(background, 0.25)
   const foreground = new Track(arrangement.duration)
   effects(foreground, arrangement.cues)
-  reverb(foreground, 0.15)
   const left = new Float32Array(background.left.length)
   const right = new Float32Array(background.right.length)
-  const fadeOut = 2.5
+  const fadeOut = 2
   for (let index = 0; index < left.length; index++) {
     const time = index / rate
-    const fade = Math.min(1, time / 0.8, (arrangement.duration - time) / fadeOut)
-    left[index] = Math.tanh(((background.left[index] ?? 0) * 0.55 * fade + (foreground.left[index] ?? 0)) * 0.9)
-    right[index] = Math.tanh(((background.right[index] ?? 0) * 0.55 * fade + (foreground.right[index] ?? 0)) * 0.9)
+    const fade = Math.min(1, time / 0.3, (arrangement.duration - time) / fadeOut)
+    left[index] = Math.tanh(((background.left[index] ?? 0) * 0.5 * fade + (foreground.left[index] ?? 0)) * 0.9)
+    right[index] = Math.tanh(((background.right[index] ?? 0) * 0.5 * fade + (foreground.right[index] ?? 0)) * 0.9)
   }
   let peak = 1e-6
   for (let index = 0; index < left.length; index++) {

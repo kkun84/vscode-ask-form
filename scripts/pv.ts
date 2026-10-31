@@ -12,7 +12,8 @@ const output = join(root, "docs/media/ask-form-pv.mp4")
 const poster = join(root, "docs/images/pv-poster.png")
 const frame = { width: 1920, height: 1080 }
 const area = { x: 80, y: 236, width: 1760, height: 800 }
-const fade = 0.3
+const fade = 0.25
+const target = 40
 
 interface Card {
   readonly kind: "card"
@@ -126,21 +127,28 @@ const padded = (rect: Rect, margin: number, bounds: { readonly width: number; re
   }
 }
 
-const scenes = (capture: Capture): ReadonlyArray<Scene> => {
+const fitted = (all: ReadonlyArray<Scene>): ReadonlyArray<Scene> => {
+  const cards = all.reduce((sum, scene) => sum + (scene.kind === "card" ? scene.duration : 0), 0)
+  const footage = all.reduce((sum, scene) => sum + (scene.kind === "footage" ? (scene.to - scene.from) / scene.speed : 0), 0)
+  const factor = footage / (target - cards)
+  return all.map((scene) => (scene.kind === "footage" ? { ...scene, speed: scene.speed * factor } : scene))
+}
+
+const authored = (capture: Capture): ReadonlyArray<Scene> => {
   const mark = (name: string) => capture.marks[name] ?? 0
   const full: Rect = { x: 0, y: 0, ...capture.size }
   const region = (name: string, margin: number) => padded(capture.regions[name] ?? full, margin, capture.size)
   return [
-    { kind: "card", name: "title", duration: 4, body: titleCard },
-    { kind: "card", name: "problem", duration: 6, body: problemCard },
+    { kind: "card", name: "title", duration: 2.5, body: titleCard },
+    { kind: "card", name: "problem", duration: 4, body: problemCard },
     {
       kind: "footage",
       name: "ask",
       step: "1 ・ 頼む",
       caption: "「フォームで聞いて」と頼むと…",
-      from: mark("typing") - 0.6,
-      to: mark("send") + 0.6,
-      speed: 1,
+      from: mark("typing") - 0.3,
+      to: mark("send") + 0.4,
+      speed: 1.6,
       crop: region("input", 120)
     },
     {
@@ -180,7 +188,7 @@ const scenes = (capture: Capture): ReadonlyArray<Scene> => {
       caption: "あとから設定を直して、<span class=accent>送り直す</span>こともできます",
       from: mark("resend"),
       to: mark("placed"),
-      speed: 1.15,
+      speed: 1.3,
       crop: region("form", 56)
     },
     {
@@ -189,14 +197,16 @@ const scenes = (capture: Capture): ReadonlyArray<Scene> => {
       step: "5 ・ 送り直す",
       caption: "差分と値のJSONが入力欄に入り、<span class=accent>確かめて送信</span>",
       from: mark("placed"),
-      to: mark("followed") + 2.5,
+      to: mark("followed") + 1.5,
       speed: 1,
       crop: region("placed", 56)
     },
-    { kind: "card", name: "features", duration: 6, body: featureCard },
-    { kind: "card", name: "end", duration: 5, body: endCard }
+    { kind: "card", name: "features", duration: 3.5, body: featureCard },
+    { kind: "card", name: "end", duration: 3, body: endCard }
   ]
 }
+
+const scenes = (capture: Capture): ReadonlyArray<Scene> => fitted(authored(capture))
 
 const draw = async (browser: Page, html: string, path: string, size = frame): Promise<void> => {
   await browser.setViewportSize(size)
@@ -372,7 +382,7 @@ try {
   await draw(
     html,
     page(
-      `${titleCard}<div style="position:absolute;left:50%;bottom:120px;transform:translateX(-50%);display:flex;align-items:center;gap:22px;font-size:40px;font-weight:700"><div style="width:96px;height:96px;border-radius:50%;background:#5cc8ff;display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-left:34px solid #0b1020;border-top:22px solid transparent;border-bottom:22px solid transparent;margin-left:8px"></div></div>1分で分かる紹介動画</div>`
+      `${titleCard}<div style="position:absolute;left:50%;bottom:120px;transform:translateX(-50%);display:flex;align-items:center;gap:22px;font-size:40px;font-weight:700"><div style="width:96px;height:96px;border-radius:50%;background:#5cc8ff;display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-left:34px solid #0b1020;border-top:22px solid transparent;border-bottom:22px solid transparent;margin-left:8px"></div></div>40秒で分かる紹介動画</div>`
     ),
     join(work, "poster.png")
   )
