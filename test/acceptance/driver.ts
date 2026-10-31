@@ -72,12 +72,14 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
   if (model === undefined) {
     throw new Error("the fake model is unavailable")
   }
+  const draft = process.env["ASK_FORM_E2E_DRAFT"] === "1"
   let scenario = 0
   const openChat = async (): Promise<void> => {
     scenario++
     await vscode.commands.executeCommand("workbench.action.chat.newChat")
     await vscode.commands.executeCommand("workbench.action.chat.open", {
-      query: scenario === 1 ? query : `${query} Scenario ${scenario}.`,
+      query: draft ? "" : scenario === 1 ? query : `${query} Scenario ${scenario}.`,
+      isPartialQuery: draft,
       mode: "agent",
       modelSelector: { vendor: model.vendor, id: model.id }
     })

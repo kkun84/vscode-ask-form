@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { join } from "node:path"
 import { buildDriver } from "../test/acceptance/driver-build.ts"
-import { captureMedia } from "../test/acceptance/media.ts"
+import { captureMedia, toGif } from "../test/acceptance/media.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const driver = join(root, "out/e2e-driver")
@@ -12,4 +12,12 @@ if (executable === undefined || cli === undefined) {
 }
 
 await buildDriver(root, driver)
-await captureMedia({ executable, cli, extension: join(root, "out/extension"), driver, output: join(root, "docs/images") })
+const capture = await captureMedia({
+  executable,
+  cli,
+  extension: join(root, "out/extension"),
+  driver,
+  images: join(root, "docs/images"),
+  work: join(root, "test-results/media")
+})
+toGif(capture, join(root, "docs/images/demo.gif"))

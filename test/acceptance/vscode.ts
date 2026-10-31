@@ -18,6 +18,8 @@ export interface LaunchOptions {
   readonly locale: string
   readonly query: string
   readonly settings?: Readonly<Record<string, unknown>>
+  readonly draft?: boolean
+  readonly scale?: number
   readonly video?: { readonly dir: string; readonly size: { readonly width: number; readonly height: number } }
 }
 
@@ -62,9 +64,16 @@ export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): 
       "--skip-welcome",
       "--skip-release-notes",
       `--locale=${options.locale}`,
-      "--password-store=basic"
+      "--password-store=basic",
+      ...(options.scale === undefined ? [] : [`--force-device-scale-factor=${options.scale}`])
     ],
-    env: { ...env, ASK_FORM_E2E_LLM_URL: options.llm.url, ASK_FORM_E2E_QUERY: options.query, ASK_FORM_E2E_LOG: options.log },
+    env: {
+      ...env,
+      ASK_FORM_E2E_LLM_URL: options.llm.url,
+      ASK_FORM_E2E_QUERY: options.query,
+      ASK_FORM_E2E_LOG: options.log,
+      ASK_FORM_E2E_DRAFT: options.draft === true ? "1" : "0"
+    },
     ...(options.video === undefined ? {} : { recordVideo: options.video })
   })
 }

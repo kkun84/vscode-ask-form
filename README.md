@@ -12,7 +12,13 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/demo.gif" alt="Copilotがフォームで質問し、参加者数を150人に直して回答すると、Copilotがその値で作業を続ける様子" width="960">
+  <img src="docs/images/demo.gif" alt="Copilotがフォームで質問し、参加者数を150人に直して回答すると、Copilotがその値で作業を続ける様子" width="860">
+</p>
+
+<p align="center">
+  <a href="docs/media/ask-form-pv.mp4"><img src="docs/images/pv-poster.png" alt="1分で分かる紹介動画を見る" width="640"></a>
+  <br>
+  <a href="docs/media/ask-form-pv.mp4">▶ 1分で分かる紹介動画(MP4)</a>
 </p>
 
 Copilotは、仕事を進める途中で利用者に確認したいことがよくあります。項目が多い質問や、値どうしが連動する質問を文章でやり取りすると、何度も往復することになります。
@@ -213,7 +219,7 @@ pnpm build
 | `pnpm typecheck`       | TypeScript 7とEffectの診断による型検査                                                                                  |
 | `pnpm test`            | 単体、結合、システム、画面のテスト                                                                                      |
 | `pnpm test:acceptance` | 実際のVS Code(デスクトップ版、web版、チャット)での受け入れテスト                                                        |
-| `pnpm media`           | 実際のVS CodeでREADMEの画像と動画(`docs/images`)を撮り直す                                                              |
+| `pnpm media`           | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す                                       |
 | `pnpm budget`          | 配布物の大きさの検査                                                                                                    |
 | `pnpm traceability`    | `docs/traceability.md`の生成                                                                                            |
 | `pnpm package`         | `.vsix`の作成                                                                                                           |
