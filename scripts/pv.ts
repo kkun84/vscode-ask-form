@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url"
 import { join } from "node:path"
 import { chromium, type Page } from "@playwright/test"
 import type { Capture, Rect } from "../test/acceptance/media.ts"
+import { renderAudio, type Cue } from "./pv-audio.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const work = join(root, "test-results/media/pv")
@@ -73,10 +74,10 @@ const titleCard = `<div class="center">
 const problemCard = `<div class="center">
   <div class="tagline">AIからの確認、何往復していますか？</div>
   <div class="chat">
-    <div class="bubble ai">参加者数は何人を想定していますか？</div>
-    <div class="bubble me">150人くらいかな</div>
-    <div class="bubble ai">参加費はいくらにしますか？配信はしますか？</div>
-    <div class="bubble me">えっと、収支はどうなるんだっけ…</div>
+    <div class="bubble ai">レプリカは何台にしますか？</div>
+    <div class="bubble me">3台…いや5台かな</div>
+    <div class="bubble ai">CPUは？デプロイ方式は？オートスケールは？</div>
+    <div class="bubble me">えっと、それで何req/sさばけるんだっけ…</div>
   </div>
   <div class="sub">項目が多い質問や、値どうしが連動する質問は、文章だと答えにくい。</div>
 </div>`
@@ -156,7 +157,7 @@ const scenes = (capture: Capture): ReadonlyArray<Scene> => {
       kind: "footage",
       name: "edit",
       step: "3 ・ 直す",
-      caption: "違うところだけ直す。<span class=accent>計算はその場で</span>変わる",
+      caption: "違うところだけ直す。<span class=accent>処理量と費用</span>がその場で変わる",
       from: mark("edit"),
       to: mark("answer"),
       speed: 1,
@@ -176,7 +177,7 @@ const scenes = (capture: Capture): ReadonlyArray<Scene> => {
       kind: "footage",
       name: "resend",
       step: "5 ・ 送り直す",
-      caption: "あとから値を直して、<span class=accent>送り直す</span>こともできます",
+      caption: "あとから設定を直して、<span class=accent>送り直す</span>こともできます",
       from: mark("resend"),
       to: mark("placed"),
       speed: 1.15,
@@ -297,6 +298,47 @@ try {
 } finally {
   await browser.close()
 }
+const timeline: Array<{ readonly scene: Scene; readonly start: number; readonly duration: number }> = []
+for (const scene of scenes(capture)) {
+  const previous = timeline.at(-1)
+  const start = previous === undefined ? 0 : previous.start + previous.duration
+  timeline.push({ scene, start, duration: scene.kind === "card" ? scene.duration : (scene.to - scene.from) / scene.speed })
+}
+const toVideo = (time: number): number | undefined => {
+  for (const { scene, start, duration } of timeline) {
+    if (scene.kind === "footage" && time >= scene.from && time <= scene.to) {
+      const at = start + (time - scene.from) / scene.speed
+      return at <= start + duration ? at : undefined
+    }
+  }
+  return undefined
+}
+const cueKind = (name: string): Cue["kind"] | undefined => {
+  if (name.startsWith("key:")) {
+    return "key"
+  }
+  if (name.startsWith("click:")) {
+    return "click"
+  }
+  return ({ form: "pop", answered: "success", followed: "chime" } as Readonly<Record<string, Cue["kind"]>>)[name]
+}
+const markCues = Object.entries(capture.marks).flatMap(([name, time]): Array<Cue> => {
+  const kind = cueKind(name)
+  const at = toVideo(time)
+  return kind === undefined || at === undefined ? [] : [{ at, kind }]
+})
+const sceneCues = timeline.flatMap(({ scene, start }, index): Array<Cue> => {
+  if (scene.name === "title" || scene.name === "end") {
+    return [{ at: start + 0.15, kind: "impact" }]
+  }
+  return index === 0 ? [] : [{ at: start, kind: "whoosh" }]
+})
+const last = timeline.at(-1)
+const total = last === undefined ? 0 : last.start + last.duration
+const grooveFrom = timeline.find(({ scene }) => scene.kind === "footage")?.start ?? 0
+const grooveUntil = timeline.find(({ scene }) => scene.name === "end")?.start ?? total
+const audio = join(work, "audio.wav")
+await renderAudio({ duration: total, beatsFrom: grooveFrom, beatsUntil: grooveUntil, cues: [...sceneCues, ...markCues] }, audio)
 const list = join(work, "scenes.txt")
 await writeFile(list, files.map((file) => `file '${file}'`).join("\n"))
 const joined = join(work, "joined.mp4")
@@ -304,20 +346,20 @@ run(["-f", "concat", "-safe", "0", "-i", list, "-c", "copy", joined])
 run([
   "-i",
   joined,
-  "-f",
-  "lavfi",
   "-i",
-  "anullsrc=channel_layout=stereo:sample_rate=48000",
+  audio,
   "-map",
   "0:v",
   "-map",
   "1:a",
   "-c:v",
   "copy",
+  "-af",
+  "highshelf=f=7000:g=-5,alimiter=limit=0.89",
   "-c:a",
   "aac",
   "-b:a",
-  "128k",
+  "192k",
   "-shortest",
   "-movflags",
   "+faststart",

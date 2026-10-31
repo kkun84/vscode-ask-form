@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/demo.gif" alt="Copilotがフォームで質問し、参加者数を150人に直して回答すると、Copilotがその値で作業を続ける様子" width="860">
+  <img src="docs/images/demo.gif" alt="Copilotがデプロイの設定をフォームで質問し、レプリカ数を5台に直して回答すると、Copilotがその値で作業を続ける様子" width="860">
 </p>
 
 <p align="center">
@@ -40,8 +40,8 @@ Ask Formを入れると、Copilotはそうした質問を**フォームで**聞�
 
 ## 特徴
 
-- **推測値と根拠が入ったフォーム**: 各項目にはCopilotの推測値が入り、「AIの推測: README.mdより」のように根拠が添えられます。直した項目には「あなたが変更」と印が付き、Copilotにもどの項目を直したかが伝わります。
-- **その場で変わる計算結果**: 収支や費用のように、入力から計算される値をフォームの中で示せます。参加者数を変えれば、収支と損益分岐がすぐに変わります。
+- **推測値と根拠が入ったフォーム**: 各項目にはCopilotの推測値が入り、「AIの推測: k8s/deploy.yamlより」のように根拠が添えられます。直した項目には「あなたが変更」と印が付き、Copilotにもどの項目を直したかが伝わります。
+- **その場で変わる計算結果**: 処理できる量や月額の費用のように、入力から計算される値をフォームの中で示せます。レプリカ数を変えれば、処理量と費用がすぐに変わります。
 - **1回の操作で回答**: 「この内容で進める」を押すと、回答がそのままツールの結果としてCopilotに届きます。チャットに打ち直す必要はありません。
 - **答え方を選べる**: 推測値のまま「AIに任せる」ことも、フォームを閉じて「チャットで答える」こともできます。
 - **後から直して送り直せる**: 回答後のフォームは要約になります。「変更して送り直す」で値を直すと、差分を述べた文章と全項目の値のJSONが、そのフォームの会話の入力欄に入ります。
@@ -55,25 +55,25 @@ Ask Formを入れると、Copilotはそうした質問を**フォームで**聞�
 
 Copilotはワークスペースや会話から値を推測し、根拠と一緒にフォームを出します。
 
-![Copilotが出したフォーム。イベント名や形式に推測値と根拠が入り、下に収支の計算結果がある](docs/images/form.png)
+![Copilotが出した本番デプロイの設定のフォーム。サービス名やデプロイ方式に推測値と根拠が入り、下に処理量と費用の計算結果がある](docs/images/form.png)
 
 ### 直したところに印が付き、計算結果がすぐ変わる
 
-参加者数を120人から150人に直すと「あなたが変更」と印が付き、収支が¥70,000から¥130,000に変わります。
+レプリカ数を3台から5台に直すと「あなたが変更」と印が付き、処理できる量が600 req/sから1,000 req/sに、月額の目安が¥12,000から¥20,000に変わります。
 
-![参加者数を150人に直したフォーム。収支が¥130,000に変わっている](docs/images/edited.png)
+![レプリカ数を5台に直したフォーム。処理できる量が1,000 req/sに変わっている](docs/images/edited.png)
 
 ### 回答すると、Copilotが同じ流れで続ける
 
-「この内容で進める」を押すと、フォームは回答の要約になり、Copilotは受け取った値で作業を続けます。
+「この設定で進める」を押すと、フォームは回答の要約になり、Copilotは受け取った値で作業を続けます。
 
 ![回答後の要約と、受け取った値で続けるCopilotの返答](docs/images/answered.png)
 
 ### 後から直して送り直す
 
-要約の「変更して送り直す」で参加費を直して送ると、差分の文章と値のJSONがそのフォームの会話の入力欄に入ります。内容を確かめてEnterで送ります。
+要約の「変更して送り直す」でCPUの割り当てを直して送ると、差分の文章と値のJSONがそのフォームの会話の入力欄に入ります。内容を確かめてEnterで送ります。
 
-![送り直しの差分の文章と、交流会の条件.jsonの添付が入ったチャットの入力欄](docs/images/placed.png)
+![送り直しの差分の文章と、本番デプロイの設定.jsonの添付が入ったチャットの入力欄](docs/images/placed.png)
 
 ## 動作環境
 
@@ -116,7 +116,7 @@ code --install-extension ask-form-*.vsix
 たとえば、次のように頼みます。
 
 ```text
-来月の技術交流会の条件を決めたいです。フォームで聞いてください。
+api-gatewayを本番にデプロイしたいです。設定をフォームで聞いてください。
 ```
 
 ```text
@@ -141,25 +141,49 @@ Copilotは、次のようなJSONでフォームを指定します。利用者が
 
 ```json
 {
-  "title": "交流会の条件",
-  "description": "去年の振り返りとREADMEから推測しました。",
+  "title": "本番デプロイの設定",
+  "description": "k8s/deploy.yamlと直近1週間の負荷から推測しました。",
   "fields": [
-    { "type": "text", "id": "name", "label": "イベント名", "default": "技術交流会 2026", "reason": "README.mdより" },
-    { "type": "number", "id": "attendees", "label": "参加者数", "default": 120, "min": 20, "max": 300, "step": 10, "suffix": "人" },
-    { "type": "number", "id": "price", "label": "参加費", "default": 2000, "min": 0, "max": 5000, "step": 500, "prefix": "¥" },
-    { "type": "toggle", "id": "stream", "label": "ライブ配信", "default": true, "note": "+¥30,000" }
+    { "type": "text", "id": "service", "label": "サービス名", "default": "api-gateway", "reason": "package.jsonより" },
+    {
+      "type": "choice",
+      "id": "strategy",
+      "label": "デプロイ方式",
+      "options": [
+        { "value": "rolling", "label": "ローリング" },
+        { "value": "bluegreen", "label": "ブルーグリーン" },
+        { "value": "canary", "label": "カナリア" }
+      ],
+      "default": "rolling",
+      "reason": "k8s/deploy.yamlより"
+    },
+    {
+      "type": "number",
+      "id": "replicas",
+      "label": "レプリカ数",
+      "default": 3,
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "suffix": "台",
+      "reason": "直近のピーク負荷より"
+    },
+    { "type": "number", "id": "cpu", "label": "CPU(1台あたり)", "default": 500, "min": 250, "max": 4000, "step": 250, "suffix": "m" },
+    { "type": "toggle", "id": "autoscale", "label": "オートスケール", "default": true, "note": "最大2倍" }
   ],
   "computed": [
-    { "id": "cost", "label": "費用", "expression": "140000 + (stream ? 30000 : 0)", "prefix": "¥" },
-    { "id": "profit", "label": "収支", "expression": "attendees * price - cost", "prefix": "¥", "primary": true }
-  ]
+    { "id": "capacity", "label": "処理できる量", "expression": "replicas * cpu / 1000 * 400", "suffix": " req/s", "primary": true },
+    { "id": "peak", "label": "ピーク時", "expression": "autoscale ? capacity * 2 : capacity", "suffix": " req/s" },
+    { "id": "cost", "label": "月額の目安", "expression": "replicas * cpu / 1000 * 8000", "prefix": "¥" }
+  ],
+  "submitLabel": "この設定で進める"
 }
 ```
 
 | 項目の種類 | できること                                                      |
 | ---------- | --------------------------------------------------------------- |
 | `text`     | 1行または複数行の文字列                                         |
-| `number`   | スライダーと数値の入力。範囲、刻み、単位(`¥`や`人`)を指定できる |
+| `number`   | スライダーと数値の入力。範囲、刻み、単位(`台`や`¥`)を指定できる |
 | `choice`   | 選択肢。単一選択と複数選択                                      |
 | `toggle`   | オンとオフ。費用などの補足を添えられる                          |
 

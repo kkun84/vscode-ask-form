@@ -3,7 +3,7 @@ import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { CDPSession, ElectronApplication, Frame, Locator, Page } from "@playwright/test"
-import { eventSpec } from "../fixtures/event.ts"
+import { deploySpec } from "../fixtures/deploy.ts"
 import { startFakeLlm } from "./fake-llm.ts"
 import { formFrame, sleep, until } from "./frames.ts"
 import { cleanUp, closeApp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
@@ -28,11 +28,12 @@ export interface Capture {
   readonly regions: Readonly<Record<string, Rect>>
 }
 
-const query = "来月の技術交流会の条件を決めたいです。フォームで聞いてください。"
+const query = "api-gatewayを本番にデプロイしたいです。設定をフォームで聞いてください。"
 const trigger = "フォームで聞いて"
 const reply =
-  "ありがとうございます。参加者150人、参加費¥2,000、ライブ配信ありで進めます。収支は¥130,000の黒字見込みです。会場と配信の手配を始めます。"
-const followUp = "参加費¥2,500で計算し直しました。収支は¥205,000の黒字見込みです。案内文の参加費も更新します。"
+  "ありがとうございます。レプリカ5台、CPU 500m、ローリングで進めます。処理できる量は1,000 req/s(オートスケールで最大2,000 req/s)です。k8s/deploy.yamlを更新します。"
+const followUp =
+  "CPUを1000mにして計算し直しました。処理できる量は2,000 req/s、月額の目安は¥40,000です。deploy.yamlのresourcesも更新します。"
 const screenSize = { width: 1600, height: 1036 }
 const titleBar = 36
 let view: Rect = { x: 0, y: titleBar, width: screenSize.width, height: screenSize.height - titleBar }
@@ -170,9 +171,18 @@ const ripple = (page: Page, target: Locator) =>
     }, point)
   )
 
+const sounds: { mark: (name: string) => void } = { mark: () => null }
+let soundCount = 0
+
+const sound = (kind: "click" | "key"): void => {
+  soundCount++
+  sounds.mark(`${kind}:${soundCount}`)
+}
+
 const clickWithPointer = async (page: Page, target: Locator): Promise<void> => {
   await pointTo(page, target)
   await ripple(page, target)
+  sound("click")
   await target.click()
 }
 
@@ -210,7 +220,11 @@ const typeNumber = async (page: Page, frame: Frame, label: string, value: string
   const input = frame.getByRole("spinbutton", { name: label })
   await clickWithPointer(page, input)
   await input.press("ControlOrMeta+a")
-  await input.pressSequentially(value, { delay: 220 })
+  for (const character of value) {
+    await input.pressSequentially(character)
+    sound("key")
+    await sleep(220)
+  }
   await frame.locator("h1").click()
 }
 
@@ -239,6 +253,7 @@ const ask = async (page: Page, recorder: Recorder): Promise<Frame> => {
   recorder.mark("typing")
   for (const character of query) {
     await page.keyboard.insertText(character)
+    sound("key")
     await sleep(70)
   }
   await sleep(700)
@@ -267,7 +282,7 @@ const scenario = async (page: Page, images: string, recorder: Recorder): Promise
   }
   await shoot(page, images, "form")
   recorder.mark("edit")
-  await typeNumber(page, frame, "参加者数", "150")
+  await typeNumber(page, frame, "レプリカ数", "5")
   recorder.mark("edited")
   await sleep(2200)
   await shoot(page, images, "edited")
@@ -285,7 +300,7 @@ const scenario = async (page: Page, images: string, recorder: Recorder): Promise
   recorder.mark("resend")
   await clickWithPointer(page, frame.getByRole("button", { name: "変更して送り直す" }))
   await sleep(900)
-  await typeNumber(page, frame, "参加費", "2500")
+  await typeNumber(page, frame, "CPU(1台あたり)", "1000")
   await sleep(1500)
   await clickWithPointer(page, frame.getByRole("button", { name: "変更を送信" }))
   await frame.locator(".summary .notice").waitFor()
@@ -348,7 +363,7 @@ export const captureMedia = async (paths: MediaPaths): Promise<Capture> => {
   await rm(frames, { recursive: true, force: true })
   await mkdir(frames, { recursive: true })
   const profile = await mkdtemp(join(tmpdir(), "ask-form-media-"))
-  const llm = await startFakeLlm(trigger, eventSpec, reply, followUp)
+  const llm = await startFakeLlm(trigger, deploySpec, reply, followUp)
   const options = { llm, log: join(profile, "driver.log"), profile, locale: "ja", query, settings, draft: true, scale: density }
   let app: ElectronApplication | undefined
   try {
@@ -363,6 +378,7 @@ export const captureMedia = async (paths: MediaPaths): Promise<Capture> => {
     await installPointer(page)
     const recorder = new Recorder(page, frames)
     await recorder.start()
+    sounds.mark = (name) => recorder.mark(name)
     const regions = await scenario(page, paths.images, recorder)
     const video = join(paths.work, "capture.mp4")
     await recorder.stop(video)
@@ -370,6 +386,10 @@ export const captureMedia = async (paths: MediaPaths): Promise<Capture> => {
     await writeFile(join(paths.work, "capture.json"), JSON.stringify(capture, undefined, 2))
     return capture
   } finally {
+    await writeFile(
+      join(paths.work, "llm.json"),
+      JSON.stringify({ toolCalls: llm.toolCalls, toolResults: llm.toolResults, requests: llm.requests.length }, undefined, 2)
+    )
     await cleanUp(app, llm, profile)
   }
 }
