@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { join } from "node:path"
 import { chromium, type Page } from "@playwright/test"
-import type { Capture, Rect } from "../test/acceptance/media.ts"
+import type { Take as Recording } from "../test/acceptance/stage.ts"
 import { renderAudio, type Cue } from "./pv-audio.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
@@ -11,7 +11,6 @@ const work = join(root, "test-results/media/pv")
 const output = join(root, "docs/media/ask-form-pv.mp4")
 const poster = join(root, "docs/images/pv-poster.png")
 const frame = { width: 1920, height: 1080 }
-const area = { x: 80, y: 236, width: 1760, height: 800 }
 const fade = 0.25
 const target = 40
 
@@ -22,18 +21,15 @@ interface Card {
   readonly body: string
 }
 
-interface Footage {
-  readonly kind: "footage"
+interface Take {
+  readonly kind: "take"
   readonly name: string
-  readonly step: string
-  readonly caption: string
   readonly from: number
   readonly to: number
   readonly speed: number
-  readonly crop: Rect
 }
 
-type Scene = Card | Footage
+type Scene = Card | Take
 
 const style = `
 * { box-sizing: border-box; margin: 0; }
@@ -107,106 +103,22 @@ const run = (args: ReadonlyArray<string>): void => {
   }
 }
 
-const even = (value: number) => Math.round(value / 2) * 2
-
-const placement = (crop: Rect): Rect => {
-  const scale = Math.min(area.width / crop.width, area.height / crop.height)
-  const width = even(crop.width * scale)
-  const height = even(crop.height * scale)
-  return { x: even(area.x + (area.width - width) / 2), y: even(area.y + (area.height - height) / 2), width, height }
-}
-
-const padded = (rect: Rect, margin: number, bounds: { readonly width: number; readonly height: number }): Rect => {
-  const x = Math.max(0, rect.x - margin)
-  const y = Math.max(0, rect.y - margin)
-  return {
-    x: even(x),
-    y: even(y),
-    width: even(Math.min(bounds.width - x, rect.width + margin * 2)),
-    height: even(Math.min(bounds.height - y, rect.height + margin * 2))
-  }
-}
-
 const fitted = (all: ReadonlyArray<Scene>): ReadonlyArray<Scene> => {
   const cards = all.reduce((sum, scene) => sum + (scene.kind === "card" ? scene.duration : 0), 0)
-  const footage = all.reduce((sum, scene) => sum + (scene.kind === "footage" ? (scene.to - scene.from) / scene.speed : 0), 0)
+  const footage = all.reduce((sum, scene) => sum + (scene.kind === "take" ? (scene.to - scene.from) / scene.speed : 0), 0)
   const factor = footage / (target - cards)
-  return all.map((scene) => (scene.kind === "footage" ? { ...scene, speed: scene.speed * factor } : scene))
+  return all.map((scene) => (scene.kind === "take" ? { ...scene, speed: scene.speed * factor } : scene))
 }
 
-const authored = (capture: Capture): ReadonlyArray<Scene> => {
-  const mark = (name: string) => capture.marks[name] ?? 0
-  const full: Rect = { x: 0, y: 0, ...capture.size }
-  const region = (name: string, margin: number) => padded(capture.regions[name] ?? full, margin, capture.size)
-  return [
-    { kind: "card", name: "title", duration: 2.5, body: titleCard },
-    { kind: "card", name: "problem", duration: 4, body: problemCard },
-    {
-      kind: "footage",
-      name: "ask",
-      step: "1 ・ 頼む",
-      caption: "「フォームで聞いて」と頼むと…",
-      from: mark("typing") - 0.3,
-      to: mark("send") + 0.4,
-      speed: 1.6,
-      crop: region("input", 120)
-    },
-    {
-      kind: "footage",
-      name: "form",
-      step: "2 ・ フォーム",
-      caption: "Copilotの<span class=accent>推測値と根拠</span>が入ったフォームが届く",
-      from: mark("form") - 0.2,
-      to: mark("edit"),
-      speed: 1,
-      crop: region("form", 56)
-    },
-    {
-      kind: "footage",
-      name: "edit",
-      step: "3 ・ 直す",
-      caption: "違うところだけ直す。<span class=accent>処理量と費用</span>がその場で変わる",
-      from: mark("edit"),
-      to: mark("answer"),
-      speed: 1,
-      crop: region("form", 56)
-    },
-    {
-      kind: "footage",
-      name: "answer",
-      step: "4 ・ 答える",
-      caption: "<span class=accent>ボタン1つ</span>で回答。Copilotはそのまま続けます",
-      from: mark("answer") - 0.2,
-      to: mark("resend"),
-      speed: 1,
-      crop: region("answered", 56)
-    },
-    {
-      kind: "footage",
-      name: "resend",
-      step: "5 ・ 送り直す",
-      caption: "あとから設定を直して、<span class=accent>送り直す</span>こともできます",
-      from: mark("resend"),
-      to: mark("placed"),
-      speed: 1.3,
-      crop: region("form", 56)
-    },
-    {
-      kind: "footage",
-      name: "send",
-      step: "5 ・ 送り直す",
-      caption: "差分と値のJSONが入力欄に入り、<span class=accent>確かめて送信</span>",
-      from: mark("placed"),
-      to: mark("followed") + 1.5,
-      speed: 1,
-      crop: region("placed", 56)
-    },
-    { kind: "card", name: "features", duration: 3.5, body: featureCard },
-    { kind: "card", name: "end", duration: 3, body: endCard }
-  ]
-}
+const authored = (take: Recording): ReadonlyArray<Scene> => [
+  { kind: "card", name: "title", duration: 2.5, body: titleCard },
+  { kind: "card", name: "problem", duration: 4, body: problemCard },
+  { kind: "take", name: "demo", from: Math.max(0, (take.marks["typing"] ?? 0) - 0.8), to: take.marks["end"] ?? 0, speed: 1 },
+  { kind: "card", name: "features", duration: 3.5, body: featureCard },
+  { kind: "card", name: "end", duration: 3, body: endCard }
+]
 
-const scenes = (capture: Capture): ReadonlyArray<Scene> => fitted(authored(capture))
+const scenes = (take: Recording): ReadonlyArray<Scene> => fitted(authored(take))
 
 const draw = async (browser: Page, html: string, path: string, size = frame): Promise<void> => {
   await browser.setViewportSize(size)
@@ -234,58 +146,23 @@ const renderCard = async (browser: Page, scene: Card, file: string): Promise<voi
   ])
 }
 
-const renderFootage = async (browser: Page, capture: Capture, scene: Footage, file: string): Promise<number> => {
-  const box = placement(scene.crop)
+const renderTake = (take: Recording, scene: Take, file: string): void => {
   const duration = (scene.to - scene.from) / scene.speed
-  const background = join(work, `${scene.name}.png`)
-  const mask = join(work, `${scene.name}-mask.png`)
-  await draw(
-    browser,
-    page(
-      `<div class="head"><div class="step">${scene.step}</div><div class="caption">${scene.caption}</div></div><div class="shot" style="left:${box.x}px;top:${box.y}px;width:${box.width}px;height:${box.height}px"></div>`
-    ),
-    background
-  )
-  await draw(
-    browser,
-    `<!doctype html><body style="margin:0;background:#000"><div style="width:${box.width}px;height:${box.height}px;background:#fff;border-radius:16px"></div></body>`,
-    mask,
-    { width: box.width, height: box.height }
-  )
-  const { x, y, width, height } = scene.crop
   run([
-    "-framerate",
-    "30",
-    "-loop",
-    "1",
-    "-i",
-    background,
     "-ss",
     scene.from.toFixed(3),
     "-t",
     (scene.to - scene.from).toFixed(3),
     "-i",
-    capture.video,
-    "-framerate",
-    "30",
-    "-loop",
-    "1",
-    "-i",
-    mask,
-    "-filter_complex",
-    [
-      `[1:v]crop=${width}:${height}:${x}:${y},scale=${box.width}:${box.height}:flags=lanczos,setpts=(PTS-STARTPTS)/${scene.speed},fps=30,tpad=stop_mode=clone:stop_duration=2,format=rgba[shot]`,
-      `[2:v]format=gray[mask]`,
-      `[shot][mask]alphamerge[rounded]`,
-      `[0:v][rounded]overlay=${box.x}:${box.y}:shortest=1,trim=duration=${duration.toFixed(3)},format=yuv420p,${fades(duration)}`
-    ].join(";"),
+    take.video,
+    "-vf",
+    `setpts=(PTS-STARTPTS)/${scene.speed},fps=30,scale=${frame.width}:${frame.height}:flags=lanczos,tpad=stop_mode=clone:stop_duration=2,trim=duration=${duration.toFixed(3)},format=yuv420p,${fades(duration)}`,
     ...encode,
     file
   ])
-  return duration
 }
 
-const capture = JSON.parse(await readFile(join(root, "test-results/media/capture.json"), "utf8")) as Capture
+const capture = JSON.parse(await readFile(join(root, "test-results/media/stage.json"), "utf8")) as Recording
 await rm(work, { recursive: true, force: true })
 await mkdir(work, { recursive: true })
 await mkdir(join(root, "docs/media"), { recursive: true })
@@ -299,7 +176,7 @@ try {
     if (scene.kind === "card") {
       await renderCard(html, scene, partial)
     } else {
-      await renderFootage(html, capture, scene, partial)
+      renderTake(capture, scene, partial)
     }
     await rename(partial, file)
     files.push(file)
@@ -316,7 +193,7 @@ for (const scene of scenes(capture)) {
 }
 const toVideo = (time: number): number | undefined => {
   for (const { scene, start, duration } of timeline) {
-    if (scene.kind === "footage" && time >= scene.from && time <= scene.to) {
+    if (scene.kind === "take" && time >= scene.from && time <= scene.to) {
       const at = start + (time - scene.from) / scene.speed
       return at <= start + duration ? at : undefined
     }
@@ -345,7 +222,7 @@ const sceneCues = timeline.flatMap(({ scene, start }, index): Array<Cue> => {
 })
 const last = timeline.at(-1)
 const total = last === undefined ? 0 : last.start + last.duration
-const grooveFrom = timeline.find(({ scene }) => scene.kind === "footage")?.start ?? 0
+const grooveFrom = timeline.find(({ scene }) => scene.kind === "take")?.start ?? 0
 const grooveUntil = timeline.find(({ scene }) => scene.name === "end")?.start ?? total
 const audio = join(work, "audio.wav")
 await renderAudio({ duration: total, beatsFrom: grooveFrom, beatsUntil: grooveUntil, cues: [...sceneCues, ...markCues] }, audio)
@@ -365,7 +242,9 @@ run([
   "-c:v",
   "copy",
   "-af",
-  "highshelf=f=7000:g=-5,alimiter=limit=0.89",
+  "highshelf=f=7000:g=-4,loudnorm=I=-20:TP=-2:LRA=11",
+  "-ar",
+  "48000",
   "-c:a",
   "aac",
   "-b:a",
