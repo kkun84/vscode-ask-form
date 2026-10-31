@@ -5,7 +5,7 @@ import { deploySpec } from "../fixtures/deploy.ts"
 import { themeContext } from "../support/themes.ts"
 import { openForm, startServer } from "../support/ui.ts"
 import { sleep } from "./frames.ts"
-import { Pointer, Recorder, typeNumber } from "./recording.ts"
+import { Pointer, Recorder } from "./recording.ts"
 import { captions, followUp, query, reply, resendText } from "./stage-content.ts"
 
 export interface Take {
@@ -59,7 +59,7 @@ body > iframe#form { position: absolute; left: -9999px; }
 .status { display: flex; align-items: center; gap: 16px; padding: 0 12px; background: #181818; border-top: 1px solid #2b2b2b; font-size: 12px; color: #9d9d9d; }
 #waiting { margin-left: auto; background: #6c5b00; color: #fff3c4; padding: 2px 10px; border-radius: 3px; opacity: 0; transition: opacity 300ms; }
 #waiting.on { opacity: 1; }
-#focus { position: fixed; border: 3px solid #5cc8ff; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(5,10,25,.62), 0 0 24px rgba(92,200,255,.6); pointer-events: none; opacity: 0; transition: opacity 350ms; z-index: 50; }
+#focus { position: fixed; border: 3px solid #5cc8ff; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(5,10,25,.5), 0 0 24px rgba(92,200,255,.6); pointer-events: none; opacity: 0; transition: opacity 350ms; z-index: 50; }
 #focus.on { opacity: 1; }
 #focus .label { position: absolute; left: -3px; bottom: calc(100% + 10px); background: #5cc8ff; color: #0b1020; font-weight: 800; font-size: 30px; padding: 6px 18px; border-radius: 9px; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
 #focus.below .label { bottom: auto; top: calc(100% + 10px); }
@@ -267,6 +267,24 @@ const look = async (page: Page, targets: ReadonlyArray<Locator>, spot: Locator, 
   await sleep(hold)
 }
 
+interface Slide {
+  readonly label: string
+  readonly min: number
+  readonly max: number
+  readonly from: number
+  readonly to: number
+  readonly note: string
+}
+
+const slide = async (page: Page, frame: Frame, pointer: Pointer, plan: Slide): Promise<void> => {
+  const slider = frame.getByRole("slider", { name: plan.label })
+  const field = slider.locator("xpath=ancestor::div[contains(concat(' ', @class, ' '), ' field ')][1]")
+  await look(page, [field], field, plan.note, 300)
+  const ratio = (value: number) => (value - plan.min) / (plan.max - plan.min)
+  await pointer.drag(slider, ratio(plan.from), ratio(plan.to))
+  await sleep(300)
+}
+
 const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await camera(page, [], 0, 1, true)
   await caption(page, 0)
@@ -300,11 +318,8 @@ const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorde
 
 const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await caption(page, 2)
-  const replicas = frame.getByRole("spinbutton", { name: "レプリカ数" })
-  await look(page, [replicas, frame.locator(".computed")], replicas, "5台に直す", 200)
-  await typeNumber(pointer, recorder, frame, "レプリカ数", "5")
-  await focusOn(page, frame.locator(".computed"), "処理量と費用がすぐ変わる")
-  await sleep(1600)
+  await slide(page, frame, pointer, { label: "レプリカ数", min: 1, max: 20, from: 3, to: 5, note: "スライダーで3台→5台" })
+  await look(page, [frame.locator(".computed")], frame.locator(".computed"), "処理量と費用がすぐ変わる", 1400)
   await caption(page, 3)
   const proceed = frame.getByRole("button", { name: "この設定で進める" })
   await look(page, [frame.locator("footer.actions")], proceed, "クリックで回答", 400)
@@ -320,6 +335,8 @@ const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorde
     }
     document.querySelector("#waiting")?.classList.remove("on")
   })
+  await look(page, [frame.locator(".summary")], frame.locator(".summary"), "回答がCopilotに届いた", 1300)
+  await focusOn(page, null)
   await stream(page, "reply", reply, 4)
   await sleep(300)
   await look(page, [page.locator("#reply")], page.locator("#reply"), "Copilotがそのまま続ける", 1500)
@@ -333,10 +350,8 @@ const resendStep = async (page: Page, frame: Frame, pointer: Pointer, recorder: 
   await focusOn(page, null)
   await pointer.click(again)
   await sleep(300)
-  const cpu = frame.getByRole("spinbutton", { name: "CPU(1台あたり)" })
-  await look(page, [cpu, frame.locator(".computed")], cpu, "CPUを1000mに", 200)
-  await typeNumber(pointer, recorder, frame, "CPU(1台あたり)", "1000")
-  await sleep(400)
+  await slide(page, frame, pointer, { label: "CPU(1台あたり)", min: 250, max: 4000, from: 500, to: 1000, note: "CPUを500m→1000m" })
+  await look(page, [frame.locator(".computed")], frame.locator(".computed"), "処理量と費用も変わる", 1100)
   const submit = frame.getByRole("button", { name: "変更を送信" })
   await look(page, [frame.locator("footer.actions")], submit, "変更を送信", 400)
   await focusOn(page, null)

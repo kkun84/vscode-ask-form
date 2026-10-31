@@ -121,8 +121,8 @@ export class Pointer {
         path.setAttribute("stroke-linejoin", "round")
         svg.append(path)
         pointer.append(svg)
-        pointer.style.cssText = `position:fixed;left:0;top:0;width:26px;height:26px;z-index:2147483647;pointer-events:none;transition:transform 700ms cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));transform:translate(${x}px,${y}px)`
-        svg.style.cssText = "width:26px;height:26px;pointer-events:none"
+        pointer.style.cssText = `position:fixed;left:0;top:0;width:52px;height:52px;z-index:2147483647;pointer-events:none;transition:transform 700ms cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));transform:translate(${x}px,${y}px)`
+        svg.style.cssText = "width:52px;height:52px;pointer-events:none;transform-origin:8px 4px;transition:transform 120ms ease-out"
         document.body.append(pointer)
       },
       { d: pointerPath, ...start }
@@ -130,35 +130,100 @@ export class Pointer {
   }
 
   async moveTo(target: Locator): Promise<void> {
+    await this.place(await center(target), true)
+    await sleep(800)
+  }
+
+  private async press(point: { readonly x: number; readonly y: number }, hold: boolean): Promise<void> {
     await this.page.evaluate(
-      (point) => {
-        const pointer = document.querySelector<HTMLElement>("#ask-form-pointer")
-        if (pointer !== null) {
-          pointer.style.transform = `translate(${point.x - 4}px, ${point.y - 2}px)`
+      ({ x, y, keep }) => {
+        const svg = document.querySelector<SVGElement>("#ask-form-pointer svg")
+        if (svg !== null) {
+          svg.style.transform = "scale(.82)"
+        }
+        const dot = document.createElement("div")
+        dot.className = "ask-form-press"
+        dot.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;z-index:2147483646;pointer-events:none;background:rgba(92,200,255,.45);border:3px solid #5cc8ff`
+        const ring = document.createElement("div")
+        ring.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;z-index:2147483646;pointer-events:none;border:5px solid #5cc8ff;transition:transform 650ms ease-out,opacity 650ms ease-out;transform:scale(.2);opacity:1`
+        document.body.append(dot, ring)
+        requestAnimationFrame(() => {
+          ring.style.transform = "scale(1)"
+          ring.style.opacity = "0"
+        })
+        setTimeout(() => ring.remove(), 900)
+        if (!keep) {
+          setTimeout(() => {
+            dot.remove()
+            if (svg !== null) {
+              svg.style.transform = ""
+            }
+          }, 260)
         }
       },
-      await center(target)
+      { ...point, keep: hold }
     )
-    await sleep(800)
+    this.recorder()?.sound("click")
+  }
+
+  private async release(): Promise<void> {
+    await this.page.evaluate(() => {
+      document.querySelectorAll(".ask-form-press").forEach((dot) => dot.remove())
+      const svg = document.querySelector<SVGElement>("#ask-form-pointer svg")
+      if (svg !== null) {
+        svg.style.transform = ""
+      }
+    })
+  }
+
+  private place(point: { readonly x: number; readonly y: number }, smooth: boolean): Promise<void> {
+    return this.page.evaluate(
+      ({ x, y, ease }) => {
+        const pointer = document.querySelector<HTMLElement>("#ask-form-pointer")
+        if (pointer !== null) {
+          pointer.style.transition = ease ? "" : "none"
+          pointer.style.transform = `translate(${x - 8}px, ${y - 4}px)`
+        }
+        document.querySelectorAll<HTMLElement>(".ask-form-press").forEach((dot) => {
+          dot.style.left = `${x}px`
+          dot.style.top = `${y}px`
+        })
+      },
+      { ...point, ease: smooth }
+    )
   }
 
   async click(target: Locator): Promise<void> {
     await this.moveTo(target)
-    await this.page.evaluate(
-      ({ x, y }) => {
-        const ring = document.createElement("div")
-        ring.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;z-index:2147483646;pointer-events:none;border:3px solid #4fc3ff;transition:transform 600ms ease-out,opacity 600ms ease-out;transform:scale(.3);opacity:1`
-        requestAnimationFrame(() => {
-          ring.style.transform = "scale(1.4)"
-          ring.style.opacity = "0"
-        })
-        document.body.append(ring)
-        setTimeout(() => ring.remove(), 800)
-      },
-      await center(target)
-    )
-    this.recorder()?.sound("click")
+    await this.press(await center(target), false)
+    await sleep(150)
     await target.click()
+  }
+
+  async drag(slider: Locator, from: number, to: number): Promise<void> {
+    const box = await slider.boundingBox()
+    if (box === null) {
+      throw new Error("the slider is not visible")
+    }
+    const thumb = box.height
+    const at = (ratio: number) => ({ x: box.x + thumb / 2 + ratio * (box.width - thumb), y: box.y + box.height / 2 })
+    const start = at(from)
+    await this.place(start, true)
+    await sleep(800)
+    await this.page.mouse.move(start.x, start.y)
+    await this.press(start, true)
+    await this.page.mouse.down()
+    await sleep(250)
+    const steps = 24
+    for (let index = 1; index <= steps; index++) {
+      const point = at(from + ((to - from) * index) / steps)
+      await this.page.mouse.move(point.x, point.y)
+      await this.place(point, false)
+      await sleep(45)
+    }
+    await sleep(250)
+    await this.page.mouse.up()
+    await this.release()
   }
 }
 
