@@ -242,7 +242,7 @@ run([
   "-c:v",
   "copy",
   "-af",
-  "highshelf=f=7000:g=-4,loudnorm=I=-20:TP=-2:LRA=11",
+  "highshelf=f=7000:g=-4,loudnorm=I=-30:TP=-12:LRA=11",
   "-ar",
   "48000",
   "-c:a",
