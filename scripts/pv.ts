@@ -49,8 +49,8 @@ body { width: ${frame.width}px; height: ${frame.height}px; overflow: hidden; col
 .shot { position: absolute; border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); background: #1e1e1e; }
 .chat { display: flex; flex-direction: column; gap: 22px; width: 1100px; }
 .bubble { font-size: 36px; padding: 20px 30px; border-radius: 26px; max-width: 900px; }
-.ai { align-self: flex-start; background: #2e2714; border: 1px solid #5a4a1c; }
-.me { align-self: flex-end; background: #ffd23f; color: #14110a; }
+.ai { align-self: flex-start; background: #262626; border: 1px solid #3c3c3c; }
+.me { align-self: flex-end; background: #22374a; border: 1px solid #36536e; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; width: 1500px; }
 .tile { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 22px; padding: 34px 40px; text-align: left; }
 .tile b { display: block; font-size: 40px; margin-bottom: 10px; }
@@ -75,7 +75,7 @@ const problemCard = `<div class="center">
     <div class="bubble ai">メモは何文字まで？1ページは何件？締め切りは？</div>
     <div class="bubble me">えっと、それで何件まで保存できるんだっけ…</div>
   </div>
-  <div class="sub">項目が多い質問や、値どうしが連動する質問は、文章だと答えにくい。</div>
+  <div class="sub">項目が多い質問や、選んだ結果が見えない質問は、文章だと答えにくい。</div>
 </div>`
 
 const featureCard = `<div class="center">

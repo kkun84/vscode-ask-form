@@ -41,7 +41,7 @@ body > iframe#form { position: absolute; left: -9999px; }
 .chat { display: grid; grid-template-rows: 32px 1fr auto; }
 .chat-header { display: flex; align-items: center; padding: 0 18px; font-size: 12px; letter-spacing: 1px; color: #bbbbbb; border-bottom: 1px solid #2b2b2b; }
 #messages { min-height: 520px; padding: 18px 26px 10px; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; }
-.user { align-self: flex-end; max-width: 78%; background: #2a2d2e; border: 1px solid #3c3c3c; border-radius: 12px; padding: 9px 14px; font-size: 14px; line-height: 1.6; animation: pop 300ms ease-out; }
+.user { align-self: flex-end; max-width: 78%; background: #1b2834; border: 1px solid #2b3d50; border-radius: 12px; padding: 9px 14px; font-size: 14px; line-height: 1.6; animation: pop 300ms ease-out; }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #cccccc; background: #2b2b2b; border: 1px solid #3c3c3c; border-radius: 5px; padding: 2px 8px; margin-bottom: 6px; }
 .chip b { color: #e8c07d; font-weight: 400; }
 .tool { font-size: 13px; color: #9d9d9d; display: flex; align-items: center; gap: 8px; animation: pop 300ms ease-out; }
@@ -424,13 +424,13 @@ const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorde
   await caption(page, 2)
   await slide(page, frame, pointer, {
     label: "メモの最大文字数",
-    min: 0,
+    min: 100,
     max: 5000,
-    from: 1000,
-    to: 2000,
-    note: "スライダーで1000→2000文字"
+    from: 100,
+    to: 5000,
+    note: "メモを100→5000文字に"
   })
-  await look(page, [frame.locator(".computed")], frame.locator(".computed"), "保存できる件数がすぐ変わる", 1400)
+  await look(page, [frame.locator(".computed")], frame.locator(".computed"), "保存できる件数: 8,533件→501件", 1400)
   await caption(page, 3)
   const proceed = frame.getByRole("button", { name: "この設定で作る" })
   await look(page, [frame.locator("footer.actions")], proceed, "クリックで回答", 400)
@@ -452,14 +452,14 @@ const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorde
   await focusOn(page, null)
   await stream(page, "reply", reply, 4)
   await sleep(300)
-  await look(page, [page.locator("#reply")], page.locator("#reply"), "Copilotがそのまま続ける", 1500)
+  await look(page, [page.locator("#reply")], page.locator("#reply"), "この値で作り始める", 1500)
 }
 
 const resendStep = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   const resend = resendText()
   await caption(page, 4)
   const again = frame.getByRole("button", { name: "変更して送り直す" })
-  await look(page, [frame.locator(".summary")], again, "後から直せる", 500)
+  await look(page, [frame.locator(".summary")], again, "あとで変えたくなったら", 500)
   await focusOn(page, null)
   await pointer.click(again)
   await sleep(600)
@@ -483,7 +483,7 @@ const resendStep = async (page: Page, frame: Frame, pointer: Pointer, recorder: 
     { text: resend.text, chipHtml: chip(resend.file) }
   )
   recorder.mark("placed")
-  await look(page, [page.locator("#input")], page.locator("#input"), "差分とJSONが入力欄に入る", 1700)
+  await look(page, [page.locator("#input")], page.locator("#input"), "変えた所の説明が入力欄に入る", 1700)
   await focusOn(page, null)
   await send(page, pointer, `<div class="user" id="resent" style="order:5">${chip(resend.file)}<div>${resend.text}</div></div>`)
   await camera(page, [page.locator("#resent")], 24, 2.4)
