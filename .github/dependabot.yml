@@ -13,6 +13,9 @@ updates:
     ignore:
       - dependency-name: "@playwright/test"
       - dependency-name: pnpm
+      - dependency-name: "@types/vscode"
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       oxc:
         patterns: [oxlint, oxfmt]
