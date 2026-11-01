@@ -263,7 +263,7 @@ pnpm build
 | `pnpm traceability`    | `docs/traceability.md`の生成                                                                                            |
 | `pnpm package`         | `.vsix`の作成                                                                                                           |
 
-コミットの前に`.githooks/pre-commit`が検査と単体テストを実行します。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
+コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
 
 ### 実機での受け入れテスト
 

@@ -1,5 +1,0 @@
-#!/bin/sh
-set -e
-pnpm -s lint
-pnpm -s typecheck
-pnpm -s test:unit

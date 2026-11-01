@@ -1,5 +1,6 @@
 minimumReleaseAge: 4320
 allowBuilds:
+  lefthook: true
   esbuild: false
   "@playwright/browser-chromium": false
 overrides:

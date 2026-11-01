@@ -1,0 +1,17 @@
+pre-commit:
+  piped: true
+  jobs:
+    - name: format
+      glob: "*.{ts,json,jsonc,md,yml,yaml,html,css}"
+      run: pnpm -s exec oxfmt --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+    - name: check
+      group:
+        parallel: true
+        jobs:
+          - name: lint
+            run: pnpm -s lint
+          - name: typecheck
+            run: pnpm -s typecheck
+          - name: unit
+            run: pnpm -s test:unit
