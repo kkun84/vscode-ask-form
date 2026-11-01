@@ -18,16 +18,16 @@ const viewport = { width: 1536, height: 864 }
 const scale = 1.25
 const style = `
 html, body { margin: 0; width: ${viewport.width}px; height: ${viewport.height}px; overflow: hidden; }
-body { font-family: "Noto Sans CJK JP", "Noto Sans JP", sans-serif; color: #e8edf5;
-  background: radial-gradient(900px 600px at 0% 0%, #1d3b66 0%, transparent 60%), radial-gradient(800px 500px at 100% 100%, #2a1f5c 0%, transparent 55%), #0b1020 !important; }
+body { font-family: "Noto Sans CJK JP", "Noto Sans JP", sans-serif; color: #f5f1e6;
+  background: radial-gradient(900px 600px at 0% 0%, #4a3a0c 0%, transparent 60%), radial-gradient(800px 500px at 100% 100%, #4a2208 0%, transparent 55%), #14110a !important; }
 body > iframe#form { position: absolute; left: -9999px; }
 #stage { position: absolute; inset: 0; }
 #caption { position: absolute; left: 0; right: 0; top: 30px; z-index: 60; display: flex; align-items: center; justify-content: center; gap: 22px; }
-#caption .step { font-size: 24px; font-weight: 800; color: #0b1020; background: #5cc8ff; border-radius: 999px; padding: 6px 20px; white-space: pre; }
+#caption .step { font-size: 24px; font-weight: 800; color: #14110a; background: #ffd23f; border-radius: 999px; padding: 6px 20px; white-space: pre; }
 #caption .text { font-size: 46px; font-weight: 800; }
 #viewport { position: absolute; left: 32px; right: 32px; top: 128px; bottom: 24px; overflow: clip; border-radius: 16px; }
 #camera { position: absolute; left: 0; top: 0; transform-origin: 0 0; transition: transform 700ms cubic-bezier(.45,0,.2,1); }
-#caption em { font-style: normal; color: #5cc8ff; }
+#caption em { font-style: normal; color: #ffd23f; }
 #caption.swap { animation: swap 450ms ease-out; }
 @keyframes swap { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
 .window { width: 680px; min-height: 760px; display: grid; grid-template-rows: 34px 1fr 26px; background: #1f1f1f; border-radius: 14px; overflow: hidden;
@@ -59,9 +59,9 @@ body > iframe#form { position: absolute; left: -9999px; }
 .status { display: flex; align-items: center; gap: 16px; padding: 0 12px; background: #181818; border-top: 1px solid #2b2b2b; font-size: 12px; color: #9d9d9d; }
 #waiting { margin-left: auto; background: #6c5b00; color: #fff3c4; padding: 2px 10px; border-radius: 3px; opacity: 0; transition: opacity 300ms; }
 #waiting.on { opacity: 1; }
-#focus { position: fixed; border: 3px solid #5cc8ff; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(5,10,25,.5), 0 0 24px rgba(92,200,255,.6); pointer-events: none; opacity: 0; transition: opacity 350ms; z-index: 50; }
+#focus { position: fixed; border: 3px solid #ffd23f; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(20,15,5,.5), 0 0 24px rgba(255,210,63,.6); pointer-events: none; opacity: 0; transition: opacity 350ms; z-index: 50; }
 #focus.on { opacity: 1; }
-#focus .label { position: absolute; left: -3px; bottom: calc(100% + 10px); background: #5cc8ff; color: #0b1020; font-weight: 800; font-size: 30px; padding: 6px 18px; border-radius: 9px; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+#focus .label { position: absolute; left: -3px; bottom: calc(100% + 10px); background: #ffd23f; color: #14110a; font-weight: 800; font-size: 30px; padding: 6px 18px; border-radius: 9px; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
 #focus.below .label { bottom: auto; top: calc(100% + 10px); }
 @keyframes pop { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
 @keyframes rise { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: none } }

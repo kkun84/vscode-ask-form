@@ -32,30 +32,30 @@ type Scene = Card | Take
 
 const style = `
 * { box-sizing: border-box; margin: 0; }
-body { width: ${frame.width}px; height: ${frame.height}px; overflow: hidden; color: #f4f7fb;
+body { width: ${frame.width}px; height: ${frame.height}px; overflow: hidden; color: #fbf8f0;
   font-family: "Noto Sans CJK JP", "Noto Sans JP", sans-serif;
-  background: radial-gradient(1200px 700px at 20% 0%, #1d3b66 0%, transparent 60%),
-              radial-gradient(900px 600px at 100% 100%, #2a1f5c 0%, transparent 55%), #0b1020; }
-.accent { color: #5cc8ff; }
+  background: radial-gradient(1200px 700px at 20% 0%, #4a3a0c 0%, transparent 60%),
+              radial-gradient(900px 600px at 100% 100%, #4a2208 0%, transparent 55%), #14110a; }
+.accent { color: #ffd23f; }
 .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 28px; }
 .logo { font-size: 150px; font-weight: 800; letter-spacing: -2px; }
-.logo span { color: #5cc8ff; }
+.logo span { color: #ffd23f; }
 .tagline { font-size: 64px; font-weight: 700; }
-.sub { font-size: 34px; color: #b8c4d8; }
-.pill { font-size: 28px; padding: 10px 26px; border-radius: 999px; background: rgba(92,200,255,.14); color: #9fdcff; border: 1px solid rgba(92,200,255,.35); }
+.sub { font-size: 34px; color: #d8cfb8; }
+.pill { font-size: 28px; padding: 10px 26px; border-radius: 999px; background: rgba(255,210,63,.14); color: #ffe58a; border: 1px solid rgba(255,210,63,.35); }
 .head { position: absolute; left: 0; right: 0; top: 64px; text-align: center; }
-.step { display: inline-block; font-size: 26px; font-weight: 700; letter-spacing: 2px; color: #5cc8ff; margin-bottom: 14px; }
+.step { display: inline-block; font-size: 26px; font-weight: 700; letter-spacing: 2px; color: #ffd23f; margin-bottom: 14px; }
 .caption { font-size: 56px; font-weight: 800; }
 .shot { position: absolute; border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); background: #1e1e1e; }
 .chat { display: flex; flex-direction: column; gap: 22px; width: 1100px; }
 .bubble { font-size: 36px; padding: 20px 30px; border-radius: 26px; max-width: 900px; }
-.ai { align-self: flex-start; background: #1f2a44; border: 1px solid #2f3f66; }
-.me { align-self: flex-end; background: #2a5bd7; }
+.ai { align-self: flex-start; background: #2e2714; border: 1px solid #5a4a1c; }
+.me { align-self: flex-end; background: #ffd23f; color: #14110a; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; width: 1500px; }
 .tile { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 22px; padding: 34px 40px; text-align: left; }
 .tile b { display: block; font-size: 40px; margin-bottom: 10px; }
-.tile span { font-size: 30px; color: #b8c4d8; }
-.url { font-size: 46px; font-weight: 700; color: #9fdcff; }
+.tile span { font-size: 30px; color: #d8cfb8; }
+.url { font-size: 46px; font-weight: 700; color: #ffe58a; }
 `
 
 const page = (body: string) =>
@@ -251,7 +251,7 @@ try {
   await draw(
     html,
     page(
-      `${titleCard}<div style="position:absolute;left:50%;bottom:120px;transform:translateX(-50%);display:flex;align-items:center;gap:22px;font-size:40px;font-weight:700"><div style="width:96px;height:96px;border-radius:50%;background:#5cc8ff;display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-left:34px solid #0b1020;border-top:22px solid transparent;border-bottom:22px solid transparent;margin-left:8px"></div></div>1分で分かる紹介動画</div>`
+      `${titleCard}<div style="position:absolute;left:50%;bottom:120px;transform:translateX(-50%);display:flex;align-items:center;gap:22px;font-size:40px;font-weight:700"><div style="width:96px;height:96px;border-radius:50%;background:#ffd23f;display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-left:34px solid #14110a;border-top:22px solid transparent;border-bottom:22px solid transparent;margin-left:8px"></div></div>1分で分かる紹介動画</div>`
     ),
     join(work, "poster.png")
   )

@@ -181,11 +181,11 @@ export class Pointer {
           press(x, y, keep) {
             const point = local(x, y)
             svg.style.transform = "scale(.82)"
-            dots.push(circle(point, size * 0.8, "background:rgba(92,200,255,.45);border:3px solid #5cc8ff"))
+            dots.push(circle(point, size * 0.8, "background:rgba(255,210,63,.45);border:3px solid #ffd23f"))
             const ring = circle(
               point,
               size * 2.4,
-              "border:4px solid #5cc8ff;transition:transform 650ms ease-out,opacity 650ms ease-out;transform:scale(.2);opacity:1"
+              "border:4px solid #ffd23f;transition:transform 650ms ease-out,opacity 650ms ease-out;transform:scale(.2);opacity:1"
             )
             requestAnimationFrame(() => {
               ring.style.transform = "scale(1)"
