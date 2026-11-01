@@ -88,7 +88,13 @@ export class Recorder {
 
 const pointerPath = "M4 2 L4 20 L9 15 L12.5 22 L15.5 20.6 L12 13.8 L19 13.8 Z"
 
-const center = async (target: Locator): Promise<{ readonly x: number; readonly y: number }> => {
+interface Point {
+  readonly x: number
+  readonly y: number
+}
+
+const center = async (target: Locator): Promise<Point> => {
+  await target.waitFor()
   const box = await target.boundingBox()
   if (box === null) {
     throw new Error("the target is not visible")
@@ -96,21 +102,48 @@ const center = async (target: Locator): Promise<{ readonly x: number; readonly y
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
+export interface PointerLook {
+  readonly host: string
+  readonly size: number
+}
+
+interface PointerApi {
+  place(x: number, y: number, ease: boolean): void
+  press(x: number, y: number, keep: boolean): void
+  release(): void
+}
+
+const plainLook: PointerLook = { host: "body", size: 30 }
+
 export class Pointer {
   private readonly page: Page
   private readonly recorder: () => Recorder | undefined
+  private readonly look: PointerLook
 
-  constructor(page: Page, recorder: () => Recorder | undefined) {
+  constructor(page: Page, recorder: () => Recorder | undefined, look?: PointerLook) {
     this.page = page
     this.recorder = recorder
+    this.look = look ?? plainLook
   }
 
-  async install(start: { readonly x: number; readonly y: number }): Promise<void> {
+  async install(start: Point): Promise<void> {
     await this.page.evaluate(
-      ({ d, x, y }) => {
+      ({ d, start: origin, host, size }) => {
+        const layer = document.querySelector<HTMLElement>(host) ?? document.body
+        const fixed = layer === document.body
+        const position = fixed ? "fixed" : "absolute"
+        const local = (x: number, y: number) => {
+          if (fixed) {
+            return { x, y }
+          }
+          const rect = layer.getBoundingClientRect()
+          const k = rect.width / layer.offsetWidth
+          return { x: (x - rect.left) / k, y: (y - rect.top) / k }
+        }
+        const tip = { x: size / 3, y: size / 6 }
+        const move = "transform 600ms cubic-bezier(.4,0,.2,1)"
         const namespace = "http://www.w3.org/2000/svg"
         const pointer = document.createElement("div")
-        pointer.id = "ask-form-pointer"
         const svg = document.createElementNS(namespace, "svg")
         svg.setAttribute("viewBox", "0 0 24 24")
         const path = document.createElementNS(namespace, "path")
@@ -121,83 +154,89 @@ export class Pointer {
         path.setAttribute("stroke-linejoin", "round")
         svg.append(path)
         pointer.append(svg)
-        pointer.style.cssText = `position:fixed;left:0;top:0;width:52px;height:52px;z-index:2147483647;pointer-events:none;transition:transform 700ms cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));transform:translate(${x}px,${y}px)`
-        svg.style.cssText = "width:52px;height:52px;pointer-events:none;transform-origin:8px 4px;transition:transform 120ms ease-out"
-        document.body.append(pointer)
-      },
-      { d: pointerPath, ...start }
-    )
-  }
-
-  async moveTo(target: Locator): Promise<void> {
-    await this.place(await center(target), true)
-    await sleep(800)
-  }
-
-  private async press(point: { readonly x: number; readonly y: number }, hold: boolean): Promise<void> {
-    await this.page.evaluate(
-      ({ x, y, keep }) => {
-        const svg = document.querySelector<SVGElement>("#ask-form-pointer svg")
-        if (svg !== null) {
-          svg.style.transform = "scale(.82)"
+        pointer.style.cssText = `position:${position};left:0;top:0;width:${size}px;height:${size}px;z-index:2147483647;pointer-events:none;transition:${move};filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));transform:translate(${origin.x - tip.x}px,${origin.y - tip.y}px)`
+        svg.style.cssText = `width:${size}px;height:${size}px;pointer-events:none;transform-origin:${tip.x}px ${tip.y}px;transition:transform 120ms ease-out`
+        layer.append(pointer)
+        const dots: Array<HTMLElement> = []
+        const circle = (point: { x: number; y: number }, diameter: number, css: string) => {
+          const element = document.createElement("div")
+          element.style.cssText = `position:${position};left:${point.x}px;top:${point.y}px;width:${diameter}px;height:${diameter}px;margin:${-diameter / 2}px 0 0 ${-diameter / 2}px;border-radius:50%;z-index:2147483646;pointer-events:none;${css}`
+          layer.append(element)
+          return element
         }
-        const dot = document.createElement("div")
-        dot.className = "ask-form-press"
-        dot.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;z-index:2147483646;pointer-events:none;background:rgba(92,200,255,.45);border:3px solid #5cc8ff`
-        const ring = document.createElement("div")
-        ring.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;z-index:2147483646;pointer-events:none;border:5px solid #5cc8ff;transition:transform 650ms ease-out,opacity 650ms ease-out;transform:scale(.2);opacity:1`
-        document.body.append(dot, ring)
-        requestAnimationFrame(() => {
-          ring.style.transform = "scale(1)"
-          ring.style.opacity = "0"
-        })
-        setTimeout(() => ring.remove(), 900)
-        if (!keep) {
-          setTimeout(() => {
-            dot.remove()
-            if (svg !== null) {
-              svg.style.transform = ""
+        const unpress = () => {
+          dots.splice(0).forEach((dot) => dot.remove())
+          svg.style.transform = ""
+        }
+        const pointerApi: PointerApi = {
+          place(x, y, ease) {
+            const point = local(x, y)
+            pointer.style.transition = ease ? move : "none"
+            pointer.style.transform = `translate(${point.x - tip.x}px, ${point.y - tip.y}px)`
+            dots.forEach((dot) => {
+              dot.style.left = `${point.x}px`
+              dot.style.top = `${point.y}px`
+            })
+          },
+          press(x, y, keep) {
+            const point = local(x, y)
+            svg.style.transform = "scale(.82)"
+            dots.push(circle(point, size * 0.8, "background:rgba(92,200,255,.45);border:3px solid #5cc8ff"))
+            const ring = circle(
+              point,
+              size * 2.4,
+              "border:4px solid #5cc8ff;transition:transform 650ms ease-out,opacity 650ms ease-out;transform:scale(.2);opacity:1"
+            )
+            requestAnimationFrame(() => {
+              ring.style.transform = "scale(1)"
+              ring.style.opacity = "0"
+            })
+            setTimeout(() => ring.remove(), 900)
+            if (!keep) {
+              setTimeout(unpress, 260)
             }
-          }, 260)
+          },
+          release: unpress
         }
+        ;(window as unknown as { askPointer: PointerApi }).askPointer = pointerApi
       },
-      { ...point, keep: hold }
+      { d: pointerPath, start, ...this.look }
     )
-    this.recorder()?.sound("click")
   }
 
-  private async release(): Promise<void> {
-    await this.page.evaluate(() => {
-      document.querySelectorAll(".ask-form-press").forEach((dot) => dot.remove())
-      const svg = document.querySelector<SVGElement>("#ask-form-pointer svg")
-      if (svg !== null) {
-        svg.style.transform = ""
-      }
+  private place(point: Point, ease: boolean): Promise<void> {
+    return this.page.evaluate(({ x, y, smooth }) => (window as unknown as { askPointer: PointerApi }).askPointer.place(x, y, smooth), {
+      ...point,
+      smooth: ease
     })
   }
 
-  private place(point: { readonly x: number; readonly y: number }, smooth: boolean): Promise<void> {
-    return this.page.evaluate(
-      ({ x, y, ease }) => {
-        const pointer = document.querySelector<HTMLElement>("#ask-form-pointer")
-        if (pointer !== null) {
-          pointer.style.transition = ease ? "" : "none"
-          pointer.style.transform = `translate(${x - 8}px, ${y - 4}px)`
-        }
-        document.querySelectorAll<HTMLElement>(".ask-form-press").forEach((dot) => {
-          dot.style.left = `${x}px`
-          dot.style.top = `${y}px`
-        })
-      },
-      { ...point, ease: smooth }
-    )
+  private async press(point: Point, keep: boolean): Promise<void> {
+    await this.page.evaluate(({ x, y, hold }) => (window as unknown as { askPointer: PointerApi }).askPointer.press(x, y, hold), {
+      ...point,
+      hold: keep
+    })
+    this.recorder()?.sound("click")
+  }
+
+  async pointAt(target: Locator): Promise<void> {
+    await target.waitFor()
+    const box = await target.boundingBox()
+    if (box !== null) {
+      await this.place(
+        { x: box.x + Math.min(box.width * 0.85, box.width - 6), y: box.y + Math.min(box.height * 0.75, box.height - 4) },
+        true
+      )
+    }
   }
 
   async click(target: Locator): Promise<void> {
-    await this.moveTo(target)
-    await this.press(await center(target), false)
+    const point = await center(target)
+    await this.place(point, true)
+    await sleep(650)
+    await this.press(point, false)
     await sleep(150)
-    await target.click()
+    await this.page.mouse.click(point.x, point.y)
   }
 
   async drag(slider: Locator, from: number, to: number): Promise<void> {
@@ -209,7 +248,7 @@ export class Pointer {
     const at = (ratio: number) => ({ x: box.x + thumb / 2 + ratio * (box.width - thumb), y: box.y + box.height / 2 })
     const start = at(from)
     await this.place(start, true)
-    await sleep(800)
+    await sleep(650)
     await this.page.mouse.move(start.x, start.y)
     await this.press(start, true)
     await this.page.mouse.down()
@@ -223,7 +262,7 @@ export class Pointer {
     }
     await sleep(250)
     await this.page.mouse.up()
-    await this.release()
+    await this.page.evaluate(() => (window as unknown as { askPointer: PointerApi }).askPointer.release())
   }
 }
 

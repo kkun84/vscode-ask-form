@@ -16,9 +16,9 @@
 </p>
 
 <p align="center">
-  <a href="docs/media/ask-form-pv.mp4"><img src="docs/images/pv-poster.png" alt="40秒で分かる紹介動画を見る" width="640"></a>
+  <a href="docs/media/ask-form-pv.mp4"><img src="docs/images/pv-poster.png" alt="1分で分かる紹介動画を見る" width="640"></a>
   <br>
-  <a href="docs/media/ask-form-pv.mp4">▶ 40秒で分かる紹介動画(MP4)</a>
+  <a href="docs/media/ask-form-pv.mp4">▶ 1分で分かる紹介動画(MP4)</a>
 </p>
 
 Copilotは、仕事を進める途中で利用者に確認したいことがよくあります。項目が多い質問や、値どうしが連動する質問を文章でやり取りすると、何度も往復することになります。

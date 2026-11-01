@@ -12,7 +12,6 @@ const output = join(root, "docs/media/ask-form-pv.mp4")
 const poster = join(root, "docs/images/pv-poster.png")
 const frame = { width: 1920, height: 1080 }
 const fade = 0.25
-const target = 40
 
 interface Card {
   readonly kind: "card"
@@ -103,22 +102,13 @@ const run = (args: ReadonlyArray<string>): void => {
   }
 }
 
-const fitted = (all: ReadonlyArray<Scene>): ReadonlyArray<Scene> => {
-  const cards = all.reduce((sum, scene) => sum + (scene.kind === "card" ? scene.duration : 0), 0)
-  const footage = all.reduce((sum, scene) => sum + (scene.kind === "take" ? (scene.to - scene.from) / scene.speed : 0), 0)
-  const factor = footage / (target - cards)
-  return all.map((scene) => (scene.kind === "take" ? { ...scene, speed: scene.speed * factor } : scene))
-}
-
-const authored = (take: Recording): ReadonlyArray<Scene> => [
+const scenes = (take: Recording): ReadonlyArray<Scene> => [
   { kind: "card", name: "title", duration: 2, body: titleCard },
   { kind: "card", name: "problem", duration: 3.5, body: problemCard },
   { kind: "take", name: "demo", from: Math.max(0, (take.marks["typing"] ?? 0) - 0.8), to: take.marks["end"] ?? 0, speed: 1 },
   { kind: "card", name: "features", duration: 3, body: featureCard },
   { kind: "card", name: "end", duration: 2.5, body: endCard }
 ]
-
-const scenes = (take: Recording): ReadonlyArray<Scene> => fitted(authored(take))
 
 const draw = async (browser: Page, html: string, path: string, size = frame): Promise<void> => {
   await browser.setViewportSize(size)
@@ -261,7 +251,7 @@ try {
   await draw(
     html,
     page(
-      `${titleCard}<div style="position:absolute;left:50%;bottom:120px;transform:translateX(-50%);display:flex;align-items:center;gap:22px;font-size:40px;font-weight:700"><div style="width:96px;height:96px;border-radius:50%;background:#5cc8ff;display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-left:34px solid #0b1020;border-top:22px solid transparent;border-bottom:22px solid transparent;margin-left:8px"></div></div>40秒で分かる紹介動画</div>`
+      `${titleCard}<div style="position:absolute;left:50%;bottom:120px;transform:translateX(-50%);display:flex;align-items:center;gap:22px;font-size:40px;font-weight:700"><div style="width:96px;height:96px;border-radius:50%;background:#5cc8ff;display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-left:34px solid #0b1020;border-top:22px solid transparent;border-bottom:22px solid transparent;margin-left:8px"></div></div>1分で分かる紹介動画</div>`
     ),
     join(work, "poster.png")
   )

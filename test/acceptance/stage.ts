@@ -25,8 +25,8 @@ body > iframe#form { position: absolute; left: -9999px; }
 #caption { position: absolute; left: 0; right: 0; top: 30px; z-index: 60; display: flex; align-items: center; justify-content: center; gap: 22px; }
 #caption .step { font-size: 24px; font-weight: 800; color: #0b1020; background: #5cc8ff; border-radius: 999px; padding: 6px 20px; white-space: pre; }
 #caption .text { font-size: 46px; font-weight: 800; }
-#viewport { position: absolute; left: 32px; right: 32px; top: 128px; bottom: 24px; overflow: hidden; border-radius: 16px; }
-#camera { position: absolute; left: 0; top: 0; transform-origin: 0 0; transition: transform 900ms cubic-bezier(.45,0,.2,1); }
+#viewport { position: absolute; left: 32px; right: 32px; top: 128px; bottom: 24px; overflow: clip; border-radius: 16px; }
+#camera { position: absolute; left: 0; top: 0; transform-origin: 0 0; transition: transform 700ms cubic-bezier(.45,0,.2,1); }
 #caption em { font-style: normal; color: #5cc8ff; }
 #caption.swap { animation: swap 450ms ease-out; }
 @keyframes swap { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
@@ -40,7 +40,7 @@ body > iframe#form { position: absolute; left: -9999px; }
 .activity span { width: 20px; height: 20px; border-radius: 5px; border: 2px solid #6e6e6e; opacity: .7; }
 .chat { display: grid; grid-template-rows: 32px 1fr auto; }
 .chat-header { display: flex; align-items: center; padding: 0 18px; font-size: 12px; letter-spacing: 1px; color: #bbbbbb; border-bottom: 1px solid #2b2b2b; }
-#messages { min-height: 520px; padding: 18px 26px 10px; display: flex; flex-direction: column; gap: 14px; }
+#messages { min-height: 520px; padding: 18px 26px 10px; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; }
 .user { align-self: flex-end; max-width: 78%; background: #2a2d2e; border: 1px solid #3c3c3c; border-radius: 12px; padding: 9px 14px; font-size: 14px; line-height: 1.6; animation: pop 300ms ease-out; }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #cccccc; background: #2b2b2b; border: 1px solid #3c3c3c; border-radius: 5px; padding: 2px 8px; margin-bottom: 6px; }
 .chip b { color: #e8c07d; font-weight: 400; }
@@ -194,42 +194,131 @@ const boxOf = async (...targets: ReadonlyArray<Locator>) => {
   }
 }
 
+interface Box {
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
+}
+
+interface Lens {
+  readonly s: number
+  readonly x: number
+  readonly y: number
+}
+
+interface Rig {
+  readonly view: Box
+  readonly state: Lens
+  readonly room: { readonly width: number; readonly height: number }
+}
+
+const readRig = (page: Page): Promise<Rig> =>
+  page.evaluate(() => {
+    const rect = document.querySelector<HTMLElement>("#viewport")?.getBoundingClientRect()
+    const room = document.querySelector<HTMLElement>(".window")
+    return {
+      view: { x: rect?.x ?? 0, y: rect?.y ?? 0, width: rect?.width ?? 0, height: rect?.height ?? 0 },
+      state: (window as unknown as { lens?: Lens }).lens ?? { s: 1, x: 0, y: 0 },
+      room: { width: room?.offsetWidth ?? 680, height: room?.offsetHeight ?? 760 }
+    }
+  })
+
+const applyLens = (page: Page, next: Lens, cut: boolean) =>
+  page.evaluate(
+    ({ lens: value, cut: instant }) => {
+      const lens = document.querySelector<HTMLElement>("#camera")
+      ;(window as unknown as { lens?: Lens }).lens = value
+      if (lens !== null) {
+        lens.style.transition = instant ? "none" : ""
+        lens.style.transform = `translate(${value.x}px, ${value.y}px) scale(${value.s})`
+      }
+    },
+    { lens: next, cut }
+  )
+
+const union = (a: Box, b: Box): Box => {
+  const x = Math.min(a.x, b.x)
+  const y = Math.min(a.y, b.y)
+  return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y }
+}
+
+const visible = ({ view, state, room }: Rig): Box => {
+  const x = Math.max(0, -state.x / state.s)
+  const y = Math.max(0, -state.y / state.s)
+  const right = Math.min((view.width - state.x) / state.s, room.width)
+  const bottom = Math.min((view.height - state.y) / state.s, room.height)
+  return { x, y, width: Math.max(0, right - x), height: Math.max(0, bottom - y) }
+}
+
+const contains = (box: Box, x: number, y: number) => x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height
+
+const goalOf = (rig: Rig, rect: Box | null, pad: number): Box => {
+  const { view, state, room } = rig
+  const local =
+    rect === null
+      ? { x: 0, y: 0, width: room.width, height: room.height }
+      : {
+          x: (rect.x - view.x - state.x) / state.s,
+          y: (rect.y - view.y - state.y) / state.s,
+          width: rect.width / state.s,
+          height: rect.height / state.s
+        }
+  return { x: local.x - pad, y: local.y - pad, width: local.width + pad * 2, height: local.height + pad * 2 }
+}
+
+const aim = async (page: Page, rect: Box | null, pad: number, most: number, still: boolean): Promise<boolean> => {
+  const rig = await readRig(page)
+  const goal = goalOf(rig, rect, pad)
+  const seen = visible(rig)
+  const far = !still && rect !== null && !contains(seen, goal.x + goal.width / 2, goal.y + goal.height / 2)
+  const frame = far ? union(goal, seen) : goal
+  const { view } = rig
+  const s = Math.min(view.width / frame.width, view.height / frame.height, far ? rig.state.s : most)
+  await applyLens(
+    page,
+    { s, x: (view.width - frame.width * s) / 2 - frame.x * s, y: (view.height - frame.height * s) / 2 - frame.y * s },
+    still
+  )
+  return far
+}
+
 const camera = async (page: Page, targets: ReadonlyArray<Locator>, pad: number, most: number, still = false): Promise<void> => {
   const rect = targets.length === 0 ? null : await boxOf(...targets)
-  await page.evaluate(
-    (shot) => {
-      const { rect: area, pad: margin, most: limit, still: cut } = shot
-      const view = document.querySelector<HTMLElement>("#viewport")?.getBoundingClientRect()
+  if (await aim(page, rect, pad, most, still)) {
+    await sleep(750)
+    await camera(page, targets, pad, most, still)
+    return
+  }
+  await sleep(still ? 50 : 800)
+}
+
+const pin = (page: Page, selector: string, ms: number) =>
+  page.evaluate(
+    ({ selector: pick, ms: span }) => {
+      const anchor = document.querySelector<HTMLElement>(pick)
       const lens = document.querySelector<HTMLElement>("#camera")
-      if (view === undefined || lens === null) {
+      const holder = window as unknown as { lens?: { s: number; x: number; y: number } }
+      if (anchor === null || lens === null || holder.lens === undefined) {
         return
       }
-      const state = (window as unknown as { lens?: { s: number; x: number; y: number } }).lens ?? { s: 1, x: 0, y: 0 }
-      const local =
-        area === null
-          ? { x: 0, y: 0, width: 680, height: document.querySelector<HTMLElement>(".window")?.offsetHeight ?? 760 }
-          : {
-              x: (area.x - view.x - state.x) / state.s,
-              y: (area.y - view.y - state.y) / state.s,
-              width: area.width / state.s,
-              height: area.height / state.s
-            }
-      const width = local.width + margin * 2
-      const height = local.height + margin * 2
-      const s = Math.min(view.width / width, view.height / height, limit)
-      const next = {
-        s,
-        x: (view.width - width * s) / 2 - (local.x - margin) * s,
-        y: (view.height - height * s) / 2 - (local.y - margin) * s
+      const state = holder.lens
+      const fixed = anchor.getBoundingClientRect().bottom
+      const end = performance.now() + span
+      lens.style.transition = "none"
+      const tick = () => {
+        state.y -= anchor.getBoundingClientRect().bottom - fixed
+        lens.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.s})`
+        if (performance.now() < end) {
+          requestAnimationFrame(tick)
+        } else {
+          lens.style.transition = ""
+        }
       }
-      ;(window as unknown as { lens?: { s: number; x: number; y: number } }).lens = next
-      lens.style.transition = cut ? "none" : ""
-      lens.style.transform = `translate(${next.x}px, ${next.y}px) scale(${next.s})`
+      requestAnimationFrame(tick)
     },
-    { rect, pad, most, still }
+    { selector, ms }
   )
-  await sleep(still ? 50 : 1000)
-}
 
 const typeInto = async (page: Page, recorder: Recorder, text: string, delay: number): Promise<void> => {
   for (const character of text) {
@@ -247,7 +336,18 @@ const typeInto = async (page: Page, recorder: Recorder, text: string, delay: num
 const send = async (page: Page, pointer: Pointer, html: string): Promise<void> => {
   await pointer.click(page.locator("#input .send"))
   await page.evaluate((content) => {
+    const input = document.querySelector<HTMLElement>("#input")
+    const before = input?.getBoundingClientRect().top ?? 0
     document.querySelector("#messages")?.insertAdjacentHTML("beforeend", content)
+    const holder = window as unknown as { lens?: { s: number; x: number; y: number } }
+    const lens = document.querySelector<HTMLElement>("#camera")
+    if (holder.lens !== undefined && lens !== null) {
+      holder.lens.y -= (input?.getBoundingClientRect().top ?? 0) - before
+      lens.style.transition = "none"
+      lens.style.transform = `translate(${holder.lens.x}px, ${holder.lens.y}px) scale(${holder.lens.s})`
+      void lens.offsetWidth
+      lens.style.transition = ""
+    }
     const text = document.querySelector("#input .text")
     const chips = document.querySelector("#input .chips")
     if (text !== null && chips !== null) {
@@ -260,8 +360,11 @@ const send = async (page: Page, pointer: Pointer, html: string): Promise<void> =
 
 const chip = (file: string) => `<div class="chip"><b>{ }</b>${file}</div>`
 
+const guide: { pointer?: Pointer } = {}
+
 const look = async (page: Page, targets: ReadonlyArray<Locator>, spot: Locator, label: string, hold: number): Promise<void> => {
   await focusOn(page, null)
+  await guide.pointer?.pointAt(spot)
   await camera(page, targets, 24, 2.4)
   await focusOn(page, spot, label)
   await sleep(hold)
@@ -301,7 +404,9 @@ const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorde
     page,
     '<div class="tool" id="tool" style="order:2"><span class="spin"></span><span id="tool-label">Ask with a form を実行しています</span></div>'
   )
+  await camera(page, [page.locator(".user").first(), page.locator("#tool")], 24, 1.8)
   await caption(page, 1)
+  await pin(page, "#tool", 900)
   await page.evaluate(() => {
     const box = document.querySelector<HTMLElement>(".formbox")
     if (box !== null) {
@@ -310,8 +415,7 @@ const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorde
     document.querySelector("#waiting")?.classList.add("on")
   })
   recorder.mark("form")
-  await sleep(300)
-  await sleep(500)
+  await sleep(900)
   const first = frame.locator(".hint").first()
   await look(page, [frame.locator("form.card h1"), first], first, "AIの推測と根拠", 1800)
 }
@@ -324,8 +428,10 @@ const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorde
   const proceed = frame.getByRole("button", { name: "この設定で進める" })
   await look(page, [frame.locator("footer.actions")], proceed, "クリックで回答", 400)
   await focusOn(page, null)
+  await pin(page, ".formbox", 1600)
   await pointer.click(proceed)
   await frame.locator(".summary").waitFor()
+  await sleep(800)
   recorder.mark("answered")
   await page.evaluate(() => {
     document.querySelector("#tool")?.classList.add("done")
@@ -349,14 +455,16 @@ const resendStep = async (page: Page, frame: Frame, pointer: Pointer, recorder: 
   await look(page, [frame.locator(".summary")], again, "後から直せる", 500)
   await focusOn(page, null)
   await pointer.click(again)
-  await sleep(300)
+  await sleep(600)
   await slide(page, frame, pointer, { label: "CPU(1台あたり)", min: 250, max: 4000, from: 500, to: 1000, note: "CPUを500m→1000m" })
   await look(page, [frame.locator(".computed")], frame.locator(".computed"), "処理量と費用も変わる", 1100)
   const submit = frame.getByRole("button", { name: "変更を送信" })
   await look(page, [frame.locator("footer.actions")], submit, "変更を送信", 400)
   await focusOn(page, null)
+  await pin(page, ".formbox", 1600)
   await pointer.click(submit)
   await frame.locator(".summary .notice").waitFor()
+  await sleep(800)
   await page.evaluate(
     ({ text, chipHtml }) => {
       document.querySelector("#input")?.classList.add("focus")
@@ -372,9 +480,9 @@ const resendStep = async (page: Page, frame: Frame, pointer: Pointer, recorder: 
   await look(page, [page.locator("#input")], page.locator("#input"), "差分とJSONが入力欄に入る", 1700)
   await focusOn(page, null)
   await send(page, pointer, `<div class="user" id="resent" style="order:5">${chip(resend.file)}<div>${resend.text}</div></div>`)
+  await camera(page, [page.locator("#resent")], 24, 2.4)
   await stream(page, "follow", followUp, 6)
   recorder.mark("followed")
-  await sleep(300)
   await look(page, [page.locator("#follow")], page.locator("#follow"), "変更を反映して続ける", 1400)
   recorder.mark("end")
 }
@@ -403,8 +511,10 @@ export const captureStage = async (work: string): Promise<Take> => {
     await frame.locator("form.card").waitFor({ state: "attached" })
     await page.evaluate(() => document.fonts.ready)
     const recorder = new Recorder(page, frames)
-    const pointer = new Pointer(page, () => recorder)
-    await pointer.install({ x: 980, y: 520 })
+    const pointer = new Pointer(page, () => recorder, { host: "#camera", size: 28 })
+    await camera(page, [], 0, 1, true)
+    await pointer.install({ x: 1000, y: 640 })
+    guide.pointer = pointer
     await sleep(500)
     await recorder.start()
     await scene(page, frame, pointer, recorder)
