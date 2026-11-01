@@ -70,10 +70,10 @@ const titleCard = `<div class="center">
 const problemCard = `<div class="center">
   <div class="tagline">AIからの確認、何往復していますか？</div>
   <div class="chat">
-    <div class="bubble ai">レプリカは何台にしますか？</div>
-    <div class="bubble me">3台…いや5台かな</div>
-    <div class="bubble ai">CPUは？デプロイ方式は？オートスケールは？</div>
-    <div class="bubble me">えっと、それで何req/sさばけるんだっけ…</div>
+    <div class="bubble ai">画面はReactとVue、どちらで作りますか？</div>
+    <div class="bubble me">Reactで。保存はブラウザでいいかな</div>
+    <div class="bubble ai">メモは何文字まで？1ページは何件？締め切りは？</div>
+    <div class="bubble me">えっと、それで何件まで保存できるんだっけ…</div>
   </div>
   <div class="sub">項目が多い質問や、値どうしが連動する質問は、文章だと答えにくい。</div>
 </div>`

@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { chromium, type Frame, type Locator, type Page } from "@playwright/test"
-import { deploySpec } from "../fixtures/deploy.ts"
+import { todoSpec } from "../fixtures/todo.ts"
 import { themeContext } from "../support/themes.ts"
 import { openForm, startServer } from "../support/ui.ts"
 import { sleep } from "./frames.ts"
@@ -72,7 +72,7 @@ const markup = `
 <div id="stage">
   <div id="caption"><div class="step"></div><div class="text"></div></div>
   <div id="viewport"><div id="camera"><div class="window">
-    <div class="titlebar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span class="name">api-gateway — Visual Studio Code</span></div>
+    <div class="titlebar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span class="name">my-todo — Visual Studio Code</span></div>
     <div class="main">
       <div class="activity"><span></span><span></span><span></span><span></span></div>
       <div class="chat">
@@ -422,10 +422,17 @@ const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorde
 
 const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await caption(page, 2)
-  await slide(page, frame, pointer, { label: "レプリカ数", min: 1, max: 20, from: 3, to: 5, note: "スライダーで3台→5台" })
-  await look(page, [frame.locator(".computed")], frame.locator(".computed"), "処理量と費用がすぐ変わる", 1400)
+  await slide(page, frame, pointer, {
+    label: "メモの最大文字数",
+    min: 0,
+    max: 5000,
+    from: 1000,
+    to: 2000,
+    note: "スライダーで1000→2000文字"
+  })
+  await look(page, [frame.locator(".computed")], frame.locator(".computed"), "保存できる件数がすぐ変わる", 1400)
   await caption(page, 3)
-  const proceed = frame.getByRole("button", { name: "この設定で進める" })
+  const proceed = frame.getByRole("button", { name: "この設定で作る" })
   await look(page, [frame.locator("footer.actions")], proceed, "クリックで回答", 400)
   await focusOn(page, null)
   await pin(page, ".formbox", 1600)
@@ -456,8 +463,7 @@ const resendStep = async (page: Page, frame: Frame, pointer: Pointer, recorder: 
   await focusOn(page, null)
   await pointer.click(again)
   await sleep(600)
-  await slide(page, frame, pointer, { label: "CPU(1台あたり)", min: 250, max: 4000, from: 500, to: 1000, note: "CPUを500m→1000m" })
-  await look(page, [frame.locator(".computed")], frame.locator(".computed"), "処理量と費用も変わる", 1100)
+  await slide(page, frame, pointer, { label: "1ページの件数", min: 5, max: 100, from: 20, to: 50, note: "1ページを20→50件に" })
   const submit = frame.getByRole("button", { name: "変更を送信" })
   await look(page, [frame.locator("footer.actions")], submit, "変更を送信", 400)
   await focusOn(page, null)
@@ -501,7 +507,7 @@ export const captureStage = async (work: string): Promise<Take> => {
   const browser = await chromium.launch({ args: ["--no-sandbox"] })
   try {
     const page = await browser.newPage({ viewport, deviceScaleFactor: scale })
-    await openForm(page, server, { args: deploySpec, context: themeContext("dark"), placeMessage: "placed" })
+    await openForm(page, server, { args: todoSpec, context: themeContext("dark"), placeMessage: "placed" })
     await build(page)
     await sleep(800)
     const frame = page.frame({ url: /form\.html$/ })

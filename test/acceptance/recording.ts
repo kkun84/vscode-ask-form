@@ -269,12 +269,9 @@ export class Pointer {
 export const typeNumber = async (pointer: Pointer, recorder: Recorder, frame: Frame, label: string, value: string): Promise<void> => {
   const input = frame.getByRole("spinbutton", { name: label })
   await pointer.click(input)
-  await input.press("ControlOrMeta+a")
-  for (const character of value) {
-    await input.pressSequentially(character)
-    recorder.sound("key")
-    await sleep(200)
-  }
+  await input.fill(value)
+  recorder.sound("key")
+  await sleep(300)
   await input.evaluate((element) => {
     element.dispatchEvent(new Event("change", { bubbles: true }))
     ;(element as HTMLElement).blur()

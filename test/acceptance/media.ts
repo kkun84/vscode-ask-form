@@ -2,10 +2,11 @@ import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { ElectronApplication, Frame, Locator, Page } from "@playwright/test"
-import { deploySpec } from "../fixtures/deploy.ts"
+import { todoSpec } from "../fixtures/todo.ts"
 import { startFakeLlm } from "./fake-llm.ts"
 import { formFrame, sleep, until } from "./frames.ts"
 import { Pointer, Recorder, typeNumber, run } from "./recording.ts"
+import { followUp, query, reply } from "./stage-content.ts"
 import { cleanUp, closeApp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
 
 export interface MediaPaths extends VscodePaths {
@@ -28,12 +29,7 @@ export interface Capture {
   readonly regions: Readonly<Record<string, Rect>>
 }
 
-const query = "api-gatewayを本番にデプロイしたいです。設定をフォームで聞いてください。"
 const trigger = "フォームで聞いて"
-const reply =
-  "ありがとうございます。レプリカ5台、CPU 500m、ローリングで進めます。処理できる量は1,000 req/s(オートスケールで最大2,000 req/s)です。k8s/deploy.yamlを更新します。"
-const followUp =
-  "CPUを1000mにして計算し直しました。処理できる量は2,000 req/s、月額の目安は¥40,000です。deploy.yamlのresourcesも更新します。"
 const screenSize = { width: 1600, height: 1036 }
 const titleBar = 36
 let view: Rect = { x: 0, y: titleBar, width: screenSize.width, height: screenSize.height - titleBar }
@@ -90,6 +86,7 @@ const regionOf = async (...targets: ReadonlyArray<Locator>): Promise<Rect> => {
 
 const ask = async (page: Page, pointer: Pointer, recorder: Recorder): Promise<Frame> => {
   const input = page.locator(".interactive-input-part .monaco-editor .view-lines").last()
+  await page.locator(".interactive-input-part").last().getByText("Fake Model").first().waitFor({ timeout: 60_000 })
   await sleep(1200)
   await pointer.click(input)
   recorder.mark("typing")
@@ -124,7 +121,7 @@ const scenario = async (page: Page, pointer: Pointer, images: string, recorder: 
   }
   await shoot(page, images, "form")
   recorder.mark("edit")
-  await typeNumber(pointer, recorder, frame, "レプリカ数", "5")
+  await typeNumber(pointer, recorder, frame, "メモの最大文字数", "2000")
   recorder.mark("edited")
   await sleep(2200)
   await shoot(page, images, "edited")
@@ -142,7 +139,7 @@ const scenario = async (page: Page, pointer: Pointer, images: string, recorder: 
   recorder.mark("resend")
   await pointer.click(frame.getByRole("button", { name: "変更して送り直す" }))
   await sleep(900)
-  await typeNumber(pointer, recorder, frame, "CPU(1台あたり)", "1000")
+  await typeNumber(pointer, recorder, frame, "1ページの件数", "50")
   await sleep(1500)
   await pointer.click(frame.getByRole("button", { name: "変更を送信" }))
   await frame.locator(".summary .notice").waitFor()
@@ -205,7 +202,7 @@ export const captureMedia = async (paths: MediaPaths): Promise<Capture> => {
   await rm(frames, { recursive: true, force: true })
   await mkdir(frames, { recursive: true })
   const profile = await mkdtemp(join(tmpdir(), "ask-form-media-"))
-  const llm = await startFakeLlm(trigger, deploySpec, reply, followUp)
+  const llm = await startFakeLlm(trigger, todoSpec, reply, followUp)
   const options = { llm, log: join(profile, "driver.log"), profile, locale: "ja", query, settings, draft: true, scale: density }
   let app: ElectronApplication | undefined
   try {
