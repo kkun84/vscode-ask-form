@@ -1,9 +1,9 @@
 import { fileURLToPath } from "node:url"
 import { spawn } from "node:child_process"
-import { mkdtemp } from "node:fs/promises"
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { build } from "esbuild"
+import { bundle } from "./bundle.ts"
 import { runChat } from "../test/acceptance/chat.ts"
 import { buildDriver } from "../test/acceptance/driver-build.ts"
 import { runWeb } from "../test/acceptance/web-browser.ts"
@@ -14,25 +14,15 @@ const out = join(extension, "acceptance")
 const driver = join(root, "out/e2e-driver")
 const targets = process.argv.slice(2).length === 0 ? ["desktop", "web", "chat"] : process.argv.slice(2)
 
+const emit = async (input: string, platform: "node" | "browser", file: string): Promise<void> => {
+  const built = await bundle({ input: join(root, input), platform, format: "cjs" })
+  await mkdir(out, { recursive: true })
+  await writeFile(join(out, file), built.code)
+}
+
 await Promise.all([
-  build({
-    entryPoints: [join(root, "test/acceptance/desktop.ts")],
-    outfile: join(out, "desktop.cjs"),
-    bundle: true,
-    platform: "node",
-    format: "cjs",
-    external: ["vscode"],
-    logLevel: "warning"
-  }),
-  build({
-    entryPoints: [join(root, "test/acceptance/web.ts")],
-    outfile: join(out, "web.js"),
-    bundle: true,
-    platform: "browser",
-    format: "cjs",
-    external: ["vscode"],
-    logLevel: "warning"
-  }),
+  emit("test/acceptance/desktop.ts", "node", "desktop.cjs"),
+  emit("test/acceptance/web.ts", "browser", "web.js"),
   buildDriver(root, driver)
 ])
 
