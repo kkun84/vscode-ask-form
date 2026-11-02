@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { createServer, type Server } from "node:http"
 import { readFile } from "node:fs/promises"
-import { build } from "esbuild"
+import { bundle } from "../../scripts/bundle.ts"
 import { listenLocally } from "./listen.ts"
 import type { Frame, Page } from "@playwright/test"
 import type { HostContext } from "../../src/core/appHost.ts"
@@ -21,13 +21,9 @@ export interface PageOptions {
 let hostScript: Promise<string> | undefined
 
 const bundleHost = (): Promise<string> => {
-  hostScript ??= build({
-    entryPoints: [fileURLToPath(new URL("./host-page.ts", import.meta.url))],
-    bundle: true,
-    format: "iife",
-    platform: "browser",
-    write: false
-  }).then((result) => result.outputFiles[0]?.text ?? "")
+  hostScript ??= bundle({ input: fileURLToPath(new URL("./host-page.ts", import.meta.url)), platform: "browser", format: "iife" }).then(
+    (result) => result.code
+  )
   return hostScript
 }
 

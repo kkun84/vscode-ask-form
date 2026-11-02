@@ -1,18 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { build } from "esbuild"
+import { bundle } from "../../scripts/bundle.ts"
 
 export const buildDriver = async (root: string, driver: string): Promise<void> => {
-  await build({
-    entryPoints: [join(root, "test/acceptance/driver.ts")],
-    outfile: join(driver, "driver.cjs"),
-    bundle: true,
-    platform: "node",
-    format: "cjs",
-    external: ["vscode"],
-    logLevel: "warning"
-  })
+  const built = await bundle({ input: join(root, "test/acceptance/driver.ts"), platform: "node", format: "cjs" })
   await mkdir(driver, { recursive: true })
+  await writeFile(join(driver, "driver.cjs"), built.code)
   await writeFile(
     join(driver, "package.json"),
     JSON.stringify({
