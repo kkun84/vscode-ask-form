@@ -156,33 +156,39 @@ const FormsHandlers = FormsToolkit.toLayer(
   })
 )
 
-const FormResource = McpServer.resource({
-  uri: resourceUri,
-  name: "Ask Form",
-  description: "Interactive form view for ask_form",
-  mimeType: resourceMimeType,
-  content: Effect.gen(function* () {
+const FormResource = Layer.unwrap(
+  Effect.gen(function* () {
     const html = yield* FormHtml
-    return yield* Schema.decodeEffect(McpSchema.ReadResourceResult)({
-      contents: [{ uri: resourceUri, mimeType: resourceMimeType, text: html }]
-    }).pipe(Effect.orDie)
-  })
-})
-
-const AttachmentResource = McpServer.resource`ask-form://answers/${Schema.String}/${Schema.String}`({
-  name: "Resent answer",
-  description: "All values of a resent form answer",
-  mimeType: "application/json",
-  content: (uri, id) =>
-    Effect.gen(function* () {
-      const attachments = yield* AttachmentStore
-      const name = decodeURIComponent(new URL(uri).pathname.split("/").at(-1) ?? "")
-      if (!/^[0-9a-f-]{36}$/.test(id) || !/^[\p{L}\p{N}-]+\.json$/u.test(name)) {
-        return yield* new FormRejected({ message: "invalid attachment path" })
-      }
-      return yield* attachments.read(id, name)
+    return McpServer.resource({
+      uri: resourceUri,
+      name: "Ask Form",
+      description: "Interactive form view for ask_form",
+      mimeType: resourceMimeType,
+      content: Schema.decodeEffect(McpSchema.ReadResourceResult)({
+        contents: [{ uri: resourceUri, mimeType: resourceMimeType, text: html }]
+      }).pipe(Effect.orDie)
     })
-})
+  })
+)
+
+const AttachmentResource = Layer.unwrap(
+  Effect.gen(function* () {
+    const attachments = yield* AttachmentStore
+    return McpServer.resource`ask-form://answers/${Schema.String}/${Schema.String}`({
+      name: "Resent answer",
+      description: "All values of a resent form answer",
+      mimeType: "application/json",
+      content: (uri, id) =>
+        Effect.gen(function* () {
+          const name = decodeURIComponent(new URL(uri).pathname.split("/").at(-1) ?? "")
+          if (!/^[0-9a-f-]{36}$/.test(id) || !/^[\p{L}\p{N}-]+\.json$/u.test(name)) {
+            return yield* new FormRejected({ message: "invalid attachment path" })
+          }
+          return yield* attachments.read(id, name)
+        })
+    })
+  })
+)
 
 export const FormsServer = Layer.mergeAll(McpServer.toolkit(FormsToolkit), FormResource, AttachmentResource).pipe(
   Layer.provide(FormsHandlers)
