@@ -148,11 +148,7 @@ const scenario = async (page: Page, pointer: Pointer, images: string, recorder: 
   await sleep(2800)
   await shoot(page, images, "placed")
   recorder.mark("send-resend")
-  const send = page
-    .locator(".interactive-input-part")
-    .last()
-    .getByRole("button", { name: /^送信/ })
-    .first()
+  const send = page.locator(".interactive-input-part").last().getByRole("button", { name: /^送信/ }).first()
   await pointer.click(send)
   await page
     .locator(".interactive-response", { hasText: followUp.slice(0, 12) })
