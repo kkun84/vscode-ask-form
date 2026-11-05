@@ -116,7 +116,7 @@ describe("ARCH-LAYER-004 web版の入口はNode.jsを使わない", () => {
 
 describe("ARCH-LAYER-005 入口は互いに依存しない", () => {
   it("ARCH-LAYER-005 デスクトップ版の入口からweb版の入口への依存を見つける", () => {
-    const report = analyze([["src/extension/node/main.ts", 'import { toolName } from "../web/main.ts"\nexport const probe = toolName']])
+    const report = analyze([["src/extension/node/main.ts", 'import { activate } from "../web/main.ts"\nexport const probe = activate']])
     assert.deepEqual(boundaries(report), ["src/extension/node/main.ts extension-node->extension-web"])
   })
 })

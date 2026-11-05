@@ -18,7 +18,7 @@
 | REQ-RES-003 | 同じ内容は送り直せない | - | SPEC-MCP-008, SPEC-UI-005 | `test/acceptance/chat.ts`, MAT-RES-001 |
 | REQ-CANCEL-001 | 中断が分かる | - | SPEC-MCP-005, SPEC-MCP-007, SPEC-UI-006, SPEC-UI-010, SPEC-EXT-004 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
 | REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
-| REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/web.ts`, MAT-WEB-001 |
+| REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004, SPEC-EXT-006 | `test/acceptance/web.ts`, MAT-WEB-001 |
 | REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/desktop.ts`, MAT-PERF-001 |
 | REQ-SEC-001 | 回答を偽装されない | - | SPEC-MCP-009, SPEC-UI-010, SPEC-EXT-001 | MAT-SEC-001 |
 | REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | MAT-LOOK-001 |
@@ -55,6 +55,7 @@
 | SPEC-EXT-002 | 待機の表示 | REQ-WAIT-001 | ARCH-EFFECT-001, ARCH-PORT-001, DES-PEND-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-003 | web版の下書き | REQ-RES-002 | ARCH-LAYER-004, DES-CHAT-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-004 | web版 | REQ-WEB-001, REQ-CANCEL-001 | ARCH-LAYER-002, ARCH-LAYER-004, ARCH-LAYER-005, ARCH-UI-001, DES-UI-002, DES-HOST-001, DES-TOOLS-002 | `test/system/extension.test.ts` |
+| SPEC-EXT-006 | MCPを使わない環境 | REQ-WEB-001 | - | `test/system/extension.test.ts` |
 | SPEC-EXT-005 | 起動・サイズ・検査の予算 | REQ-PERF-001 | ARCH-LAYER-002, ARCH-LAYER-006, ARCH-DEPS-001, DES-TOOLS-001 | `test/system/extension.test.ts`, `test/system/process.test.ts` |
 | SPEC-REL-001 | 配布前の検査と公開 | REQ-DIST-001 | ARCH-REL-001, DES-REL-001 | `test/system/release-check.test.ts`, `test/system/release-workflow.test.ts` |
 

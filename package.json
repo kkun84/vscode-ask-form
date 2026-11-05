@@ -56,6 +56,16 @@
     "typescript": "7.0.2"
   },
   "contributes": {
+    "configuration": {
+      "title": "Ask Form",
+      "properties": {
+        "askForm.mcp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Provide Ask Form to Copilot as an MCP server (the form appears inside the chat). When off, or when MCP is restricted by your organization (`#chat.mcp.access#`), Ask Form is provided as an extension tool instead and the form appears in a panel beside the chat."
+        }
+      }
+    },
     "mcpServerDefinitionProviders": [
       {
         "id": "ask-form.mcp",
@@ -70,7 +80,7 @@
         "userDescription": "Ask you through an interactive form prefilled with Copilot's guesses.",
         "modelDescription": "Ask the user a question through an interactive form shown in the chat, and wait for the answer. Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those). For a single simple choice, prefer the built-in askQuestions tool instead. Always prefill every field with your best guess from the workspace and conversation, and explain the source in reason, so the user only fixes what is wrong. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The result tells you whether the user submitted values, delegated the decision to you, or will answer in chat.",
         "canBeReferencedInPrompt": true,
-        "when": "isWeb",
+        "when": "isWeb || !config.askForm.mcp.enabled || config.chat.mcp.access != 'all'",
         "inputSchema": {
           "type": "object",
           "properties": {

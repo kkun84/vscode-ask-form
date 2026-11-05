@@ -12,6 +12,8 @@ const nodeBundle = fileURLToPath(new URL("../../dist/node/extension.cjs", import
 const webBundle = fileURLToPath(new URL("../../dist/web/extension.js", import.meta.url))
 const webTool = "forms_ask_form"
 
+const readManifest = async <T>(): Promise<T> => JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as T
+
 const formKey = eventForm.key
 
 const until = (check: () => boolean) =>
@@ -20,12 +22,19 @@ const until = (check: () => boolean) =>
     Effect.orDie
   )
 
+const start = async () => {
+  const { vscode, recorder } = createVscode()
+  const { context, dispose } = fakeContext()
+  await loadBundle(nodeBundle, vscode, "node").activate(context)
+  const provider = recorder.providers.get("ask-form.mcp")
+  assert.ok(provider)
+  return { recorder, provider, dispose }
+}
+
 const desktop = Effect.acquireRelease(
   Effect.promise(async () => {
-    const { vscode, recorder } = createVscode()
-    const { context, dispose } = fakeContext()
-    await loadBundle(nodeBundle, vscode, "node").activate(context)
-    const [definition] = recorder.providers.get("ask-form.mcp")?.provideMcpServerDefinitions() ?? []
+    const { recorder, provider, dispose } = await start()
+    const [definition] = provider.provideMcpServerDefinitions()
     if (definition === undefined) {
       throw new Error("MCP server definition is missing")
     }
@@ -55,6 +64,57 @@ describe("SPEC-EXT-001 MCPサーバーの登録", () => {
         assert.equal(tool.annotations?.readOnlyHint, true)
       })
     ))
+})
+
+describe("SPEC-EXT-006 MCPを使わない環境", () => {
+  it("SPEC-EXT-006 設定でMCPを切るか、組織がMCPを制限するとMCPサーバーを提供せず、変更を通知する", async () => {
+    const { recorder, provider, dispose } = await start()
+    let notified = 0
+    ;(
+      provider as unknown as { readonly onDidChangeMcpServerDefinitions: (listener: () => void) => unknown }
+    ).onDidChangeMcpServerDefinitions(() => notified++)
+    assert.equal(provider.provideMcpServerDefinitions().length, 1)
+    recorder.changeSetting("askForm.mcp.enabled", false)
+    assert.equal(provider.provideMcpServerDefinitions().length, 0)
+    recorder.changeSetting("askForm.mcp.enabled", true)
+    assert.equal(provider.provideMcpServerDefinitions().length, 1)
+    recorder.changeSetting("chat.mcp.access", "registry")
+    assert.equal(provider.provideMcpServerDefinitions().length, 0)
+    recorder.changeSetting("chat.mcp.access", "all")
+    recorder.changeSetting("unrelated.setting", 1)
+    assert.equal(notified, 4)
+    await dispose()
+  })
+
+  it("SPEC-EXT-006 デスクトップ版でもツールを登録し、パネルに表示して回答を返す", async () => {
+    const { recorder, dispose } = await start()
+    const tool = recorder.tools.get(webTool)
+    assert.ok(tool)
+    const pending = tool.invoke({ input: eventSpec }, cancellation().token)
+    const panel = recorder.panels[0]
+    assert.ok(panel)
+    panel.receive({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "form_answer", arguments: { formKey, action: "delegate" } }
+    })
+    assert.match(resultText(await pending), /"status":"delegated"/)
+    await dispose()
+  })
+
+  it("SPEC-EXT-006 ツールはweb版と、MCPを切った環境、組織がMCPを制限した環境で有効になる", async () => {
+    const manifest = await readManifest<{
+      readonly contributes: {
+        readonly languageModelTools: ReadonlyArray<{ readonly name: string; readonly when?: string }>
+        readonly configuration: { readonly properties: Record<string, { readonly type: string; readonly default: unknown }> }
+      }
+    }>()
+    const declared = manifest.contributes.languageModelTools.find((item) => item.name === webTool)
+    assert.equal(declared?.when, "isWeb || !config.askForm.mcp.enabled || config.chat.mcp.access != 'all'")
+    const setting = manifest.contributes.configuration.properties["askForm.mcp.enabled"]
+    assert.deepEqual([setting?.type, setting?.default], ["boolean", true])
+  })
 })
 
 describe("SPEC-EXT-002 待機の表示", () => {
@@ -161,12 +221,10 @@ describe("SPEC-EXT-004 web版", () => {
     assert.equal(visible(recorder), false)
   })
 
-  it("SPEC-EXT-004 ツールはweb版でだけ有効になる", async () => {
-    const manifest = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as {
-      readonly contributes: { readonly languageModelTools: ReadonlyArray<{ readonly name: string; readonly when?: string }> }
-    }
-    const declared = manifest.contributes.languageModelTools.find((item) => item.name === webTool)
-    assert.equal(declared?.when, "isWeb")
+  it("SPEC-EXT-004 ツール名は予約された接頭辞を使わない", async () => {
+    const manifest = await readManifest<{
+      readonly contributes: { readonly languageModelTools: ReadonlyArray<{ readonly name: string }> }
+    }>()
     for (const tool of manifest.contributes.languageModelTools) {
       assert.match(tool.name, /^[\w-]+$/)
       assert.doesNotMatch(tool.name, /^(?:vscode_|copilot_)/)
@@ -176,9 +234,9 @@ describe("SPEC-EXT-004 web版", () => {
 
 describe("SPEC-EXT-005 起動とサイズ", () => {
   it("SPEC-EXT-005 起動完了後に読み込まれ、読み込みと起動処理が予算内に終わる", async () => {
-    const manifest = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as {
+    const manifest = await readManifest<{
       readonly activationEvents: ReadonlyArray<string>
-    }
+    }>()
     assert.equal(manifest.activationEvents.includes("*"), false)
     assert.equal(manifest.activationEvents.includes("onStartupFinished"), true)
     const budgets = JSON.parse(await readFile(new URL("../../budgets.json", import.meta.url), "utf8")) as { readonly activationMs: number }

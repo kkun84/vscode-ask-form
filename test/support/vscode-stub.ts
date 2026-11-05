@@ -49,6 +49,8 @@ export interface Recorder {
   readonly tools: Map<string, { readonly invoke: (options: { readonly input: unknown }, token: FakeToken) => Promise<unknown> }>
   readonly providers: Map<string, { readonly provideMcpServerDefinitions: () => ReadonlyArray<McpHttpServerDefinition> }>
   readonly panels: Array<FakePanel>
+  readonly settings: Map<string, unknown>
+  readonly changeSetting: (key: string, value: unknown) => void
 }
 
 export interface FakeToken {
@@ -139,8 +141,32 @@ const createPanel = (title: string): FakePanel & { readonly api: unknown } => {
   }
 }
 
+interface ConfigEvent {
+  readonly affectsConfiguration: (key: string) => boolean
+}
+
+const createRecorder = (): Recorder & { readonly configChanged: Emitter<ConfigEvent> } => {
+  const configChanged = new Emitter<ConfigEvent>()
+  const settings = new Map<string, unknown>()
+  return {
+    commands: [],
+    files: new Map(),
+    status: [],
+    tools: new Map(),
+    providers: new Map(),
+    panels: [],
+    settings,
+    configChanged,
+    changeSetting: (key, value) => {
+      settings.set(key, value)
+      configChanged.fire({ affectsConfiguration: (candidate) => key === candidate || key.startsWith(`${candidate}.`) })
+    }
+  }
+}
+
 export const createVscode = (language = "ja"): { readonly vscode: unknown; readonly recorder: Recorder } => {
-  const recorder: Recorder = { commands: [], files: new Map(), status: [], tools: new Map(), providers: new Map(), panels: [] }
+  const recorder = createRecorder()
+  const configChanged = recorder.configChanged
   const vscode = {
     EventEmitter: Emitter,
     McpHttpServerDefinition,
@@ -173,6 +199,10 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
       }
     },
     workspace: {
+      getConfiguration: (section: string) => ({
+        get: <T>(key: string, fallback: T): T => (recorder.settings.get(`${section}.${key}`) as T | undefined) ?? fallback
+      }),
+      onDidChangeConfiguration: configChanged.event,
       fs: {
         createDirectory: () => Promise.resolve(),
         readFile: (target: FakeUri) => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { installPanelBridge } from "../../src/extension/web/bridge.ts"
+import { installPanelBridge } from "../../src/extension/shared/bridge.ts"
 import { connect } from "../../src/ui/bridge.ts"
 import { useWindow } from "../support/window.ts"
 

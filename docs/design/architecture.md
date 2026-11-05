@@ -21,6 +21,7 @@ src/
 
 ```text
 extension/node ──▶ mcp/http ──▶ mcp/server ──▶ mcp/pending ──▶ mcp/ports ──▶ core
+extension/node ──▶ extension/shared
 extension/web  ──▶ extension/shared ──▶ core ◀── ui
 ```
 
