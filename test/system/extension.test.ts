@@ -221,6 +221,14 @@ describe("SPEC-EXT-004 web版", () => {
     assert.equal(visible(recorder), false)
   })
 
+  it("SPEC-EXT-004 回答せずにパネルを閉じると、チャットで答える結果を返す", async () => {
+    const opened = web()
+    const result = opened.tool.invoke({ input: eventSpec }, cancellation().token)
+    opened.recorder.panels.at(-1)?.dispose()
+    assert.match(resultText(await result), /"status":"answer_in_chat"/)
+    assert.equal(visible(opened.recorder), false)
+  })
+
   it("SPEC-EXT-004 ツール名は予約された接頭辞を使わない", async () => {
     const manifest = await readManifest<{
       readonly contributes: { readonly languageModelTools: ReadonlyArray<{ readonly name: string }> }
