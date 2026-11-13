@@ -84,6 +84,22 @@ body {
   border: 0;
 }
 
+.branching {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.branch {
+  margin-left: 6px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+
+.branch[hidden] {
+  display: none;
+}
+
 .field legend,
 .field label:first-child {
   padding: 0;

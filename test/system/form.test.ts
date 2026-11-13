@@ -1,8 +1,10 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Effect, Fiber, Result } from "effect"
+import { initialValues } from "../../src/core/form.ts"
 import { compile } from "../../src/core/validate.ts"
 import { eventSpec } from "../fixtures/event.ts"
+import { storageForm, storageSpec } from "../fixtures/storage.ts"
 import { structured, text, withHarness, type Harness } from "../support/server.ts"
 
 const rejected = (h: Harness, spec: Record<string, unknown>) =>
@@ -33,6 +35,62 @@ describe("SPEC-FORM-001 設計図の形", () => {
         yield* rejected(h, { title: "t", fields: [field({ id: "1st" })] })
         yield* rejected(h, { title: "t", fields: [field({ type: "slider" })] })
         yield* rejected(h, { title: "t", fields: [field({ reason: "r".repeat(121) })] })
+      })
+    ))
+})
+
+describe("SPEC-FORM-001 選択肢ごとの項目", () => {
+  it("SPEC-FORM-001 選択肢がfieldsを持つ設計図を受け付ける", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const fiber = yield* Effect.forkChild(h.call("ask_form", storageSpec))
+        yield* h.waitUntil(1)
+        yield* Fiber.interrupt(fiber)
+      })
+    ))
+
+  it("SPEC-FORM-002 複数選択の枝、2段の入れ子、枝をまたぐidの重複、40個を超える項目を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const two = [{ value: "b", label: "B" }]
+        const message = yield* rejected(h, {
+          title: "t",
+          fields: [
+            field(),
+            {
+              type: "choice",
+              id: "m",
+              label: "M",
+              multiple: true,
+              options: [{ value: "a", label: "A", fields: [field({ id: "x" })] }, ...two]
+            },
+            {
+              type: "choice",
+              id: "d",
+              label: "D",
+              options: [
+                {
+                  value: "a",
+                  label: "A",
+                  fields: [
+                    { type: "choice", id: "inner", label: "I", options: [{ value: "a", label: "A", fields: [field({ id: "z" })] }, ...two] }
+                  ]
+                },
+                { value: "b", label: "B", fields: [field()] }
+              ]
+            }
+          ]
+        })
+        for (const expected of ["id「name」が重複しています", "項目「m」は複数選択なので", "項目「inner」の選択肢にfieldsがあります"]) {
+          assert.ok(message.includes(expected), `${expected} in ${message}`)
+        }
+        const wide = Array.from({ length: 5 }, (_, index) => ({
+          type: "choice",
+          id: `c${index}`,
+          label: "C",
+          options: [{ value: "a", label: "A", fields: Array.from({ length: 8 }, (_item, n) => field({ id: `f${index}_${n}` })) }, ...two]
+        }))
+        assert.match(yield* rejected(h, { title: "t", fields: wide }), /入れ子も含めて45個/)
       })
     ))
 })
@@ -139,6 +197,22 @@ describe("SPEC-EXPR-001 計算式", () => {
         yield* h.call("form_answer", { formKey: key, action: "delegate" })
         const computed = structured(yield* Fiber.join(fiber))["computed"]
         assert.deepEqual(computed, { arith: 18.5, logic: 1, funcs: 9.23, choice: 2, text: true, prior: 27.73, divide: null })
+      })
+    ))
+})
+
+describe("SPEC-MCP-003 回答を待つ", () => {
+  it("SPEC-MCP-003 選ばれていない選択肢の項目は回答に入れない", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const values = { ...initialValues(storageForm.spec), storage: "server", port: 3000 }
+        const fiber = yield* Effect.forkChild(h.call("ask_form", storageSpec))
+        yield* h.waitUntil(1)
+        yield* h.call("form_answer", { formKey: storageForm.key, action: "submit", values })
+        const outcome = structured(yield* Fiber.join(fiber))
+        assert.deepEqual(outcome["values"], { name: "my-todo", storage: "server", port: 3000, auth: false })
+        assert.deepEqual(outcome["changedByUser"], ["storage", "port"])
+        assert.deepEqual(outcome["computed"], { cost: 1000 })
       })
     ))
 })

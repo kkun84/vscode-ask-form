@@ -1,4 +1,7 @@
 import {
+  activeFields,
+  allFields,
+  answerValues,
   changedFields,
   computeValues,
   describeComputed,
@@ -44,6 +47,7 @@ export class FormApp {
   private rawSpec: Readonly<Record<string, unknown>> = {}
   private values: Record<string, FieldValue> = {}
   private guesses: Values = {}
+  private remembered: Values = {}
   private baseline: Values = {}
   private summaryValues: Values = {}
   private placed = false
@@ -53,6 +57,7 @@ export class FormApp {
   private stopStatus: (() => void) | undefined
   private readonly live = {
     hints: new Map<string, HTMLElement>(),
+    branches: [] as Array<{ readonly id: string; readonly value: string; readonly element: HTMLElement }>,
     computed: undefined as HTMLElement | undefined,
     status: undefined as HTMLElement | undefined,
     primary: undefined as HTMLButtonElement | undefined,
@@ -97,6 +102,7 @@ export class FormApp {
     this.form = form
     this.rawSpec = args
     this.guesses = initialValues(form.spec)
+    this.remembered = this.guesses
     this.values = { ...this.guesses }
     this.baseline = this.guesses
     this.summaryValues = this.guesses
@@ -125,10 +131,11 @@ export class FormApp {
     }
     const values = content["values"]
     if (values !== undefined && typeof values === "object" && values !== null && this.form !== undefined) {
+      this.remembered = { ...this.values }
       this.baseline = values as Values
       this.summaryValues = this.baseline
       this.placed = false
-      this.values = { ...(values as Values) }
+      this.values = this.editable(this.baseline)
     }
     this.phase = { kind: "summary", status }
     this.render()
@@ -170,9 +177,10 @@ export class FormApp {
       this.error = resultText(result)
       return
     }
-    this.baseline = action === "delegate" ? this.guesses : values
+    this.remembered = { ...this.values }
+    this.baseline = action === "delegate" ? this.answered(this.guesses) : values
     this.summaryValues = this.baseline
-    this.values = { ...this.baseline }
+    this.values = this.editable(this.baseline)
     this.phase = { kind: "summary", status: statusOf[action] }
   }
 
@@ -181,7 +189,7 @@ export class FormApp {
     if (form === undefined) {
       return Promise.resolve()
     }
-    const values = { ...this.values }
+    const values = this.answered(this.values)
     return this.whileBusy(async (bridge) => {
       const result = await bridge.callTool("form_answer", {
         formKey: form.key,
@@ -196,7 +204,7 @@ export class FormApp {
     if (this.changedSinceAnswer().length === 0) {
       return Promise.resolve()
     }
-    const after = { ...this.values }
+    const after = this.answered(this.values)
     return this.whileBusy(async (bridge) => {
       const result = await bridge.callTool("form_resend", {
         spec: this.rawSpec,
@@ -210,9 +218,10 @@ export class FormApp {
       }
       const failure = await this.deliver(bridge, result)
       if (failure === undefined) {
+        this.remembered = { ...this.values }
         this.summaryValues = after
         this.placed = true
-        this.values = { ...after }
+        this.values = this.editable(after)
         this.phase = { kind: "summary", status: "submitted" }
       } else {
         this.error = failure
@@ -237,6 +246,14 @@ export class FormApp {
     return undefined
   }
 
+  private answered(values: Values): Values {
+    return this.form === undefined ? values : answerValues(this.form.spec, values)
+  }
+
+  private editable(values: Values): Record<string, FieldValue> {
+    return { ...this.guesses, ...this.remembered, ...values }
+  }
+
   private changedSinceAnswer(): ReadonlyArray<string> {
     return this.form === undefined ? [] : changedFields(this.form.spec, this.baseline, this.values)
   }
@@ -258,6 +275,7 @@ export class FormApp {
   private render(): void {
     this.syncStatus()
     this.live.hints.clear()
+    this.live.branches.length = 0
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
@@ -339,7 +357,7 @@ export class FormApp {
   }
 
   private cancelResend(): void {
-    this.values = { ...this.summaryValues }
+    this.values = this.editable(this.summaryValues)
     this.error = undefined
     this.phase = { kind: "summary", status: "submitted" }
     this.render()
@@ -352,6 +370,25 @@ export class FormApp {
   }
 
   private fieldView(field: Field): HTMLElement {
+    if (field.type !== "choice" || field.options.every((option) => option.fields === undefined)) {
+      return this.plainFieldView(field)
+    }
+    const branches = field.options.flatMap((option) => {
+      if (option.fields === undefined) {
+        return []
+      }
+      const element = h(
+        "div",
+        { class: "fields branch", "data-branch": option.value },
+        option.fields.map((nested) => this.plainFieldView(nested))
+      )
+      this.live.branches.push({ id: field.id, value: option.value, element })
+      return [element]
+    })
+    return h("div", { class: "branching" }, this.choiceView(field), branches)
+  }
+
+  private plainFieldView(field: Field): HTMLElement {
     switch (field.type) {
       case "text":
         return this.textView(field)
@@ -548,7 +585,7 @@ export class FormApp {
       return h("section", { class: "card summary", role: "status" }, head)
     }
     const changedByUser = changedFields(form.spec, this.guesses, this.summaryValues)
-    const rows = form.spec.fields.map((field) =>
+    const rows = activeFields(form.spec, this.summaryValues).map((field) =>
       h(
         "div",
         { class: "summary-row" },
@@ -583,7 +620,7 @@ export class FormApp {
 
   private refreshHints(form: CompiledForm, sinceAnswer: ReadonlyArray<string>): void {
     const sinceGuess = changedFields(form.spec, this.guesses, this.values)
-    for (const field of form.spec.fields) {
+    for (const field of allFields(form.spec)) {
       const hint = this.live.hints.get(field.id)
       if (hint !== undefined) {
         ;[hint.textContent, hint.className] = this.hintFor(field, sinceAnswer, sinceGuess)
@@ -623,6 +660,9 @@ export class FormApp {
       return
     }
     const sinceAnswer = this.changedSinceAnswer()
+    for (const branch of this.live.branches) {
+      branch.element.hidden = this.values[branch.id] !== branch.value
+    }
     this.refreshHints(form, sinceAnswer)
     this.refreshComputed(form)
     if (this.live.status !== undefined) {

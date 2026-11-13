@@ -1,17 +1,19 @@
 import { Result, Schema } from "effect"
 import { references, parse } from "./expression.ts"
-import { isMultiple, prepare, type CompiledForm, type FieldValue, type Values } from "./form.ts"
+import { activeFields, allFields, isMultiple, prepare, type CompiledForm, type FieldValue, type Values } from "./form.ts"
 import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
+const maxTotalFields = 40
+
 const duplicateIds = (spec: FormSpec): ReadonlyArray<string> => {
-  const ids = [...spec.fields.map((field) => field.id), ...(spec.computed ?? []).map((item) => item.id)]
+  const ids = [...allFields(spec).map((field) => field.id), ...(spec.computed ?? []).map((item) => item.id)]
   return ids.filter((id, index) => ids.indexOf(id) !== index).map((id) => `id「${id}」が重複しています`)
 }
 
 const expressionProblems = (spec: FormSpec): ReadonlyArray<string> => {
-  const known = new Set(spec.fields.map((field) => field.id))
+  const known = new Set(allFields(spec).map((field) => field.id))
   return (spec.computed ?? []).flatMap((item) => {
     const result = parse(item.expression)
     const problems = result.ok
@@ -24,11 +26,29 @@ const expressionProblems = (spec: FormSpec): ReadonlyArray<string> => {
   })
 }
 
-const semanticProblems = (spec: FormSpec): ReadonlyArray<string> => [
+const totalProblems = (spec: FormSpec): ReadonlyArray<string> => {
+  const total = allFields(spec).length
+  return total > maxTotalFields ? [`項目が入れ子も含めて${total}個あります。${maxTotalFields}個以下にしてください`] : []
+}
+
+const semanticProblems = (spec: FormSpec, input: unknown): ReadonlyArray<string> => [
+  ...totalProblems(spec),
   ...duplicateIds(spec),
-  ...spec.fields.flatMap((field) => fieldProblems(field)),
+  ...deepBranches(input),
+  ...allFields(spec).flatMap((field) => fieldProblems(field)),
   ...expressionProblems(spec)
 ]
+
+const records = (value: unknown): ReadonlyArray<Readonly<Record<string, unknown>>> =>
+  Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => item !== null && typeof item === "object") : []
+
+const deepBranches = (input: unknown): ReadonlyArray<string> =>
+  records([input])
+    .flatMap((spec) => records(spec["fields"]))
+    .flatMap((field) => records(field["options"]))
+    .flatMap((option) => records(option["fields"]))
+    .filter((nested) => records(nested["options"]).some((option) => "fields" in option))
+    .map((nested) => `項目「${String(nested["id"])}」の選択肢にfieldsがあります。選択肢の中の項目は、さらに入れ子にできません`)
 
 const numberProblems = (field: NumberField): ReadonlyArray<string> => {
   if (field.min >= field.max) {
@@ -58,7 +78,11 @@ const choiceDefaultProblems = (field: ChoiceField, values: ReadonlySet<string>):
 const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
   const values = new Set(field.options.map((option) => option.value))
   const duplicated = values.size === field.options.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
-  return [...duplicated, ...choiceDefaultProblems(field, values)]
+  const branched =
+    isMultiple(field) && field.options.some((option) => option.fields !== undefined)
+      ? [`項目「${field.id}」は複数選択なので、選択肢にfieldsを付けられません`]
+      : []
+  return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
 }
 
 const fieldProblems = (field: Field): ReadonlyArray<string> => {
@@ -78,7 +102,7 @@ export const compile = (input: unknown): Result.Result<CompiledForm, ReadonlyArr
     return Result.fail([decoded.failure.message])
   }
   const spec = decoded.success
-  const problems = semanticProblems(spec)
+  const problems = semanticProblems(spec, input)
   if (problems.length > 0) {
     return Result.fail(problems)
   }
@@ -122,11 +146,12 @@ export const checkValues = (spec: FormSpec, input: unknown): Result.Result<Value
     return Result.fail(["valuesはオブジェクトが必要です"])
   }
   const record = input as Record<string, unknown>
-  const problems = spec.fields
+  const fields = activeFields(spec, record as Values)
+  const problems = fields
     .map((field) => valueProblem(field, record[field.id]))
     .filter((problem): problem is string => problem !== undefined)
   if (problems.length > 0) {
     return Result.fail(problems)
   }
-  return Result.succeed(Object.fromEntries(spec.fields.map((field) => [field.id, record[field.id] as FieldValue])))
+  return Result.succeed(Object.fromEntries(fields.map((field) => [field.id, record[field.id] as FieldValue])))
 }

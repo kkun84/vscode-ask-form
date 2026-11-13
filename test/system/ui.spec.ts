@@ -1,6 +1,7 @@
 import { expect, test, type Frame, type Page } from "@playwright/test"
 import AxeBuilder from "../support/axe.ts"
 import { eventSpec } from "../fixtures/event.ts"
+import { storageSpec } from "../fixtures/storage.ts"
 import { openForm, recorded, startServer, type HarnessServer, type PageOptions } from "../support/ui.ts"
 import { themeContext, type ThemeName } from "../support/themes.ts"
 
@@ -15,6 +16,8 @@ test.afterAll(async () => {
 })
 
 const open = (page: Page, options: Partial<PageOptions> = {}): Promise<Frame> => openForm(page, server, { args: eventSpec, ...options })
+
+const openStorage = (page: Page) => open(page, { args: storageSpec })
 
 const themes = ["dark", "light", "highContrast"] as const satisfies ReadonlyArray<ThemeName>
 
@@ -35,6 +38,16 @@ interface OutcomeLike {
   readonly status: string
   readonly values?: Record<string, unknown>
   readonly changedByUser?: ReadonlyArray<string>
+}
+
+const selectStorage = async (frame: Frame, name: string) => {
+  await frame.getByRole("radio", { name }).check()
+}
+
+const singleOutcome = async (page: Page): Promise<OutcomeLike | undefined> => {
+  await expect.poll(() => recorded<OutcomeLike>(page, "outcomes")).toHaveLength(1)
+  const [outcome] = await recorded<OutcomeLike>(page, "outcomes")
+  return outcome
 }
 
 test.describe("SPEC-UI-001 初期表示", () => {
@@ -77,8 +90,7 @@ test.describe("SPEC-UI-003 回答の操作", () => {
     const frame = await open(page)
     await frame.getByRole("radio", { name: "勉強会" }).check()
     await frame.getByRole("button", { name: "この内容で進める" }).click()
-    await expect.poll(() => recorded<OutcomeLike>(page, "outcomes")).toHaveLength(1)
-    const [outcome] = await recorded<OutcomeLike>(page, "outcomes")
+    const outcome = await singleOutcome(page)
     expect(outcome?.status).toBe("submitted")
     expect(outcome?.changedByUser).toEqual(["format"])
   })
@@ -406,6 +418,63 @@ for (const name of themes) {
     })
   })
 }
+
+test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
+  test("SPEC-UI-011 選んだ選択肢の項目だけを表示し、切り替えても直した値を覚えておく", async ({ page }) => {
+    const frame = await openStorage(page)
+    const engine = frame.getByRole("group", { name: "保存方式" })
+    const port = frame.getByRole("spinbutton", { name: "ポート" })
+    await expect(engine).toBeVisible()
+    await expect(port).toBeHidden()
+    await selectStorage(frame, "サーバー")
+    await expect(engine).toBeHidden()
+    await port.fill("3000")
+    await selectStorage(frame, "保存しない")
+    await expect(port).toBeHidden()
+    await selectStorage(frame, "サーバー")
+    await expect(port).toHaveValue("3000")
+    const results = await new AxeBuilder(frame).analyze()
+    expect(results.violations.map((violation) => violation.id)).toEqual([])
+  })
+
+  test("SPEC-UI-011 回答と要約には選んだ選択肢の項目だけを含める", async ({ page }) => {
+    const frame = await openStorage(page)
+    await frame.getByRole("radio", { name: "サーバー" }).check()
+    await frame.getByRole("spinbutton", { name: "ポート" }).fill("3000")
+    await frame.getByRole("button", { name: "この内容で進める" }).click()
+    const outcome = await singleOutcome(page)
+    expect(outcome?.values).toEqual({ name: "my-todo", storage: "server", port: 3000, auth: false })
+    expect(outcome?.changedByUser).toEqual(["storage", "port"])
+    const summary = frame.locator(".summary")
+    await expect(summary.locator(".summary-row")).toHaveText([
+      "アプリ名my-todo",
+      "保存先サーバーあなたが変更",
+      "ポート3,000あなたが変更",
+      "ログインが必要オフ"
+    ])
+  })
+
+  test("SPEC-UI-011 送り直しでは、切り替えて現れた枝の項目も回答からの変更に数える", async ({ page }) => {
+    const frame = await openStorage(page)
+    await frame.getByRole("button", { name: "この内容で進める" }).click()
+    await frame.getByRole("button", { name: "変更して送り直す" }).click()
+    await frame.getByRole("radio", { name: "サーバー" }).check()
+    await expect(frame.locator(".status")).toHaveText("3項目を変更")
+  })
+
+  test("SPEC-UI-011 回答した後も、選ばれていない枝で直した値を覚えておく", async ({ page }) => {
+    const frame = await openStorage(page)
+    await selectStorage(frame, "サーバー")
+    const port = frame.getByRole("spinbutton", { name: "ポート" })
+    await port.fill("3000")
+    await selectStorage(frame, "ブラウザ")
+    await expect(port).toBeHidden()
+    await frame.getByRole("button", { name: "この内容で進める" }).click()
+    await frame.getByRole("button", { name: "変更して送り直す" }).click()
+    await selectStorage(frame, "サーバー")
+    await expect(port).toHaveValue("3000")
+  })
+})
 
 test.describe("SPEC-UI-009 表示の言語", () => {
   test("SPEC-UI-009 英語のロケールでは英語で表示する", async ({ page }) => {

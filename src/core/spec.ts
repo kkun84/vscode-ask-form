@@ -47,13 +47,16 @@ const ChoiceOption = Schema.Struct({
   description: Schema.optionalKey(text(120))
 })
 
-const ChoiceField = Schema.Struct({
+const choiceFields = {
   type: Schema.Literal("choice"),
   ...commonFields,
-  options: Schema.Array(ChoiceOption).check(Schema.isMinLength(2), Schema.isMaxLength(12)),
   default: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
   multiple: Schema.optionalKey(Schema.Boolean)
-})
+}
+
+const options = <S extends Schema.Top>(option: S) => Schema.Array(option).check(Schema.isMinLength(2), Schema.isMaxLength(12))
+
+const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
 
 const ToggleField = Schema.Struct({
   type: Schema.Literal("toggle"),
@@ -61,6 +64,20 @@ const ToggleField = Schema.Struct({
   default: Schema.optionalKey(Schema.Boolean),
   note: Schema.optionalKey(text(40))
 })
+
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, ToggleField])
+
+const BranchOption = Schema.Struct({
+  ...ChoiceOption.fields,
+  fields: Schema.optionalKey(
+    Schema.Array(NestedField).check(Schema.isMinLength(1), Schema.isMaxLength(10)).annotate({
+      description:
+        "Follow-up fields asked only while this option is selected. Only for a single-select choice at the top level; the answer contains only the chosen option's fields."
+    })
+  )
+})
+
+const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
 const Field = Schema.Union([TextField, NumberField, ChoiceField, ToggleField])
 
