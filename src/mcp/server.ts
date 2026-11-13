@@ -44,6 +44,7 @@ export const askFormDescription = [
   "Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those).",
   "For a single simple choice, prefer the built-in askQuestions tool instead.",
   "Always prefill every field with your best guess from the workspace and conversation, and explain the source in reason, so the user only fixes what is wrong.",
+  "When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields.",
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",
   "The result tells you whether the user submitted values, delegated the decision to you, or will answer in chat."

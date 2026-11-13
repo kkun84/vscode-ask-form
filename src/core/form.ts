@@ -15,6 +15,20 @@ export interface CompiledForm {
 
 export const isMultiple = (field: ChoiceField): boolean => field.multiple === true
 
+const branchFields = (field: Field, value: FieldValue | undefined): ReadonlyArray<Field> =>
+  field.type === "choice" && !isMultiple(field) ? (field.options.find((option) => option.value === value)?.fields ?? []) : []
+
+export const allFields = (spec: FormSpec): ReadonlyArray<Field> =>
+  spec.fields.flatMap((field) => [field, ...(field.type === "choice" ? field.options.flatMap((option) => option.fields ?? []) : [])])
+
+export const activeFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> =>
+  spec.fields.flatMap((field) => [field, ...branchFields(field, values[field.id])])
+
+export const answerValues = (spec: FormSpec, values: Values): Values =>
+  Object.fromEntries(
+    activeFields(spec, values).flatMap((field) => (values[field.id] === undefined ? [] : [[field.id, values[field.id] as FieldValue]]))
+  )
+
 const parseExpressions = (spec: FormSpec): ReadonlyMap<string, Expr> => {
   const expressions = new Map<string, Expr>()
   for (const item of spec.computed ?? []) {
@@ -45,7 +59,7 @@ const initialValue = (field: Field): FieldValue => {
   }
 }
 
-export const initialValues = (spec: FormSpec): Values => Object.fromEntries(spec.fields.map((field) => [field.id, initialValue(field)]))
+export const initialValues = (spec: FormSpec): Values => Object.fromEntries(allFields(spec).map((field) => [field.id, initialValue(field)]))
 
 const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefined => {
   if (value === undefined) {
@@ -59,7 +73,7 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
 
 export const computeValues = (form: CompiledForm, values: Values): ComputedValues => {
   const scope = new Map<string, Value | undefined>()
-  for (const field of form.spec.fields) {
+  for (const field of activeFields(form.spec, values)) {
     scope.set(field.id, scopeValue(field, values[field.id]))
   }
   return Object.fromEntries(
@@ -81,7 +95,9 @@ const sameValue = (a: FieldValue | undefined, b: FieldValue | undefined): boolea
 }
 
 export const changedFields = (spec: FormSpec, before: Values, after: Values): ReadonlyArray<string> =>
-  spec.fields.filter((field) => !sameValue(before[field.id], after[field.id])).map((field) => field.id)
+  activeFields(spec, after)
+    .filter((field) => !sameValue(before[field.id], after[field.id]))
+    .map((field) => field.id)
 
 const affixed = (text: string, prefix: string | undefined, suffix: string | undefined): string => `${prefix ?? ""}${text}${suffix ?? ""}`
 
@@ -130,7 +146,7 @@ export const resendMessage = (spec: FormSpec, before: Values, after: Values, m: 
   if (changed.length === 0) {
     return undefined
   }
-  const parts = spec.fields
+  const parts = activeFields(spec, after)
     .filter((field) => changed.includes(field.id))
     .map((field) => m.changeTo(field.label, describeValue(field, after[field.id], m)))
   return m.resendSentence(parts, spec.title)
@@ -158,7 +174,7 @@ export const outcomeFor = (form: CompiledForm, action: Action, values: Values): 
         computed: computeValues(form, values)
       }
     case "delegate": {
-      const defaults = initialValues(form.spec)
+      const defaults = answerValues(form.spec, initialValues(form.spec))
       return { status: "delegated", values: defaults, computed: computeValues(form, defaults) }
     }
     case "chat":

@@ -1,23 +1,12 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Result } from "effect"
-import { changedFields, computeValues, initialValues, outcomeFor, resendMessage, type CompiledForm } from "../../src/core/form.ts"
-import { checkValues, compile } from "../../src/core/validate.ts"
+import { changedFields, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
+import { checkValues } from "../../src/core/validate.ts"
 import { canonicalJson, stableHash } from "../../src/core/hash.ts"
 import { messages } from "../../src/core/messages.ts"
 import { eventSpec } from "../fixtures/event.ts"
-
-const compiled = (input: unknown): CompiledForm => {
-  const result = compile(input)
-  assert.ok(Result.isSuccess(result), Result.isFailure(result) ? result.failure.join("\n") : "")
-  return result.success
-}
-
-const problems = (input: unknown): ReadonlyArray<string> => {
-  const result = compile(input)
-  assert.ok(Result.isFailure(result), "expected the spec to be rejected")
-  return result.failure
-}
+import { compiled, problems } from "../support/compile.ts"
 
 const withFields = (fields: ReadonlyArray<unknown>, computed: ReadonlyArray<unknown> = []) => ({
   title: "t",
