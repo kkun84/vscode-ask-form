@@ -131,13 +131,30 @@ const createPanel = (title: string): FakePanel & { readonly api: unknown } => {
     },
     onDidReceiveMessage: received.event
   }
+  let isDisposed = false
+  const dispose = () => {
+    if (isDisposed) {
+      return
+    }
+    isDisposed = true
+    disposed.fire()
+  }
   return {
     title,
     html: () => html,
     sent,
     receive: (message) => received.fire(message),
-    dispose: () => disposed.fire(),
-    api: { webview, onDidDispose: disposed.event, dispose: () => disposed.fire() }
+    dispose,
+    api: {
+      get webview() {
+        if (isDisposed) {
+          throw new Error("Webview is disposed")
+        }
+        return webview
+      },
+      onDidDispose: disposed.event,
+      dispose
+    }
   }
 }
 
