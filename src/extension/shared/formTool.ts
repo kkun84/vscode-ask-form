@@ -34,7 +34,8 @@ const askInPanel = (
     },
     { enableScripts: true, retainContextWhenHidden: true }
   )
-  panel.webview.html = panelHtml()
+  const webview = panel.webview
+  webview.html = panelHtml()
   counter.value++
   waiting.update(counter.value)
   return new Promise<Outcome>((resolve) => {
@@ -52,12 +53,12 @@ const askInPanel = (
       form,
       args,
       context: { theme: themeOf(vscode.window.activeColorTheme.kind), locale: vscode.env.language },
-      post: (message) => void panel.webview.postMessage(message),
+      post: (message) => void webview.postMessage(message),
       onOutcome: finish,
       onResend: (request) => postToChat(context.globalStorageUri, request)
     })
     const subscriptions = [
-      panel.webview.onDidReceiveMessage((message: unknown) => void host.receive(message)),
+      webview.onDidReceiveMessage((message: unknown) => void host.receive(message)),
       panel.onDidDispose(() => {
         host.cancel()
         finish({ status: "answer_in_chat" })
