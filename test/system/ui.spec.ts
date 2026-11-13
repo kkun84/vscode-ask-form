@@ -461,6 +461,19 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     await frame.getByRole("radio", { name: "サーバー" }).check()
     await expect(frame.locator(".status")).toHaveText("3項目を変更")
   })
+
+  test("SPEC-UI-011 回答した後も、選ばれていない枝で直した値を覚えておく", async ({ page }) => {
+    const frame = await openStorage(page)
+    await selectStorage(frame, "サーバー")
+    const port = frame.getByRole("spinbutton", { name: "ポート" })
+    await port.fill("3000")
+    await selectStorage(frame, "ブラウザ")
+    await expect(port).toBeHidden()
+    await frame.getByRole("button", { name: "この内容で進める" }).click()
+    await frame.getByRole("button", { name: "変更して送り直す" }).click()
+    await selectStorage(frame, "サーバー")
+    await expect(port).toHaveValue("3000")
+  })
 })
 
 test.describe("SPEC-UI-009 表示の言語", () => {

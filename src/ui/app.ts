@@ -47,6 +47,7 @@ export class FormApp {
   private rawSpec: Readonly<Record<string, unknown>> = {}
   private values: Record<string, FieldValue> = {}
   private guesses: Values = {}
+  private remembered: Values = {}
   private baseline: Values = {}
   private summaryValues: Values = {}
   private placed = false
@@ -101,6 +102,7 @@ export class FormApp {
     this.form = form
     this.rawSpec = args
     this.guesses = initialValues(form.spec)
+    this.remembered = this.guesses
     this.values = { ...this.guesses }
     this.baseline = this.guesses
     this.summaryValues = this.guesses
@@ -129,6 +131,7 @@ export class FormApp {
     }
     const values = content["values"]
     if (values !== undefined && typeof values === "object" && values !== null && this.form !== undefined) {
+      this.remembered = { ...this.values }
       this.baseline = values as Values
       this.summaryValues = this.baseline
       this.placed = false
@@ -174,6 +177,7 @@ export class FormApp {
       this.error = resultText(result)
       return
     }
+    this.remembered = { ...this.values }
     this.baseline = action === "delegate" ? this.answered(this.guesses) : values
     this.summaryValues = this.baseline
     this.values = this.editable(this.baseline)
@@ -214,6 +218,7 @@ export class FormApp {
       }
       const failure = await this.deliver(bridge, result)
       if (failure === undefined) {
+        this.remembered = { ...this.values }
         this.summaryValues = after
         this.placed = true
         this.values = this.editable(after)
@@ -246,7 +251,7 @@ export class FormApp {
   }
 
   private editable(values: Values): Record<string, FieldValue> {
-    return { ...this.guesses, ...values }
+    return { ...this.guesses, ...this.remembered, ...values }
   }
 
   private changedSinceAnswer(): ReadonlyArray<string> {
