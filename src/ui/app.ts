@@ -432,8 +432,12 @@ export class FormApp {
       "section",
       { class: nested ? "q sub" : "q", "aria-labelledby": labelId },
       h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), answer, toggle),
-      this.control(field, labelId),
-      field.type === "choice" ? null : note
+      h(
+        "div",
+        { class: field.type === "choice" ? "q-group choices" : "q-group" },
+        this.control(field, labelId),
+        field.type === "choice" ? null : note
+      )
     )
     this.live.cards.push({ field, element, toggle, answer, note })
     if (toggle !== null) {

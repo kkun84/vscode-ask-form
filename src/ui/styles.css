@@ -70,22 +70,15 @@ body {
 .fields {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 20px;
 }
 
 .reveal {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  margin: 2px 0 8px 13px;
-  padding: 4px 0 4px 17px;
-  border-left: 2px solid var(--border);
-}
-
-.q.sub {
-  padding: 0;
-  border: 0;
-  background: transparent;
+  margin: 2px 0 6px;
+  padding: 4px 10px 10px 34px;
 }
 
 .reveal[hidden] {
@@ -95,11 +88,8 @@ body {
 .q {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px 12px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
+  gap: 6px;
+  min-width: 0;
 }
 
 .q.folded .option-details,
@@ -110,8 +100,44 @@ body {
 .q-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: 24px;
+  padding: 0 4px;
+}
+
+.q-label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.q.sub .q-label {
+  font-size: 12px;
+}
+
+.q-answer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.q-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+.q-group.choices {
+  padding: 4px;
+}
+
+.q.sub .q-group {
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
 }
 
 .fold {
@@ -142,20 +168,6 @@ body {
 
 .fold[aria-expanded="true"]::before {
   transform: translateY(2px) rotate(-135deg);
-}
-
-.q-label {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
-}
-
-.q-answer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: 12px;
 }
 
 .row {
@@ -206,34 +218,36 @@ input[type="radio"] {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 0 -6px;
 }
 
 .option {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 6px;
-  border-radius: 4px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
 .option:hover {
-  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
 }
 
 .option:has(input:checked) {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .option:has(input:focus-visible) {
-  outline: 1px solid var(--focus);
-  outline-offset: 1px;
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 .option input {
   flex: none;
-  margin: 3px 0 0;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
 }
 
 .option-text {
@@ -274,8 +288,6 @@ input[type="radio"] {
   flex-direction: column;
   gap: 2px;
   margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
   font-size: 12px;
 }
 
@@ -326,40 +338,6 @@ input[type="radio"] {
   font-weight: 600;
   line-height: 1.6;
   white-space: nowrap;
-}
-
-input[role="switch"] {
-  appearance: none;
-  position: relative;
-  flex: none;
-  width: 32px;
-  height: 18px;
-  margin: 0;
-  border: 1px solid var(--contrast-border);
-  border-radius: 9px;
-  background: var(--input-border);
-  cursor: pointer;
-  transition: background 120ms ease;
-}
-
-input[role="switch"]::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ffffff;
-  transition: transform 120ms ease;
-}
-
-input[role="switch"]:checked {
-  background: var(--accent);
-}
-
-input[role="switch"]:checked::after {
-  transform: translateX(14px);
 }
 
 .advanced {
@@ -529,8 +507,12 @@ summary:focus-visible {
 }
 
 @media (forced-colors: active) {
-  input[role="switch"],
-  .option:has(input:checked) {
+  .q-group {
     border: 1px solid CanvasText;
+  }
+
+  .option:has(input:checked) {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
 }
