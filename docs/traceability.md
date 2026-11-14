@@ -7,7 +7,7 @@
 | ID | 名前 | 派生元 | 派生先 | 検証 |
 | --- | --- | --- | --- | --- |
 | REQ-ASK-001 | フォームで質問できる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-MCP-001, SPEC-MCP-002, SPEC-MCP-004, SPEC-EXT-001 | `test/acceptance/chat.ts`, MAT-ASK-001 |
-| REQ-ASK-002 | 推測値と根拠が見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.ts`, MAT-ASK-001 |
+| REQ-ASK-002 | AIの案と出どころが見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.ts`, MAT-ASK-001 |
 | REQ-ASK-003 | 結果がその場で変わる | - | SPEC-FORM-001, SPEC-EXPR-001, SPEC-UI-002 | MAT-ASK-001 |
 | REQ-ASK-004 | 選んだ選択肢に応じて続きを聞ける | - | SPEC-FORM-002, SPEC-MCP-003, SPEC-UI-011 | MAT-ASK-002 |
 | REQ-ANS-001 | 1回の操作で回答が届く | - | SPEC-MCP-001, SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-006, SPEC-UI-003 | `test/acceptance/chat.ts`, MAT-ANS-001 |

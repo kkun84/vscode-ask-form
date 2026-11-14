@@ -51,13 +51,13 @@ const singleOutcome = async (page: Page): Promise<OutcomeLike | undefined> => {
 }
 
 test.describe("SPEC-UI-001 初期表示", () => {
-  test("SPEC-UI-001 推測値と根拠を表示し、変えた項目は「あなたが変更」にする", async ({ page }) => {
+  test("SPEC-UI-001 AIの案と出どころを表示し、変えた項目は「あなたが変更」にする", async ({ page }) => {
     const frame = await open(page)
     await expect(frame.getByLabel("イベント名")).toHaveValue("技術交流会 2026")
     await expect(frame.getByRole("radio", { name: "交流会" })).toBeChecked()
-    await expect(frame.getByText("AIの推測: README.mdより")).toBeVisible()
+    await expect(frame.getByText("AIの案: README.mdより")).toBeVisible()
     await frame.getByLabel("イベント名").fill("技術交流会 秋")
-    await expect(frame.getByText("AIの推測: README.mdより")).toHaveCount(0)
+    await expect(frame.getByText("AIの案: README.mdより")).toHaveCount(0)
     await expect(frame.getByText("あなたが変更")).toBeVisible()
   })
 
@@ -481,7 +481,7 @@ test.describe("SPEC-UI-009 表示の言語", () => {
     const frame = await open(page, { context: { locale: "en-US" } })
     await expect(frame.getByRole("button", { name: "Let AI decide" })).toBeVisible()
     await expect(frame.getByRole("button", { name: "Answer in chat" })).toBeVisible()
-    await expect(frame.getByText("AI guess: README.mdより")).toBeVisible()
+    await expect(frame.getByText("AI suggestion: README.mdより")).toBeVisible()
   })
 })
 

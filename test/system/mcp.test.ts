@@ -94,7 +94,7 @@ describe("SPEC-MCP-003 回答を待つ", () => {
       })
     ))
 
-  it("SPEC-MCP-003 AIに任せた場合は推測値のまま返す", () =>
+  it("SPEC-MCP-003 AIに任せた場合はAIの案のまま返す", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const outcome = structured(yield* answered(h, "delegate"))
