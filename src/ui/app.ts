@@ -39,16 +39,18 @@ const resultText = (result: ToolResult): string => (result.content ?? []).map((i
 
 const isExpired = (result: ToolResult): boolean => result.isError === true && /expired/.test(resultText(result))
 
-const whyView = (field: Field, m: Messages): HTMLElement | null =>
+const whyView = (field: Field, prefix?: string): HTMLElement | null =>
   field.reason === undefined
     ? null
     : h(
         "span",
         { class: "why" },
-        h("span", { class: "why-label" }, m.whyRecommended),
-        h("span", {}, field.reason),
+        h("span", {}, prefix === undefined ? field.reason : `${prefix}: ${field.reason}`),
         field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails)
       )
+
+const hasDetails = (field: Field): boolean =>
+  field.reasonDetails !== undefined || (field.type === "choice" && field.options.some((option) => option.details !== undefined))
 
 const affix = (content: string | undefined): HTMLElement | null => (content === undefined ? null : h("span", { class: "muted" }, content))
 
@@ -72,8 +74,7 @@ export class FormApp {
     cards: [] as Array<{
       readonly field: Field
       readonly element: HTMLElement
-      readonly head: HTMLElement
-      readonly body: HTMLElement
+      readonly toggle: HTMLElement | null
       readonly answer: HTMLElement
       readonly note: HTMLElement
     }>,
@@ -83,7 +84,7 @@ export class FormApp {
     primary: undefined as HTMLButtonElement | undefined,
     form: undefined as HTMLElement | undefined
   }
-  private openId: string | undefined
+  private readonly folded = new Set<string>()
 
   private readonly root: HTMLElement
 
@@ -128,7 +129,7 @@ export class FormApp {
     this.baseline = this.guesses
     this.summaryValues = this.guesses
     this.placed = false
-    this.openId = allFields(form.spec)[0]?.id
+    this.folded.clear()
     if (this.phase.kind === "loading") {
       this.phase = { kind: "answering" }
     }
@@ -303,7 +304,7 @@ export class FormApp {
     this.live.primary = undefined
     this.live.form = undefined
     this.root.replaceChildren(this.view())
-    this.openCard(this.openId)
+    this.applyFolds()
     this.refresh()
   }
 
@@ -407,25 +408,34 @@ export class FormApp {
 
   private card(field: Field): HTMLElement {
     const labelId = uid("label")
-    const bodyId = uid("body")
     const answer = h("span", { class: "q-answer" })
-    const head = h(
-      "button",
-      { type: "button", class: "q-head", "aria-expanded": "false", "aria-controls": bodyId },
-      h("span", { class: "q-label", id: labelId }, field.label),
-      answer,
-      h("span", { class: "q-chevron", "aria-hidden": "true" })
-    )
+    const toggle = hasDetails(field) ? h("button", { type: "button", class: "fold" }) : null
     const note = h("div", { class: "q-note" })
-    const body = h(
-      "div",
-      { class: "q-body", id: bodyId, hidden: true },
-      this.control(field, labelId),
+    const element = h(
+      "section",
+      { class: "q", "aria-labelledby": labelId },
+      h(
+        "div",
+        { class: "q-head" },
+        h("span", { class: "q-label", id: labelId }, field.label),
+        answer,
+        toggle,
+        field.type === "toggle" ? this.control(field, labelId) : null
+      ),
+      field.type === "toggle" ? null : this.control(field, labelId),
       field.type === "choice" ? null : note
     )
-    const element = h("section", { class: "q" }, head, body)
-    this.live.cards.push({ field, element, head, body, answer, note })
-    on(head, "click", () => this.openCard(element.classList.contains("open") ? undefined : field.id))
+    this.live.cards.push({ field, element, toggle, answer, note })
+    if (toggle !== null) {
+      on(toggle, "click", () => this.setFolded(field.id, !this.folded.has(field.id)))
+      const unfold = (event: Event) => {
+        if (event.target !== toggle) {
+          this.setFolded(field.id, false)
+        }
+      }
+      on(element, "pointerdown", unfold)
+      on(element, "focusin", unfold)
+    }
     return element
   }
 
@@ -442,29 +452,24 @@ export class FormApp {
     }
   }
 
-  private openCard(id: string | undefined): void {
-    this.openId = id
-    for (const card of this.live.cards) {
-      const open = card.field.id === id
-      card.element.classList.toggle("open", open)
-      card.body.hidden = !open
-      card.head.setAttribute("aria-expanded", String(open))
+  private setFolded(id: string, folded: boolean): void {
+    if (folded) {
+      this.folded.add(id)
+    } else {
+      this.folded.delete(id)
     }
+    this.applyFolds()
   }
 
-  private openNext(id: string): void {
-    const shown = this.live.cards.filter((card) => card.element.closest("[hidden], details:not([open])") === null)
-    this.openCard(shown[shown.findIndex((card) => card.field.id === id) + 1]?.field.id)
-  }
-
-  private advanceOnEnter(field: Field, input: HTMLElement): void {
-    on(input, "keydown", (event) => {
-      if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && !event.shiftKey && !(input instanceof HTMLTextAreaElement)) {
-        event.preventDefault()
-        input.dispatchEvent(new Event("change"))
-        this.openNext(field.id)
+  private applyFolds(): void {
+    for (const card of this.live.cards) {
+      const folded = this.folded.has(card.field.id) && card.toggle !== null
+      card.element.classList.toggle("folded", folded)
+      card.toggle?.setAttribute("aria-expanded", String(!folded))
+      if (card.toggle !== null) {
+        card.toggle.textContent = folded ? `${this.m.more} ▾` : `${this.m.less} ▴`
       }
-    })
+    }
   }
 
   private textView(field: TextField, labelId: string): HTMLElement {
@@ -472,7 +477,6 @@ export class FormApp {
     const common = { name: field.id, "aria-labelledby": labelId, placeholder: field.placeholder }
     const input = field.multiline === true ? h("textarea", { ...common, rows: 3 }, value) : h("input", { ...common, type: "text", value })
     on(input, "input", () => this.setValue(field.id, input.value))
-    this.advanceOnEnter(field, input)
     return input
   }
 
@@ -514,7 +518,6 @@ export class FormApp {
         exact.value = slider.value
       }
     })
-    this.advanceOnEnter(field, exact)
     return h("div", { class: "row" }, slider, affix(field.prefix), exact, affix(field.suffix))
   }
 
@@ -534,13 +537,13 @@ export class FormApp {
         } else if (input.checked) {
           this.setValue(field.id, option.value)
           if (pointing) {
-            this.openNext(field.id)
+            this.setFolded(field.id, true)
           }
         }
         pointing = false
       })
       const isRecommended = recommended.includes(option.value)
-      const why = isRecommended ? whyView(field, this.m) : null
+      const why = isRecommended ? whyView(field) : null
       return h(
         "label",
         { class: isRecommended ? "option recommended" : "option" },
@@ -614,7 +617,10 @@ export class FormApp {
         ? null
         : on(h("button", { type: "button", class: "link" }, this.m.editAndResend), "click", () => {
             this.phase = { kind: "resending" }
-            this.openId = undefined
+            this.folded.clear()
+            for (const field of allFields(this.form?.spec ?? { title: "", fields: [] })) {
+              this.folded.add(field.id)
+            }
             this.render()
           })
     )
@@ -655,12 +661,9 @@ export class FormApp {
     for (const card of this.live.cards) {
       const field = card.field
       const changed = sinceRecommended.includes(field.id)
-      card.answer.replaceChildren(
-        h("span", { class: "q-value" }, describeValue(field, this.values[field.id], this.m)),
-        this.answerTag(field, changed, sinceAnswer.includes(field.id)) ?? ""
-      )
+      card.answer.replaceChildren(this.answerTag(field, changed, sinceAnswer.includes(field.id)) ?? "")
       if (field.type !== "choice") {
-        card.note.replaceChildren(...[this.backView(field, changed), whyView(field, this.m)].filter((node) => node !== null))
+        card.note.replaceChildren(...[this.backView(field, changed), whyView(field, this.m.whyRecommended)].filter((node) => node !== null))
       }
     }
   }
@@ -679,7 +682,7 @@ export class FormApp {
     if (recommended === undefined) {
       return null
     }
-    return changed ? h("span", { class: "muted" }, this.m.recommendedWas(recommended)) : h("span", { class: "badge" }, this.m.recommended)
+    return changed ? h("span", { class: "muted" }, this.m.recommendedWas(recommended)) : null
   }
 
   private backView(field: Field, changed: boolean): HTMLElement | null {

@@ -76,41 +76,41 @@ body {
 }
 
 .branch {
-  margin-left: 14px;
-  padding-left: 10px;
-  border-left: 2px solid var(--border);
+  margin-left: 20px;
 }
 
-.branch[hidden],
-.q-body[hidden] {
+.branch[hidden] {
   display: none;
 }
 
 .q {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg);
 }
 
-.q.open {
-  border-color: var(--focus);
+.q.folded .option-details,
+.q.folded .why-details {
+  display: none;
 }
 
 .q-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  min-height: 38px;
-  padding: 8px 12px;
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--fg);
-  text-align: left;
+  min-height: 24px;
 }
 
-.q-head:hover {
-  background: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
+.fold {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--link);
+  font-size: 12px;
 }
 
 .q-label {
@@ -125,33 +125,6 @@ body {
   gap: 8px;
   min-width: 0;
   font-size: 12px;
-}
-
-.q-value {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.q.open .q-answer {
-  display: none;
-}
-
-.q-chevron::before {
-  content: "▸";
-  color: var(--muted);
-}
-
-.q.open .q-chevron::before {
-  content: "▾";
-}
-
-.q-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 0 12px 12px;
 }
 
 .row {
@@ -197,23 +170,25 @@ input[type="radio"] {
 .options {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+  margin: 0 -6px;
 }
 
 .option {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  background: var(--input-bg);
+  padding: 6px;
+  border-radius: 4px;
   cursor: pointer;
 }
 
+.option:hover {
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
 .option:has(input:checked) {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--input-bg));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .option:has(input:focus-visible) {
@@ -229,7 +204,7 @@ input[type="radio"] {
 .option-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -238,7 +213,10 @@ input[type="radio"] {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
+}
+
+.option-summary {
+  color: var(--muted);
 }
 
 .option-details,
@@ -251,18 +229,9 @@ input[type="radio"] {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: 4px;
-  padding: 8px 10px;
-  border-left: 2px solid var(--link);
-  border-radius: 0 4px 4px 0;
-  background: color-mix(in srgb, var(--link) 8%, transparent);
-  font-size: 12px;
-}
-
-.why-label {
+  margin-top: 2px;
   color: var(--link);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
 }
 
 .q-note {
@@ -501,7 +470,6 @@ summary:focus-visible {
 
 @media (forced-colors: active) {
   input[role="switch"],
-  .q.open,
   .option:has(input:checked) {
     border: 1px solid CanvasText;
   }
