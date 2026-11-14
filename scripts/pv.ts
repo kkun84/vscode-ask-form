@@ -232,7 +232,7 @@ run([
   "-c:v",
   "copy",
   "-af",
-  "highshelf=f=7000:g=-4,loudnorm=I=-30:TP=-9:LRA=11",
+  "highshelf=f=7000:g=-4,loudnorm=I=-18:TP=-1.5:LRA=11",
   "-ar",
   "48000",
   "-c:a",

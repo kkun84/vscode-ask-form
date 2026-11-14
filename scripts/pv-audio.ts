@@ -129,20 +129,14 @@ const wav = (left: Float32Array, right: Float32Array): Buffer => {
   return buffer
 }
 
-const fillBackground = (
-  background: Track,
-  source: { readonly left: Float32Array; readonly right: Float32Array },
-  duration: number
-): void => {
+const fillBackground = (background: Track, source: { readonly left: Float32Array; readonly right: Float32Array }): void => {
   if (source.left.length === 0) {
     return
   }
   for (let index = 0; index < background.left.length; index++) {
-    const time = index / rate
-    const fade = Math.min(1, time, (duration - time) / 2.5)
     const at = index % source.left.length
-    background.left[index] = (source.left[at] ?? 0) * fade
-    background.right[index] = (source.right[at] ?? 0) * fade
+    background.left[index] = source.left[at] ?? 0
+    background.right[index] = source.right[at] ?? 0
   }
 }
 
@@ -150,7 +144,7 @@ export const renderAudio = async (arrangement: Arrangement, path: string): Promi
   const background = new Track(arrangement.duration)
   const file = await songFile()
   if (file !== null) {
-    fillBackground(background, song(file), arrangement.duration)
+    fillBackground(background, song(file))
   }
   const foreground = new Track(arrangement.duration)
   effects(foreground, arrangement.cues)

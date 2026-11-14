@@ -412,6 +412,7 @@ const choose = async (page: Page, frame: Frame, pointer: Pointer): Promise<void>
   const storage = frame.getByRole("group", { name: "保存先" })
   const branch = frame.locator(".branch:not([hidden])")
   await look(page, [storage, branch], branch, "ブラウザなら、保存方式を聞く", 1200)
+  await focusOn(page, null)
   await pointer.click(frame.locator("label.option", { hasText: "サーバー" }))
   await sleep(800)
   await look(page, [storage, branch], branch, "サーバーなら、ポートとログインを聞く", 1500)
