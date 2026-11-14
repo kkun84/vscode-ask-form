@@ -73,12 +73,15 @@ body {
   gap: 20px;
 }
 
+.q-chain,
 .reveal {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin: 2px 0 6px;
-  padding: 4px 10px 10px 34px;
+  gap: 20px;
+}
+
+.reveal {
+  margin-left: 16px;
 }
 
 .reveal[hidden] {
@@ -111,7 +114,14 @@ body {
   font-weight: 600;
 }
 
-.q.sub .q-label {
+.q-context {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.q-desc {
+  margin: -2px 4px 2px;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -134,10 +144,6 @@ body {
 
 .q-group.choices {
   padding: 4px;
-}
-
-.q.sub .q-group {
-  background: color-mix(in srgb, var(--fg) 4%, transparent);
 }
 
 .fold {
@@ -235,7 +241,7 @@ input[type="radio"] {
 }
 
 .option:has(input:checked) {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, var(--fg) 9%, transparent);
 }
 
 .option:has(input:focus-visible) {
@@ -252,6 +258,7 @@ input[type="radio"] {
 
 .option-text {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
@@ -283,27 +290,39 @@ input[type="radio"] {
   font-size: 12px;
 }
 
-.option-why {
+.rec {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--link) 13%, transparent);
   font-size: 12px;
 }
 
-.option-why-label {
+.option .rec {
+  margin-top: 6px;
+}
+
+.rec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.rec-title {
   color: var(--link);
   font-size: 11px;
   font-weight: 600;
 }
 
-.q-hint {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
+.rec-value {
+  font-weight: 600;
+}
+
+.rec .link {
+  align-self: flex-start;
+  margin: 4px 0 0;
 }
 
 .q-note {
@@ -314,19 +333,6 @@ input[type="radio"] {
 
 .q-note:empty {
   display: none;
-}
-
-.back {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.back .link {
-  margin-left: 0;
 }
 
 .badge {
@@ -507,6 +513,7 @@ summary:focus-visible {
 }
 
 @media (forced-colors: active) {
+  .rec,
   .q-group {
     border: 1px solid CanvasText;
   }

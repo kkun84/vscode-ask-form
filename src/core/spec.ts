@@ -10,15 +10,20 @@ const Identifier = Schema.String.check(Schema.isMaxLength(40), Schema.isPattern(
 const commonFields = {
   id: Identifier,
   label: required(60).annotate({ description: "Label shown to the user, in the user's language." }),
+  description: Schema.optionalKey(
+    text(120).annotate({
+      description: "What this question asks or what the value is used for, independent of your recommendation. Shown under the label."
+    })
+  ),
   reason: Schema.optionalKey(
     text(60).annotate({
       description:
-        "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence of advice that helps the user decide the value, such as what the prefilled value means or when to change it."
+        "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value."
     })
   ),
   reasonDetails: Schema.optionalKey(
     text(300).annotate({
-      description: "More on why the default fits, in full sentences. Can be hidden by the user."
+      description: "More on why you recommend the default, in full sentences. Can be hidden by the user."
     })
   ),
   advanced: Schema.optionalKey(

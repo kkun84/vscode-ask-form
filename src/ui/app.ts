@@ -40,26 +40,20 @@ const resultText = (result: ToolResult): string => (result.content ?? []).map((i
 
 const isExpired = (result: ToolResult): boolean => result.isError === true && /expired/.test(resultText(result))
 
-const noteView = (field: Field): HTMLElement | null =>
-  field.reason === undefined
-    ? null
-    : h(
-        "p",
-        { class: "q-hint" },
-        h("span", {}, field.reason),
-        field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails)
-      )
-
-const optionWhyView = (field: Field, m: Messages): HTMLElement | null =>
-  field.reason === undefined
-    ? null
-    : h(
-        "span",
-        { class: "option-why" },
-        h("span", { class: "option-why-label" }, m.whyRecommended),
-        h("span", {}, field.reason),
-        field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails)
-      )
+const recView = (field: Field, title: string, value: string | undefined, action: HTMLElement | null): HTMLElement =>
+  h(
+    "div",
+    { class: "rec" },
+    h(
+      "span",
+      { class: "rec-head" },
+      h("span", { class: "rec-title" }, title),
+      value === undefined ? null : h("span", { class: "rec-value" }, value)
+    ),
+    field.reason === undefined ? null : h("span", { class: "rec-reason" }, field.reason),
+    field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails),
+    action
+  )
 
 const hasDetails = (field: Field): boolean =>
   field.reasonDetails !== undefined || (field.type === "choice" && field.options.some((option) => option.details !== undefined))
@@ -97,6 +91,7 @@ export class FormApp {
     form: undefined as HTMLElement | undefined
   }
   private readonly folded = new Set<string>()
+  private pendingReveals: ReadonlyArray<HTMLElement> = []
 
   private readonly root: HTMLElement
 
@@ -407,7 +402,7 @@ export class FormApp {
   }
 
   private fieldView(field: Field): HTMLElement {
-    return this.card(field, false)
+    return this.card(field)
   }
 
   private reveal(field: ChoiceField, option: ChoiceField["options"][number]): HTMLElement | null {
@@ -417,21 +412,33 @@ export class FormApp {
     const element = h(
       "div",
       { class: "reveal" },
-      option.fields.map((nested) => this.card(nested, true))
+      option.fields.map((nested) => this.card(nested, option.label))
     )
     this.live.branches.push({ id: field.id, value: option.value, element })
     return element
   }
 
-  private card(field: Field, nested: boolean): HTMLElement {
+  private card(field: Field, context?: string): HTMLElement {
     const labelId = uid("label")
     const answer = h("span", { class: "q-answer" })
     const toggle = hasDetails(field) ? h("button", { type: "button", class: "fold" }) : null
     const note = h("div", { class: "q-note" })
     const element = h(
       "section",
-      { class: nested ? "q sub" : "q", "aria-labelledby": labelId },
-      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), answer, toggle),
+      { class: context === undefined ? "q" : "q sub", "aria-labelledby": labelId },
+      h(
+        "div",
+        { class: "q-head" },
+        h(
+          "span",
+          { class: "q-label", id: labelId },
+          context === undefined ? null : h("span", { class: "q-context" }, `${context} › `),
+          field.label
+        ),
+        answer,
+        toggle
+      ),
+      field.description === undefined ? null : h("p", { class: "q-desc" }, field.description),
       h(
         "div",
         { class: field.type === "choice" ? "q-group choices" : "q-group" },
@@ -439,6 +446,8 @@ export class FormApp {
         field.type === "choice" ? null : note
       )
     )
+    const reveals = this.pendingReveals
+    this.pendingReveals = []
     this.live.cards.push({ field, element, toggle, answer, note })
     if (toggle !== null) {
       on(toggle, "click", () => this.setFolded(field.id, !this.folded.has(field.id)))
@@ -451,7 +460,7 @@ export class FormApp {
       on(element, "pointerdown", unfold)
       on(element, "focusin", unfold)
     }
-    return element
+    return reveals.length === 0 ? element : h("div", { class: "q-chain" }, element, ...reveals)
   }
 
   private control(field: Field, labelId: string): HTMLElement {
@@ -556,6 +565,7 @@ export class FormApp {
     const name = uid(field.id)
     const current = this.values[field.id]
     let pointing = false
+    const reveals: Array<HTMLElement> = []
     const options = field.options.flatMap((option) => {
       const checked = multiple ? Array.isArray(current) && current.includes(option.value) : current === option.value
       const input = h("input", { type: multiple ? "checkbox" : "radio", name, value: option.value, checked })
@@ -582,11 +592,14 @@ export class FormApp {
           h("span", { class: "option-head" }, option.label, isRecommended ? h("span", { class: "badge" }, this.m.recommended) : null),
           option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
           option.details === undefined ? null : h("span", { class: "option-details" }, option.details),
-          isRecommended ? optionWhyView(field, this.m) : null
+          isRecommended && field.reason !== undefined ? recView(field, this.m.whyRecommended, undefined, null) : null
         )
       )
       const revealed = this.reveal(field, option)
-      return revealed === null ? [row] : [row, revealed]
+      if (revealed !== null) {
+        reveals.push(revealed)
+      }
+      return [row]
     })
     const group = h("div", { class: "options", role: multiple ? "group" : "radiogroup", "aria-labelledby": labelId }, options)
     on(group, "pointerdown", () => {
@@ -595,6 +608,7 @@ export class FormApp {
     on(group, "keydown", () => {
       pointing = false
     })
+    this.pendingReveals = reveals
     return group
   }
 
@@ -687,7 +701,7 @@ export class FormApp {
       const changed = sinceRecommended.includes(field.id)
       card.answer.replaceChildren(this.answerTag(field, sinceAnswer.includes(field.id)) ?? "")
       if (field.type !== "choice") {
-        card.note.replaceChildren(...[noteView(field), this.resetView(field, changed)].filter((node) => node !== null))
+        card.note.replaceChildren(...[this.recommendationView(field, changed)].filter((node) => node !== null))
       }
     }
   }
@@ -705,16 +719,18 @@ export class FormApp {
     return null
   }
 
-  private resetView(field: Field, changed: boolean): HTMLElement | null {
-    const initial = this.initialText(field)
-    if (initial === undefined || !changed) {
+  private recommendationView(field: Field, changed: boolean): HTMLElement | null {
+    const recommended = this.initialText(field)
+    if (recommended === undefined || field.reason === undefined) {
       return null
     }
-    const reset = on(h("button", { type: "button", class: "link" }, this.m.resetTo(initial)), "click", () => {
-      this.values[field.id] = this.guesses[field.id] as FieldValue
-      this.render()
-    })
-    return h("p", { class: "back" }, reset)
+    const back = changed
+      ? on(h("button", { type: "button", class: "link" }, this.m.backToRecommended), "click", () => {
+          this.values[field.id] = this.guesses[field.id] as FieldValue
+          this.render()
+        })
+      : null
+    return recView(field, this.m.recommended, recommended, back)
   }
 
   private refreshComputed(form: CompiledForm): void {
