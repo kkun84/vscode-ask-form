@@ -443,7 +443,8 @@ export class FormApp {
       on(toggle, "click", () => this.setFolded(field.id, !this.folded.has(field.id)))
       const unfold = (event: Event) => {
         const target = event.target as HTMLElement
-        if (target !== toggle && target.closest(".q") === element) {
+        const choosing = target.closest(".option") !== null && !(event.type === "focusin" && target.matches(":focus-visible"))
+        if (target !== toggle && !choosing && target.closest(".q") === element) {
           this.setFolded(field.id, false)
         }
       }
