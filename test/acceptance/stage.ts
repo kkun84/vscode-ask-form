@@ -417,7 +417,7 @@ const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorde
   recorder.mark("form")
   await sleep(900)
   const first = frame.locator(".hint").first()
-  await look(page, [frame.locator("form.card h1"), first], first, "AIの案と出どころ", 1800)
+  await look(page, [frame.locator("form.card h1"), first], first, "AIの推測と根拠", 1800)
 }
 
 const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {

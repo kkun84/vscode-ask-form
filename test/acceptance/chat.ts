@@ -96,7 +96,7 @@ test("REQ-ASK-001 Copilotのチャットで、AIがフォームで質問でき�
   await receiveForm(session, 0)
 })
 
-test("REQ-ASK-002 フォームにAIの案と出どころが表示される", async (session) => {
+test("REQ-ASK-002 フォームにAIの推測値と根拠が表示される", async (session) => {
   const frame = theFrame(session)
   check((await frame.getByLabel("イベント名").inputValue()) === "技術交流会 2026", "the guessed value is filled in")
   await frame.getByText("README.mdより").waitFor({ timeout: 10_000 })
@@ -117,7 +117,7 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
   await theFrame(session).locator(".summary").waitFor({ timeout: 30_000 })
 })
 
-test("REQ-ANS-002 AIに任せると、AIの案がdelegatedとしてモデルに届く", async (session) => {
+test("REQ-ANS-002 AIに任せると、推測値がdelegatedとしてモデルに届く", async (session) => {
   await newForm(session)
   await setAttendees(session, "180")
   const result = await answer(session, "Let AI decide")

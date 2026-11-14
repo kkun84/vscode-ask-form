@@ -8,6 +8,7 @@ import {
   describeValue,
   formatNumber,
   initialValues,
+  isMultiple,
   prepare,
   type CompiledForm,
   type FieldValue,
@@ -474,7 +475,10 @@ export class FormApp {
   private choiceView(field: ChoiceField): HTMLElement {
     const hintId = uid("hint")
     const multiple = field.multiple === true
-    const compact = !multiple && field.options.length <= 4 && field.options.every((option) => option.description === undefined)
+    const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
+    const reasonInOption = !multiple && field.reason !== undefined
+    const compact =
+      !multiple && !reasonInOption && field.options.length <= 4 && field.options.every((option) => option.description === undefined)
     const name = uid(field.id)
     const current = this.values[field.id]
     const options = field.options.map((option) => {
@@ -489,6 +493,7 @@ export class FormApp {
           this.setValue(field.id, option.value)
         }
       })
+      const isRecommended = recommended.includes(option.value)
       return h(
         "label",
         { for: inputId, class: "option" },
@@ -496,8 +501,9 @@ export class FormApp {
         h(
           "span",
           { class: "option-text" },
-          h("span", {}, option.label),
-          option.description === undefined ? null : h("span", { class: "muted" }, option.description)
+          h("span", { class: "option-head" }, option.label, isRecommended ? h("span", { class: "badge" }, this.m.recommended) : null),
+          option.description === undefined ? null : h("span", { class: "muted" }, option.description),
+          isRecommended && reasonInOption ? h("span", { class: "option-reason" }, `${this.m.whyRecommended}: ${field.reason}`) : null
         )
       )
     })
@@ -594,7 +600,9 @@ export class FormApp {
           "dd",
           {},
           describeValue(field, this.summaryValues[field.id], this.m),
-          changedByUser.includes(field.id) ? h("span", { class: "mark" }, this.m.changedByYou) : null
+          changedByUser.includes(field.id) && field.default !== undefined
+            ? h("span", { class: "mark" }, this.m.recommendedWas(describeValue(field, this.guesses[field.id], this.m)))
+            : null
         )
       )
     )
@@ -612,10 +620,15 @@ export class FormApp {
     if (this.phase.kind === "resending") {
       return [sinceAnswer.includes(field.id) ? this.m.changedSinceAnswer : "", "hint changed"]
     }
-    if (sinceGuess.includes(field.id)) {
-      return [this.m.changedByYou, "hint changed"]
+    if (field.type === "choice" && !isMultiple(field)) {
+      return ["", "hint"]
     }
-    return [field.reason === undefined ? "" : `${this.m.aiGuess}: ${field.reason}`, "hint"]
+    const why = field.reason === undefined ? "" : `${this.m.whyRecommended}: ${field.reason}`
+    if (field.type === "choice" || field.default === undefined || !sinceGuess.includes(field.id)) {
+      return [why, "hint"]
+    }
+    const was = this.m.recommendedWas(describeValue(field, this.guesses[field.id], this.m))
+    return [field.reason === undefined ? was : `${was} · ${field.reason}`, "hint changed"]
   }
 
   private refreshHints(form: CompiledForm, sinceAnswer: ReadonlyArray<string>): void {

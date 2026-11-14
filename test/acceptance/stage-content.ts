@@ -11,7 +11,7 @@ export const followUp = "1ページの件数を50件にしました。一覧の�
 
 export const captions: ReadonlyArray<{ readonly step: string; readonly text: string }> = [
   { step: "1 頼む", text: "設定を決めたいとき、「フォームで聞いて」と頼むと…" },
-  { step: "2 届く", text: "質問がフォームで届く。<em>AIの案</em>と出どころが入っている" },
+  { step: "2 届く", text: "質問がフォームで届く。<em>AIの推測</em>と根拠が入っている" },
   { step: "3 試す", text: "値を動かすと、<em>決める前に結果が分かる</em>" },
   { step: "4 答える", text: "<em>ボタン1つ</em>で回答。Copilotはそのまま作り始める" },
   { step: "5 直す", text: "あとで変えたくなっても、<em>変えた所だけ</em>伝えられる" }
