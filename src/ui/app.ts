@@ -51,7 +51,7 @@ const recView = (field: Field, title: string, value: string | undefined, action:
       value === undefined ? null : h("span", { class: "rec-value" }, value)
     ),
     field.reason === undefined ? null : h("span", { class: "rec-reason" }, field.reason),
-    field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails),
+    field.reasonDetails === undefined ? null : h("span", { class: "rec-details" }, field.reasonDetails),
     action
   )
 
@@ -67,7 +67,7 @@ export class FormApp {
   private form: CompiledForm | undefined
   private rawSpec: Readonly<Record<string, unknown>> = {}
   private values: Record<string, FieldValue> = {}
-  private guesses: Values = {}
+  private initial: Values = {}
   private remembered: Values = {}
   private baseline: Values = {}
   private summaryValues: Values = {}
@@ -129,11 +129,11 @@ export class FormApp {
     }
     this.form = form
     this.rawSpec = args
-    this.guesses = initialValues(form.spec)
-    this.remembered = this.guesses
-    this.values = { ...this.guesses }
-    this.baseline = this.guesses
-    this.summaryValues = this.guesses
+    this.initial = initialValues(form.spec)
+    this.remembered = this.initial
+    this.values = { ...this.initial }
+    this.baseline = this.initial
+    this.summaryValues = this.initial
     this.placed = false
     this.folded.clear()
     if (this.phase.kind === "loading") {
@@ -207,7 +207,7 @@ export class FormApp {
       return
     }
     this.remembered = { ...this.values }
-    this.baseline = action === "delegate" ? this.answered(this.guesses) : values
+    this.baseline = action === "delegate" ? this.answered(this.initial) : values
     this.summaryValues = this.baseline
     this.values = this.editable(this.baseline)
     this.phase = { kind: "summary", status: statusOf[action] }
@@ -286,7 +286,7 @@ export class FormApp {
   }
 
   private editable(values: Values): Record<string, FieldValue> {
-    return { ...this.guesses, ...this.remembered, ...values }
+    return { ...this.initial, ...this.remembered, ...values }
   }
 
   private changedSinceAnswer(): ReadonlyArray<string> {
@@ -646,7 +646,7 @@ export class FormApp {
     if (form === undefined || status === "answer_in_chat") {
       return h("section", { class: "card summary", role: "status" }, head)
     }
-    const changedByUser = changedFields(form.spec, this.guesses, this.summaryValues)
+    const changedByUser = changedFields(form.spec, this.initial, this.summaryValues)
     const rows = activeFields(form.spec, this.summaryValues).map((field) =>
       h(
         "div",
@@ -657,7 +657,7 @@ export class FormApp {
           {},
           describeValue(field, this.summaryValues[field.id], this.m),
           changedByUser.includes(field.id) && field.type === "choice" && field.default !== undefined
-            ? h("span", { class: "mark" }, this.m.recommendedWas(describeValue(field, this.guesses[field.id], this.m)))
+            ? h("span", { class: "mark" }, this.m.recommendedWas(describeValue(field, this.initial[field.id], this.m)))
             : null
         )
       )
@@ -676,11 +676,11 @@ export class FormApp {
     if (this.form === undefined) {
       return
     }
-    const sinceRecommended = changedFields(this.form.spec, this.guesses, this.values)
+    const sinceRecommended = changedFields(this.form.spec, this.initial, this.values)
     for (const card of this.live.cards) {
       const field = card.field
       const changed = sinceRecommended.includes(field.id)
-      card.answer.replaceChildren(this.answerTag(field, sinceAnswer.includes(field.id)) ?? "")
+      card.answer.replaceChildren(this.resendTag(field, sinceAnswer.includes(field.id)) ?? "")
       if (field.type !== "choice") {
         card.note.replaceChildren(...[this.recommendationView(field, changed)].filter((node) => node !== null))
       }
@@ -688,16 +688,13 @@ export class FormApp {
   }
 
   private initialText(field: Field): string | undefined {
-    return field.default === undefined ? undefined : describeValue(field, this.guesses[field.id], this.m)
+    return field.default === undefined ? undefined : describeValue(field, this.initial[field.id], this.m)
   }
 
-  private answerTag(field: Field, changedSinceAnswer: boolean): HTMLElement | null {
-    if (this.phase.kind === "resending") {
-      return changedSinceAnswer
-        ? h("span", { class: "muted" }, this.m.previously(describeValue(field, this.baseline[field.id], this.m)))
-        : null
-    }
-    return null
+  private resendTag(field: Field, changedSinceAnswer: boolean): HTMLElement | null {
+    return this.phase.kind === "resending" && changedSinceAnswer
+      ? h("span", { class: "muted" }, this.m.previously(describeValue(field, this.baseline[field.id], this.m)))
+      : null
   }
 
   private recommendationView(field: Field, changed: boolean): HTMLElement | null {
@@ -707,7 +704,7 @@ export class FormApp {
     }
     const back = changed
       ? on(h("button", { type: "button", class: "link" }, this.m.backToRecommended), "click", () => {
-          this.values[field.id] = this.guesses[field.id] as FieldValue
+          this.values[field.id] = this.initial[field.id] as FieldValue
           this.render()
         })
       : null

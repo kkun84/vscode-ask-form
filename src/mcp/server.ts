@@ -16,7 +16,7 @@ class FormRejected extends Schema.TaggedError<FormRejected, { readonly brand: un
   message: Schema.String
 }) {}
 
-const FieldValue = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Array(Schema.String)])
+const FieldValue = Schema.Union([Schema.String, Schema.Finite, Schema.Array(Schema.String)])
 const Values = Schema.Record(Schema.String, FieldValue)
 const ComputedValues = Schema.Record(Schema.String, Schema.NullOr(Schema.Union([Schema.Finite, Schema.String, Schema.Boolean])))
 

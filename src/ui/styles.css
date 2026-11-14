@@ -100,7 +100,7 @@ body {
 }
 
 .q.folded .option-details,
-.q.folded .why-details {
+.q.folded .rec-details {
   display: none;
 }
 
@@ -275,17 +275,8 @@ input[type="radio"] {
 }
 
 .option-details,
-.why-details {
+.rec-details {
   color: var(--muted);
-  font-size: 12px;
-}
-
-.why {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 2px;
-  color: var(--link);
   font-size: 12px;
 }
 

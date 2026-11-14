@@ -3,7 +3,7 @@ import { stableHash } from "./hash.ts"
 import type { Messages } from "./messages.ts"
 import type { ChoiceField, Computed, Field, FormSpec } from "./spec.ts"
 
-export type FieldValue = string | number | boolean | ReadonlyArray<string>
+export type FieldValue = string | number | ReadonlyArray<string>
 export type Values = Readonly<Record<string, FieldValue>>
 export type ComputedValues = Readonly<Record<string, Value | null>>
 

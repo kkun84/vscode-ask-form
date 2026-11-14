@@ -103,7 +103,7 @@ describe("SPEC-FORM-002 設計図の意味的な検査", () => {
           title: "t",
           fields: [
             field(),
-            field({ type: "toggle" }),
+            field({ label: "名前2" }),
             { type: "number", id: "n", label: "N", min: 0, max: 10, default: 11 },
             {
               type: "choice",
@@ -151,7 +151,16 @@ const expressionSpec = {
   fields: [
     { type: "number", id: "a", label: "A", min: 0, max: 100, default: 7 },
     { type: "number", id: "b", label: "B", min: 0, max: 100, default: 0 },
-    { type: "toggle", id: "on", label: "On", default: true },
+    {
+      type: "choice",
+      id: "on",
+      label: "On",
+      options: [
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" }
+      ],
+      default: "yes"
+    },
     {
       type: "choice",
       id: "pick",
@@ -178,7 +187,7 @@ const expressionSpec = {
   ],
   computed: [
     { id: "arith", label: "1", expression: "(a + 3) * 2 - a % 4 / 2" },
-    { id: "logic", label: "2", expression: "on && a >= 7 && !(b != 0) ? 1 : 0" },
+    { id: "logic", label: "2", expression: "on == 'yes' && a >= 7 && !(b != 0) ? 1 : 0" },
     { id: "funcs", label: "3", expression: "max(min(a, 5), abs(-2)) + floor(2.7) + ceil(0.2) + round(1.234, 2)" },
     { id: "choice", label: "4", expression: "pick == 'y' ? many : -1" },
     { id: "text", label: "5", expression: 'word == "hi"' },
@@ -210,7 +219,7 @@ describe("SPEC-MCP-003 回答を待つ", () => {
         yield* h.waitUntil(1)
         yield* h.call("form_answer", { formKey: storageForm.key, action: "submit", values })
         const outcome = structured(yield* Fiber.join(fiber))
-        assert.deepEqual(outcome["values"], { name: "my-todo", storage: "server", port: 3000, auth: false })
+        assert.deepEqual(outcome["values"], { name: "my-todo", storage: "server", port: 3000, auth: "no" })
         assert.deepEqual(outcome["changedByUser"], ["storage", "port"])
         assert.deepEqual(outcome["computed"], { cost: 1000 })
       })

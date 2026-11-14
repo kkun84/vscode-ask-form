@@ -29,8 +29,6 @@ const ja = {
   changedCount: (n: number) => `${n}項目を変更`,
   waiting: "回答を待っています",
   sending: "送信中…",
-  on: "オン",
-  off: "オフ",
   none: "なし",
   empty: "(空欄)",
   listSeparator: "、",
@@ -40,8 +38,7 @@ const ja = {
   openConversation: "このフォームのある会話を開き、入力欄を空にしてから、もう一度送ってください",
   resendSentence: (changes: ReadonlyArray<string>, title: string) =>
     `「${title}」で${changes.join("、")}に変えたので、反映して続けてください。`,
-  changeTo: (label: string, value: string) => `${label}を${value}`,
-  attachmentNote: "フォームの全項目は添付のJSONにあります。"
+  changeTo: (label: string, value: string) => `${label}を${value}`
 }
 
 const en: typeof ja = {
@@ -71,8 +68,6 @@ const en: typeof ja = {
   changedCount: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
   waiting: "Waiting for your answer",
   sending: "Sending…",
-  on: "On",
-  off: "Off",
   none: "None",
   empty: "(empty)",
   listSeparator: ", ",
@@ -82,8 +77,7 @@ const en: typeof ja = {
   openConversation: "Open the conversation with this form and clear its input, then send again",
   resendSentence: (changes: ReadonlyArray<string>, title: string) =>
     `In "${title}", I changed ${changes.join(", ")}. Please apply it and continue.`,
-  changeTo: (label: string, value: string) => `${label} to ${value}`,
-  attachmentNote: "All form values are in the attached JSON."
+  changeTo: (label: string, value: string) => `${label} to ${value}`
 }
 
 export type Messages = typeof ja
