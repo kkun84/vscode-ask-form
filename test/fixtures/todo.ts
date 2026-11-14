@@ -20,30 +20,37 @@ export const todoSpec = {
       id: "storage",
       label: "保存先",
       options: [
-        { value: "browser", label: "ブラウザ" },
-        { value: "server", label: "サーバー" }
+        {
+          value: "browser",
+          label: "ブラウザ",
+          fields: [
+            {
+              type: "choice",
+              id: "engine",
+              label: "保存方式",
+              default: "local",
+              reason: "件数が少ないため",
+              options: [
+                { value: "local", label: "localStorage", description: "5MBまで。手軽に始められる" },
+                { value: "indexed", label: "IndexedDB", description: "大きなデータも扱える" }
+              ]
+            }
+          ]
+        },
+        {
+          value: "server",
+          label: "サーバー",
+          fields: [
+            { type: "number", id: "port", label: "ポート", default: 3000, min: 1, max: 65535, reason: "package.jsonのdevスクリプトより" },
+            { type: "toggle", id: "auth", label: "ログインが必要", default: false }
+          ]
+        }
       ],
       default: "browser",
       reason: "README.mdに「まずは自分用」とあるため"
     },
-    { type: "number", id: "memoMax", label: "メモの最大文字数", default: 100, min: 100, max: 5000, step: 100, suffix: "文字" },
     { type: "number", id: "pageSize", label: "1ページの件数", default: 20, min: 5, max: 100, step: 5, suffix: "件" },
-    { type: "toggle", id: "due", label: "締め切りを付けられる", default: true },
-    {
-      type: "number",
-      id: "titleMax",
-      label: "タイトルの最大文字数",
-      default: 100,
-      min: 20,
-      max: 500,
-      step: 10,
-      suffix: "文字",
-      advanced: true
-    }
-  ],
-  computed: [
-    { id: "size", label: "1件の最大サイズ", expression: "round(((titleMax + memoMax) * 2 + 200) / 1024, 1)", suffix: " KB", decimals: 1 },
-    { id: "capacity", label: "ブラウザに保存できる件数", expression: "floor(5120 / size)", suffix: " 件", primary: true }
+    { type: "toggle", id: "due", label: "締め切りを付けられる", default: true }
   ],
   submitLabel: "この設定で作る"
 } as const

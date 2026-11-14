@@ -121,10 +121,11 @@ const scenario = async (page: Page, pointer: Pointer, images: string, recorder: 
   }
   await shoot(page, images, "form")
   recorder.mark("edit")
-  await typeNumber(pointer, recorder, frame, "メモの最大文字数", "5000")
-  recorder.mark("edited")
+  await pointer.click(frame.locator("label.option", { hasText: "サーバー" }))
+  await pointer.click(frame.getByRole("switch", { name: "ログインが必要" }))
   await sleep(2200)
-  await shoot(page, images, "edited")
+  recorder.mark("edited")
+  await shoot(page, images, "branch")
   recorder.mark("answer")
   await pointer.click(frame.locator("form.card button.primary"))
   await page

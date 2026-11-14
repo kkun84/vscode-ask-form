@@ -64,27 +64,27 @@ const page = (body: string) =>
 const titleCard = `<div class="center">
   <div class="pill">VS Code 拡張機能 for GitHub Copilot</div>
   <div class="logo">Ask <span>Form</span></div>
-  <div class="tagline">Copilotが、フォームで聞いてくる。</div>
+  <div class="tagline">Copilotが、1回のフォームで聞き切る。</div>
 </div>`
 
 const problemCard = `<div class="center">
   <div class="tagline">AIからの確認、何往復していますか？</div>
   <div class="chat">
-    <div class="bubble ai">画面はReactとVue、どちらで作りますか？</div>
-    <div class="bubble me">Reactで。保存はブラウザでいいかな</div>
-    <div class="bubble ai">メモは何文字まで？1ページは何件？締め切りは？</div>
-    <div class="bubble me">えっと、それで何件まで保存できるんだっけ…</div>
+    <div class="bubble ai">保存先はブラウザとサーバー、どちらにしますか？</div>
+    <div class="bubble me">サーバーで</div>
+    <div class="bubble ai">では、ポート番号は？ ログインは必要ですか？</div>
+    <div class="bubble me">3000で、ログインあり。…まだ続きますか？</div>
   </div>
-  <div class="sub">項目が多い質問や、選んだ結果が見えない質問は、文章だと答えにくい。</div>
+  <div class="sub">答えるたびに次の質問が来て、何往復もしてしまう。</div>
 </div>`
 
 const featureCard = `<div class="center">
   <div class="tagline">ほかにも</div>
   <div class="grid">
+    <div class="tile"><b>推測値が入っている</b><span>違う所だけ直せばいい</span></div>
+    <div class="tile"><b>あとから直せる</b><span>変えた所だけをCopilotに伝える</span></div>
     <div class="tile"><b>答え方を選べる</b><span>「AIに任せる」「チャットで答える」</span></div>
-    <div class="tile"><b>待っていることが分かる</b><span>回答待ちをステータスバーに表示</span></div>
     <div class="tile"><b>デスクトップ版とweb版</b><span>チャットの中、またはvscode.devのパネルに</span></div>
-    <div class="tile"><b>VS Codeになじむ</b><span>テーマ、日本語と英語、キーボード操作に対応</span></div>
   </div>
 </div>`
 

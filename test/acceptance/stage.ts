@@ -6,7 +6,7 @@ import { themeContext } from "../support/themes.ts"
 import { openForm, startServer } from "../support/ui.ts"
 import { sleep } from "./frames.ts"
 import { Pointer, Recorder } from "./recording.ts"
-import { captions, followUp, query, reply, resendText } from "./stage-content.ts"
+import { captions, query, reply } from "./stage-content.ts"
 
 export interface Take {
   readonly video: string
@@ -358,8 +358,6 @@ const send = async (page: Page, pointer: Pointer, html: string): Promise<void> =
   }, html)
 }
 
-const chip = (file: string) => `<div class="chip"><b>{ }</b>${file}</div>`
-
 const guide: { pointer?: Pointer } = {}
 
 const look = async (page: Page, targets: ReadonlyArray<Locator>, spot: Locator, label: string, hold: number): Promise<void> => {
@@ -368,24 +366,6 @@ const look = async (page: Page, targets: ReadonlyArray<Locator>, spot: Locator, 
   await camera(page, targets, 24, 2.4)
   await focusOn(page, spot, label)
   await sleep(hold)
-}
-
-interface Slide {
-  readonly label: string
-  readonly min: number
-  readonly max: number
-  readonly from: number
-  readonly to: number
-  readonly note: string
-}
-
-const slide = async (page: Page, frame: Frame, pointer: Pointer, plan: Slide): Promise<void> => {
-  const slider = frame.getByRole("slider", { name: plan.label })
-  const field = slider.locator("xpath=ancestor::div[contains(concat(' ', @class, ' '), ' field ')][1]")
-  await look(page, [field], field, plan.note, 300)
-  const ratio = (value: number) => (value - plan.min) / (plan.max - plan.min)
-  await pointer.drag(slider, ratio(plan.from), ratio(plan.to))
-  await sleep(300)
 }
 
 const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
@@ -416,21 +396,23 @@ const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorde
   })
   recorder.mark("form")
   await sleep(900)
-  const first = frame.locator(".hint").first()
-  await look(page, [frame.locator("form.card h1"), first], first, "AIの推測と根拠", 1800)
+  const card = frame.locator("form.card")
+  await look(page, [card], card, "質問が1つのフォームに", 1800)
 }
 
-const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
+const choose = async (page: Page, frame: Frame, pointer: Pointer): Promise<void> => {
   await caption(page, 2)
-  await slide(page, frame, pointer, {
-    label: "メモの最大文字数",
-    min: 100,
-    max: 5000,
-    from: 100,
-    to: 5000,
-    note: "メモを100→5000文字に"
-  })
-  await look(page, [frame.locator(".computed")], frame.locator(".computed"), "保存できる件数: 8,533件→501件", 1400)
+  const storage = frame.getByRole("group", { name: "保存先" })
+  await look(page, [storage], storage, "保存先を選ぶ", 500)
+  await pointer.click(frame.locator("label.option", { hasText: "サーバー" }))
+  await sleep(700)
+  const branch = frame.locator(".branch:not([hidden])")
+  await look(page, [branch], branch, "サーバーなら、ポートとログインも聞く", 1300)
+  await pointer.click(frame.getByRole("switch", { name: "ログインが必要" }))
+  await sleep(500)
+}
+
+const answer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await caption(page, 3)
   const proceed = frame.getByRole("button", { name: "この設定で作る" })
   await look(page, [frame.locator("footer.actions")], proceed, "クリックで回答", 400)
@@ -453,50 +435,13 @@ const editAndAnswer = async (page: Page, frame: Frame, pointer: Pointer, recorde
   await stream(page, "reply", reply, 4)
   await sleep(300)
   await look(page, [page.locator("#reply")], page.locator("#reply"), "この値で作り始める", 1500)
-}
-
-const resendStep = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
-  const resend = resendText()
-  await caption(page, 4)
-  const again = frame.getByRole("button", { name: "変更して送り直す" })
-  await look(page, [frame.locator(".summary")], again, "あとで変えたくなったら", 500)
-  await focusOn(page, null)
-  await pointer.click(again)
-  await sleep(600)
-  await slide(page, frame, pointer, { label: "1ページの件数", min: 5, max: 100, from: 20, to: 50, note: "1ページを20→50件に" })
-  const submit = frame.getByRole("button", { name: "変更を送信" })
-  await look(page, [frame.locator("footer.actions")], submit, "変更を送信", 400)
-  await focusOn(page, null)
-  await pin(page, ".formbox", 1600)
-  await pointer.click(submit)
-  await frame.locator(".summary .notice").waitFor()
-  await sleep(800)
-  await page.evaluate(
-    ({ text, chipHtml }) => {
-      document.querySelector("#input")?.classList.add("focus")
-      document.querySelector("#input .chips")?.insertAdjacentHTML("beforeend", chipHtml)
-      const box = document.querySelector("#input .text")
-      if (box !== null) {
-        box.textContent = text
-      }
-    },
-    { text: resend.text, chipHtml: chip(resend.file) }
-  )
-  recorder.mark("placed")
-  await look(page, [page.locator("#input")], page.locator("#input"), "変えた所の説明が入力欄に入る", 1700)
-  await focusOn(page, null)
-  await send(page, pointer, `<div class="user" id="resent" style="order:5">${chip(resend.file)}<div>${resend.text}</div></div>`)
-  await camera(page, [page.locator("#resent")], 24, 2.4)
-  await stream(page, "follow", followUp, 6)
-  recorder.mark("followed")
-  await look(page, [page.locator("#follow")], page.locator("#follow"), "変更を反映して続ける", 1400)
   recorder.mark("end")
 }
 
 const scene = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await ask(page, frame, pointer, recorder)
-  await editAndAnswer(page, frame, pointer, recorder)
-  await resendStep(page, frame, pointer, recorder)
+  await choose(page, frame, pointer)
+  await answer(page, frame, pointer, recorder)
 }
 
 export const captureStage = async (work: string): Promise<Take> => {
