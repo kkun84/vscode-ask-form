@@ -8,7 +8,6 @@ import {
   describeValue,
   formatNumber,
   initialValues,
-  isMultiple,
   prepare,
   type CompiledForm,
   type FieldValue,
@@ -40,6 +39,19 @@ const resultText = (result: ToolResult): string => (result.content ?? []).map((i
 
 const isExpired = (result: ToolResult): boolean => result.isError === true && /expired/.test(resultText(result))
 
+const whyView = (field: Field, m: Messages): HTMLElement | null =>
+  field.reason === undefined
+    ? null
+    : h(
+        "span",
+        { class: "why" },
+        h("span", { class: "why-label" }, m.whyRecommended),
+        h("span", {}, field.reason),
+        field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails)
+      )
+
+const affix = (content: string | undefined): HTMLElement | null => (content === undefined ? null : h("span", { class: "muted" }, content))
+
 export class FormApp {
   private phase: Phase = { kind: "loading" }
   private m: Messages = messages("en")
@@ -57,14 +69,21 @@ export class FormApp {
   private bridge: Bridge | undefined
   private stopStatus: (() => void) | undefined
   private readonly live = {
-    hints: new Map<string, HTMLElement>(),
+    cards: [] as Array<{
+      readonly field: Field
+      readonly element: HTMLElement
+      readonly head: HTMLElement
+      readonly body: HTMLElement
+      readonly answer: HTMLElement
+      readonly note: HTMLElement
+    }>,
     branches: [] as Array<{ readonly id: string; readonly value: string; readonly element: HTMLElement }>,
     computed: undefined as HTMLElement | undefined,
     status: undefined as HTMLElement | undefined,
     primary: undefined as HTMLButtonElement | undefined,
-    form: undefined as HTMLElement | undefined,
-    folds: [] as Array<{ readonly id: string; readonly element: HTMLElement }>
+    form: undefined as HTMLElement | undefined
   }
+  private openId: string | undefined
 
   private readonly root: HTMLElement
 
@@ -109,6 +128,7 @@ export class FormApp {
     this.baseline = this.guesses
     this.summaryValues = this.guesses
     this.placed = false
+    this.openId = allFields(form.spec)[0]?.id
     if (this.phase.kind === "loading") {
       this.phase = { kind: "answering" }
     }
@@ -276,14 +296,14 @@ export class FormApp {
 
   private render(): void {
     this.syncStatus()
-    this.live.hints.clear()
+    this.live.cards.length = 0
     this.live.branches.length = 0
-    this.live.folds.length = 0
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
     this.live.form = undefined
     this.root.replaceChildren(this.view())
+    this.openCard(this.openId)
     this.refresh()
   }
 
@@ -366,15 +386,9 @@ export class FormApp {
     this.render()
   }
 
-  private hint(field: Field, hintId: string): HTMLElement {
-    const element = h("p", { class: "hint", id: hintId })
-    this.live.hints.set(field.id, element)
-    return element
-  }
-
   private fieldView(field: Field): HTMLElement {
-    if (field.type !== "choice" || field.options.every((option) => option.fields === undefined)) {
-      return this.plainFieldView(field)
+    if (field.type !== "choice") {
+      return this.card(field)
     }
     const branches = field.options.flatMap((option) => {
       if (option.fields === undefined) {
@@ -382,68 +396,103 @@ export class FormApp {
       }
       const element = h(
         "div",
-        { class: "fields branch", "data-branch": option.value },
-        option.fields.map((nested) => this.plainFieldView(nested))
+        { class: "branch" },
+        option.fields.map((nested) => this.card(nested))
       )
       this.live.branches.push({ id: field.id, value: option.value, element })
       return [element]
     })
-    return h("div", { class: "branching" }, this.choiceView(field), branches)
+    return branches.length === 0 ? this.card(field) : h("div", { class: "group" }, this.card(field), branches)
   }
 
-  private plainFieldView(field: Field): HTMLElement {
+  private card(field: Field): HTMLElement {
+    const labelId = uid("label")
+    const bodyId = uid("body")
+    const answer = h("span", { class: "q-answer" })
+    const head = h(
+      "button",
+      { type: "button", class: "q-head", "aria-expanded": "false", "aria-controls": bodyId },
+      h("span", { class: "q-label", id: labelId }, field.label),
+      answer,
+      h("span", { class: "q-chevron", "aria-hidden": "true" })
+    )
+    const note = h("div", { class: "q-note" })
+    const body = h(
+      "div",
+      { class: "q-body", id: bodyId, hidden: true },
+      this.control(field, labelId),
+      field.type === "choice" ? null : note
+    )
+    const element = h("section", { class: "q" }, head, body)
+    this.live.cards.push({ field, element, head, body, answer, note })
+    on(head, "click", () => this.openCard(element.classList.contains("open") ? undefined : field.id))
+    return element
+  }
+
+  private control(field: Field, labelId: string): HTMLElement {
     switch (field.type) {
       case "text":
-        return this.textView(field)
+        return this.textView(field, labelId)
       case "number":
-        return this.numberView(field)
+        return this.numberView(field, labelId)
       case "choice":
-        return this.choiceView(field)
+        return this.choiceView(field, labelId)
       case "toggle":
-        return this.toggleView(field)
+        return this.toggleView(field, labelId)
     }
   }
 
-  private textView(field: TextField): HTMLElement {
-    const inputId = uid(field.id)
-    const hintId = uid("hint")
-    const value = String(this.values[field.id] ?? "")
-    const common = { id: inputId, name: field.id, "aria-describedby": hintId, placeholder: field.placeholder }
-    const input = field.multiline === true ? h("textarea", { ...common, rows: 3 }, value) : h("input", { ...common, type: "text", value })
-    on(input, "input", () => this.setValue(field.id, input.value))
-    return h("div", { class: "field" }, h("label", { for: inputId }, field.label), input, this.hint(field, hintId))
+  private openCard(id: string | undefined): void {
+    this.openId = id
+    for (const card of this.live.cards) {
+      const open = card.field.id === id
+      card.element.classList.toggle("open", open)
+      card.body.hidden = !open
+      card.head.setAttribute("aria-expanded", String(open))
+    }
   }
 
-  private numberView(field: NumberField): HTMLElement {
-    const sliderId = uid(field.id)
-    const hintId = uid("hint")
+  private openNext(id: string): void {
+    const shown = this.live.cards.filter((card) => card.element.closest("[hidden], details:not([open])") === null)
+    this.openCard(shown[shown.findIndex((card) => card.field.id === id) + 1]?.field.id)
+  }
+
+  private advanceOnEnter(field: Field, input: HTMLElement): void {
+    on(input, "keydown", (event) => {
+      if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && !event.shiftKey && !(input instanceof HTMLTextAreaElement)) {
+        event.preventDefault()
+        input.dispatchEvent(new Event("change"))
+        this.openNext(field.id)
+      }
+    })
+  }
+
+  private textView(field: TextField, labelId: string): HTMLElement {
+    const value = String(this.values[field.id] ?? "")
+    const common = { name: field.id, "aria-labelledby": labelId, placeholder: field.placeholder }
+    const input = field.multiline === true ? h("textarea", { ...common, rows: 3 }, value) : h("input", { ...common, type: "text", value })
+    on(input, "input", () => this.setValue(field.id, input.value))
+    this.advanceOnEnter(field, input)
+    return input
+  }
+
+  private numberView(field: NumberField, labelId: string): HTMLElement {
     const value = Number(this.values[field.id] ?? field.min)
     const step = field.step ?? "any"
-    const output = h("output", { for: sliderId, class: "value" }, `${field.prefix ?? ""}${formatNumber(value)}${field.suffix ?? ""}`)
+    const text = (next: number) => `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`
     const slider = h("input", {
-      id: sliderId,
       type: "range",
       min: field.min,
       max: field.max,
       step,
       value,
-      "aria-describedby": hintId,
-      "aria-valuetext": output.textContent ?? ""
+      "aria-labelledby": labelId,
+      "aria-valuetext": text(value)
     })
-    const exact = h("input", {
-      type: "number",
-      min: field.min,
-      max: field.max,
-      step,
-      value,
-      class: "exact",
-      "aria-label": field.label
-    })
+    const exact = h("input", { type: "number", min: field.min, max: field.max, step, value, class: "exact", "aria-labelledby": labelId })
     const show = (next: number) => {
       slider.value = String(next)
-      const text = `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`
-      output.textContent = text
-      slider.setAttribute("aria-valuetext", text)
+      slider.setAttribute("aria-valuetext", text(next))
       this.setValue(field.id, next)
     }
     const update = (next: number) => {
@@ -465,121 +514,61 @@ export class FormApp {
         exact.value = slider.value
       }
     })
-    return h(
-      "div",
-      { class: "field" },
-      h("div", { class: "row" }, h("label", { for: sliderId }, field.label), output),
-      h("div", { class: "row" }, slider, exact),
-      this.hint(field, hintId)
-    )
+    this.advanceOnEnter(field, exact)
+    return h("div", { class: "row" }, slider, affix(field.prefix), exact, affix(field.suffix))
   }
 
-  private choiceView(field: ChoiceField): HTMLElement {
-    const hintId = uid("hint")
+  private choiceView(field: ChoiceField, labelId: string): HTMLElement {
     const multiple = field.multiple === true
     const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
-    const reasonInOption = !multiple && field.reason !== undefined
-    const compact =
-      !multiple && !reasonInOption && field.options.length <= 4 && field.options.every((option) => option.description === undefined)
     const name = uid(field.id)
     const current = this.values[field.id]
+    let pointing = false
     const options = field.options.map((option) => {
-      const inputId = uid(field.id)
       const checked = multiple ? Array.isArray(current) && current.includes(option.value) : current === option.value
-      const input = h("input", { id: inputId, type: multiple ? "checkbox" : "radio", name, value: option.value, checked })
+      const input = h("input", { type: multiple ? "checkbox" : "radio", name, value: option.value, checked })
       on(input, "change", () => {
         if (multiple) {
           const selected = Array.isArray(this.values[field.id]) ? [...(this.values[field.id] as ReadonlyArray<string>)] : []
           this.setValue(field.id, input.checked ? [...selected, option.value] : selected.filter((item) => item !== option.value))
         } else if (input.checked) {
           this.setValue(field.id, option.value)
+          if (pointing) {
+            this.openNext(field.id)
+          }
         }
+        pointing = false
       })
       const isRecommended = recommended.includes(option.value)
+      const why = isRecommended ? whyView(field, this.m) : null
       return h(
         "label",
-        { for: inputId, class: "option" },
+        { class: isRecommended ? "option recommended" : "option" },
         input,
         h(
           "span",
           { class: "option-text" },
           h("span", { class: "option-head" }, option.label, isRecommended ? h("span", { class: "badge" }, this.m.recommended) : null),
-          option.description === undefined ? null : h("span", { class: "muted" }, option.description),
-          option.details === undefined ? null : h("span", { class: "muted more" }, option.details),
-          isRecommended && reasonInOption ? h("span", { class: "option-reason" }, `${this.m.whyRecommended}: ${field.reason}`) : null,
-          isRecommended && reasonInOption && field.reasonDetails !== undefined
-            ? h("span", { class: "option-reason more" }, field.reasonDetails)
-            : null
+          option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
+          option.details === undefined ? null : h("span", { class: "option-details" }, option.details),
+          why
         )
       )
     })
-    const element = h(
-      "fieldset",
-      { class: "field", "aria-describedby": hintId },
-      h("legend", {}, field.label),
-      h("div", { class: compact ? "segments" : "options" }, options),
-      this.hint(field, hintId)
-    )
-    if (field.reasonDetails !== undefined || field.options.some((option) => option.details !== undefined)) {
-      this.foldable(field.id, element)
-    }
-    return element
-  }
-
-  private foldable(id: string, element: HTMLElement): void {
-    this.live.folds.push({ id, element })
-    element.classList.toggle("folded", this.live.folds.length > 1)
-    let pointing = false
-    on(element, "pointerdown", () => {
+    const group = h("div", { class: "options", role: multiple ? "group" : "radiogroup", "aria-labelledby": labelId }, options)
+    on(group, "pointerdown", () => {
       pointing = true
-      this.openFold(id)
     })
-    on(element, "focusin", () => this.openFold(id))
-    on(element, "keydown", () => {
+    on(group, "keydown", () => {
       pointing = false
     })
-    on(element, "change", () => {
-      if (pointing) {
-        this.openNextFold(id)
-      }
-      pointing = false
-    })
+    return group
   }
 
-  private openFold(id: string | undefined): void {
-    for (const fold of this.live.folds) {
-      fold.element.classList.toggle("folded", fold.id !== id)
-    }
-  }
-
-  private openNextFold(id: string): void {
-    const shown = this.live.folds.filter((fold) => fold.element.closest("[hidden]") === null)
-    this.openFold(shown[shown.findIndex((fold) => fold.id === id) + 1]?.id)
-  }
-
-  private toggleView(field: ToggleField): HTMLElement {
-    const inputId = uid(field.id)
-    const hintId = uid("hint")
-    const input = h("input", {
-      id: inputId,
-      type: "checkbox",
-      role: "switch",
-      checked: this.values[field.id] === true,
-      "aria-describedby": hintId
-    })
+  private toggleView(field: ToggleField, labelId: string): HTMLElement {
+    const input = h("input", { type: "checkbox", role: "switch", checked: this.values[field.id] === true, "aria-labelledby": labelId })
     on(input, "change", () => this.setValue(field.id, input.checked))
-    return h(
-      "div",
-      { class: "field toggle" },
-      h(
-        "div",
-        { class: "row" },
-        h("label", { for: inputId }, field.label),
-        field.note === undefined ? null : h("span", { class: "muted" }, field.note),
-        input
-      ),
-      this.hint(field, hintId)
-    )
+    return h("div", { class: "row" }, input, h("span", { class: "muted" }, field.note ?? ""))
   }
 
   private computedView(): HTMLElement {
@@ -625,6 +614,7 @@ export class FormApp {
         ? null
         : on(h("button", { type: "button", class: "link" }, this.m.editAndResend), "click", () => {
             this.phase = { kind: "resending" }
+            this.openId = undefined
             this.render()
           })
     )
@@ -657,29 +647,51 @@ export class FormApp {
     )
   }
 
-  private hintFor(field: Field, sinceAnswer: ReadonlyArray<string>, sinceGuess: ReadonlyArray<string>): readonly [string, string] {
-    if (this.phase.kind === "resending") {
-      return [sinceAnswer.includes(field.id) ? this.m.changedSinceAnswer : "", "hint changed"]
+  private refreshCards(sinceAnswer: ReadonlyArray<string>): void {
+    if (this.form === undefined) {
+      return
     }
-    if (field.type === "choice" && !isMultiple(field)) {
-      return ["", "hint"]
-    }
-    const why = field.reason === undefined ? "" : `${this.m.whyRecommended}: ${field.reason}`
-    if (field.type === "choice" || field.default === undefined || !sinceGuess.includes(field.id)) {
-      return [why, "hint"]
-    }
-    const was = this.m.recommendedWas(describeValue(field, this.guesses[field.id], this.m))
-    return [field.reason === undefined ? was : `${was} · ${field.reason}`, "hint changed"]
-  }
-
-  private refreshHints(form: CompiledForm, sinceAnswer: ReadonlyArray<string>): void {
-    const sinceGuess = changedFields(form.spec, this.guesses, this.values)
-    for (const field of allFields(form.spec)) {
-      const hint = this.live.hints.get(field.id)
-      if (hint !== undefined) {
-        ;[hint.textContent, hint.className] = this.hintFor(field, sinceAnswer, sinceGuess)
+    const sinceRecommended = changedFields(this.form.spec, this.guesses, this.values)
+    for (const card of this.live.cards) {
+      const field = card.field
+      const changed = sinceRecommended.includes(field.id)
+      card.answer.replaceChildren(
+        h("span", { class: "q-value" }, describeValue(field, this.values[field.id], this.m)),
+        this.answerTag(field, changed, sinceAnswer.includes(field.id)) ?? ""
+      )
+      if (field.type !== "choice") {
+        card.note.replaceChildren(...[this.backView(field, changed), whyView(field, this.m)].filter((node) => node !== null))
       }
     }
+  }
+
+  private recommendedText(field: Field): string | undefined {
+    return field.default === undefined ? undefined : describeValue(field, this.guesses[field.id], this.m)
+  }
+
+  private answerTag(field: Field, changed: boolean, changedSinceAnswer: boolean): HTMLElement | null {
+    if (this.phase.kind === "resending") {
+      return changedSinceAnswer
+        ? h("span", { class: "muted" }, this.m.previously(describeValue(field, this.baseline[field.id], this.m)))
+        : null
+    }
+    const recommended = this.recommendedText(field)
+    if (recommended === undefined) {
+      return null
+    }
+    return changed ? h("span", { class: "muted" }, this.m.recommendedWas(recommended)) : h("span", { class: "badge" }, this.m.recommended)
+  }
+
+  private backView(field: Field, changed: boolean): HTMLElement | null {
+    const recommended = this.recommendedText(field)
+    if (recommended === undefined || !changed) {
+      return null
+    }
+    const back = on(h("button", { type: "button", class: "link" }, this.m.backToRecommended), "click", () => {
+      this.values[field.id] = this.guesses[field.id] as FieldValue
+      this.render()
+    })
+    return h("p", { class: "back" }, h("span", {}, this.m.recommendedWas(recommended)), back)
   }
 
   private refreshComputed(form: CompiledForm): void {
@@ -717,7 +729,7 @@ export class FormApp {
     for (const branch of this.live.branches) {
       branch.element.hidden = this.values[branch.id] !== branch.value
     }
-    this.refreshHints(form, sinceAnswer)
+    this.refreshCards(sinceAnswer)
     this.refreshComputed(form)
     if (this.live.status !== undefined) {
       this.live.status.textContent = this.statusText(sinceAnswer)
