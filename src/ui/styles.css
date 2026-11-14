@@ -76,41 +76,16 @@ body {
 .reveal {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: -2px;
-  padding: 4px 10px 12px 36px;
-  border-radius: 0 0 6px 6px;
-  background: color-mix(in srgb, var(--fg) 9%, transparent);
-}
-
-.option:has(input:checked):has(+ .reveal:not([hidden])) {
-  border-radius: 6px 6px 0 0;
-}
-
-.q.sub {
-  gap: 4px;
-}
-
-.q.sub .q-head {
-  padding: 0;
-}
-
-.q.sub .q-label {
-  font-size: 12px;
-}
-
-.q.sub .q-desc {
-  margin: 0;
+  gap: 16px;
+  margin: 6px 0 10px 17px;
+  padding: 2px 0 2px 19px;
+  border-left: 2px solid color-mix(in srgb, var(--fg) 22%, transparent);
 }
 
 .q.sub .q-group,
 .q.sub .q-group.choices {
   padding: 0;
   background: transparent;
-}
-
-.q.sub .options {
-  margin: 0 -10px;
 }
 
 .reveal[hidden] {
