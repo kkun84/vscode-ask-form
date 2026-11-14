@@ -39,13 +39,13 @@ const resultText = (result: ToolResult): string => (result.content ?? []).map((i
 
 const isExpired = (result: ToolResult): boolean => result.isError === true && /expired/.test(resultText(result))
 
-const whyView = (field: Field, prefix?: string): HTMLElement | null =>
+const whyView = (field: Field, prefix: string): HTMLElement | null =>
   field.reason === undefined
     ? null
     : h(
         "span",
         { class: "why" },
-        h("span", {}, prefix === undefined ? field.reason : `${prefix}: ${field.reason}`),
+        h("span", {}, `${prefix}: ${field.reason}`),
         field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails)
       )
 
@@ -420,6 +420,9 @@ export class FormApp {
         toggle,
         field.type === "toggle" ? this.control(field, labelId) : null
       ),
+      field.type === "choice" && field.default !== undefined
+        ? whyView(field, this.m.recommendFor(describeValue(field, field.default, this.m)))
+        : null,
       field.type === "toggle" ? null : this.control(field, labelId),
       field.type === "choice" ? null : note
     )
@@ -544,7 +547,6 @@ export class FormApp {
         pointing = false
       })
       const isRecommended = recommended.includes(option.value)
-      const why = isRecommended ? whyView(field) : null
       const row = h(
         "label",
         { class: isRecommended ? "option recommended" : "option" },
@@ -554,8 +556,7 @@ export class FormApp {
           { class: "option-text" },
           h("span", { class: "option-head" }, option.label, isRecommended ? h("span", { class: "badge" }, this.m.recommended) : null),
           option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
-          option.details === undefined ? null : h("span", { class: "option-details" }, option.details),
-          why
+          option.details === undefined ? null : h("span", { class: "option-details" }, option.details)
         )
       )
       const revealed = this.reveal(field, option)
