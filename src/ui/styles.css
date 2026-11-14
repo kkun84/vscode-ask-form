@@ -232,6 +232,29 @@ input[type="radio"] {
   font-size: 12px;
 }
 
+.option-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--link) 18%, transparent);
+  color: var(--link);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.option-reason {
+  color: var(--link);
+  font-size: 11px;
+}
+
 .toggle input[role="switch"] {
   appearance: none;
   position: relative;
