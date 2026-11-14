@@ -49,6 +49,17 @@ const whyView = (field: Field, prefix: string): HTMLElement | null =>
         field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails)
       )
 
+const optionWhyView = (field: Field, m: Messages): HTMLElement | null =>
+  field.reason === undefined
+    ? null
+    : h(
+        "span",
+        { class: "option-why" },
+        h("span", { class: "option-why-label" }, m.whyRecommended),
+        h("span", {}, field.reason),
+        field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails)
+      )
+
 const hasDetails = (field: Field): boolean =>
   field.reasonDetails !== undefined || (field.type === "choice" && field.options.some((option) => option.details !== undefined))
 
@@ -420,9 +431,6 @@ export class FormApp {
         toggle,
         field.type === "toggle" ? this.control(field, labelId) : null
       ),
-      field.type === "choice" && field.default !== undefined
-        ? whyView(field, this.m.recommendFor(describeValue(field, field.default, this.m)))
-        : null,
       field.type === "toggle" ? null : this.control(field, labelId),
       field.type === "choice" ? null : note
     )
@@ -556,7 +564,8 @@ export class FormApp {
           { class: "option-text" },
           h("span", { class: "option-head" }, option.label, isRecommended ? h("span", { class: "badge" }, this.m.recommended) : null),
           option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
-          option.details === undefined ? null : h("span", { class: "option-details" }, option.details)
+          option.details === undefined ? null : h("span", { class: "option-details" }, option.details),
+          isRecommended ? optionWhyView(field, this.m) : null
         )
       )
       const revealed = this.reveal(field, option)

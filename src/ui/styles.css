@@ -265,6 +265,22 @@ input[type="radio"] {
   font-size: 12px;
 }
 
+.option-why {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.option-why-label {
+  color: var(--link);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .q-note {
   display: flex;
   flex-direction: column;
