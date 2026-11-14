@@ -55,6 +55,8 @@ body { width: ${frame.width}px; height: ${frame.height}px; overflow: hidden; col
 .tile { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 22px; padding: 34px 40px; text-align: left; }
 .tile b { display: block; font-size: 40px; margin-bottom: 10px; }
 .tile span { font-size: 30px; color: #d8cfb8; }
+.points .tile b { font-size: 40px; }
+.points .tile span { font-size: 28px; }
 .url { font-size: 46px; font-weight: 700; color: #ffe58a; }
 `
 
@@ -64,33 +66,41 @@ const page = (body: string) =>
 const titleCard = `<div class="center">
   <div class="pill">VS Code 拡張機能 for GitHub Copilot</div>
   <div class="logo">Ask <span>Form</span></div>
-  <div class="tagline">Copilotが、フォームで聞いてくる。</div>
+  <div class="tagline">Copilotが、1回のフォームで聞き切る。</div>
 </div>`
 
 const problemCard = `<div class="center">
   <div class="tagline">AIからの確認、何往復していますか？</div>
   <div class="chat">
-    <div class="bubble ai">画面はReactとVue、どちらで作りますか？</div>
-    <div class="bubble me">Reactで。保存はブラウザでいいかな</div>
-    <div class="bubble ai">メモは何文字まで？1ページは何件？締め切りは？</div>
-    <div class="bubble me">えっと、それで何件まで保存できるんだっけ…</div>
+    <div class="bubble ai">保存先はブラウザとサーバー、どちらにしますか？</div>
+    <div class="bubble me">サーバーで</div>
+    <div class="bubble ai">では、ポート番号は？ ログインは必要ですか？</div>
+    <div class="bubble me">3000で、ログインあり。…まだ続きますか？</div>
   </div>
-  <div class="sub">項目が多い質問や、選んだ結果が見えない質問は、文章だと答えにくい。</div>
+  <div class="sub">答えるたびに次の質問が来て、何往復もしてしまう。</div>
+</div>`
+
+const pointsCard = `<div class="center">
+  <div class="tagline">Ask Formがすること</div>
+  <div class="grid points">
+    <div class="tile"><b>1回で聞き切る</b><span>聞きたいことを、1つのフォームにまとめて聞く</span></div>
+    <div class="tile"><b>答えで質問が変わる</b><span>選んだ答えに応じて、続きの質問だけが出てくる</span></div>
+  </div>
 </div>`
 
 const featureCard = `<div class="center">
   <div class="tagline">ほかにも</div>
   <div class="grid">
+    <div class="tile"><b>推測値が入っている</b><span>違う所だけ直せばいい</span></div>
+    <div class="tile"><b>あとから直せる</b><span>変えた所だけをCopilotに伝える</span></div>
     <div class="tile"><b>答え方を選べる</b><span>「AIに任せる」「チャットで答える」</span></div>
-    <div class="tile"><b>待っていることが分かる</b><span>回答待ちをステータスバーに表示</span></div>
     <div class="tile"><b>デスクトップ版とweb版</b><span>チャットの中、またはvscode.devのパネルに</span></div>
-    <div class="tile"><b>VS Codeになじむ</b><span>テーマ、日本語と英語、キーボード操作に対応</span></div>
   </div>
 </div>`
 
 const endCard = `<div class="center">
   <div class="logo">Ask <span>Form</span></div>
-  <div class="tagline">AIの質問に、フォームで答えよう。</div>
+  <div class="tagline">選んだ答えで、続きの質問が変わる。</div>
   <div class="url">github.com/kkun84/vscode-ask-form</div>
   <div class="sub">VS Code 1.110以降 ・ MIT License</div>
 </div>`
@@ -106,6 +116,7 @@ const scenes = (take: Recording): ReadonlyArray<Scene> => [
   { kind: "card", name: "title", duration: 2, body: titleCard },
   { kind: "card", name: "problem", duration: 3.5, body: problemCard },
   { kind: "take", name: "demo", from: Math.max(0, (take.marks["typing"] ?? 0) - 0.8), to: take.marks["end"] ?? 0, speed: 1 },
+  { kind: "card", name: "points", duration: 3.5, body: pointsCard },
   { kind: "card", name: "features", duration: 3, body: featureCard },
   { kind: "card", name: "end", duration: 2.5, body: endCard }
 ]
@@ -191,31 +202,20 @@ const toVideo = (time: number): number | undefined => {
   return undefined
 }
 const cueKind = (name: string): Cue["kind"] | undefined => {
-  if (name.startsWith("key:")) {
-    return "key"
-  }
   if (name.startsWith("click:")) {
     return "click"
   }
-  return ({ form: "pop", answered: "success", followed: "chime" } as Readonly<Record<string, Cue["kind"]>>)[name]
+  return name === "answered" ? "success" : undefined
 }
 const markCues = Object.entries(capture.marks).flatMap(([name, time]): Array<Cue> => {
   const kind = cueKind(name)
   const at = toVideo(time)
   return kind === undefined || at === undefined ? [] : [{ at, kind }]
 })
-const sceneCues = timeline.flatMap(({ scene, start }, index): Array<Cue> => {
-  if (scene.name === "title" || scene.name === "end") {
-    return [{ at: start + 0.15, kind: "impact" }]
-  }
-  return index === 0 ? [] : [{ at: start, kind: "whoosh" }]
-})
 const last = timeline.at(-1)
 const total = last === undefined ? 0 : last.start + last.duration
-const grooveFrom = timeline.find(({ scene }) => scene.kind === "take")?.start ?? 0
-const grooveUntil = timeline.find(({ scene }) => scene.name === "end")?.start ?? total
 const audio = join(work, "audio.wav")
-await renderAudio({ duration: total, beatsFrom: grooveFrom, beatsUntil: grooveUntil, cues: [...sceneCues, ...markCues] }, audio)
+await renderAudio({ duration: total, cues: markCues }, audio)
 const list = join(work, "scenes.txt")
 await writeFile(list, files.map((file) => `file '${file}'`).join("\n"))
 const joined = join(work, "joined.mp4")
@@ -232,7 +232,7 @@ run([
   "-c:v",
   "copy",
   "-af",
-  "highshelf=f=7000:g=-4,loudnorm=I=-30:TP=-9:LRA=11",
+  "highshelf=f=7000:g=-4,loudnorm=I=-18:TP=-1.5:LRA=11",
   "-ar",
   "48000",
   "-c:a",

@@ -110,7 +110,6 @@ export interface PointerLook {
 interface PointerApi {
   place(x: number, y: number, ease: boolean): void
   press(x: number, y: number, keep: boolean): void
-  release(): void
 }
 
 const plainLook: PointerLook = { host: "body", size: 30 }
@@ -195,8 +194,7 @@ export class Pointer {
             if (!keep) {
               setTimeout(unpress, 260)
             }
-          },
-          release: unpress
+          }
         }
         ;(window as unknown as { askPointer: PointerApi }).askPointer = pointerApi
       },
@@ -237,32 +235,6 @@ export class Pointer {
     await this.press(point, false)
     await sleep(150)
     await this.page.mouse.click(point.x, point.y)
-  }
-
-  async drag(slider: Locator, from: number, to: number): Promise<void> {
-    const box = await slider.boundingBox()
-    if (box === null) {
-      throw new Error("the slider is not visible")
-    }
-    const thumb = box.height
-    const at = (ratio: number) => ({ x: box.x + thumb / 2 + ratio * (box.width - thumb), y: box.y + box.height / 2 })
-    const start = at(from)
-    await this.place(start, true)
-    await sleep(650)
-    await this.page.mouse.move(start.x, start.y)
-    await this.press(start, true)
-    await this.page.mouse.down()
-    await sleep(250)
-    const steps = 24
-    for (let index = 1; index <= steps; index++) {
-      const point = at(from + ((to - from) * index) / steps)
-      await this.page.mouse.move(point.x, point.y)
-      await this.place(point, false)
-      await sleep(45)
-    }
-    await sleep(250)
-    await this.page.mouse.up()
-    await this.page.evaluate(() => (window as unknown as { askPointer: PointerApi }).askPointer.release())
   }
 }
 
