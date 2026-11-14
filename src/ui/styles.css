@@ -94,9 +94,7 @@ body {
 }
 
 .q.folded .option-details,
-.q.folded .rec-details,
-.q.folded .rec-reason,
-.q.folded .option .rec {
+.q.folded .rec {
   display: none;
 }
 
