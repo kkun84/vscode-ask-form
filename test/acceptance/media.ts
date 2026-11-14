@@ -122,7 +122,12 @@ const scenario = async (page: Page, pointer: Pointer, images: string, recorder: 
   await shoot(page, images, "form")
   recorder.mark("edit")
   await pointer.click(frame.locator("label.option", { hasText: "サーバー" }))
-  await pointer.click(frame.getByRole("switch", { name: "ログインが必要" }))
+  await sleep(1500)
+  const login = frame.getByRole("switch", { name: "ログインが必要" })
+  await pointer.click(login)
+  if (!(await login.isChecked())) {
+    throw new Error("the login switch did not turn on")
+  }
   await sleep(2200)
   recorder.mark("edited")
   await shoot(page, images, "branch")
