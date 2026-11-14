@@ -39,13 +39,13 @@ const resultText = (result: ToolResult): string => (result.content ?? []).map((i
 
 const isExpired = (result: ToolResult): boolean => result.isError === true && /expired/.test(resultText(result))
 
-const whyView = (field: Field, prefix: string): HTMLElement | null =>
+const noteView = (field: Field): HTMLElement | null =>
   field.reason === undefined
     ? null
     : h(
-        "span",
-        { class: "why" },
-        h("span", {}, `${prefix}: ${field.reason}`),
+        "p",
+        { class: "q-hint" },
+        h("span", {}, field.reason),
         field.reasonDetails === undefined ? null : h("span", { class: "why-details" }, field.reasonDetails)
       )
 
@@ -650,7 +650,7 @@ export class FormApp {
           "dd",
           {},
           describeValue(field, this.summaryValues[field.id], this.m),
-          changedByUser.includes(field.id) && field.default !== undefined
+          changedByUser.includes(field.id) && field.type === "choice" && field.default !== undefined
             ? h("span", { class: "mark" }, this.m.recommendedWas(describeValue(field, this.guesses[field.id], this.m)))
             : null
         )
@@ -674,40 +674,36 @@ export class FormApp {
     for (const card of this.live.cards) {
       const field = card.field
       const changed = sinceRecommended.includes(field.id)
-      card.answer.replaceChildren(this.answerTag(field, changed, sinceAnswer.includes(field.id)) ?? "")
+      card.answer.replaceChildren(this.answerTag(field, sinceAnswer.includes(field.id)) ?? "")
       if (field.type !== "choice") {
-        card.note.replaceChildren(...[this.backView(field, changed), whyView(field, this.m.whyRecommended)].filter((node) => node !== null))
+        card.note.replaceChildren(...[noteView(field), this.resetView(field, changed)].filter((node) => node !== null))
       }
     }
   }
 
-  private recommendedText(field: Field): string | undefined {
+  private initialText(field: Field): string | undefined {
     return field.default === undefined ? undefined : describeValue(field, this.guesses[field.id], this.m)
   }
 
-  private answerTag(field: Field, changed: boolean, changedSinceAnswer: boolean): HTMLElement | null {
+  private answerTag(field: Field, changedSinceAnswer: boolean): HTMLElement | null {
     if (this.phase.kind === "resending") {
       return changedSinceAnswer
         ? h("span", { class: "muted" }, this.m.previously(describeValue(field, this.baseline[field.id], this.m)))
         : null
     }
-    const recommended = this.recommendedText(field)
-    if (recommended === undefined) {
-      return null
-    }
-    return changed ? h("span", { class: "muted" }, this.m.recommendedWas(recommended)) : null
+    return null
   }
 
-  private backView(field: Field, changed: boolean): HTMLElement | null {
-    const recommended = this.recommendedText(field)
-    if (recommended === undefined || !changed) {
+  private resetView(field: Field, changed: boolean): HTMLElement | null {
+    const initial = this.initialText(field)
+    if (initial === undefined || !changed || field.type === "toggle") {
       return null
     }
-    const back = on(h("button", { type: "button", class: "link" }, this.m.backToRecommended), "click", () => {
+    const reset = on(h("button", { type: "button", class: "link" }, this.m.resetTo(initial)), "click", () => {
       this.values[field.id] = this.guesses[field.id] as FieldValue
       this.render()
     })
-    return h("p", { class: "back" }, h("span", {}, this.m.recommendedWas(recommended)), back)
+    return h("p", { class: "back" }, reset)
   }
 
   private refreshComputed(form: CompiledForm): void {

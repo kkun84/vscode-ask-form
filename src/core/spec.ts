@@ -13,7 +13,7 @@ const commonFields = {
   reason: Schema.optionalKey(
     text(60).annotate({
       description:
-        "One sentence on why the default is the best fit for this situation, citing what you found. Always shown with the recommended value."
+        "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence on what the prefilled value means."
     })
   ),
   reasonDetails: Schema.optionalKey(

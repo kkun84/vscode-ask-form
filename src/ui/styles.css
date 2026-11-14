@@ -281,6 +281,15 @@ input[type="radio"] {
   font-weight: 600;
 }
 
+.q-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .q-note {
   display: flex;
   flex-direction: column;
