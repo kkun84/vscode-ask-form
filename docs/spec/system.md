@@ -27,12 +27,12 @@ AIはフォームを次の形のJSONで指定する。
 
 種類ごとのキーは次のとおり。
 
-| `type`   | キー                                                                                                  |
-| -------- | ----------------------------------------------------------------------------------------------------- |
-| `text`   | `default`(500文字以下)、`placeholder`(80文字以下)、`multiline`                                        |
-| `number` | `default`、`min`、`max`、`step`(正の数)、`prefix`と`suffix`(各8文字以下)                              |
-| `choice` | `options`(2〜12個。各`value`と`label`は60文字以下、`description`は120文字以下)、`default`、`multiple` |
-| `toggle` | `default`、`note`(40文字以下)                                                                         |
+| `type`   | キー                                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `text`   | `default`(500文字以下)、`placeholder`(80文字以下)、`multiline`                                                              |
+| `number` | `default`、`min`、`max`、`step`(正の数)、`prefix`と`suffix`(各8文字以下)                                                    |
+| `choice` | `options`(2〜6個。各`value`と`label`は60文字以下、`description`は60文字以下、`details`は300文字以下)、`default`、`multiple` |
+| `toggle` | `default`、`note`(40文字以下)                                                                                               |
 
 最上位の選択項目の選択肢は、任意の`fields`(1〜10個の項目の配列)を持てる。`fields`の項目は、その選択肢が選ばれている間だけ有効になる。`fields`の中の選択項目の選択肢は`fields`を持てない(入れ子は1段まで)。
 

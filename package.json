@@ -525,7 +525,7 @@
                                           "additionalProperties": true
                                         },
                                         "minItems": 2,
-                                        "maxItems": 12
+                                        "maxItems": 6
                                       }
                                     },
                                     "required": [
@@ -550,7 +550,7 @@
                           "additionalProperties": true
                         },
                         "minItems": 2,
-                        "maxItems": 12
+                        "maxItems": 6
                       }
                     },
                     "required": [

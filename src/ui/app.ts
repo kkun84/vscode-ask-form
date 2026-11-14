@@ -318,7 +318,9 @@ export class FormApp {
     this.live.status = undefined
     this.live.primary = undefined
     this.live.form = undefined
+    this.root.classList.remove("motion")
     this.root.replaceChildren(this.view())
+    requestAnimationFrame(() => this.root.classList.add("motion"))
     this.applyFolds()
     this.refresh()
   }

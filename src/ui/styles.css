@@ -84,6 +84,8 @@ body {
 
 .reveal[hidden] {
   display: none;
+  height: 0;
+  opacity: 0;
 }
 
 .q {
@@ -93,9 +95,43 @@ body {
   min-width: 0;
 }
 
+.option-details,
+.rec,
+.reveal {
+  overflow: clip;
+}
+
+.motion {
+  interpolate-size: allow-keywords;
+}
+
+.motion .option-details,
+.motion .rec,
+.motion .reveal {
+  transition:
+    height 200ms ease,
+    opacity 200ms ease,
+    margin 200ms ease,
+    padding 200ms ease,
+    display 200ms allow-discrete;
+}
+
+@starting-style {
+  .motion .option-details,
+  .motion .rec,
+  .motion .reveal {
+    height: 0;
+    opacity: 0;
+  }
+}
+
 .q.folded .option-details,
 .q.folded .rec {
   display: none;
+  height: 0;
+  margin: 0;
+  padding-block: 0;
+  opacity: 0;
 }
 
 .q-head {
@@ -213,13 +249,12 @@ input[type="radio"] {
   accent-color: var(--accent);
 }
 
-.options {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.options > * + * {
+  margin-top: 2px;
 }
 
 .option {
+  transition: background-color 150ms ease;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -250,11 +285,16 @@ input[type="radio"] {
 }
 
 .option-text {
-  display: flex;
   flex: 1;
-  flex-direction: column;
-  gap: 2px;
   min-width: 0;
+}
+
+.option-text > * {
+  display: block;
+}
+
+.option-text > * + * {
+  margin-top: 2px;
 }
 
 .option-head {
@@ -310,9 +350,7 @@ input[type="radio"] {
 }
 
 .q-note {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: block;
 }
 
 .q-note:empty {
@@ -505,5 +543,12 @@ summary:focus-visible {
   .option:has(input:checked) {
     outline: 2px solid Highlight;
     outline-offset: -2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before {
+    transition: none !important;
   }
 }
