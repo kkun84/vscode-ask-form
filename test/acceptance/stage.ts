@@ -407,7 +407,8 @@ const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorde
   await look(page, [card], card, "質問が1つのフォームに", 1800)
 }
 
-const choose = async (page: Page, frame: Frame, pointer: Pointer): Promise<void> => {
+const choose = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
+  recorder.mark("choose")
   await caption(page, 2)
   const storage = frame.getByRole("group", { name: "保存先" })
   const branch = frame.locator(".branch:not([hidden])")
@@ -418,6 +419,7 @@ const choose = async (page: Page, frame: Frame, pointer: Pointer): Promise<void>
   await look(page, [storage, branch], branch, "サーバーなら、ポートとログインを聞く", 1500)
   await pointer.click(frame.getByRole("switch", { name: "ログインが必要" }))
   await sleep(500)
+  recorder.mark("chosen")
 }
 
 const answer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
@@ -448,7 +450,7 @@ const answer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Reco
 
 const scene = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await ask(page, frame, pointer, recorder)
-  await choose(page, frame, pointer)
+  await choose(page, frame, pointer, recorder)
   await answer(page, frame, pointer, recorder)
 }
 

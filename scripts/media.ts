@@ -21,16 +21,35 @@ if (only !== "stage") {
 }
 
 const take = await captureStage(work)
-const start = Math.max(0, (take.marks["typing"] ?? 0) - 0.6)
+const choose = take.marks["choose"]
+const chosen = take.marks["chosen"]
+if (choose === undefined || chosen === undefined) {
+  throw new Error("the take is missing the choose or chosen mark")
+}
+const start = choose + 0.4
+const end = chosen
 run("ffmpeg", [
   "-y",
   "-loglevel",
   "error",
   "-ss",
   start.toFixed(2),
+  "-t",
+  (end - start).toFixed(2),
   "-i",
   take.video,
   "-vf",
-  "fps=12,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=full[p];[b][p]paletteuse=dither=sierra2_4a",
-  join(root, "docs/images/demo.gif")
+  "fps=15,scale=720:-1:flags=lanczos",
+  "-c:v",
+  "libwebp_anim",
+  "-loop",
+  "0",
+  "-lossless",
+  "0",
+  "-quality",
+  "80",
+  "-compression_level",
+  "6",
+  "-an",
+  join(root, "docs/images/demo.webp")
 ])
