@@ -388,32 +388,30 @@ export class FormApp {
   }
 
   private fieldView(field: Field): HTMLElement {
-    if (field.type !== "choice") {
-      return this.card(field)
-    }
-    const branches = field.options.flatMap((option) => {
-      if (option.fields === undefined) {
-        return []
-      }
-      const element = h(
-        "div",
-        { class: "branch" },
-        option.fields.map((nested) => this.card(nested))
-      )
-      this.live.branches.push({ id: field.id, value: option.value, element })
-      return [element]
-    })
-    return branches.length === 0 ? this.card(field) : h("div", { class: "group" }, this.card(field), branches)
+    return this.card(field, false)
   }
 
-  private card(field: Field): HTMLElement {
+  private reveal(field: ChoiceField, option: ChoiceField["options"][number]): HTMLElement | null {
+    if (!("fields" in option) || option.fields === undefined) {
+      return null
+    }
+    const element = h(
+      "div",
+      { class: "reveal" },
+      option.fields.map((nested) => this.card(nested, true))
+    )
+    this.live.branches.push({ id: field.id, value: option.value, element })
+    return element
+  }
+
+  private card(field: Field, nested: boolean): HTMLElement {
     const labelId = uid("label")
     const answer = h("span", { class: "q-answer" })
     const toggle = hasDetails(field) ? h("button", { type: "button", class: "fold" }) : null
     const note = h("div", { class: "q-note" })
     const element = h(
       "section",
-      { class: "q", "aria-labelledby": labelId },
+      { class: nested ? "q sub" : "q", "aria-labelledby": labelId },
       h(
         "div",
         { class: "q-head" },
@@ -429,7 +427,8 @@ export class FormApp {
     if (toggle !== null) {
       on(toggle, "click", () => this.setFolded(field.id, !this.folded.has(field.id)))
       const unfold = (event: Event) => {
-        if (event.target !== toggle) {
+        const target = event.target as HTMLElement
+        if (target !== toggle && target.closest(".q") === element) {
           this.setFolded(field.id, false)
         }
       }
@@ -467,7 +466,9 @@ export class FormApp {
       card.element.classList.toggle("folded", folded)
       card.toggle?.setAttribute("aria-expanded", String(!folded))
       if (card.toggle !== null) {
-        card.toggle.textContent = folded ? `${this.m.more} ▾` : `${this.m.less} ▴`
+        const label = folded ? this.m.more : this.m.less
+        card.toggle.setAttribute("aria-label", label)
+        card.toggle.title = label
       }
     }
   }
@@ -527,7 +528,7 @@ export class FormApp {
     const name = uid(field.id)
     const current = this.values[field.id]
     let pointing = false
-    const options = field.options.map((option) => {
+    const options = field.options.flatMap((option) => {
       const checked = multiple ? Array.isArray(current) && current.includes(option.value) : current === option.value
       const input = h("input", { type: multiple ? "checkbox" : "radio", name, value: option.value, checked })
       on(input, "change", () => {
@@ -544,7 +545,7 @@ export class FormApp {
       })
       const isRecommended = recommended.includes(option.value)
       const why = isRecommended ? whyView(field) : null
-      return h(
+      const row = h(
         "label",
         { class: isRecommended ? "option recommended" : "option" },
         input,
@@ -557,6 +558,8 @@ export class FormApp {
           why
         )
       )
+      const revealed = this.reveal(field, option)
+      return revealed === null ? [row] : [row, revealed]
     })
     const group = h("div", { class: "options", role: multiple ? "group" : "radiogroup", "aria-labelledby": labelId }, options)
     on(group, "pointerdown", () => {
