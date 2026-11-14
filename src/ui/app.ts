@@ -91,7 +91,6 @@ export class FormApp {
     form: undefined as HTMLElement | undefined
   }
   private readonly folded = new Set<string>()
-  private pendingReveals: ReadonlyArray<HTMLElement> = []
 
   private readonly root: HTMLElement
 
@@ -412,21 +411,20 @@ export class FormApp {
     const element = h(
       "div",
       { class: "reveal" },
-      option.fields.map((nested) => this.card(nested, option.label))
+      option.fields.map((nested) => this.card(nested, true))
     )
     this.live.branches.push({ id: field.id, value: option.value, element })
     return element
   }
 
-  private card(field: Field, context?: string): HTMLElement {
+  private card(field: Field, nested = false): HTMLElement {
     const labelId = uid("label")
     const answer = h("span", { class: "q-answer" })
     const toggle = hasDetails(field) ? h("button", { type: "button", class: "fold" }) : null
     const note = h("div", { class: "q-note" })
     const element = h(
       "section",
-      { class: context === undefined ? "q" : "q sub", "aria-labelledby": labelId },
-      context === undefined ? null : h("p", { class: "q-context" }, this.m.whenChosen(context)),
+      { class: nested ? "q sub" : "q", "aria-labelledby": labelId },
       h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), answer, toggle),
       field.description === undefined ? null : h("p", { class: "q-desc" }, field.description),
       h(
@@ -436,8 +434,6 @@ export class FormApp {
         field.type === "choice" ? null : note
       )
     )
-    const reveals = this.pendingReveals
-    this.pendingReveals = []
     this.live.cards.push({ field, element, toggle, answer, note })
     if (toggle !== null) {
       on(toggle, "click", () => this.setFolded(field.id, !this.folded.has(field.id)))
@@ -450,7 +446,7 @@ export class FormApp {
       on(element, "pointerdown", unfold)
       on(element, "focusin", unfold)
     }
-    return reveals.length === 0 ? element : h("div", { class: "q-chain" }, element, ...reveals)
+    return element
   }
 
   private control(field: Field, labelId: string): HTMLElement {
@@ -555,7 +551,6 @@ export class FormApp {
     const name = uid(field.id)
     const current = this.values[field.id]
     let pointing = false
-    const reveals: Array<HTMLElement> = []
     const options = field.options.flatMap((option) => {
       const checked = multiple ? Array.isArray(current) && current.includes(option.value) : current === option.value
       const input = h("input", { type: multiple ? "checkbox" : "radio", name, value: option.value, checked })
@@ -586,10 +581,7 @@ export class FormApp {
         )
       )
       const revealed = this.reveal(field, option)
-      if (revealed !== null) {
-        reveals.push(revealed)
-      }
-      return [row]
+      return revealed === null ? [row] : [row, revealed]
     })
     const group = h("div", { class: "options", role: multiple ? "group" : "radiogroup", "aria-labelledby": labelId }, options)
     on(group, "pointerdown", () => {
@@ -598,7 +590,6 @@ export class FormApp {
     on(group, "keydown", () => {
       pointing = false
     })
-    this.pendingReveals = reveals
     return group
   }
 
