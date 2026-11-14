@@ -73,15 +73,17 @@ body {
   gap: 20px;
 }
 
-.q-chain,
-.reveal {
+.q-chain {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
 }
 
 .reveal {
-  margin-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-left: 20px;
 }
 
 .reveal[hidden] {
@@ -115,8 +117,13 @@ body {
 }
 
 .q-context {
+  margin: 0 4px -4px;
   color: var(--muted);
-  font-weight: 400;
+  font-size: 11px;
+}
+
+.q-context::before {
+  content: "↳ ";
 }
 
 .q-desc {

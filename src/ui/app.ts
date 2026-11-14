@@ -426,18 +426,8 @@ export class FormApp {
     const element = h(
       "section",
       { class: context === undefined ? "q" : "q sub", "aria-labelledby": labelId },
-      h(
-        "div",
-        { class: "q-head" },
-        h(
-          "span",
-          { class: "q-label", id: labelId },
-          context === undefined ? null : h("span", { class: "q-context" }, `${context} › `),
-          field.label
-        ),
-        answer,
-        toggle
-      ),
+      context === undefined ? null : h("p", { class: "q-context" }, this.m.whenChosen(context)),
+      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), answer, toggle),
       field.description === undefined ? null : h("p", { class: "q-desc" }, field.description),
       h(
         "div",
