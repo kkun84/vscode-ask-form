@@ -53,7 +53,7 @@ describe("DES-FORM-006 有効な項目と値", () => {
       name: "my-todo",
       storage: "server",
       port: 8080,
-      auth: false
+      auth: "no"
     })
   })
 
@@ -69,7 +69,7 @@ describe("DES-FORM-006 有効な項目と値", () => {
 
   it("DES-FORM-006 選ばれていない枝の項目は計算式で未定義になる", () => {
     const initial = initialValues(storageForm.spec)
-    assert.deepEqual(computeValues(storageForm, { ...initial, storage: "server", auth: true }), { cost: 1500 })
+    assert.deepEqual(computeValues(storageForm, { ...initial, storage: "server", auth: "yes" }), { cost: 1500 })
     assert.deepEqual(computeValues(storageForm, initial), { cost: 0 })
     const form = compile({
       title: "t",
@@ -93,16 +93,16 @@ describe("DES-FORM-006 差分と検査", () => {
     assert.deepEqual(changedFields(storageForm.spec, before, after), ["storage", "port", "auth"])
     assert.equal(
       resendMessage(storageForm.spec, before, after, messages("ja")),
-      "「保存先の設定」で保存先をサーバー、ポートを8,080、ログインが必要をオフに変えたので、反映して続けてください。"
+      "「保存先の設定」で保存先をサーバー、ポートを8,080、ログインを不要に変えたので、反映して続けてください。"
     )
   })
 
   it("DES-FORM-006 値の検査は選んだ枝の項目だけを求め、ほかの枝の値を捨てる", () => {
-    const checked = checkValues(storageForm.spec, { name: "a", storage: "server", port: 80, auth: true, engine: "local" })
-    assert.deepEqual(Result.getOrThrow(checked), { name: "a", storage: "server", port: 80, auth: true })
+    const checked = checkValues(storageForm.spec, { name: "a", storage: "server", port: 80, auth: "yes", engine: "local" })
+    assert.deepEqual(Result.getOrThrow(checked), { name: "a", storage: "server", port: 80, auth: "yes" })
     const missing = checkValues(storageForm.spec, { name: "a", storage: "server", engine: "local" })
     assert.ok(Result.isFailure(missing))
-    assert.deepEqual(missing.failure, ["項目「port」は数値が必要です", "項目「auth」は真偽値が必要です"])
+    assert.deepEqual(missing.failure, ["項目「port」は数値が必要です", "項目「auth」は選択肢のどれかが必要です"])
   })
 
   it("DES-FORM-006 複数選択の枝、深い入れ子、枝の中で重複したid、多すぎる項目を拒否する", () => {

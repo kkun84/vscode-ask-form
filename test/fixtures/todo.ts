@@ -28,7 +28,16 @@ export const todoSpec = {
     },
     { type: "number", id: "memoMax", label: "メモの最大文字数", default: 100, min: 100, max: 5000, step: 100, suffix: "文字" },
     { type: "number", id: "pageSize", label: "1ページの件数", default: 20, min: 5, max: 100, step: 5, suffix: "件" },
-    { type: "toggle", id: "due", label: "締め切りを付けられる", default: true },
+    {
+      type: "choice",
+      id: "due",
+      label: "締め切り",
+      default: "yes",
+      options: [
+        { value: "yes", label: "付けられる" },
+        { value: "no", label: "付けない" }
+      ]
+    },
     {
       type: "number",
       id: "titleMax",

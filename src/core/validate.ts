@@ -136,8 +136,6 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
       return numberProblem(field, value)
     case "choice":
       return choiceProblem(field, value)
-    case "toggle":
-      return typeof value === "boolean" ? undefined : `項目「${field.id}」は真偽値が必要です`
   }
 }
 

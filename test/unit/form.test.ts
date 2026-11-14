@@ -28,7 +28,7 @@ describe("DES-SPEC-001 設計図の読み取り", () => {
   })
 
   it("DES-SPEC-001 重複したidを指摘する", () => {
-    const found = problems(withFields([{ type: "toggle", id: "a", label: "A" }], [{ id: "a", label: "A", expression: "1" }]))
+    const found = problems(withFields([{ type: "text", id: "a", label: "A" }], [{ id: "a", label: "A", expression: "1" }]))
     assert.ok(found.some((p) => p.includes("「a」が重複")))
   })
 
@@ -94,7 +94,7 @@ describe("DES-FORM-001 初期値", () => {
       format: "meetup",
       attendees: 120,
       price: 2000,
-      stream: true,
+      stream: "yes",
       extras: ["sticker"],
       venue: 140000
     })
@@ -109,12 +109,11 @@ describe("DES-FORM-001 初期値", () => {
             { type: "text", id: "t", label: "T" },
             { type: "number", id: "n", label: "N", min: 3, max: 9 },
             { type: "choice", id: "c", label: "C", options },
-            { type: "choice", id: "m", label: "M", options, multiple: true },
-            { type: "toggle", id: "g", label: "G" }
+            { type: "choice", id: "m", label: "M", options, multiple: true }
           ])
         ).spec
       ),
-      { t: "", n: 3, c: "a", m: [], g: false }
+      { t: "", n: 3, c: "a", m: [] }
     )
   })
 })
@@ -191,7 +190,7 @@ describe("DES-FORM-004 値の検査", () => {
       [{ ...base, price: "2000" }, "price"],
       [{ ...base, format: "party" }, "format"],
       [{ ...base, extras: ["sticker", "mug"] }, "extras"],
-      [{ ...base, stream: "yes" }, "stream"]
+      [{ ...base, stream: true }, "stream"]
     ]
     for (const [values, id] of cases) {
       const result = checkValues(form.spec, values)
@@ -209,10 +208,10 @@ describe("DES-FORM-005 送り直しの文章", () => {
   it("DES-FORM-005 差分を表示名で並べた文章を作る", () => {
     const form = compiled(eventSpec)
     const before = initialValues(form.spec)
-    const after = { ...before, price: 2500, stream: false, format: "talk", extras: ["sticker", "tshirt"] }
+    const after = { ...before, price: 2500, stream: "no", format: "talk", extras: ["sticker", "tshirt"] }
     assert.equal(
       resendMessage(form.spec, before, after, messages("ja")),
-      "「交流会の条件」で形式を勉強会、参加費を¥2,500、ライブ配信をオフ、配布物をステッカー、Tシャツに変えたので、反映して続けてください。"
+      "「交流会の条件」で形式を勉強会、参加費を¥2,500、ライブ配信をなし、配布物をステッカー、Tシャツに変えたので、反映して続けてください。"
     )
     assert.equal(
       resendMessage(form.spec, before, { ...before, price: 2500 }, messages("en")),

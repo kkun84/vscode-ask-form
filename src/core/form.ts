@@ -54,8 +54,6 @@ const initialValue = (field: Field): FieldValue => {
       return field.default ?? field.min
     case "choice":
       return field.default ?? (isMultiple(field) ? [] : (field.options[0]?.value ?? ""))
-    case "toggle":
-      return field.default ?? false
   }
 }
 
@@ -123,8 +121,6 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
       return labels.length === 0 ? m.none : labels.join(m.listSeparator)
     }
-    case "toggle":
-      return value === true ? m.on : m.off
   }
 }
 

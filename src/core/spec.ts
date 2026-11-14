@@ -71,14 +71,7 @@ const options = <S extends Schema.Top>(option: S) => Schema.Array(option).check(
 
 const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
 
-const ToggleField = Schema.Struct({
-  type: Schema.Literal("toggle"),
-  ...commonFields,
-  default: Schema.optionalKey(Schema.Boolean),
-  note: Schema.optionalKey(text(40))
-})
-
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, ToggleField])
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -92,7 +85,7 @@ const BranchOption = Schema.Struct({
 
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField, ToggleField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField])
 
 const Computed = Schema.Struct({
   id: Identifier,
@@ -118,7 +111,6 @@ export const FormSpec = Schema.Struct({
 export type TextField = typeof TextField.Type
 export type NumberField = typeof NumberField.Type
 export type ChoiceField = typeof ChoiceField.Type
-export type ToggleField = typeof ToggleField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

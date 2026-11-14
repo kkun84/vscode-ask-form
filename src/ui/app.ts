@@ -14,7 +14,7 @@ import {
   type Values
 } from "../core/form.ts"
 import { languageOf, messages, type Messages } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, TextField, ToggleField } from "../core/spec.ts"
+import type { ChoiceField, Field, FormSpec, NumberField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 import { watchStatus } from "./status.ts"
@@ -423,15 +423,8 @@ export class FormApp {
     const element = h(
       "section",
       { class: nested ? "q sub" : "q", "aria-labelledby": labelId },
-      h(
-        "div",
-        { class: "q-head" },
-        h("span", { class: "q-label", id: labelId }, field.label),
-        answer,
-        toggle,
-        field.type === "toggle" ? this.control(field, labelId) : null
-      ),
-      field.type === "toggle" ? null : this.control(field, labelId),
+      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), answer, toggle),
+      this.control(field, labelId),
       field.type === "choice" ? null : note
     )
     this.live.cards.push({ field, element, toggle, answer, note })
@@ -457,8 +450,6 @@ export class FormApp {
         return this.numberView(field, labelId)
       case "choice":
         return this.choiceView(field, labelId)
-      case "toggle":
-        return this.toggleView(field, labelId)
     }
   }
 
@@ -489,6 +480,7 @@ export class FormApp {
     const common = { name: field.id, "aria-labelledby": labelId, placeholder: field.placeholder }
     const input = field.multiline === true ? h("textarea", { ...common, rows: 3 }, value) : h("input", { ...common, type: "text", value })
     on(input, "input", () => this.setValue(field.id, input.value))
+    on(input, "change", () => this.setFolded(field.id, true))
     return input
   }
 
@@ -523,7 +515,9 @@ export class FormApp {
         show(next)
       }
     })
+    on(slider, "change", () => this.setFolded(field.id, true))
     on(exact, "change", () => {
+      this.setFolded(field.id, true)
       if (exact.value !== "" && Number.isFinite(Number(exact.value))) {
         update(Number(exact.value))
       } else {
@@ -579,12 +573,6 @@ export class FormApp {
       pointing = false
     })
     return group
-  }
-
-  private toggleView(field: ToggleField, labelId: string): HTMLElement {
-    const input = h("input", { type: "checkbox", role: "switch", checked: this.values[field.id] === true, "aria-labelledby": labelId })
-    on(input, "change", () => this.setValue(field.id, input.checked))
-    return h("div", { class: "row" }, input, h("span", { class: "muted" }, field.note ?? ""))
   }
 
   private computedView(): HTMLElement {
@@ -696,7 +684,7 @@ export class FormApp {
 
   private resetView(field: Field, changed: boolean): HTMLElement | null {
     const initial = this.initialText(field)
-    if (initial === undefined || !changed || field.type === "toggle") {
+    if (initial === undefined || !changed) {
       return null
     }
     const reset = on(h("button", { type: "button", class: "link" }, this.m.resetTo(initial)), "click", () => {
