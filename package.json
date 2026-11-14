@@ -120,7 +120,7 @@
                       "reason": {
                         "type": "string",
                         "maxLength": 60,
-                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence on what the prefilled value means."
+                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence of advice that helps the user decide the value, such as what the prefilled value means or when to change it."
                       },
                       "reasonDetails": {
                         "type": "string",
@@ -173,7 +173,7 @@
                       "reason": {
                         "type": "string",
                         "maxLength": 60,
-                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence on what the prefilled value means."
+                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence of advice that helps the user decide the value, such as what the prefilled value means or when to change it."
                       },
                       "reasonDetails": {
                         "type": "string",
@@ -238,7 +238,7 @@
                       "reason": {
                         "type": "string",
                         "maxLength": 60,
-                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence on what the prefilled value means."
+                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence of advice that helps the user decide the value, such as what the prefilled value means or when to change it."
                       },
                       "reasonDetails": {
                         "type": "string",
@@ -317,7 +317,7 @@
                                       "reason": {
                                         "type": "string",
                                         "maxLength": 60,
-                                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence on what the prefilled value means."
+                                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence of advice that helps the user decide the value, such as what the prefilled value means or when to change it."
                                       },
                                       "reasonDetails": {
                                         "type": "string",
@@ -370,7 +370,7 @@
                                       "reason": {
                                         "type": "string",
                                         "maxLength": 60,
-                                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence on what the prefilled value means."
+                                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence of advice that helps the user decide the value, such as what the prefilled value means or when to change it."
                                       },
                                       "reasonDetails": {
                                         "type": "string",
@@ -435,7 +435,7 @@
                                       "reason": {
                                         "type": "string",
                                         "maxLength": 60,
-                                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence on what the prefilled value means."
+                                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence of advice that helps the user decide the value, such as what the prefilled value means or when to change it."
                                       },
                                       "reasonDetails": {
                                         "type": "string",
@@ -529,7 +529,7 @@
                                       "reason": {
                                         "type": "string",
                                         "maxLength": 60,
-                                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence on what the prefilled value means."
+                                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence of advice that helps the user decide the value, such as what the prefilled value means or when to change it."
                                       },
                                       "reasonDetails": {
                                         "type": "string",
@@ -603,7 +603,7 @@
                       "reason": {
                         "type": "string",
                         "maxLength": 60,
-                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence on what the prefilled value means."
+                        "description": "For a choice, one sentence on why the default option is the best fit here, citing what you found. For other fields, one sentence of advice that helps the user decide the value, such as what the prefilled value means or when to change it."
                       },
                       "reasonDetails": {
                         "type": "string",
