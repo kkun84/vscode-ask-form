@@ -55,6 +55,8 @@ body { width: ${frame.width}px; height: ${frame.height}px; overflow: hidden; col
 .tile { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 22px; padding: 34px 40px; text-align: left; }
 .tile b { display: block; font-size: 40px; margin-bottom: 10px; }
 .tile span { font-size: 30px; color: #d8cfb8; }
+.points .tile b { font-size: 40px; }
+.points .tile span { font-size: 28px; }
 .url { font-size: 46px; font-weight: 700; color: #ffe58a; }
 `
 
@@ -78,6 +80,14 @@ const problemCard = `<div class="center">
   <div class="sub">答えるたびに次の質問が来て、何往復もしてしまう。</div>
 </div>`
 
+const pointsCard = `<div class="center">
+  <div class="tagline">Ask Formがすること</div>
+  <div class="grid points">
+    <div class="tile"><b>1回で聞き切る</b><span>聞きたいことを、1つのフォームにまとめて聞く</span></div>
+    <div class="tile"><b>答えで質問が変わる</b><span>選んだ答えに応じて、続きの質問だけが出てくる</span></div>
+  </div>
+</div>`
+
 const featureCard = `<div class="center">
   <div class="tagline">ほかにも</div>
   <div class="grid">
@@ -90,7 +100,7 @@ const featureCard = `<div class="center">
 
 const endCard = `<div class="center">
   <div class="logo">Ask <span>Form</span></div>
-  <div class="tagline">AIの質問に、フォームで答えよう。</div>
+  <div class="tagline">選んだ答えで、続きの質問が変わる。</div>
   <div class="url">github.com/kkun84/vscode-ask-form</div>
   <div class="sub">VS Code 1.110以降 ・ MIT License</div>
 </div>`
@@ -106,6 +116,7 @@ const scenes = (take: Recording): ReadonlyArray<Scene> => [
   { kind: "card", name: "title", duration: 2, body: titleCard },
   { kind: "card", name: "problem", duration: 3.5, body: problemCard },
   { kind: "take", name: "demo", from: Math.max(0, (take.marks["typing"] ?? 0) - 0.8), to: take.marks["end"] ?? 0, speed: 1 },
+  { kind: "card", name: "points", duration: 3.5, body: pointsCard },
   { kind: "card", name: "features", duration: 3, body: featureCard },
   { kind: "card", name: "end", duration: 2.5, body: endCard }
 ]
@@ -191,31 +202,20 @@ const toVideo = (time: number): number | undefined => {
   return undefined
 }
 const cueKind = (name: string): Cue["kind"] | undefined => {
-  if (name.startsWith("key:")) {
-    return "key"
-  }
   if (name.startsWith("click:")) {
     return "click"
   }
-  return ({ form: "pop", answered: "success", followed: "chime" } as Readonly<Record<string, Cue["kind"]>>)[name]
+  return name === "answered" ? "success" : undefined
 }
 const markCues = Object.entries(capture.marks).flatMap(([name, time]): Array<Cue> => {
   const kind = cueKind(name)
   const at = toVideo(time)
   return kind === undefined || at === undefined ? [] : [{ at, kind }]
 })
-const sceneCues = timeline.flatMap(({ scene, start }, index): Array<Cue> => {
-  if (scene.name === "title" || scene.name === "end") {
-    return [{ at: start + 0.15, kind: "impact" }]
-  }
-  return index === 0 ? [] : [{ at: start, kind: "whoosh" }]
-})
 const last = timeline.at(-1)
 const total = last === undefined ? 0 : last.start + last.duration
-const grooveFrom = timeline.find(({ scene }) => scene.kind === "take")?.start ?? 0
-const grooveUntil = timeline.find(({ scene }) => scene.name === "end")?.start ?? total
 const audio = join(work, "audio.wav")
-await renderAudio({ duration: total, beatsFrom: grooveFrom, beatsUntil: grooveUntil, cues: [...sceneCues, ...markCues] }, audio)
+await renderAudio({ duration: total, cues: markCues }, audio)
 const list = join(work, "scenes.txt")
 await writeFile(list, files.map((file) => `file '${file}'`).join("\n"))
 const joined = join(work, "joined.mp4")

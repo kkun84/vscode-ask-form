@@ -63,6 +63,7 @@ body > iframe#form { position: absolute; left: -9999px; }
 #focus.on { opacity: 1; }
 #focus .label { position: absolute; left: -3px; bottom: calc(100% + 10px); background: #ffd23f; color: #14110a; font-weight: 800; font-size: 30px; padding: 6px 18px; border-radius: 9px; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
 #focus.below .label { bottom: auto; top: calc(100% + 10px); }
+#focus.inside .label { top: 12px; left: 12px; bottom: auto; }
 @keyframes pop { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
 @keyframes rise { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: none } }
 @keyframes spin { to { transform: rotate(360deg) } }
@@ -168,11 +169,17 @@ const focusOn = async (page: Page, target: Locator | null, label = ""): Promise<
         width: `${rect.width + 16}px`,
         height: `${rect.height + 16}px`
       })
-      const tag = focus.querySelector(".label")
+      const tag = focus.querySelector<HTMLElement>(".label")
       if (tag !== null) {
         tag.textContent = text
       }
-      focus.classList.toggle("below", rect.y < 200)
+      const view = document.querySelector<HTMLElement>("#viewport")?.getBoundingClientRect()
+      const height = tag?.getBoundingClientRect().height ?? 0
+      const frame = focus.getBoundingClientRect()
+      const above = view !== undefined && height + 10 <= frame.top - view.top
+      const below = view !== undefined && height + 10 <= view.bottom - frame.bottom
+      focus.classList.toggle("below", !above && below)
+      focus.classList.toggle("inside", !above && !below)
       focus.classList.add("on")
     },
     { rect: box, text: label }
@@ -253,7 +260,7 @@ const visible = ({ view, state, room }: Rig): Box => {
 
 const contains = (box: Box, x: number, y: number) => x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height
 
-const goalOf = (rig: Rig, rect: Box | null, pad: number): Box => {
+const goalOf = (rig: Rig, rect: Box | null, pad: number, top: number): Box => {
   const { view, state, room } = rig
   const local =
     rect === null
@@ -264,12 +271,12 @@ const goalOf = (rig: Rig, rect: Box | null, pad: number): Box => {
           width: rect.width / state.s,
           height: rect.height / state.s
         }
-  return { x: local.x - pad, y: local.y - pad, width: local.width + pad * 2, height: local.height + pad * 2 }
+  return { x: local.x - pad, y: local.y - pad - top, width: local.width + pad * 2, height: local.height + pad * 2 + top }
 }
 
-const aim = async (page: Page, rect: Box | null, pad: number, most: number, still: boolean): Promise<boolean> => {
+const aim = async (page: Page, rect: Box | null, pad: number, most: number, still: boolean, top: number): Promise<boolean> => {
   const rig = await readRig(page)
-  const goal = goalOf(rig, rect, pad)
+  const goal = goalOf(rig, rect, pad, top)
   const seen = visible(rig)
   const far = !still && rect !== null && !contains(seen, goal.x + goal.width / 2, goal.y + goal.height / 2)
   const frame = far ? union(goal, seen) : goal
@@ -283,11 +290,11 @@ const aim = async (page: Page, rect: Box | null, pad: number, most: number, stil
   return far
 }
 
-const camera = async (page: Page, targets: ReadonlyArray<Locator>, pad: number, most: number, still = false): Promise<void> => {
+const camera = async (page: Page, targets: ReadonlyArray<Locator>, pad: number, most: number, still = false, top = 0): Promise<void> => {
   const rect = targets.length === 0 ? null : await boxOf(...targets)
-  if (await aim(page, rect, pad, most, still)) {
+  if (await aim(page, rect, pad, most, still, top)) {
     await sleep(750)
-    await camera(page, targets, pad, most, still)
+    await camera(page, targets, pad, most, still, top)
     return
   }
   await sleep(still ? 50 : 800)
@@ -363,7 +370,7 @@ const guide: { pointer?: Pointer } = {}
 const look = async (page: Page, targets: ReadonlyArray<Locator>, spot: Locator, label: string, hold: number): Promise<void> => {
   await focusOn(page, null)
   await guide.pointer?.pointAt(spot)
-  await camera(page, targets, 24, 2.4)
+  await camera(page, targets, 24, 2.4, false, 40)
   await focusOn(page, spot, label)
   await sleep(hold)
 }
@@ -403,11 +410,11 @@ const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorde
 const choose = async (page: Page, frame: Frame, pointer: Pointer): Promise<void> => {
   await caption(page, 2)
   const storage = frame.getByRole("group", { name: "保存先" })
-  await look(page, [storage], storage, "保存先を選ぶ", 500)
-  await pointer.click(frame.locator("label.option", { hasText: "サーバー" }))
-  await sleep(700)
   const branch = frame.locator(".branch:not([hidden])")
-  await look(page, [branch], branch, "サーバーなら、ポートとログインも聞く", 1300)
+  await look(page, [storage, branch], branch, "ブラウザなら、保存方式を聞く", 1200)
+  await pointer.click(frame.locator("label.option", { hasText: "サーバー" }))
+  await sleep(800)
+  await look(page, [storage, branch], branch, "サーバーなら、ポートとログインを聞く", 1500)
   await pointer.click(frame.getByRole("switch", { name: "ログインが必要" }))
   await sleep(500)
 }
