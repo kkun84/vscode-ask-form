@@ -15,14 +15,6 @@
   <img src="docs/images/demo.gif" alt="新しいTODOアプリの設定をCopilotがフォームで質問し、保存先にサーバーを選ぶとポートとログインの質問が現れ、1回で回答するとCopilotがその値で作り始める様子" width="860">
 </p>
 
-<p align="center">
-  <a href="docs/media/ask-form-pv.mp4"><img src="docs/images/pv-poster.png" alt="1分で分かる紹介動画を見る" width="640"></a>
-  <br>
-  <a href="docs/media/ask-form-pv.mp4">▶ 1分で分かる紹介動画(MP4)</a>
-  <br>
-  BGM: 「Minimal Techno 01」Alejandro Magaña(<a href="https://mixkit.co/license/#musicFree">Mixkit Stock Music Free License</a>)。この曲はMITライセンスの対象外です。
-</p>
-
 Copilotは、仕事を進める途中で利用者に確認したいことがよくあります。文章でやり取りすると、1つ答えるたびに次の質問が来て、何度も往復することになります。「保存先はサーバーで」と答えると「ではポート番号は？」と続く、という具合です。
 
 Ask Formを入れると、Copilotは聞きたいことを**1つのフォームにまとめて**聞けます。続きの質問も、**選んだ答えに応じて**同じフォームの中に現れます。利用者はボタンを1回押せば答え終わり、Copilotは同じ作業の流れのまま、受け取った値で続きを進めます。
@@ -300,16 +292,16 @@ pnpm install
 pnpm build
 ```
 
-| コマンド               | 内容                                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm lint`            | oxlint、oxfmt、fallow(未使用のコード、重複、循環参照、層の境界、複雑さ)、markdownlint、コメントとトレーサビリティの検査                                |
-| `pnpm typecheck`       | TypeScript 7とEffectの診断による型検査                                                                                                                 |
-| `pnpm test`            | 単体、結合、システム、画面のテスト                                                                                                                     |
-| `pnpm test:acceptance` | 実際のVS Code(デスクトップ版、web版、チャット)での受け入れテスト                                                                                       |
-| `pnpm media`           | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る |
-| `pnpm budget`          | 配布物の大きさの検査                                                                                                                                   |
-| `pnpm traceability`    | `docs/traceability.md`の生成                                                                                                                           |
-| `pnpm package`         | `.vsix`の作成                                                                                                                                          |
+| コマンド               | 内容                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm lint`            | oxlint、oxfmt、fallow(未使用のコード、重複、循環参照、層の境界、複雑さ)、markdownlint、コメントとトレーサビリティの検査                                                                                |
+| `pnpm typecheck`       | TypeScript 7とEffectの診断による型検査                                                                                                                                                                 |
+| `pnpm test`            | 単体、結合、システム、画面のテスト                                                                                                                                                                     |
+| `pnpm test:acceptance` | 実際のVS Code(デスクトップ版、web版、チャット)での受け入れテスト                                                                                                                                       |
+| `pnpm media`           | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る([`docs/media/README.md`](docs/media/README.md)) |
+| `pnpm budget`          | 配布物の大きさの検査                                                                                                                                                                                   |
+| `pnpm traceability`    | `docs/traceability.md`の生成                                                                                                                                                                           |
+| `pnpm package`         | `.vsix`の作成                                                                                                                                                                                          |
 
 コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
 
