@@ -175,6 +175,11 @@ body {
   padding: 4px;
 }
 
+.q-group:not(.choices) {
+  padding: 0;
+  background: transparent;
+}
+
 .fold {
   display: grid;
   flex: none;
@@ -536,7 +541,7 @@ summary:focus-visible {
 
 @media (forced-colors: active) {
   .rec,
-  .q-group {
+  .q-group.choices {
     border: 1px solid CanvasText;
   }
 
