@@ -9,6 +9,7 @@ import {
   formatNumber,
   initialValues,
   prepare,
+  unansweredFields,
   type CompiledForm,
   type FieldValue,
   type Values
@@ -224,6 +225,12 @@ export class FormApp {
       return Promise.resolve()
     }
     const values = this.answered(this.values)
+    const unanswered = unansweredFields(form.spec, this.values)
+    if (action === "submit" && unanswered.length > 0) {
+      this.error = this.m.unanswered(unanswered.map((field) => field.label))
+      this.refresh()
+      return Promise.resolve()
+    }
     return this.whileBusy(async (bridge) => {
       const result = await bridge.callTool("form_answer", {
         formKey: form.key,
@@ -294,6 +301,7 @@ export class FormApp {
 
   private setValue(id: string, value: FieldValue): void {
     this.values[id] = value
+    this.error = undefined
     this.refresh()
   }
 
@@ -485,6 +493,7 @@ export class FormApp {
   }
 
   private numberView(field: NumberField, labelId: string): HTMLElement {
+    const unset = this.values[field.id] === undefined
     const value = Number(this.values[field.id] ?? field.min)
     const step = field.step ?? "any"
     const text = (next: number) => `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`
@@ -494,11 +503,21 @@ export class FormApp {
       max: field.max,
       step,
       value,
+      class: unset ? "unset" : undefined,
       "aria-labelledby": labelId,
-      "aria-valuetext": text(value)
+      "aria-valuetext": unset ? "" : text(value)
     })
-    const exact = h("input", { type: "number", min: field.min, max: field.max, step, value, class: "exact", "aria-labelledby": labelId })
+    const exact = h("input", {
+      type: "number",
+      min: field.min,
+      max: field.max,
+      step,
+      value: unset ? "" : value,
+      class: "exact",
+      "aria-labelledby": labelId
+    })
     const show = (next: number) => {
+      slider.classList.remove("unset")
       slider.value = String(next)
       slider.setAttribute("aria-valuetext", text(next))
       this.setValue(field.id, next)

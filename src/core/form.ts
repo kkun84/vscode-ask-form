@@ -46,18 +46,27 @@ export const prepare = (spec: FormSpec, raw: unknown): CompiledForm => ({
   expressions: parseExpressions(spec)
 })
 
-const initialValue = (field: Field): FieldValue => {
+const initialValue = (field: Field): FieldValue | undefined => {
   switch (field.type) {
     case "text":
       return field.default ?? ""
     case "number":
-      return field.default ?? field.min
+      return field.default
     case "choice":
-      return field.default ?? (isMultiple(field) ? [] : (field.options[0]?.value ?? ""))
+      return field.default ?? (isMultiple(field) ? [] : undefined)
   }
 }
 
-export const initialValues = (spec: FormSpec): Values => Object.fromEntries(allFields(spec).map((field) => [field.id, initialValue(field)]))
+export const initialValues = (spec: FormSpec): Values =>
+  Object.fromEntries(
+    allFields(spec).flatMap((field) => {
+      const value = initialValue(field)
+      return value === undefined ? [] : [[field.id, value]]
+    })
+  )
+
+export const unansweredFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> =>
+  activeFields(spec, values).filter((field) => values[field.id] === undefined)
 
 const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefined => {
   if (value === undefined) {

@@ -181,6 +181,10 @@ textarea {
   resize: vertical;
 }
 
+input[type="range"].unset {
+  opacity: 0.4;
+}
+
 input.exact {
   width: 96px;
   flex: none;

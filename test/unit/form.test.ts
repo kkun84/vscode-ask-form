@@ -88,7 +88,7 @@ describe("DES-SPEC-002 正規化と鍵", () => {
 })
 
 describe("DES-FORM-001 初期値", () => {
-  it("DES-FORM-001 defaultを初期値とし、ないときは種類ごとの既定にする", () => {
+  it("DES-FORM-001 defaultを初期値とし、ないときは文字を空、複数選択を空にし、単一選択と数値は未回答にする", () => {
     assert.deepEqual(initialValues(compiled(eventSpec).spec), {
       name: "技術交流会 2026",
       format: "meetup",
@@ -113,7 +113,7 @@ describe("DES-FORM-001 初期値", () => {
           ])
         ).spec
       ),
-      { t: "", n: 3, c: "a", m: [] }
+      { t: "", m: [] }
     )
   })
 })
