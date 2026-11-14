@@ -18,7 +18,7 @@ const commonFields = {
   ),
   reasonDetails: Schema.optionalKey(
     text(300).annotate({
-      description: "More on why the default fits, in full sentences. Shown only when the user expands the field."
+      description: "More on why the default fits, in full sentences. Can be hidden by the user."
     })
   ),
   advanced: Schema.optionalKey(
@@ -51,11 +51,11 @@ const ChoiceOption = Schema.Struct({
   value: required(60),
   label: required(60),
   description: Schema.optionalKey(
-    text(60).annotate({ description: "One sentence on when this option is the right choice. Always shown." })
+    text(60).annotate({ description: "One sentence on what this option is or what happens if chosen. Always shown." })
   ),
   details: Schema.optionalKey(
     text(300).annotate({
-      description: "More on this option in full sentences: what it is and its trade-offs. Shown only when the user expands the field."
+      description: "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user."
     })
   )
 })

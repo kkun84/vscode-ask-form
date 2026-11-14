@@ -125,7 +125,7 @@
                       "reasonDetails": {
                         "type": "string",
                         "maxLength": 300,
-                        "description": "More on why the default fits, in full sentences. Shown only when the user expands the field."
+                        "description": "More on why the default fits, in full sentences. Can be hidden by the user."
                       },
                       "advanced": {
                         "type": "boolean",
@@ -178,7 +178,7 @@
                       "reasonDetails": {
                         "type": "string",
                         "maxLength": 300,
-                        "description": "More on why the default fits, in full sentences. Shown only when the user expands the field."
+                        "description": "More on why the default fits, in full sentences. Can be hidden by the user."
                       },
                       "advanced": {
                         "type": "boolean",
@@ -243,7 +243,7 @@
                       "reasonDetails": {
                         "type": "string",
                         "maxLength": 300,
-                        "description": "More on why the default fits, in full sentences. Shown only when the user expands the field."
+                        "description": "More on why the default fits, in full sentences. Can be hidden by the user."
                       },
                       "advanced": {
                         "type": "boolean",
@@ -283,12 +283,12 @@
                             "description": {
                               "type": "string",
                               "maxLength": 60,
-                              "description": "One sentence on when this option is the right choice. Always shown."
+                              "description": "One sentence on what this option is or what happens if chosen. Always shown."
                             },
                             "details": {
                               "type": "string",
                               "maxLength": 300,
-                              "description": "More on this option in full sentences: what it is and its trade-offs. Shown only when the user expands the field."
+                              "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user."
                             },
                             "fields": {
                               "type": "array",
@@ -322,7 +322,7 @@
                                       "reasonDetails": {
                                         "type": "string",
                                         "maxLength": 300,
-                                        "description": "More on why the default fits, in full sentences. Shown only when the user expands the field."
+                                        "description": "More on why the default fits, in full sentences. Can be hidden by the user."
                                       },
                                       "advanced": {
                                         "type": "boolean",
@@ -375,7 +375,7 @@
                                       "reasonDetails": {
                                         "type": "string",
                                         "maxLength": 300,
-                                        "description": "More on why the default fits, in full sentences. Shown only when the user expands the field."
+                                        "description": "More on why the default fits, in full sentences. Can be hidden by the user."
                                       },
                                       "advanced": {
                                         "type": "boolean",
@@ -440,7 +440,7 @@
                                       "reasonDetails": {
                                         "type": "string",
                                         "maxLength": 300,
-                                        "description": "More on why the default fits, in full sentences. Shown only when the user expands the field."
+                                        "description": "More on why the default fits, in full sentences. Can be hidden by the user."
                                       },
                                       "advanced": {
                                         "type": "boolean",
@@ -480,12 +480,12 @@
                                             "description": {
                                               "type": "string",
                                               "maxLength": 60,
-                                              "description": "One sentence on when this option is the right choice. Always shown."
+                                              "description": "One sentence on what this option is or what happens if chosen. Always shown."
                                             },
                                             "details": {
                                               "type": "string",
                                               "maxLength": 300,
-                                              "description": "More on this option in full sentences: what it is and its trade-offs. Shown only when the user expands the field."
+                                              "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user."
                                             }
                                           },
                                           "required": [
@@ -534,7 +534,7 @@
                                       "reasonDetails": {
                                         "type": "string",
                                         "maxLength": 300,
-                                        "description": "More on why the default fits, in full sentences. Shown only when the user expands the field."
+                                        "description": "More on why the default fits, in full sentences. Can be hidden by the user."
                                       },
                                       "advanced": {
                                         "type": "boolean",
@@ -608,7 +608,7 @@
                       "reasonDetails": {
                         "type": "string",
                         "maxLength": 300,
-                        "description": "More on why the default fits, in full sentences. Shown only when the user expands the field."
+                        "description": "More on why the default fits, in full sentences. Can be hidden by the user."
                       },
                       "advanced": {
                         "type": "boolean",
