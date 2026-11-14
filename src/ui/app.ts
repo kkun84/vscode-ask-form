@@ -62,7 +62,8 @@ export class FormApp {
     computed: undefined as HTMLElement | undefined,
     status: undefined as HTMLElement | undefined,
     primary: undefined as HTMLButtonElement | undefined,
-    form: undefined as HTMLElement | undefined
+    form: undefined as HTMLElement | undefined,
+    folds: [] as Array<{ readonly id: string; readonly element: HTMLElement }>
   }
 
   private readonly root: HTMLElement
@@ -277,6 +278,7 @@ export class FormApp {
     this.syncStatus()
     this.live.hints.clear()
     this.live.branches.length = 0
+    this.live.folds.length = 0
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
@@ -511,23 +513,48 @@ export class FormApp {
         )
       )
     })
-    const foldable = field.reasonDetails !== undefined || field.options.some((option) => option.details !== undefined)
-    const element = h("fieldset", { class: "field folded", "aria-describedby": hintId })
-    const toggle = foldable ? h("button", { type: "button", class: "fold", "aria-expanded": "false" }, this.m.more) : null
-    if (toggle !== null) {
-      on(toggle, "click", () => {
-        const open = element.classList.toggle("folded") === false
-        toggle.setAttribute("aria-expanded", String(open))
-        toggle.textContent = open ? this.m.less : this.m.more
-      })
-    }
-    element.append(
+    const element = h(
+      "fieldset",
+      { class: "field", "aria-describedby": hintId },
       h("legend", {}, field.label),
-      ...(toggle === null ? [] : [toggle]),
       h("div", { class: compact ? "segments" : "options" }, options),
       this.hint(field, hintId)
     )
+    if (field.reasonDetails !== undefined || field.options.some((option) => option.details !== undefined)) {
+      this.foldable(field.id, element)
+    }
     return element
+  }
+
+  private foldable(id: string, element: HTMLElement): void {
+    this.live.folds.push({ id, element })
+    element.classList.toggle("folded", this.live.folds.length > 1)
+    let pointing = false
+    on(element, "pointerdown", () => {
+      pointing = true
+      this.openFold(id)
+    })
+    on(element, "focusin", () => this.openFold(id))
+    on(element, "keydown", () => {
+      pointing = false
+    })
+    on(element, "change", () => {
+      if (pointing) {
+        this.openNextFold(id)
+      }
+      pointing = false
+    })
+  }
+
+  private openFold(id: string | undefined): void {
+    for (const fold of this.live.folds) {
+      fold.element.classList.toggle("folded", fold.id !== id)
+    }
+  }
+
+  private openNextFold(id: string): void {
+    const shown = this.live.folds.filter((fold) => fold.element.closest("[hidden]") === null)
+    this.openFold(shown[shown.findIndex((fold) => fold.id === id) + 1]?.id)
   }
 
   private toggleView(field: ToggleField): HTMLElement {

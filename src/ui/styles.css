@@ -254,15 +254,6 @@ input[type="radio"] {
   display: none;
 }
 
-.fold {
-  align-self: flex-start;
-  min-height: 0;
-  padding: 0;
-  background: transparent;
-  color: var(--link);
-  font-size: 12px;
-}
-
 .option-reason {
   color: var(--link);
   font-size: 11px;
