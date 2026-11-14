@@ -503,17 +503,31 @@ export class FormApp {
           { class: "option-text" },
           h("span", { class: "option-head" }, option.label, isRecommended ? h("span", { class: "badge" }, this.m.recommended) : null),
           option.description === undefined ? null : h("span", { class: "muted" }, option.description),
-          isRecommended && reasonInOption ? h("span", { class: "option-reason" }, `${this.m.whyRecommended}: ${field.reason}`) : null
+          option.details === undefined ? null : h("span", { class: "muted more" }, option.details),
+          isRecommended && reasonInOption ? h("span", { class: "option-reason" }, `${this.m.whyRecommended}: ${field.reason}`) : null,
+          isRecommended && reasonInOption && field.reasonDetails !== undefined
+            ? h("span", { class: "option-reason more" }, field.reasonDetails)
+            : null
         )
       )
     })
-    return h(
-      "fieldset",
-      { class: "field", "aria-describedby": hintId },
+    const foldable = field.reasonDetails !== undefined || field.options.some((option) => option.details !== undefined)
+    const element = h("fieldset", { class: "field folded", "aria-describedby": hintId })
+    const toggle = foldable ? h("button", { type: "button", class: "fold", "aria-expanded": "false" }, this.m.more) : null
+    if (toggle !== null) {
+      on(toggle, "click", () => {
+        const open = element.classList.toggle("folded") === false
+        toggle.setAttribute("aria-expanded", String(open))
+        toggle.textContent = open ? this.m.less : this.m.more
+      })
+    }
+    element.append(
       h("legend", {}, field.label),
+      ...(toggle === null ? [] : [toggle]),
       h("div", { class: compact ? "segments" : "options" }, options),
       this.hint(field, hintId)
     )
+    return element
   }
 
   private toggleView(field: ToggleField): HTMLElement {

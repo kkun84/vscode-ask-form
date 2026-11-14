@@ -11,8 +11,14 @@ const commonFields = {
   id: Identifier,
   label: required(60).annotate({ description: "Label shown to the user, in the user's language." }),
   reason: Schema.optionalKey(
-    text(120).annotate({
-      description: "Why you guessed the default value, citing the source (file, earlier message). Shown under the field."
+    text(60).annotate({
+      description:
+        "One sentence on why the default is the best fit for this situation, citing what you found. Always shown with the recommended value."
+    })
+  ),
+  reasonDetails: Schema.optionalKey(
+    text(300).annotate({
+      description: "More on why the default fits, in full sentences. Shown only when the user expands the field."
     })
   ),
   advanced: Schema.optionalKey(
@@ -44,7 +50,14 @@ const NumberField = Schema.Struct({
 const ChoiceOption = Schema.Struct({
   value: required(60),
   label: required(60),
-  description: Schema.optionalKey(text(120))
+  description: Schema.optionalKey(
+    text(60).annotate({ description: "One sentence on when this option is the right choice. Always shown." })
+  ),
+  details: Schema.optionalKey(
+    text(300).annotate({
+      description: "More on this option in full sentences: what it is and its trade-offs. Shown only when the user expands the field."
+    })
+  )
 })
 
 const choiceFields = {
