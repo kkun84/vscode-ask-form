@@ -44,6 +44,18 @@ const selectStorage = async (frame: Frame, name: string) => {
   await frame.getByRole("radio", { name }).check()
 }
 
+const axeViolations = async (frame: Frame): Promise<ReadonlyArray<string>> => {
+  await frame.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)))
+  const results = await new AxeBuilder(frame).analyze()
+  return results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
+}
+
+const openWithTalk = async (page: Page): Promise<Frame> => {
+  const frame = await open(page)
+  await frame.getByRole("radio", { name: "勉強会" }).check()
+  return frame
+}
+
 const singleOutcome = async (page: Page): Promise<OutcomeLike | undefined> => {
   await expect.poll(() => recorded<OutcomeLike>(page, "outcomes")).toHaveLength(1)
   const [outcome] = await recorded<OutcomeLike>(page, "outcomes")
@@ -51,14 +63,58 @@ const singleOutcome = async (page: Page): Promise<OutcomeLike | undefined> => {
 }
 
 test.describe("SPEC-UI-001 初期表示", () => {
-  test("SPEC-UI-001 推測値と根拠を表示し、変えた項目は「あなたが変更」にする", async ({ page }) => {
+  test("SPEC-UI-001 推奨の値と理由を示し、変えたら推奨に戻せる", async ({ page }) => {
     const frame = await open(page)
-    await expect(frame.getByLabel("イベント名")).toHaveValue("技術交流会 2026")
-    await expect(frame.getByRole("radio", { name: "交流会" })).toBeChecked()
-    await expect(frame.getByText("AIの推測: README.mdより")).toBeVisible()
-    await frame.getByLabel("イベント名").fill("技術交流会 秋")
-    await expect(frame.getByText("AIの推測: README.mdより")).toHaveCount(0)
-    await expect(frame.getByText("あなたが変更")).toBeVisible()
+    const name = frame.getByRole("textbox", { name: "イベント名" })
+    await expect(name).toHaveValue("技術交流会 2026")
+    await expect(frame.getByRole("radio", { name: "交流会 推奨" })).toBeChecked()
+    await expect(frame.locator(".rec", { hasText: "README.mdより" })).toContainText("推奨技術交流会 2026")
+    const back = frame.getByRole("button", { name: "推奨に戻す" })
+    await expect(back).toBeHidden()
+    await name.fill("技術交流会 秋")
+    await back.click()
+    await expect(name).toHaveValue("技術交流会 2026")
+    await expect(name).toBeFocused()
+    await expect(back).toBeHidden()
+  })
+
+  test("SPEC-UI-001 選択肢をポインターで選ぶと詳しい説明と推奨の理由を畳み、見出しで開き直せる", async ({ page }) => {
+    const frame = await open(page)
+    const why = frame.locator(".option .rec", { hasText: "依頼文より" })
+    await expect(why).toBeVisible()
+    await frame.getByText("勉強会", { exact: true }).click()
+    await expect(why).toBeHidden()
+    const toggle = frame.getByRole("button", { name: "形式の詳しい説明" })
+    await expect(toggle).toHaveAttribute("aria-expanded", "false")
+    await frame.getByText("形式", { exact: true }).click()
+    await expect(toggle).toHaveAttribute("aria-expanded", "true")
+    await expect(why).toBeVisible()
+  })
+
+  test("SPEC-UI-001 推奨のない選択肢は何も選ばずに始め、答えるまで回答できない", async ({ page }) => {
+    const frame = await open(page, {
+      args: {
+        title: "t",
+        fields: [
+          {
+            type: "choice",
+            id: "color",
+            label: "色",
+            options: [
+              { value: "a", label: "赤" },
+              { value: "b", label: "青" }
+            ]
+          }
+        ]
+      }
+    })
+    await expect(frame.getByRole("radio", { name: "赤" })).not.toBeChecked()
+    await expect(frame.getByRole("radio", { name: "青" })).not.toBeChecked()
+    await frame.getByRole("button", { name: "この内容で進める" }).click()
+    await expect(frame.getByText("まだ答えていない項目があります: 色")).toBeVisible()
+    await expect(frame.getByRole("radio", { name: "赤" })).toBeFocused()
+    await expect(frame.getByRole("radio", { name: "赤" })).toHaveAttribute("aria-invalid", "")
+    expect(await recorded(page, "outcomes")).toHaveLength(0)
   })
 
   test("SPEC-UI-001 advancedの項目は閉じた「詳細」の中にある", async ({ page }) => {
@@ -78,7 +134,7 @@ test.describe("SPEC-UI-002 計算結果", () => {
     await expect(profit).toHaveText("¥70,000")
     await setPrice(frame, "2500")
     await expect(profit).toHaveText("¥130,000")
-    await frame.getByRole("switch", { name: "ライブ配信" }).uncheck()
+    await frame.getByRole("radio", { name: "なし" }).check()
     await expect(profit).toHaveText("¥160,000")
     const size = await profit.evaluate((node) => Number(getComputedStyle(node).fontSize.replace("px", "")))
     expect(size).toBeGreaterThan(16)
@@ -87,8 +143,7 @@ test.describe("SPEC-UI-002 計算結果", () => {
 
 test.describe("SPEC-UI-003 回答の操作", () => {
   test("SPEC-UI-003 主ボタンで変えた値を回答する", async ({ page }) => {
-    const frame = await open(page)
-    await frame.getByRole("radio", { name: "勉強会" }).check()
+    const frame = await openWithTalk(page)
     await frame.getByRole("button", { name: "この内容で進める" }).click()
     const outcome = await singleOutcome(page)
     expect(outcome?.status).toBe("submitted")
@@ -97,7 +152,7 @@ test.describe("SPEC-UI-003 回答の操作", () => {
 
   test("SPEC-UI-003 ⌘/Ctrl+Enterで主ボタンと同じ操作になる", async ({ page }) => {
     const frame = await open(page)
-    await frame.getByLabel("イベント名").press("Control+Enter")
+    await frame.getByRole("textbox", { name: "イベント名" }).press("Control+Enter")
     await expect.poll(async () => (await recorded<OutcomeLike>(page, "outcomes"))[0]?.status).toBe("submitted")
   })
 
@@ -123,14 +178,14 @@ test.describe("SPEC-UI-003 入力の確定", () => {
 })
 
 test.describe("SPEC-UI-004 回答後の要約", () => {
-  test("SPEC-UI-004 回答後は要約になり、利用者が変えた項目に印を付ける", async ({ page }) => {
-    const frame = await open(page)
+  test("SPEC-UI-004 回答後は要約になり、推奨から選び直した選択肢に元の推奨を添える", async ({ page }) => {
+    const frame = await openWithTalk(page)
     await frame.getByRole("spinbutton", { name: "参加者数" }).fill("150")
     await frame.getByRole("button", { name: "この内容で進める" }).click()
     const summary = frame.locator(".summary")
-    await expect(summary.getByText("回答しました")).toBeVisible()
-    await expect(summary.locator(".summary-row", { hasText: "参加者数" })).toContainText("150人あなたが変更")
-    await expect(summary.locator(".summary-row", { hasText: "参加費" })).not.toContainText("あなたが変更")
+    await expect(summary.getByText("回答しました")).toBeFocused()
+    await expect(summary.locator(".summary-row", { hasText: "形式" })).toHaveText("形式勉強会推奨: 交流会")
+    await expect(summary.locator(".summary-row", { hasText: "参加者数" })).toHaveText("参加者数150人")
   })
 
   test("SPEC-UI-004 ツールの結果を受け取ったときも要約を表示する", async ({ page }) => {
@@ -160,7 +215,7 @@ test.describe("SPEC-UI-005 送り直し", () => {
     await expect(frame.getByText("変更はまだありません")).toBeVisible()
     await setPrice(frame, "2500")
     await expect(frame.getByText("1項目を変更")).toBeVisible()
-    await expect(frame.getByText("回答から変更")).toBeVisible()
+    await expect(frame.getByText("前回: ¥2,000")).toBeVisible()
     await send.click()
     await expect.poll(() => recorded<{ readonly text: string }>(page, "resends")).toHaveLength(1)
     const [resend] = await recorded<{ readonly text: string }>(page, "resends")
@@ -174,7 +229,7 @@ test.describe("SPEC-UI-005 送り直し", () => {
 
   test("SPEC-UI-005 送れなかったときは理由を示して編集を続けられる", async ({ page }) => {
     const frame = await openResend(page, { failResend: true })
-    await frame.getByRole("switch", { name: "ライブ配信" }).uncheck()
+    await frame.getByRole("radio", { name: "なし" }).check()
     await frame.getByRole("button", { name: "変更を送信" }).click()
     await expect(frame.getByText(/送信できませんでした/)).toBeVisible()
     await expect(frame.getByRole("button", { name: "変更を送信" })).toBeEnabled()
@@ -182,7 +237,7 @@ test.describe("SPEC-UI-005 送り直し", () => {
 })
 
 const sendChange = async (frame: Frame) => {
-  await frame.getByRole("switch", { name: "ライブ配信" }).uncheck()
+  await frame.getByRole("radio", { name: "なし" }).check()
   await frame.getByRole("button", { name: "変更を送信" }).click()
 }
 
@@ -389,7 +444,7 @@ test.describe("SPEC-UI-007 テーマ", () => {
 test.describe("SPEC-UI-008 アクセシビリティ", () => {
   test("SPEC-UI-008 キーボードだけで項目を移動して回答できる", async ({ page }) => {
     const frame = await open(page)
-    await frame.getByLabel("イベント名").focus()
+    await frame.getByRole("textbox", { name: "イベント名" }).focus()
     for (let i = 0; i < 40; i++) {
       const focused = await frame.evaluate(() => document.activeElement?.textContent ?? "")
       if (focused === "この内容で進める") {
@@ -411,10 +466,7 @@ for (const name of themes) {
     test(`SPEC-UI-008 ${name}テーマでaxeの違反がない`, async ({ page }) => {
       const frame = await open(page, { context: themeContext(name) })
       await frame.locator("details.advanced summary").click()
-      const results = await new AxeBuilder(frame).analyze()
-      expect(
-        results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
-      ).toEqual([])
+      expect(await axeViolations(frame)).toEqual([])
     })
   })
 }
@@ -433,8 +485,7 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     await expect(port).toBeHidden()
     await selectStorage(frame, "サーバー")
     await expect(port).toHaveValue("3000")
-    const results = await new AxeBuilder(frame).analyze()
-    expect(results.violations.map((violation) => violation.id)).toEqual([])
+    expect(await axeViolations(frame)).toEqual([])
   })
 
   test("SPEC-UI-011 回答と要約には選んだ選択肢の項目だけを含める", async ({ page }) => {
@@ -443,14 +494,14 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     await frame.getByRole("spinbutton", { name: "ポート" }).fill("3000")
     await frame.getByRole("button", { name: "この内容で進める" }).click()
     const outcome = await singleOutcome(page)
-    expect(outcome?.values).toEqual({ name: "my-todo", storage: "server", port: 3000, auth: false })
+    expect(outcome?.values).toEqual({ name: "my-todo", storage: "server", port: 3000, auth: "no" })
     expect(outcome?.changedByUser).toEqual(["storage", "port"])
     const summary = frame.locator(".summary")
     await expect(summary.locator(".summary-row")).toHaveText([
       "アプリ名my-todo",
-      "保存先サーバーあなたが変更",
-      "ポート3,000あなたが変更",
-      "ログインが必要オフ"
+      "保存先サーバー推奨: ブラウザ",
+      "ポート3,000",
+      "ログイン不要"
     ])
   })
 
@@ -481,7 +532,7 @@ test.describe("SPEC-UI-009 表示の言語", () => {
     const frame = await open(page, { context: { locale: "en-US" } })
     await expect(frame.getByRole("button", { name: "Let AI decide" })).toBeVisible()
     await expect(frame.getByRole("button", { name: "Answer in chat" })).toBeVisible()
-    await expect(frame.getByText("AI guess: README.mdより")).toBeVisible()
+    await expect(frame.getByRole("button", { name: "Details for イベント名" })).toBeVisible()
   })
 })
 
@@ -507,7 +558,7 @@ const defaults = () => ({
   format: "meetup",
   attendees: 120,
   price: 2000,
-  stream: true,
+  stream: "yes",
   extras: ["sticker"],
   venue: 140000
 })

@@ -394,7 +394,7 @@ input[type="radio"] {
 }
 
 .rec-title {
-  color: var(--link);
+  color: color-mix(in srgb, var(--link) 75%, var(--fg));
   font-size: 11px;
   font-weight: 600;
 }
@@ -411,8 +411,8 @@ input[type="radio"] {
 .badge {
   padding: 0 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--link) 12%, transparent);
-  color: color-mix(in srgb, var(--link) 75%, var(--fg));
+  background: color-mix(in srgb, var(--link) 22%, transparent);
+  color: var(--fg);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.6;
@@ -579,9 +579,12 @@ summary:focus-visible {
 .summary dl {
   display: grid;
   grid-template-columns: fit-content(40%) minmax(0, 1fr);
-  gap: 2px 14px;
+  gap: 6px 16px;
   margin: 0;
-  font-size: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  font-size: 13px;
 }
 
 .summary-row {
@@ -597,8 +600,9 @@ summary:focus-visible {
 }
 
 .mark {
-  margin-left: 6px;
-  color: var(--link);
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .error {

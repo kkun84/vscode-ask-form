@@ -103,6 +103,7 @@ export class FormApp {
   }
   private readonly folded = new Set<string>()
   private showMissing = false
+  private keepFocus = false
 
   private readonly root: HTMLElement
 
@@ -194,6 +195,7 @@ export class FormApp {
     if (this.bridge === undefined || this.busy) {
       return
     }
+    this.keepFocus = this.root.contains(document.activeElement)
     this.busy = true
     this.error = undefined
     this.refresh()
@@ -337,7 +339,8 @@ export class FormApp {
     this.live.status = undefined
     this.live.primary = undefined
     this.live.form = undefined
-    const hadFocus = this.root.contains(document.activeElement)
+    const hadFocus = this.keepFocus || this.root.contains(document.activeElement)
+    this.keepFocus = false
     this.root.classList.remove("motion")
     this.root.replaceChildren(this.view())
     if (hadFocus) {
