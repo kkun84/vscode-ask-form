@@ -126,13 +126,15 @@ body {
   }
 }
 
-.q.folded .option-details,
-.q.folded .rec {
-  display: none;
-  height: 0;
-  margin: 0;
-  padding-block: 0;
-  opacity: 0;
+@scope (.q.folded) to (.q) {
+  .option-details,
+  .rec {
+    display: none;
+    height: 0;
+    margin: 0;
+    padding-block: 0;
+    opacity: 0;
+  }
 }
 
 .q-head {
