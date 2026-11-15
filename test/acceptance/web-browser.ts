@@ -27,7 +27,7 @@ const desktopCommit = async (electron: string): Promise<string> => {
 
 const answer = async (page: Page): Promise<void> => {
   const frame = await formFrame(page)
-  await expect(frame.getByLabel("イベント名")).toHaveValue("技術交流会 2026")
+  await expect(frame.getByRole("textbox", { name: "イベント名" })).toHaveValue("技術交流会 2026")
   await frame.getByRole("spinbutton", { name: "参加者数" }).fill("150")
   await frame.getByRole("spinbutton", { name: "参加者数" }).press("Tab")
   await frame.locator("form.card button.primary").click()
