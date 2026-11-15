@@ -10,7 +10,7 @@ const pkg = JSON.parse(await readFile(path("package.json"), "utf8")) as { readon
 
 const ui = await bundle({ input: path("src/ui/main.ts"), platform: "browser", format: "esm", minify: true })
 const script = ui.code.replaceAll("</script", "<\\/script")
-const style = await readFile(path("src/ui/styles.css"), "utf8")
+const style = (await readFile(path("src/ui/styles.css"), "utf8")).replaceAll(/^[ \t]+/gm, "").replaceAll(/\n{2,}/g, "\n")
 const template = await readFile(path("src/ui/index.html"), "utf8")
 const html = template.replace("__STYLE__", () => style).replace("__SCRIPT__", () => script)
 
