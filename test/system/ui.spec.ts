@@ -126,7 +126,7 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await frame.getByRole("button", { name: "この内容で進める" }).click()
     await expect(frame.getByText("まだ答えていない項目があります: 色")).toBeVisible()
     await expect(frame.getByRole("radio", { name: "赤" })).toBeFocused()
-    await expect(frame.getByRole("radio", { name: "赤" })).toHaveAttribute("aria-invalid", "")
+    await expect(frame.getByRole("radio", { name: "赤" })).toHaveAttribute("aria-invalid", "true")
     expect(await recorded(page, "outcomes")).toHaveLength(0)
   })
 
@@ -137,6 +137,31 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await expect(details.getByRole("group", { name: "配布物" })).toBeHidden()
     await details.locator("summary").click()
     await expect(details.getByRole("group", { name: "配布物" })).toBeVisible()
+  })
+})
+
+test.describe("SPEC-UI-001 推奨の示し方", () => {
+  test("SPEC-UI-001 選択肢の推奨は、詳しい理由だけでも示す", async ({ page }) => {
+    const frame = await open(page, {
+      args: {
+        title: "t",
+        fields: [
+          {
+            type: "choice",
+            id: "color",
+            label: "色",
+            default: "a",
+            reasonDetails: "画面の他の部分と合わせました。",
+            options: [
+              { value: "a", label: "赤" },
+              { value: "b", label: "青" }
+            ]
+          }
+        ]
+      }
+    })
+    await expect(frame.locator(".option .rec")).toContainText("画面の他の部分と合わせました。")
+    await expect(frame.getByRole("button", { name: "色の詳しい説明" })).toBeVisible()
   })
 })
 

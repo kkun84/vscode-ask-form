@@ -56,14 +56,18 @@ const recView = (field: Field, title: string, value: string | undefined, action:
   )
 
 const hasDetails = (field: Field): boolean =>
-  (field.default !== undefined && (field.reason !== undefined || field.type !== "choice")) ||
+  (field.default !== undefined && (field.reason !== undefined || field.reasonDetails !== undefined || field.type !== "choice")) ||
   (field.type === "choice" && field.options.some((option) => option.details !== undefined))
 
 const markInvalid = (card: HTMLElement, invalid: boolean): void => {
   card.classList.toggle("missing", invalid)
   for (const input of card.querySelectorAll("input, textarea")) {
     if (input.closest(".q") === card) {
-      input.toggleAttribute("aria-invalid", invalid)
+      if (invalid) {
+        input.setAttribute("aria-invalid", "true")
+      } else {
+        input.removeAttribute("aria-invalid")
+      }
     }
   }
 }
@@ -625,7 +629,10 @@ export class FormApp {
       const headId = uid("option")
       const textIds = [uid("summary"), uid("details"), uid("why")] as const
       const isRecommended = recommended.includes(option.value)
-      const why = isRecommended && field.reason !== undefined ? recView(field, this.m.whyRecommended, undefined, null, textIds[2]) : null
+      const why =
+        isRecommended && (field.reason !== undefined || field.reasonDetails !== undefined)
+          ? recView(field, this.m.whyRecommended, undefined, null, textIds[2])
+          : null
       const input = h("input", {
         type: multiple ? "checkbox" : "radio",
         name,
