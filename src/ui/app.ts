@@ -93,6 +93,7 @@ export class FormApp {
     form: undefined as HTMLElement | undefined
   }
   private readonly folded = new Set<string>()
+  private showMissing = false
 
   private readonly root: HTMLElement
 
@@ -138,6 +139,7 @@ export class FormApp {
     this.summaryValues = this.initial
     this.placed = false
     this.folded.clear()
+    this.showMissing = false
     if (this.phase.kind === "loading") {
       this.phase = { kind: "answering" }
     }
@@ -224,7 +226,10 @@ export class FormApp {
     const unanswered = unansweredFields(form.spec, this.values)
     if (action === "submit" && unanswered.length > 0) {
       this.error = this.m.unanswered(unanswered.map((field) => field.label))
+      this.showMissing = true
       this.refresh()
+      const first = this.live.cards.find((card) => card.field.id === unanswered[0]?.id)
+      first?.element.querySelector<HTMLElement>("input, textarea")?.focus()
       return Promise.resolve()
     }
     return this.whileBusy(async (bridge) => {
@@ -682,10 +687,15 @@ export class FormApp {
       return
     }
     const sinceRecommended = changedFields(this.form.spec, this.initial, this.values)
+    const missing = this.showMissing ? unansweredFields(this.form.spec, this.values).map((field) => field.id) : []
     for (const card of this.live.cards) {
       const field = card.field
       const changed = sinceRecommended.includes(field.id)
-      card.answer.replaceChildren(this.resendTag(field, sinceAnswer.includes(field.id)) ?? "")
+      const unanswered = missing.includes(field.id)
+      card.element.classList.toggle("missing", unanswered)
+      card.answer.replaceChildren(
+        unanswered ? h("span", { class: "missing-tag" }, this.m.notAnswered) : (this.resendTag(field, sinceAnswer.includes(field.id)) ?? "")
+      )
       if (field.type !== "choice") {
         card.note.replaceChildren(...[this.recommendationView(field, changed)].filter((node) => node !== null))
       }
