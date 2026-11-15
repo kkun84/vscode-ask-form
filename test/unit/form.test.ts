@@ -155,7 +155,7 @@ describe("DES-FORM-003 差分", () => {
     assert.deepEqual(changedFields(form.spec, { ...before, extras: ["a", "b"] }, { ...before, extras: ["b", "a"] }), [])
   })
 
-  it("DES-FORM-003 回答では推測値から変えた項目を changedByUser にする", () => {
+  it("DES-FORM-003 回答では推奨から変えた項目を changedByUser にする", () => {
     const form = compiled(eventSpec)
     const values = { ...initialValues(form.spec), price: 2500 }
     const outcome = outcomeFor(form, "submit", values)

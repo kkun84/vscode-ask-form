@@ -6,3 +6,5 @@ out/
 .vscode-test-web/
 test-results/
 acceptance.log
+scripts/music/*
+!scripts/music/.gitkeep
