@@ -27,10 +27,14 @@ const setPrice = async (frame: Frame, value: string) => {
   await input.press("Tab")
 }
 
-const openResend = async (page: Page, options: Partial<PageOptions>) => {
-  const frame = await open(page, options)
+const startEditing = async (frame: Frame) => {
   await frame.getByRole("button", { name: "この内容で進める" }).click()
   await frame.getByRole("button", { name: "変更して送り直す" }).click()
+}
+
+const openResend = async (page: Page, options: Partial<PageOptions>) => {
+  const frame = await open(page, options)
+  await startEditing(frame)
   return frame
 }
 
@@ -89,6 +93,15 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await frame.getByText("形式", { exact: true }).click()
     await expect(toggle).toHaveAttribute("aria-expanded", "true")
     await expect(why).toBeVisible()
+  })
+
+  test("SPEC-UI-001 理由のない推奨の値も示し、推奨に戻せる", async ({ page }) => {
+    const frame = await open(page, { args: { title: "t", fields: [{ type: "text", id: "word", label: "言葉", default: "hi" }] } })
+    const word = frame.getByRole("textbox", { name: "言葉" })
+    await expect(frame.locator(".rec")).toContainText("推奨hi")
+    await word.fill("yo")
+    await frame.getByRole("button", { name: "推奨に戻す" }).click()
+    await expect(word).toHaveValue("hi")
   })
 
   test("SPEC-UI-001 推奨のない選択肢は何も選ばずに始め、答えるまで回答できない", async ({ page }) => {
@@ -208,8 +221,7 @@ test.describe("SPEC-UI-004 回答後の要約", () => {
 test.describe("SPEC-UI-005 送り直し", () => {
   test("SPEC-UI-005 変えた項目の数を示し、変更がなければ送れない", async ({ page }) => {
     const frame = await open(page)
-    await frame.getByRole("button", { name: "この内容で進める" }).click()
-    await frame.getByRole("button", { name: "変更して送り直す" }).click()
+    await startEditing(frame)
     const send = frame.getByRole("button", { name: "変更を送信" })
     await expect(send).toBeDisabled()
     await expect(frame.getByText("変更はまだありません")).toBeVisible()
@@ -507,8 +519,7 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
 
   test("SPEC-UI-011 送り直しでは、切り替えて現れた枝の項目も回答からの変更に数える", async ({ page }) => {
     const frame = await openStorage(page)
-    await frame.getByRole("button", { name: "この内容で進める" }).click()
-    await frame.getByRole("button", { name: "変更して送り直す" }).click()
+    await startEditing(frame)
     await frame.getByRole("radio", { name: "サーバー" }).check()
     await expect(frame.locator(".status")).toHaveText("3項目を変更")
   })
@@ -520,8 +531,7 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     await port.fill("3000")
     await selectStorage(frame, "ブラウザ")
     await expect(port).toBeHidden()
-    await frame.getByRole("button", { name: "この内容で進める" }).click()
-    await frame.getByRole("button", { name: "変更して送り直す" }).click()
+    await startEditing(frame)
     await selectStorage(frame, "サーバー")
     await expect(port).toHaveValue("3000")
   })
@@ -561,4 +571,46 @@ const defaults = () => ({
   stream: "yes",
   extras: ["sticker"],
   venue: 140000
+})
+
+const followUpSpec = {
+  title: "t",
+  fields: [
+    {
+      type: "choice",
+      id: "where",
+      label: "保存先",
+      default: "local",
+      options: [
+        { value: "local", label: "手元" },
+        {
+          value: "cloud",
+          label: "クラウド",
+          fields: [
+            {
+              type: "choice",
+              id: "region",
+              label: "地域",
+              options: [
+                { value: "jp", label: "日本" },
+                { value: "us", label: "米国" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+test.describe("SPEC-UI-011 送り直しの続きの質問", () => {
+  test("SPEC-UI-011 送り直しで現れた続きの質問が未回答なら送らず、その質問を示す", async ({ page }) => {
+    const frame = await open(page, { args: followUpSpec })
+    await startEditing(frame)
+    await frame.getByRole("radio", { name: "クラウド" }).check()
+    await frame.getByRole("button", { name: "変更を送信" }).click()
+    await expect(frame.getByText("まだ答えていない項目があります: 地域")).toBeVisible()
+    await expect(frame.getByRole("radio", { name: "日本" })).toBeFocused()
+    expect(await recorded(page, "resends")).toHaveLength(0)
+  })
 })

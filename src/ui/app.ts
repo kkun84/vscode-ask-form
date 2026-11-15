@@ -56,7 +56,7 @@ const recView = (field: Field, title: string, value: string | undefined, action:
   )
 
 const hasDetails = (field: Field): boolean =>
-  (field.default !== undefined && field.reason !== undefined) ||
+  (field.default !== undefined && (field.reason !== undefined || field.type !== "choice")) ||
   (field.type === "choice" && field.options.some((option) => option.details !== undefined))
 
 const markInvalid = (card: HTMLElement, invalid: boolean): void => {
@@ -228,23 +228,30 @@ export class FormApp {
     this.phase = { kind: "summary", status: statusOf[action] }
   }
 
+  private blockUnanswered(form: CompiledForm): boolean {
+    const unanswered = unansweredFields(form.spec, this.values)
+    if (unanswered.length === 0) {
+      return false
+    }
+    this.error = this.m.unanswered(unanswered.map((field) => field.label))
+    this.showMissing = true
+    this.refresh()
+    const first = this.live.cards.find((card) => card.field.id === unanswered[0]?.id)
+    const details = first?.element.closest("details")
+    if (details !== null && details !== undefined) {
+      details.open = true
+    }
+    first?.element.querySelector<HTMLElement>("input, textarea")?.focus()
+    return true
+  }
+
   private answer(action: Action): Promise<void> {
     const form = this.form
     if (form === undefined) {
       return Promise.resolve()
     }
     const values = this.answered(this.values)
-    const unanswered = unansweredFields(form.spec, this.values)
-    if (action === "submit" && unanswered.length > 0) {
-      this.error = this.m.unanswered(unanswered.map((field) => field.label))
-      this.showMissing = true
-      this.refresh()
-      const first = this.live.cards.find((card) => card.field.id === unanswered[0]?.id)
-      const details = first?.element.closest("details")
-      if (details !== null && details !== undefined) {
-        details.open = true
-      }
-      first?.element.querySelector<HTMLElement>("input, textarea")?.focus()
+    if (action === "submit" && this.blockUnanswered(form)) {
       return Promise.resolve()
     }
     return this.whileBusy(async (bridge) => {
@@ -258,7 +265,7 @@ export class FormApp {
   }
 
   private resend(): Promise<void> {
-    if (this.changedSinceAnswer().length === 0) {
+    if (this.changedSinceAnswer().length === 0 || (this.form !== undefined && this.blockUnanswered(this.form))) {
       return Promise.resolve()
     }
     const after = this.answered(this.values)
@@ -463,9 +470,7 @@ export class FormApp {
     const back = field.type === "choice" ? null : h("button", { type: "button", class: "link", hidden: true }, this.m.backToRecommended)
     const recommended = this.initialText(field)
     const rec =
-      field.type === "choice" || recommended === undefined || field.reason === undefined
-        ? null
-        : recView(field, this.m.recommended, recommended, back, uid("rec"))
+      field.type === "choice" || recommended === undefined ? null : recView(field, this.m.recommended, recommended, back, uid("rec"))
     const element = h(
       "div",
       { class: "q", role: "group", "aria-labelledby": labelId, "aria-describedby": descId },
@@ -763,7 +768,10 @@ export class FormApp {
       return
     }
     const sinceRecommended = changedFields(this.form.spec, this.initial, this.values)
-    const missing = this.phase.kind === "answering" ? unansweredFields(this.form.spec, this.values).map((field) => field.id) : []
+    const missing =
+      this.phase.kind === "answering" || this.phase.kind === "resending"
+        ? unansweredFields(this.form.spec, this.values).map((field) => field.id)
+        : []
     for (const card of this.live.cards) {
       const unanswered = missing.includes(card.field.id)
       markInvalid(card.element, unanswered && this.showMissing)
