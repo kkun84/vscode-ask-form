@@ -56,8 +56,7 @@ const recView = (field: Field, title: string, value: string | undefined, action:
   )
 
 const hasDetails = (field: Field): boolean =>
-  field.reason !== undefined ||
-  field.reasonDetails !== undefined ||
+  (field.default !== undefined && field.reason !== undefined) ||
   (field.type === "choice" && field.options.some((option) => option.details !== undefined))
 
 const affix = (content: string | undefined): HTMLElement | null => (content === undefined ? null : h("span", { class: "muted" }, content))
