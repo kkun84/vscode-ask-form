@@ -83,13 +83,14 @@ export class FormApp {
       readonly element: HTMLElement
       readonly toggle: HTMLElement | null
       readonly answer: HTMLElement
-      readonly note: HTMLElement
+      readonly back: HTMLElement | null
     }>,
     branches: [] as Array<{ readonly id: string; readonly value: string; readonly element: HTMLElement }>,
     computed: undefined as HTMLElement | undefined,
     status: undefined as HTMLElement | undefined,
     primary: undefined as HTMLButtonElement | undefined,
-    form: undefined as HTMLElement | undefined
+    form: undefined as HTMLElement | undefined,
+    setters: new Map<string, (value: FieldValue) => void>()
   }
   private readonly folded = new Set<string>()
   private showMissing = false
@@ -318,12 +319,17 @@ export class FormApp {
     this.syncStatus()
     this.live.cards.length = 0
     this.live.branches.length = 0
+    this.live.setters.clear()
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
     this.live.form = undefined
+    const hadFocus = this.root.contains(document.activeElement)
     this.root.classList.remove("motion")
     this.root.replaceChildren(this.view())
+    if (hadFocus) {
+      this.root.querySelector<HTMLElement>("[data-focus]")?.focus()
+    }
     requestAnimationFrame(() => this.root.classList.add("motion"))
     this.applyFolds()
     this.refresh()
@@ -361,7 +367,7 @@ export class FormApp {
       h(
         "header",
         { class: "head" },
-        h("h1", { id: titleId }, mode === "resending" ? `${spec.title}` : spec.title),
+        h("h1", { id: titleId, tabindex: -1, "data-focus": true }, spec.title),
         spec.description === undefined ? null : h("p", { class: "description" }, spec.description)
       ),
       h(
@@ -429,7 +435,12 @@ export class FormApp {
     const labelId = uid("label")
     const answer = h("span", { class: "q-answer" })
     const toggle = hasDetails(field) ? h("button", { type: "button", class: "fold" }) : null
-    const note = h("div", { class: "q-note" })
+    const back = field.type === "choice" ? null : h("button", { type: "button", class: "link", hidden: true }, this.m.backToRecommended)
+    const recommended = this.initialText(field)
+    const rec =
+      field.type === "choice" || recommended === undefined || field.reason === undefined
+        ? null
+        : recView(field, this.m.recommended, recommended, back)
     const element = h(
       "section",
       { class: nested ? "q sub" : "q", "aria-labelledby": labelId },
@@ -441,14 +452,15 @@ export class FormApp {
         answer
       ),
       field.description === undefined ? null : h("p", { class: "q-desc" }, field.description),
-      h(
-        "div",
-        { class: field.type === "choice" ? "q-group choices" : "q-group" },
-        this.control(field, labelId),
-        field.type === "choice" ? null : note
-      )
+      h("div", { class: field.type === "choice" ? "q-group choices" : "q-group" }, this.control(field, labelId), rec)
     )
-    this.live.cards.push({ field, element, toggle, answer, note })
+    this.live.cards.push({ field, element, toggle, answer, back })
+    if (back !== null) {
+      on(back, "click", () => {
+        this.live.setters.get(field.id)?.(this.initial[field.id] as FieldValue)
+        element.querySelector<HTMLElement>("input, textarea")?.focus()
+      })
+    }
     if (toggle !== null) {
       on(toggle, "click", () => this.setFolded(field.id, !this.folded.has(field.id)))
       const head = element.querySelector<HTMLElement>(".q-head")
@@ -510,7 +522,10 @@ export class FormApp {
     const common = { name: field.id, "aria-labelledby": labelId, placeholder: field.placeholder }
     const input = field.multiline === true ? h("textarea", { ...common, rows: 3 }, value) : h("input", { ...common, type: "text", value })
     on(input, "input", () => this.setValue(field.id, input.value))
-    on(input, "change", () => this.setFolded(field.id, true))
+    this.live.setters.set(field.id, (next) => {
+      input.value = String(next)
+      this.setValue(field.id, input.value)
+    })
     return input
   }
 
@@ -550,15 +565,14 @@ export class FormApp {
       show(clamped)
     }
     on(slider, "input", () => update(Number(slider.value)))
+    this.live.setters.set(field.id, (next) => update(Number(next)))
     on(exact, "input", () => {
       const next = Number(exact.value)
       if (exact.value !== "" && Number.isFinite(next) && next >= field.min && next <= field.max) {
         show(next)
       }
     })
-    on(slider, "change", () => this.setFolded(field.id, true))
     on(exact, "change", () => {
-      this.setFolded(field.id, true)
       if (exact.value !== "" && Number.isFinite(Number(exact.value))) {
         update(Number(exact.value))
       } else {
@@ -654,7 +668,7 @@ export class FormApp {
       "div",
       { class: "summary-head" },
       h("span", { class: "check", "aria-hidden": "true" }, "✓"),
-      h("span", {}, title),
+      h("span", { tabindex: -1, "data-focus": true }, title),
       form === undefined || status === "answer_in_chat"
         ? null
         : on(h("button", { type: "button", class: "link" }, this.m.editAndResend), "click", () => {
@@ -709,8 +723,8 @@ export class FormApp {
       card.answer.replaceChildren(
         unanswered ? h("span", { class: "missing-tag" }, this.m.notAnswered) : (this.resendTag(field, sinceAnswer.includes(field.id)) ?? "")
       )
-      if (field.type !== "choice") {
-        card.note.replaceChildren(...[this.recommendationView(field, changed)].filter((node) => node !== null))
+      if (card.back !== null) {
+        card.back.hidden = !changed
       }
     }
   }
@@ -723,20 +737,6 @@ export class FormApp {
     return this.phase.kind === "resending" && changedSinceAnswer
       ? h("span", { class: "muted" }, this.m.previously(describeValue(field, this.baseline[field.id], this.m)))
       : null
-  }
-
-  private recommendationView(field: Field, changed: boolean): HTMLElement | null {
-    const recommended = this.initialText(field)
-    if (recommended === undefined || field.reason === undefined) {
-      return null
-    }
-    const back = changed
-      ? on(h("button", { type: "button", class: "link" }, this.m.backToRecommended), "click", () => {
-          this.values[field.id] = this.initial[field.id] as FieldValue
-          this.render()
-        })
-      : null
-    return recView(field, this.m.recommended, recommended, back)
   }
 
   private refreshComputed(form: CompiledForm): void {

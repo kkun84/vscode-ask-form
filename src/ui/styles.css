@@ -40,6 +40,7 @@ body {
 }
 
 .card {
+  overflow-wrap: anywhere;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -146,7 +147,7 @@ body {
 }
 
 .q-label {
-  flex: 1;
+  flex: 1 0 40%;
   min-width: 0;
   font-weight: 600;
 }
@@ -158,9 +159,11 @@ body {
 }
 
 .q-answer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  flex: 0 1 auto;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
   font-size: 12px;
 }
@@ -191,8 +194,13 @@ body {
 }
 
 .q-group:not(.choices) {
+  display: block;
   padding: 0;
   background: transparent;
+}
+
+.q-group:not(.choices) > * + * {
+  margin-top: 8px;
 }
 
 .fold,
@@ -386,14 +394,6 @@ input[type="radio"] {
   margin: 4px 0 0;
 }
 
-.q-note {
-  display: block;
-}
-
-.q-note:empty {
-  display: none;
-}
-
 .badge {
   padding: 0 6px;
   border-radius: 999px;
@@ -537,7 +537,7 @@ summary:focus-visible {
 
 .summary dl {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: fit-content(40%) minmax(0, 1fr);
   gap: 2px 14px;
   margin: 0;
   font-size: 12px;
@@ -588,4 +588,8 @@ summary:focus-visible {
   *::before {
     transition: none !important;
   }
+}
+
+[data-focus]:focus {
+  outline: none;
 }
