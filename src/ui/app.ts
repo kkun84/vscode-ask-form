@@ -434,7 +434,13 @@ export class FormApp {
     const element = h(
       "section",
       { class: nested ? "q sub" : "q", "aria-labelledby": labelId },
-      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), answer, toggle),
+      h(
+        "div",
+        { class: "q-head" },
+        toggle ?? h("span", { class: "fold-space" }),
+        h("span", { class: "q-label", id: labelId }, field.label),
+        answer
+      ),
       field.description === undefined ? null : h("p", { class: "q-desc" }, field.description),
       h(
         "div",
@@ -446,10 +452,18 @@ export class FormApp {
     this.live.cards.push({ field, element, toggle, answer, note })
     if (toggle !== null) {
       on(toggle, "click", () => this.setFolded(field.id, !this.folded.has(field.id)))
+      const head = element.querySelector<HTMLElement>(".q-head")
+      if (head !== null) {
+        on(head, "click", (event) => {
+          if (event.target !== toggle) {
+            this.setFolded(field.id, !this.folded.has(field.id))
+          }
+        })
+      }
       const unfold = (event: Event) => {
         const target = event.target as HTMLElement
         const choosing = target.closest(".option") !== null && !(event.type === "focusin" && target.matches(":focus-visible"))
-        if (target !== toggle && !choosing && target.closest(".q") === element) {
+        if (target.closest(".q-head") === null && !choosing && target.closest(".q") === element) {
           this.setFolded(field.id, false)
         }
       }

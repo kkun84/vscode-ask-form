@@ -138,7 +138,7 @@ body {
 .q-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   min-height: 24px;
   padding: 0 4px;
 }
@@ -193,11 +193,16 @@ body {
   background: transparent;
 }
 
+.fold,
+.fold-space {
+  flex: none;
+  width: 20px;
+  margin-left: -4px;
+}
+
 .fold {
   display: grid;
-  flex: none;
   place-items: center;
-  width: 24px;
   min-height: 24px;
   padding: 0;
   border-radius: 4px;
@@ -205,8 +210,17 @@ body {
   color: var(--muted);
 }
 
-.fold:hover {
-  background: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.15));
+.q-head:has(.fold) {
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.q-head:has(.fold):hover {
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+.q-head:hover .fold {
   color: var(--fg);
 }
 
@@ -216,11 +230,11 @@ body {
   height: 7px;
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
-  transform: translateY(-2px) rotate(45deg);
+  transform: translateX(-1px) rotate(-45deg);
 }
 
 .fold[aria-expanded="true"]::before {
-  transform: translateY(2px) rotate(-135deg);
+  transform: translateY(-2px) rotate(45deg);
 }
 
 .row {
