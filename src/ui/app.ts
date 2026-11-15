@@ -603,11 +603,6 @@ export class FormApp {
           isRecommended && field.reason !== undefined ? recView(field, this.m.whyRecommended, undefined, null) : null
         )
       )
-      on(row, "pointerdown", () => {
-        if (!multiple && input.checked) {
-          this.setFolded(field.id, false)
-        }
-      })
       const revealed = this.reveal(field, option)
       return revealed === null ? [row] : [row, revealed]
     })
