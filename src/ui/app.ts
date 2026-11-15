@@ -72,6 +72,20 @@ const markInvalid = (card: HTMLElement, invalid: boolean): void => {
   }
 }
 
+const describeVisible = (card: HTMLElement, folded: boolean): void => {
+  for (const input of card.querySelectorAll<HTMLElement>("[aria-describedby]")) {
+    if (input.closest(".q") !== card) {
+      continue
+    }
+    input.dataset["describedby"] ??= input.getAttribute("aria-describedby") ?? ""
+    const ids = input.dataset["describedby"].split(" ").filter((id) => {
+      const target = id === "" ? null : card.ownerDocument.querySelector(`#${CSS.escape(id)}`)
+      return target !== null && !(folded && target.matches(".option-details, .rec"))
+    })
+    input.setAttribute("aria-describedby", ids.join(" "))
+  }
+}
+
 const affix = (content: string | undefined): HTMLElement | null => (content === undefined ? null : h("span", { class: "muted" }, content))
 
 export class FormApp {
@@ -548,6 +562,7 @@ export class FormApp {
       const folded = this.folded.has(card.field.id) && card.toggle !== null
       card.element.classList.toggle("folded", folded)
       card.toggle?.setAttribute("aria-expanded", String(!folded))
+      describeVisible(card.element, folded)
     }
   }
 
