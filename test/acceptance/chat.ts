@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
-import { formFrame, until } from "./frames.ts"
+import { formFrame, settled, until } from "./frames.ts"
 import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
 
 interface Paths extends VscodePaths {
@@ -69,6 +69,7 @@ const setAttendees = async (session: Session, value: string): Promise<void> => {
 
 const answer = async (session: Session, button = "Continue with this"): Promise<string> => {
   const frame = theFrame(session)
+  await settled(frame)
   await frame.getByRole("button", { name: button, exact: true }).click()
   const result = await until(
     () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === session.callId)),
@@ -96,9 +97,9 @@ test("REQ-ASK-001 Copilotのチャットで、AIがフォームで質問でき�
   await receiveForm(session, 0)
 })
 
-test("REQ-ASK-002 フォームにAIの推測値と根拠が表示される", async (session) => {
+test("REQ-ASK-002 フォームにAIの推奨と理由が表示される", async (session) => {
   const frame = theFrame(session)
-  check((await frame.getByLabel("イベント名").inputValue()) === "技術交流会 2026", "the guessed value is filled in")
+  check((await frame.getByRole("textbox", { name: "イベント名" }).inputValue()) === "技術交流会 2026", "the recommended value is filled in")
   await frame.getByText("README.mdより").waitFor({ timeout: 10_000 })
 })
 
@@ -117,7 +118,7 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
   await theFrame(session).locator(".summary").waitFor({ timeout: 30_000 })
 })
 
-test("REQ-ANS-002 AIに任せると、推測値がdelegatedとしてモデルに届く", async (session) => {
+test("REQ-ANS-002 AIに任せると、推奨の値がdelegatedとしてモデルに届く", async (session) => {
   await newForm(session)
   await setAttendees(session, "180")
   const result = await answer(session, "Let AI decide")

@@ -16,7 +16,7 @@ class FormRejected extends Schema.TaggedError<FormRejected, { readonly brand: un
   message: Schema.String
 }) {}
 
-const FieldValue = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Array(Schema.String)])
+const FieldValue = Schema.Union([Schema.String, Schema.Finite, Schema.Array(Schema.String)])
 const Values = Schema.Record(Schema.String, FieldValue)
 const ComputedValues = Schema.Record(Schema.String, Schema.NullOr(Schema.Union([Schema.Finite, Schema.String, Schema.Boolean])))
 
@@ -43,7 +43,10 @@ export const askFormDescription = [
   "Ask the user a question through an interactive form shown in the chat, and wait for the answer.",
   "Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those).",
   "For a single simple choice, prefer the built-in askQuestions tool instead.",
-  "Always prefill every field with your best guess from the workspace and conversation, and explain the source in reason, so the user only fixes what is wrong.",
+  "Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose.",
+  "With a default, use reason: for a choice, why that option fits best here; for other fields, advice that helps the user decide.",
+  "Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious.",
+  "For a yes/no question, use a choice with two options.",
   "When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields.",
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",

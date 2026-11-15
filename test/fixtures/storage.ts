@@ -35,14 +35,25 @@ export const storageSpec = {
           label: "サーバー",
           fields: [
             { type: "number", id: "port", label: "ポート", default: 8080, min: 1, max: 65535, reason: "package.jsonより" },
-            { type: "toggle", id: "auth", label: "ログインが必要", default: false }
+            {
+              type: "choice",
+              id: "auth",
+              label: "ログイン",
+              default: "no",
+              options: [
+                { value: "yes", label: "必要" },
+                { value: "no", label: "不要" }
+              ]
+            }
           ]
         },
         { value: "none", label: "保存しない" }
       ]
     }
   ],
-  computed: [{ id: "cost", label: "月額", expression: "storage == 'server' ? (auth ? 1500 : 1000) : 0", prefix: "¥", primary: true }]
+  computed: [
+    { id: "cost", label: "月額", expression: "storage == 'server' ? (auth == 'yes' ? 1500 : 1000) : 0", prefix: "¥", primary: true }
+  ]
 } as const
 
 export const storageForm: CompiledForm = compile(storageSpec).pipe(Result.getOrThrow)

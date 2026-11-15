@@ -91,7 +91,7 @@ const pointsCard = `<div class="center">
 const featureCard = `<div class="center">
   <div class="tagline">ほかにも</div>
   <div class="grid">
-    <div class="tile"><b>推測値が入っている</b><span>違う所だけ直せばいい</span></div>
+    <div class="tile"><b>推奨と理由が入っている</b><span>違う所だけ直せばいい</span></div>
     <div class="tile"><b>あとから直せる</b><span>変えた所だけをCopilotに伝える</span></div>
     <div class="tile"><b>答え方を選べる</b><span>「AIに任せる」「チャットで答える」</span></div>
     <div class="tile"><b>デスクトップ版とweb版</b><span>チャットの中、またはvscode.devのパネルに</span></div>

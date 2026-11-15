@@ -42,7 +42,16 @@ export const todoSpec = {
           label: "サーバー",
           fields: [
             { type: "number", id: "port", label: "ポート", default: 3000, min: 1, max: 65535, reason: "package.jsonのdevスクリプトより" },
-            { type: "toggle", id: "auth", label: "ログインが必要", default: false }
+            {
+              type: "choice",
+              id: "auth",
+              label: "ログイン",
+              default: "no",
+              options: [
+                { value: "yes", label: "必要" },
+                { value: "no", label: "不要" }
+              ]
+            }
           ]
         }
       ],
@@ -50,7 +59,16 @@ export const todoSpec = {
       reason: "README.mdに「まずは自分用」とあるため"
     },
     { type: "number", id: "pageSize", label: "1ページの件数", default: 20, min: 5, max: 100, step: 5, suffix: "件" },
-    { type: "toggle", id: "due", label: "締め切りを付けられる", default: true }
+    {
+      type: "choice",
+      id: "due",
+      label: "締め切り",
+      default: "yes",
+      options: [
+        { value: "yes", label: "付けられる" },
+        { value: "no", label: "付けない" }
+      ]
+    }
   ],
   submitLabel: "この設定で作る"
 } as const

@@ -21,7 +21,16 @@ export const eventSpec = {
     },
     { type: "number", id: "attendees", label: "参加者数", default: 120, min: 20, max: 300, step: 10, suffix: "人" },
     { type: "number", id: "price", label: "参加費", default: 2000, min: 0, max: 5000, step: 500, prefix: "¥" },
-    { type: "toggle", id: "stream", label: "ライブ配信", default: true, note: "+¥30,000" },
+    {
+      type: "choice",
+      id: "stream",
+      label: "ライブ配信",
+      default: "yes",
+      options: [
+        { value: "yes", label: "あり", description: "+¥30,000" },
+        { value: "no", label: "なし" }
+      ]
+    },
     {
       type: "choice",
       id: "extras",
@@ -37,7 +46,7 @@ export const eventSpec = {
     { type: "number", id: "venue", label: "会場費", default: 140000, min: 50000, max: 300000, step: 10000, prefix: "¥", advanced: true }
   ],
   computed: [
-    { id: "cost", label: "費用", expression: "venue + (stream ? 30000 : 0)", prefix: "¥" },
+    { id: "cost", label: "費用", expression: "venue + (stream == 'yes' ? 30000 : 0)", prefix: "¥" },
     { id: "profit", label: "収支", expression: "attendees * price - cost", prefix: "¥", primary: true },
     { id: "breakEven", label: "損益分岐", expression: "price > 0 ? ceil(cost / price) : 0", suffix: "人" }
   ]

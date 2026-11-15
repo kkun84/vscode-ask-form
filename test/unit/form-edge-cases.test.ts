@@ -94,7 +94,7 @@ it("DES-FORM-002 桁あふれの数値リテラルとそれを参照する計算
 for (const id of ["true", "false"]) {
   it(`DES-SPEC-001 予約語${id}を項目と計算結果のidに使えない`, () => {
     for (const input of [
-      { title: "予約語", fields: [{ type: "toggle", id, label: "切り替え", default: false }] },
+      { title: "予約語", fields: [{ type: "text", id, label: "名前" }] },
       { ...eventSpec, computed: [{ id, label: "結果", expression: "42" }] }
     ]) {
       const result = compile(input)
@@ -108,8 +108,8 @@ it("DES-SPEC-001 予約語と一致しないidは計算式から参照できる"
   const ids = ["trueValue", "false_value", "True", "False", "max"]
   const form = compile({
     title: "参照",
-    fields: ids.map((id) => ({ type: "toggle", id, label: id, default: false })),
-    computed: ids.map((id) => ({ id: `${id}Result`, label: id, expression: `${id} ? 1 : 0` }))
+    fields: ids.map((id) => ({ type: "number", id, label: id, min: 0, max: 1, default: 0 })),
+    computed: ids.map((id) => ({ id: `${id}Result`, label: id, expression: `${id} == 1 ? 1 : 0` }))
   }).pipe(Result.getOrThrow)
   assert.deepEqual(computeValues(form, initialValues(form.spec)), Object.fromEntries(ids.map((id) => [`${id}Result`, 0])))
 })

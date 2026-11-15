@@ -8,9 +8,13 @@ const ja = {
   answerInChat: "チャットで答える",
   details: "詳細",
   results: "計算結果",
-  aiGuess: "AIの推測",
-  changedByYou: "あなたが変更",
-  changedSinceAnswer: "回答から変更",
+  recommended: "推奨",
+  notAnswered: "未回答",
+  detailsOf: (label: string) => `${label}の詳しい説明`,
+  whyRecommended: "推奨の理由",
+  recommendedWas: (value: string) => `推奨: ${value}`,
+  previously: (value: string) => `前回: ${value}`,
+  backToRecommended: "推奨に戻す",
   answered: "回答しました",
   placed: "チャットの入力欄に入れました。内容を確かめて送信してください",
   delegated: "AIに任せました",
@@ -21,11 +25,10 @@ const ja = {
   resend: "変更を送信",
   cancel: "キャンセル",
   noChanges: "変更はまだありません",
+  unanswered: (labels: ReadonlyArray<string>) => `まだ答えていない項目があります: ${labels.join("、")}`,
   changedCount: (n: number) => `${n}項目を変更`,
   waiting: "回答を待っています",
   sending: "送信中…",
-  on: "オン",
-  off: "オフ",
   none: "なし",
   empty: "(空欄)",
   listSeparator: "、",
@@ -35,8 +38,7 @@ const ja = {
   openConversation: "このフォームのある会話を開き、入力欄を空にしてから、もう一度送ってください",
   resendSentence: (changes: ReadonlyArray<string>, title: string) =>
     `「${title}」で${changes.join("、")}に変えたので、反映して続けてください。`,
-  changeTo: (label: string, value: string) => `${label}を${value}`,
-  attachmentNote: "フォームの全項目は添付のJSONにあります。"
+  changeTo: (label: string, value: string) => `${label}を${value}`
 }
 
 const en: typeof ja = {
@@ -45,9 +47,13 @@ const en: typeof ja = {
   answerInChat: "Answer in chat",
   details: "Details",
   results: "Results",
-  aiGuess: "AI guess",
-  changedByYou: "Changed by you",
-  changedSinceAnswer: "Changed since answer",
+  recommended: "Recommended",
+  notAnswered: "Not answered",
+  detailsOf: (label: string) => `Details for ${label}`,
+  whyRecommended: "Why recommended",
+  recommendedWas: (value: string) => `Recommended: ${value}`,
+  previously: (value: string) => `Before: ${value}`,
+  backToRecommended: "Use recommended",
   answered: "Answered",
   placed: "Placed in the chat input. Review it before sending.",
   delegated: "Left to AI",
@@ -58,11 +64,10 @@ const en: typeof ja = {
   resend: "Send changes",
   cancel: "Cancel",
   noChanges: "No changes yet",
+  unanswered: (labels: ReadonlyArray<string>) => `Some questions are not answered yet: ${labels.join(", ")}`,
   changedCount: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
   waiting: "Waiting for your answer",
   sending: "Sending…",
-  on: "On",
-  off: "Off",
   none: "None",
   empty: "(empty)",
   listSeparator: ", ",
@@ -72,8 +77,7 @@ const en: typeof ja = {
   openConversation: "Open the conversation with this form and clear its input, then send again",
   resendSentence: (changes: ReadonlyArray<string>, title: string) =>
     `In "${title}", I changed ${changes.join(", ")}. Please apply it and continue.`,
-  changeTo: (label: string, value: string) => `${label} to ${value}`,
-  attachmentNote: "All form values are in the attached JSON."
+  changeTo: (label: string, value: string) => `${label} to ${value}`
 }
 
 export type Messages = typeof ja

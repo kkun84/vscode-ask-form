@@ -20,9 +20,9 @@ describe("ARCH-PORT-001 MCPサーバーへの差し込み口", () => {
           yield* Fiber.join(fiber)
           assert.deepEqual(yield* Ref.get(h.waiting), [1, 0])
           const before = initialValues(form.spec)
-          yield* h.call("form_resend", { spec: eventSpec, before, after: { ...before, stream: false } })
+          yield* h.call("form_resend", { spec: eventSpec, before, after: { ...before, stream: "no" } })
           assert.equal(files.size, 1)
-          assert.deepEqual(JSON.parse([...files.values()][0] ?? "null"), { title: eventSpec.title, values: { ...before, stream: false } })
+          assert.deepEqual(JSON.parse([...files.values()][0] ?? "null"), { title: eventSpec.title, values: { ...before, stream: "no" } })
         }),
       { attachments: store }
     )

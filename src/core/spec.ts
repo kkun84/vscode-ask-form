@@ -10,9 +10,20 @@ const Identifier = Schema.String.check(Schema.isMaxLength(40), Schema.isPattern(
 const commonFields = {
   id: Identifier,
   label: required(60).annotate({ description: "Label shown to the user, in the user's language." }),
-  reason: Schema.optionalKey(
+  description: Schema.optionalKey(
     text(120).annotate({
-      description: "Why you guessed the default value, citing the source (file, earlier message). Shown under the field."
+      description: "What this question asks or what the value is used for, independent of your recommendation. Shown under the label."
+    })
+  ),
+  reason: Schema.optionalKey(
+    text(60).annotate({
+      description:
+        "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value."
+    })
+  ),
+  reasonDetails: Schema.optionalKey(
+    text(300).annotate({
+      description: "More on why you recommend the default, in full sentences. Can be hidden by the user."
     })
   ),
   advanced: Schema.optionalKey(
@@ -44,7 +55,14 @@ const NumberField = Schema.Struct({
 const ChoiceOption = Schema.Struct({
   value: required(60),
   label: required(60),
-  description: Schema.optionalKey(text(120))
+  description: Schema.optionalKey(
+    text(60).annotate({ description: "One sentence on what this option is or what happens if chosen. Always shown." })
+  ),
+  details: Schema.optionalKey(
+    text(300).annotate({
+      description: "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user."
+    })
+  )
 })
 
 const choiceFields = {
@@ -54,18 +72,11 @@ const choiceFields = {
   multiple: Schema.optionalKey(Schema.Boolean)
 }
 
-const options = <S extends Schema.Top>(option: S) => Schema.Array(option).check(Schema.isMinLength(2), Schema.isMaxLength(12))
+const options = <S extends Schema.Top>(option: S) => Schema.Array(option).check(Schema.isMinLength(2), Schema.isMaxLength(6))
 
 const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
 
-const ToggleField = Schema.Struct({
-  type: Schema.Literal("toggle"),
-  ...commonFields,
-  default: Schema.optionalKey(Schema.Boolean),
-  note: Schema.optionalKey(text(40))
-})
-
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, ToggleField])
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -79,7 +90,7 @@ const BranchOption = Schema.Struct({
 
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField, ToggleField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField])
 
 const Computed = Schema.Struct({
   id: Identifier,
@@ -105,7 +116,6 @@ export const FormSpec = Schema.Struct({
 export type TextField = typeof TextField.Type
 export type NumberField = typeof NumberField.Type
 export type ChoiceField = typeof ChoiceField.Type
-export type ToggleField = typeof ToggleField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

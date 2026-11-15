@@ -3,7 +3,7 @@ import { stableHash } from "./hash.ts"
 import type { Messages } from "./messages.ts"
 import type { ChoiceField, Computed, Field, FormSpec } from "./spec.ts"
 
-export type FieldValue = string | number | boolean | ReadonlyArray<string>
+export type FieldValue = string | number | ReadonlyArray<string>
 export type Values = Readonly<Record<string, FieldValue>>
 export type ComputedValues = Readonly<Record<string, Value | null>>
 
@@ -46,20 +46,27 @@ export const prepare = (spec: FormSpec, raw: unknown): CompiledForm => ({
   expressions: parseExpressions(spec)
 })
 
-const initialValue = (field: Field): FieldValue => {
+const initialValue = (field: Field): FieldValue | undefined => {
   switch (field.type) {
     case "text":
       return field.default ?? ""
     case "number":
-      return field.default ?? field.min
+      return field.default
     case "choice":
-      return field.default ?? (isMultiple(field) ? [] : (field.options[0]?.value ?? ""))
-    case "toggle":
-      return field.default ?? false
+      return field.default ?? (isMultiple(field) ? [] : undefined)
   }
 }
 
-export const initialValues = (spec: FormSpec): Values => Object.fromEntries(allFields(spec).map((field) => [field.id, initialValue(field)]))
+export const initialValues = (spec: FormSpec): Values =>
+  Object.fromEntries(
+    allFields(spec).flatMap((field) => {
+      const value = initialValue(field)
+      return value === undefined ? [] : [[field.id, value]]
+    })
+  )
+
+export const unansweredFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> =>
+  activeFields(spec, values).filter((field) => values[field.id] === undefined)
 
 const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefined => {
   if (value === undefined) {
@@ -123,8 +130,6 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
       return labels.length === 0 ? m.none : labels.join(m.listSeparator)
     }
-    case "toggle":
-      return value === true ? m.on : m.off
   }
 }
 
