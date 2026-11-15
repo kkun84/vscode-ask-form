@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
-import { formFrame, until } from "./frames.ts"
+import { formFrame, settled, until } from "./frames.ts"
 import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
 
 interface Paths extends VscodePaths {
@@ -69,6 +69,7 @@ const setAttendees = async (session: Session, value: string): Promise<void> => {
 
 const answer = async (session: Session, button = "Continue with this"): Promise<string> => {
   const frame = theFrame(session)
+  await settled(frame)
   await frame.getByRole("button", { name: button, exact: true }).click()
   const result = await until(
     () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === session.callId)),

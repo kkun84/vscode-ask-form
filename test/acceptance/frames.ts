@@ -36,3 +36,19 @@ export const formFrame = (window: Page, previous: ReadonlyArray<Frame> = []): Pr
     "the form appears",
     120_000
   )
+
+export const settled = async (frame: Frame): Promise<void> => {
+  const element = await frame.frameElement()
+  let last = ""
+  await until(
+    async () => {
+      const box = JSON.stringify(await element.boundingBox())
+      const stable = box === last
+      last = box
+      await sleep(250)
+      return stable ? true : undefined
+    },
+    "the form frame stops moving",
+    10_000
+  )
+}
