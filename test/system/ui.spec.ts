@@ -216,14 +216,14 @@ test.describe("SPEC-UI-003 入力の確定", () => {
 })
 
 test.describe("SPEC-UI-004 回答後の要約", () => {
-  test("SPEC-UI-004 回答後は要約になり、推奨から選び直した選択肢に元の推奨を添える", async ({ page }) => {
+  test("SPEC-UI-004 回答後は要約になり、推奨から変えた項目に元の推奨を添える", async ({ page }) => {
     const frame = await openWithTalk(page)
     await frame.getByRole("spinbutton", { name: "参加者数" }).fill("150")
     await frame.getByRole("button", { name: "この内容で進める" }).click()
     const summary = frame.locator(".summary")
     await expect(summary.getByText("回答しました")).toBeFocused()
     await expect(summary.locator(".summary-row", { hasText: "形式" })).toHaveText("形式勉強会推奨: 交流会")
-    await expect(summary.locator(".summary-row", { hasText: "参加者数" })).toHaveText("参加者数150人")
+    await expect(summary.locator(".summary-row", { hasText: "参加者数" })).toHaveText("参加者数150人推奨: 120人")
   })
 
   test("SPEC-UI-004 ツールの結果を受け取ったときも要約を表示する", async ({ page }) => {
@@ -537,7 +537,7 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     await expect(summary.locator(".summary-row")).toHaveText([
       "アプリ名my-todo",
       "保存先サーバー推奨: ブラウザ",
-      "ポート3,000",
+      "ポート3,000推奨: 8,080",
       "ログイン不要"
     ])
   })

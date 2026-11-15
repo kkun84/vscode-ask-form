@@ -754,7 +754,7 @@ export class FormApp {
           "dd",
           {},
           describeValue(field, this.summaryValues[field.id], this.m),
-          changedByUser.includes(field.id) && field.type === "choice" && field.default !== undefined
+          changedByUser.includes(field.id) && field.default !== undefined
             ? h("span", { class: "mark" }, this.m.recommendedWas(describeValue(field, this.initial[field.id], this.m)))
             : null
         )
