@@ -157,7 +157,7 @@ test("REQ-RES-002 変更を入力欄に置き、利用者が送信すると差�
     60_000
   )
   expect(received).toContain(`${eventSpec.title}.json`)
-  const attachment = received.match(/\{\s*"title":\s*"[^"]+",\s*"values":\s*\{[^}]+\}\s*\}/)?.[0]
+  const attachment = received.match(/\{\s*"title":\s*"[^"]+",\s*"values":\s*\{[^}]+\},\s*"held":\s*\[[^\]]*\]\s*\}/)?.[0]
   check(attachment !== undefined, `the model receives the JSON attachment contents: ${received}`)
   expect(JSON.parse(attachment ?? "null")).toEqual({
     title: eventSpec.title,
