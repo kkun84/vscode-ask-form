@@ -1,24 +1,31 @@
 :root {
-  --fg: var(--color-text-primary, var(--vscode-foreground, #cccccc));
-  --muted: var(--color-text-secondary, var(--vscode-descriptionForeground, #9d9d9d));
-  --bg: var(--color-background-primary, var(--vscode-editor-background, #1f1f1f));
-  --surface: var(--color-background-secondary, var(--vscode-sideBar-background, #181818));
-  --border: var(--color-border-primary, var(--vscode-widget-border, #3c3c3c));
-  --input-bg: var(--vscode-input-background, var(--color-background-secondary, #313131));
-  --input-border: var(--vscode-input-border, var(--color-border-secondary, #3c3c3c));
-  --accent: var(--vscode-button-background, #0078d4);
+  --fg: var(--color-text-primary, var(--vscode-foreground, light-dark(#3b3b3b, #cccccc)));
+  --muted: var(--color-text-secondary, var(--vscode-descriptionForeground, light-dark(#717171, #9d9d9d)));
+  --bg: var(--color-background-primary, var(--vscode-editor-background, light-dark(#ffffff, #1f1f1f)));
+  --surface: var(--color-background-secondary, var(--vscode-sideBar-background, light-dark(#f8f8f8, #181818)));
+  --border: var(--color-border-primary, var(--vscode-widget-border, light-dark(#e5e5e5, #3c3c3c)));
+  --input-bg: var(--vscode-input-background, var(--color-background-secondary, light-dark(#ffffff, #313131)));
+  --input-border: var(--vscode-input-border, var(--color-border-secondary, light-dark(#cecece, #3c3c3c)));
+  --accent: var(--vscode-button-background, light-dark(#005fb8, #0078d4));
   --accent-fg: var(--vscode-button-foreground, #ffffff);
   --contrast-border: var(--vscode-contrastBorder, transparent);
   --accent-hover: var(--vscode-button-hoverBackground, #026ec1);
-  --link: var(--color-text-info, var(--vscode-textLink-foreground, #4daafc));
+  --link: var(--color-text-info, var(--vscode-textLink-foreground, light-dark(#005fb8, #4daafc)));
   --danger: var(--color-text-danger, var(--vscode-errorForeground, #f48771));
   --danger-text: color-mix(in srgb, var(--danger) 70%, var(--fg));
   --success: var(--color-text-success, var(--vscode-testing-iconPassed, #73c991));
-  --focus: var(--color-ring-primary, var(--vscode-focusBorder, #0078d4));
+  --focus: var(--color-ring-primary, var(--vscode-focusBorder, light-dark(#005fb8, #0078d4)));
   --radius: var(--border-radius-lg, 6px);
   --font: var(--font-sans, var(--vscode-font-family, system-ui, sans-serif));
-  --font-mono: var(--font-mono, var(--vscode-editor-font-family, monospace));
   color-scheme: light dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 * {
@@ -127,15 +134,14 @@ body {
   }
 }
 
-@scope (.q.folded) to (.q) {
-  .option-details,
-  .rec {
-    display: none;
-    height: 0;
-    margin: 0;
-    padding-block: 0;
-    opacity: 0;
-  }
+.q.folded > .q-group > .options > .option .option-details,
+.q.folded > .q-group > .options > .option .rec,
+.q.folded > .q-group > .rec {
+  display: none;
+  height: 0;
+  margin: 0;
+  padding-block: 0;
+  opacity: 0;
 }
 
 .q-head {
@@ -183,12 +189,16 @@ body {
 }
 
 .q.missing .q-group.choices,
-.q.missing input {
+.q.missing input:not([type="radio"], [type="checkbox"]) {
   outline: 1px solid var(--danger);
   outline-offset: -1px;
 }
 
 .missing-tag {
+  color: var(--muted);
+}
+
+.missing-tag.error {
   color: var(--danger-text);
   font-weight: 600;
 }
@@ -270,8 +280,12 @@ textarea {
   resize: vertical;
 }
 
-input[type="range"].unset {
-  opacity: 0.4;
+input[type="range"].unset::-webkit-slider-thumb {
+  visibility: hidden;
+}
+
+input[type="range"].unset::-moz-range-thumb {
+  visibility: hidden;
 }
 
 input.exact {
@@ -411,8 +425,30 @@ input[type="radio"] {
 }
 
 .advanced summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
   cursor: pointer;
   color: var(--fg);
+}
+
+.advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced summary::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin: 0 6px 0 3px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateX(-1px) rotate(-45deg);
+}
+
+.advanced[open] summary::before {
+  transform: translateY(-2px) rotate(45deg);
 }
 
 .advanced .fields {
@@ -463,13 +499,18 @@ input[type="radio"] {
 }
 
 .status {
-  flex: 1;
+  flex: 1 0 100%;
+  order: -1;
   min-width: 0;
   font-size: 12px;
-  text-align: right;
+}
+
+.status:empty {
+  display: none;
 }
 
 .shortcut {
+  margin-left: auto;
   font-family: var(--font);
   font-size: 11px;
 }
@@ -521,7 +562,7 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
-  outline: 1px solid var(--focus);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 
