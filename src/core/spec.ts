@@ -18,12 +18,13 @@ const commonFields = {
   reason: Schema.optionalKey(
     text(60).annotate({
       description:
-        "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value."
+        "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default."
     })
   ),
   reasonDetails: Schema.optionalKey(
     text(300).annotate({
-      description: "More on why you recommend the default, in full sentences. Can be hidden by the user."
+      description:
+        "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default."
     })
   ),
   advanced: Schema.optionalKey(
@@ -109,8 +110,7 @@ export const FormSpec = Schema.Struct({
   title: required(80),
   description: Schema.optionalKey(text(300)),
   fields: Schema.Array(Field).check(Schema.isMinLength(1), Schema.isMaxLength(20)),
-  computed: Schema.optionalKey(Schema.Array(Computed).check(Schema.isMaxLength(8))),
-  submitLabel: Schema.optionalKey(text(20))
+  computed: Schema.optionalKey(Schema.Array(Computed).check(Schema.isMaxLength(8)))
 })
 
 export type TextField = typeof TextField.Type

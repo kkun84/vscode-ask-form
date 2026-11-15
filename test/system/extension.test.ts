@@ -97,9 +97,9 @@ describe("SPEC-EXT-006 MCPを使わない環境", () => {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
-      params: { name: "form_answer", arguments: { formKey, action: "delegate" } }
+      params: { name: "form_answer", arguments: { formKey, action: "submit", values: initialValues(eventForm.spec) } }
     })
-    assert.match(resultText(await pending), /"status":"delegated"/)
+    assert.match(resultText(await pending), /"status":"submitted"/)
     await dispose()
   })
 
@@ -126,7 +126,7 @@ describe("SPEC-EXT-002 待機の表示", () => {
         assert.equal(recorder.status[0]?.text.includes("Copilotが回答を待っています"), true)
         const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
         yield* until(() => visible(recorder))
-        yield* connection.call("form_answer", { formKey, action: "delegate" })
+        yield* connection.call("form_answer", { formKey, action: "chat" })
         yield* Fiber.join(fiber)
         yield* until(() => !visible(recorder))
       })
@@ -158,7 +158,7 @@ it("SPEC-EXT-003 web版ではJSONを保存して添付し、利用者が送信�
     jsonrpc: "2.0",
     id: 1,
     method: "tools/call",
-    params: { name: "form_answer", arguments: { formKey, action: "delegate" } }
+    params: { name: "form_answer", arguments: { formKey, action: "submit", values: before } }
   })
   await pending
   const after = { ...before, price: 2500 }
@@ -174,7 +174,11 @@ it("SPEC-EXT-003 web版ではJSONを保存して添付し、利用者が送信�
   assert.equal(command?.command, "workbench.action.chat.open")
   const draft = command?.args[0] as { readonly isPartialQuery: boolean; readonly attachFiles: ReadonlyArray<{ readonly path: string }> }
   assert.equal(draft.isPartialQuery, true)
-  assert.deepEqual(JSON.parse(recorder.files.get(draft.attachFiles[0]?.path ?? "") ?? "null"), { title: eventSpec.title, values: after })
+  assert.deepEqual(JSON.parse(recorder.files.get(draft.attachFiles[0]?.path ?? "") ?? "null"), {
+    title: eventSpec.title,
+    values: after,
+    held: []
+  })
 })
 
 describe("SPEC-EXT-004 web版", () => {
@@ -221,7 +225,7 @@ describe("SPEC-EXT-004 web版", () => {
     assert.equal(visible(recorder), false)
   })
 
-  it("SPEC-EXT-004 回答せずにパネルを閉じると、チャットで答える結果を返す", async () => {
+  it("SPEC-EXT-004 回答せずにパネルを閉じると、キャンセルと同じ結果を返す", async () => {
     const opened = web()
     const result = opened.tool.invoke({ input: eventSpec }, cancellation().token)
     opened.recorder.panels.at(-1)?.dispose()

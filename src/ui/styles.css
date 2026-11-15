@@ -638,3 +638,26 @@ summary:focus-visible {
 [data-focus]:focus {
   outline: none;
 }
+
+.option.hold {
+  min-height: 0;
+  color: var(--muted);
+}
+
+.hold:not(.option) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  margin-top: 6px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.hold:not(.option) input {
+  margin: 0;
+}
+
+.held-tag {
+  color: var(--muted);
+}
