@@ -83,12 +83,18 @@ const answer = async (session: Session, button = "Send"): Promise<string> => {
   return result.text
 }
 
+const press = async (session: Session, name: string): Promise<void> => {
+  const frame = theFrame(session)
+  await settled(frame)
+  await frame.getByRole("button", { name, exact: true }).click()
+}
+
 const editAnswer = async (session: Session): Promise<void> => {
   await newForm(session)
   await setAttendees(session, "150")
   const result = await answer(session)
   check(result.includes('"status":"submitted"'), `the initial answer is submitted: ${result}`)
-  await theFrame(session).getByRole("button", { name: "Edit and resend", exact: true }).click()
+  await press(session, "Edit and resend")
 }
 
 const guesses = Object.fromEntries(eventSpec.fields.map((field) => [field.id, field.default]))
@@ -144,7 +150,7 @@ test("REQ-RES-002 変更を入力欄に置き、利用者が送信すると差�
   await price.fill("2500")
   await price.press("Tab")
   const messageIndex = session.llm.userMessages.length
-  await frame.getByRole("button", { name: "Send changes", exact: true }).click()
+  await press(session, "Send changes")
   await expect(frame.locator(".summary .notice")).toHaveText("Placed in the chat input. Review it before sending.")
   expect(session.llm.userMessages).toHaveLength(messageIndex)
   await session.window.locator(".interactive-input-part .monaco-editor .view-lines").last().click()
