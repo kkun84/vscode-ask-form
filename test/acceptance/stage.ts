@@ -424,7 +424,7 @@ const choose = async (page: Page, frame: Frame, pointer: Pointer, recorder: Reco
 
 const answer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await caption(page, 3)
-  const proceed = frame.getByRole("button", { name: "この設定で作る" })
+  const proceed = frame.getByRole("button", { name: "送信" })
   await look(page, [frame.locator("footer.actions")], proceed, "クリックで回答", 400)
   await focusOn(page, null)
   await pin(page, ".formbox", 1600)

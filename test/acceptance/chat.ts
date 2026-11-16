@@ -67,7 +67,7 @@ const setAttendees = async (session: Session, value: string): Promise<void> => {
   await input.press("Tab")
 }
 
-const answer = async (session: Session, button = "Continue with this"): Promise<string> => {
+const answer = async (session: Session, button = "Send"): Promise<string> => {
   const frame = theFrame(session)
   await settled(frame)
   await frame.getByRole("button", { name: button, exact: true }).click()
@@ -83,12 +83,18 @@ const answer = async (session: Session, button = "Continue with this"): Promise<
   return result.text
 }
 
+const press = async (session: Session, name: string): Promise<void> => {
+  const frame = theFrame(session)
+  await settled(frame)
+  await frame.getByRole("button", { name, exact: true }).click()
+}
+
 const editAnswer = async (session: Session): Promise<void> => {
   await newForm(session)
   await setAttendees(session, "150")
   const result = await answer(session)
   check(result.includes('"status":"submitted"'), `the initial answer is submitted: ${result}`)
-  await theFrame(session).getByRole("button", { name: "Edit and resend", exact: true }).click()
+  await press(session, "Edit and resend")
 }
 
 const guesses = Object.fromEntries(eventSpec.fields.map((field) => [field.id, field.default]))
@@ -118,18 +124,21 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
   await theFrame(session).locator(".summary").waitFor({ timeout: 30_000 })
 })
 
-test("REQ-ANS-002 AIに任せると、推奨の値がdelegatedとしてモデルに届く", async (session) => {
+test("REQ-ANS-005 保留にした質問は、値なしでheldとしてモデルに届く", async (session) => {
   await newForm(session)
-  await setAttendees(session, "180")
-  const result = await answer(session, "Let AI decide")
-  expect(result).toContain('"status":"delegated"')
-  expect(result).toContain(`"values":${JSON.stringify(guesses)}`)
-  expect(result).toContain('"computed":{"cost":170000,"profit":70000,"breakEven":85}')
+  const hold = theFrame(session).getByRole("group", { name: "参加費" }).getByRole("checkbox", { name: "Decide later" })
+  await hold.focus()
+  await hold.press("Space")
+  await expect(hold).toBeChecked()
+  const result = await answer(session)
+  expect(result).toContain('"status":"submitted"')
+  expect(result).toContain('"held":["price"]')
+  expect(result).not.toContain('"price":')
 })
 
-test("REQ-ANS-003 チャットで答えると、answer_in_chatがモデルに届く", async (session) => {
+test("REQ-ANS-003 キャンセルすると、answer_in_chatがモデルに届く", async (session) => {
   await newForm(session)
-  const result = await answer(session, "Answer in chat")
+  const result = await answer(session, "Cancel")
   expect(result).toContain('"status":"answer_in_chat"')
   expect(result).toContain("End your turn now and wait for the user's next message")
 })
@@ -141,7 +150,7 @@ test("REQ-RES-002 変更を入力欄に置き、利用者が送信すると差�
   await price.fill("2500")
   await price.press("Tab")
   const messageIndex = session.llm.userMessages.length
-  await frame.getByRole("button", { name: "Send changes", exact: true }).click()
+  await press(session, "Send changes")
   await expect(frame.locator(".summary .notice")).toHaveText("Placed in the chat input. Review it before sending.")
   expect(session.llm.userMessages).toHaveLength(messageIndex)
   await session.window.locator(".interactive-input-part .monaco-editor .view-lines").last().click()
@@ -157,9 +166,13 @@ test("REQ-RES-002 変更を入力欄に置き、利用者が送信すると差�
     60_000
   )
   expect(received).toContain(`${eventSpec.title}.json`)
-  const attachment = received.match(/\{\s*"title":\s*"[^"]+",\s*"values":\s*\{[^}]+\}\s*\}/)?.[0]
+  const attachment = received.match(/\{\s*"title":\s*"[^"]+",\s*"values":\s*\{[^}]+\},\s*"held":\s*\[[^\]]*\]\s*\}/)?.[0]
   check(attachment !== undefined, `the model receives the JSON attachment contents: ${received}`)
-  expect(JSON.parse(attachment ?? "null")).toEqual({ title: eventSpec.title, values: { ...guesses, attendees: 150, price: 2500 } })
+  expect(JSON.parse(attachment ?? "null")).toEqual({
+    title: eventSpec.title,
+    values: { ...guesses, attendees: 150, price: 2500 },
+    held: []
+  })
   await expect(frame.locator(".summary")).toBeVisible()
   await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
 })

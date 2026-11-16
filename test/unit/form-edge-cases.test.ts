@@ -30,6 +30,7 @@ it("DES-FORM-003 NULを含む複数選択の変更を検出し、並び順だけ
   assert.deepEqual(outcomeFor(form, "submit", after), {
     status: "submitted",
     values: after,
+    held: [],
     changedByUser: ["selection"],
     computed: { count: 2 }
   })
