@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Deferred, Effect, Fiber, Layer, Ref } from "effect"
+import type { CompiledForm, Outcome } from "../../src/core/form.ts"
 import { PendingForms, PendingFormsLive } from "../../src/mcp/pending.ts"
 import { WaitingIndicator } from "../../src/mcp/ports.ts"
 import { eventForm } from "../fixtures/event.ts"
@@ -25,6 +26,14 @@ const run = <A>(
 
 const startWaiting = (pending: PendingForms["Service"], form = eventForm) =>
   Effect.forkChild(pending.wait(form)).pipe(Effect.tap(() => Effect.yieldNow))
+
+const submittedWithKey = (form: CompiledForm): Outcome => ({
+  status: "submitted",
+  values: {},
+  held: [],
+  changedByUser: [],
+  computed: { key: form.key }
+})
 
 describe("DES-PEND-001 待機の台帳", () => {
   it("DES-PEND-001 回答側を待機数の通知中に中断しても待機は回答を受け取る", () => {
@@ -53,12 +62,9 @@ describe("DES-PEND-001 待機の台帳", () => {
         const second = yield* startWaiting(pending)
         assert.equal(yield* pending.size, 2)
         assert.equal(yield* pending.resolve(eventForm.key, () => ({ status: "answer_in_chat" })), true)
-        assert.equal(
-          yield* pending.resolve(eventForm.key, (form) => ({ status: "delegated", values: {}, computed: { key: form.key } })),
-          true
-        )
+        assert.equal(yield* pending.resolve(eventForm.key, submittedWithKey), true)
         assert.deepEqual(yield* Fiber.join(first), { status: "answer_in_chat" })
-        assert.equal((yield* Fiber.join(second)).status, "delegated")
+        assert.equal((yield* Fiber.join(second)).status, "submitted")
         assert.equal(yield* pending.resolve(eventForm.key, () => ({ status: "answer_in_chat" })), false)
         assert.equal(yield* pending.status(eventForm.key), "answered")
       })

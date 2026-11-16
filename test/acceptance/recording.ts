@@ -95,6 +95,15 @@ interface Point {
 
 const center = async (target: Locator): Promise<Point> => {
   await target.waitFor()
+  if (
+    await target.evaluate((element) => {
+      const box = element.getBoundingClientRect()
+      return box.top < 0 || box.bottom > element.ownerDocument.documentElement.clientHeight
+    })
+  ) {
+    await target.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "smooth" }))
+    await sleep(600)
+  }
   const box = await target.boundingBox()
   if (box === null) {
     throw new Error("the target is not visible")
