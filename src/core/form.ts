@@ -26,17 +26,16 @@ export const activeFields = (spec: FormSpec, values: Values): ReadonlyArray<Fiel
 
 const isBlank = (field: Field, value: FieldValue | undefined): boolean => value === undefined || (field.type === "text" && value === "")
 
+const filled = (fields: ReadonlyArray<Field>, values: Values): Values =>
+  Object.fromEntries(fields.flatMap((field) => (isBlank(field, values[field.id]) ? [] : [[field.id, values[field.id] as FieldValue]])))
+
 export const withoutHeld = (spec: FormSpec, values: Values, held: ReadonlySet<string>): Values =>
-  Object.fromEntries(
-    allFields(spec).flatMap((field) =>
-      held.has(field.id) || isBlank(field, values[field.id]) ? [] : [[field.id, values[field.id] as FieldValue]]
-    )
+  filled(
+    allFields(spec).filter((field) => !held.has(field.id)),
+    values
   )
 
-export const answerValues = (spec: FormSpec, values: Values): Values =>
-  Object.fromEntries(
-    activeFields(spec, values).flatMap((field) => (isBlank(field, values[field.id]) ? [] : [[field.id, values[field.id] as FieldValue]]))
-  )
+export const answerValues = (spec: FormSpec, values: Values): Values => filled(activeFields(spec, values), values)
 
 export const heldFields = (spec: FormSpec, values: Values): ReadonlyArray<string> =>
   activeFields(spec, values)
