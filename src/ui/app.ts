@@ -63,7 +63,7 @@ const hasDetails = (field: Field): boolean =>
 
 const markInvalid = (card: HTMLElement, invalid: boolean): void => {
   card.classList.toggle("missing", invalid)
-  for (const input of card.querySelectorAll("input, textarea")) {
+  for (const input of card.querySelectorAll(":scope > .q-group input, :scope > .q-group textarea")) {
     if (input.closest(".q") === card) {
       if (invalid) {
         input.setAttribute("aria-invalid", "true")
@@ -108,9 +108,6 @@ const optionRow = (
       why
     )
   )
-
-const holdRow = (input: HTMLElement, label: string): HTMLElement =>
-  h("label", { class: "option hold" }, input, h("span", { class: "option-text" }, h("span", { class: "option-head" }, label)))
 
 const affix = (content: string | undefined): HTMLElement | null => (content === undefined ? null : h("span", { class: "muted" }, content))
 
@@ -287,7 +284,7 @@ export class FormApp {
     if (details !== null && details !== undefined) {
       details.open = true
     }
-    first?.element.querySelector<HTMLElement>("input, textarea")?.focus()
+    first?.element.querySelector<HTMLElement>(":scope > .q-group input, :scope > .q-group textarea")?.focus()
     return true
   }
 
@@ -408,8 +405,8 @@ export class FormApp {
     this.refresh()
   }
 
-  private holdInput(type: "radio" | "checkbox", name: string | undefined, id: string): HTMLInputElement {
-    return h("input", { type, name, class: "hold-input", checked: this.held.has(id), title: this.m.holdHint })
+  private holdInput(field: Field): HTMLInputElement | null {
+    return field.type === "text" ? null : h("input", { type: "checkbox", checked: this.held.has(field.id), title: this.m.holdHint })
   }
 
   private syncStatus(): void {
@@ -542,6 +539,7 @@ export class FormApp {
     const descId = field.description === undefined ? undefined : uid("desc")
     const groupId = uid("group")
     const answer = h("span", { class: "q-answer", id: uid("answer") })
+    const hold = this.holdInput(field)
     const toggle = hasDetails(field)
       ? h("button", {
           type: "button",
@@ -563,13 +561,14 @@ export class FormApp {
         { class: "q-head" },
         toggle ?? h("span", { class: "fold-space" }),
         h("span", { class: "q-label", id: labelId }, field.label),
-        answer
+        answer,
+        hold === null ? null : h("label", { class: "hold", title: this.m.holdHint }, hold, this.m.hold)
       ),
       field.description === undefined ? null : h("p", { class: "q-desc", id: descId }, field.description),
       h(
         "div",
         { class: field.type === "choice" ? "q-group choices" : "q-group", id: groupId },
-        this.control(field, labelId, [answer.id, rec?.id].filter((id) => id !== undefined && id !== "").join(" ")),
+        this.control(field, labelId, [answer.id, rec?.id].filter((id) => id !== undefined && id !== "").join(" "), hold),
         rec
       )
     )
@@ -577,7 +576,7 @@ export class FormApp {
     if (back !== null) {
       on(back, "click", () => {
         this.live.setters.get(field.id)?.(this.initial[field.id] as FieldValue)
-        element.querySelector<HTMLElement>("input, textarea")?.focus()
+        element.querySelector<HTMLElement>(":scope > .q-group input, :scope > .q-group textarea")?.focus()
       })
     }
     if (toggle !== null) {
@@ -585,7 +584,7 @@ export class FormApp {
       const head = element.querySelector<HTMLElement>(".q-head")
       if (head !== null) {
         on(head, "click", (event) => {
-          if (event.target !== toggle) {
+          if (event.target !== toggle && (event.target as HTMLElement).closest(".hold") === null) {
             this.setFolded(field.id, !this.folded.has(field.id))
           }
         })
@@ -603,14 +602,14 @@ export class FormApp {
     return element
   }
 
-  private control(field: Field, labelId: string, describedBy: string): HTMLElement {
+  private control(field: Field, labelId: string, describedBy: string, hold: HTMLInputElement | null): HTMLElement {
     switch (field.type) {
       case "text":
         return this.textView(field, labelId, describedBy)
       case "number":
-        return this.numberView(field, labelId, describedBy)
+        return this.numberView(field, labelId, describedBy, hold ?? h("input"))
       case "choice":
-        return this.choiceView(field, describedBy)
+        return this.choiceView(field, describedBy, hold ?? h("input"))
     }
   }
 
@@ -644,10 +643,9 @@ export class FormApp {
     return input
   }
 
-  private numberView(field: NumberField, labelId: string, describedBy: string): HTMLElement {
+  private numberView(field: NumberField, labelId: string, describedBy: string, hold: HTMLInputElement): HTMLElement {
     const unset = this.values[field.id] === undefined || this.held.has(field.id)
     const value = Number(this.values[field.id] ?? field.min)
-    const hold = this.holdInput("checkbox", undefined, field.id)
     const step = field.step ?? "any"
     const text = (next: number) => `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`
     const slider = h("input", {
@@ -709,20 +707,14 @@ export class FormApp {
         update(stored)
       }
     })
-    return h(
-      "div",
-      { class: "number" },
-      h("div", { class: "row" }, slider, affix(field.prefix), exact, affix(field.suffix)),
-      h("label", { class: "hold" }, hold, this.m.hold)
-    )
+    return h("div", { class: "row" }, slider, affix(field.prefix), exact, affix(field.suffix))
   }
 
-  private choiceView(field: ChoiceField, describedBy: string): HTMLElement {
+  private choiceView(field: ChoiceField, describedBy: string, hold: HTMLInputElement): HTMLElement {
     const multiple = field.multiple === true
     const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
     const name = uid(field.id)
     const current = this.held.has(field.id) ? undefined : this.values[field.id]
-    const hold = this.holdInput(multiple ? "checkbox" : "radio", name, field.id)
     let pointing = false
     const options = field.options.flatMap((option) => {
       const checked = multiple ? Array.isArray(current) && current.includes(option.value) : current === option.value
@@ -749,8 +741,8 @@ export class FormApp {
           .join(" ")
       })
       on(input, "change", () => {
+        hold.checked = false
         if (multiple) {
-          hold.checked = false
           const selected = Array.isArray(this.values[field.id]) ? [...(this.values[field.id] as ReadonlyArray<string>)] : []
           this.setValue(field.id, input.checked ? [...selected, option.value] : selected.filter((item) => item !== option.value))
         } else if (input.checked) {
@@ -766,19 +758,24 @@ export class FormApp {
       return revealed === null ? [row] : [row, revealed]
     })
     on(hold, "change", () => {
-      if (multiple && hold.checked) {
-        this.values[field.id] = []
+      if (hold.checked) {
+        if (multiple) {
+          this.values[field.id] = []
+        }
         for (const input of group.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)) {
-          input.checked = input === hold
+          input.checked = false
+        }
+      } else if (!multiple && typeof this.values[field.id] === "string") {
+        const previous = group.querySelector<HTMLInputElement>(
+          `input[name="${name}"][value="${CSS.escape(String(this.values[field.id]))}"]`
+        )
+        if (previous !== null) {
+          previous.checked = true
         }
       }
       this.setHeld(field.id, hold.checked)
-      if (hold.checked && pointing) {
-        this.setFolded(field.id, true)
-      }
-      pointing = false
     })
-    const group = h("div", { class: "options" }, options, holdRow(hold, this.m.hold))
+    const group = h("div", { class: "options" }, options)
     on(group, "pointerdown", (event) => {
       pointing = (event.target as HTMLElement).closest(".reveal") === null
     })
@@ -885,7 +882,7 @@ export class FormApp {
         unanswered
           ? this.missingTag()
           : (this.resendTag(card.field, sinceAnswer.includes(card.field.id)) ??
-              (held.includes(card.field.id) ? h("span", { class: "held-tag" }, this.m.held) : ""))
+              (held.includes(card.field.id) && card.field.type === "text" ? h("span", { class: "held-tag" }, this.m.held) : ""))
       )
       if (card.back !== null) {
         card.back.hidden = !sinceRecommended.includes(card.field.id)

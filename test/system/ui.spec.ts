@@ -686,7 +686,10 @@ test.describe("SPEC-UI-012 保留", () => {
     await expect(frame.getByRole("checkbox", { name: "仕事" })).not.toBeChecked()
     await frame.getByRole("textbox", { name: "補足" }).fill("")
     await expect(frame.locator(".metric-value")).toHaveText("—")
-    await expect(frame.locator(".held-tag")).toHaveText(["保留", "保留", "保留", "保留"])
+    await expect(frame.locator(".held-tag")).toHaveText(["保留"])
+    for (const question of ["締め切り", "件数", "分類"]) {
+      await expect(hold(frame, question)).toBeChecked()
+    }
     expect(await axeViolations(frame)).toEqual([])
     await send(frame)
     const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly held?: ReadonlyArray<string> }
@@ -728,7 +731,7 @@ test.describe("SPEC-UI-012 保留", () => {
 
   test("SPEC-UI-012 親の選択項目を保留にすると、選択肢ごとの項目を隠して回答にも含めない", async ({ page }) => {
     const frame = await openStorage(page)
-    await hold(frame, "保存先").last().check()
+    await hold(frame, "保存先").first().check()
     await expect(frame.getByRole("group", { name: "保存方式" })).toBeHidden()
     await send(frame)
     const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly held?: ReadonlyArray<string> }
