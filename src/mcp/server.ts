@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Result, Schema } from "effect"
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai"
-import { attachmentName, outcomeFor, outcomeText, resendMessage, type Action, type Outcome } from "../core/form.ts"
+import { attachmentName, heldFields, outcomeFor, outcomeText, resendMessage, type Action, type Outcome } from "../core/form.ts"
 import { checkValues, compile } from "../core/validate.ts"
 import { languageOf, messages } from "../core/messages.ts"
 import { PendingForms } from "./pending.ts"
@@ -24,13 +24,8 @@ const OutcomeResult = Schema.Union([
   Schema.Struct({
     status: Schema.Literal("submitted"),
     values: Values,
+    held: Schema.Array(Schema.String),
     changedByUser: Schema.Array(Schema.String),
-    computed: ComputedValues,
-    next: Schema.String
-  }),
-  Schema.Struct({
-    status: Schema.Literal("delegated"),
-    values: Values,
     computed: ComputedValues,
     next: Schema.String
   }),
@@ -44,13 +39,14 @@ export const askFormDescription = [
   "Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those).",
   "For a single simple choice, prefer the built-in askQuestions tool instead.",
   "Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose.",
-  "With a default, use reason: for a choice, why that option fits best here; for other fields, advice that helps the user decide.",
+  "Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description.",
   "Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious.",
   "For a yes/no question, use a choice with two options.",
   "When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields.",
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",
-  "The result tells you whether the user submitted values, delegated the decision to you, or will answer in chat."
+  "The user can put any question on hold instead of answering it; those ids come back in held without a value, and you ask again when you need one.",
+  "The result tells you whether the user submitted values or cancelled the form to answer in chat."
 ].join(" ")
 
 const AskForm = Tool.dynamic("ask_form", {
@@ -68,8 +64,9 @@ const FormAnswer = Tool.make("form_answer", {
   description: "Deliver the user's answer from the form view. Only the form view calls this tool.",
   parameters: Schema.Struct({
     formKey: Schema.String,
-    action: Schema.Literals(["submit", "delegate", "chat"]),
-    values: Schema.optionalKey(Schema.Unknown)
+    action: Schema.Literals(["submit", "chat"]),
+    values: Schema.optionalKey(Schema.Unknown),
+    held: Schema.optionalKey(Schema.Unknown)
   }),
   success: Schema.Struct({ accepted: Schema.Boolean }),
   failure: FormRejected
@@ -113,7 +110,7 @@ const FormsHandlers = FormsToolkit.toLayer(
           }
           return withNext(yield* pending.wait(compiled.success))
         }),
-      form_answer: ({ formKey, action, values }) =>
+      form_answer: ({ formKey, action, values, held }) =>
         Effect.gen(function* () {
           const form = yield* pending.peek(formKey)
           if (form === undefined) {
@@ -121,7 +118,7 @@ const FormsHandlers = FormsToolkit.toLayer(
           }
           let checked: typeof Values.Type = {}
           if (action === "submit") {
-            const result = checkValues(form.spec, values)
+            const result = checkValues(form.spec, values, held ?? [])
             if (Result.isFailure(result)) {
               return yield* reject(result.failure)
             }
@@ -152,7 +149,11 @@ const FormsHandlers = FormsToolkit.toLayer(
           const id = crypto.randomUUID()
           const name = attachmentName(form.spec.title)
           yield* attachments
-            .write(id, name, JSON.stringify({ title: form.spec.title, values: next.success }, undefined, 2))
+            .write(
+              id,
+              name,
+              JSON.stringify({ title: form.spec.title, values: next.success, held: heldFields(form.spec, next.success) }, undefined, 2)
+            )
             .pipe(Effect.mapError((error) => new FormRejected({ message: error.message })))
           return { text, attachment: { uri: `ask-form://answers/${id}/${encodeURIComponent(name)}`, name } }
         })

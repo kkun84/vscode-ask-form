@@ -16,13 +16,17 @@ describe("ARCH-PORT-001 MCPサーバーへの差し込み口", () => {
         Effect.gen(function* () {
           const fiber = yield* Effect.forkChild(h.call("ask_form", eventSpec))
           yield* h.waitUntil(1)
-          yield* h.call("form_answer", { formKey: form.key, action: "delegate" })
+          yield* h.call("form_answer", { formKey: form.key, action: "chat" })
           yield* Fiber.join(fiber)
           assert.deepEqual(yield* Ref.get(h.waiting), [1, 0])
           const before = initialValues(form.spec)
           yield* h.call("form_resend", { spec: eventSpec, before, after: { ...before, stream: "no" } })
           assert.equal(files.size, 1)
-          assert.deepEqual(JSON.parse([...files.values()][0] ?? "null"), { title: eventSpec.title, values: { ...before, stream: "no" } })
+          assert.deepEqual(JSON.parse([...files.values()][0] ?? "null"), {
+            title: eventSpec.title,
+            values: { ...before, stream: "no" },
+            held: []
+          })
         }),
       { attachments: store }
     )

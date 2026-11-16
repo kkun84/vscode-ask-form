@@ -164,11 +164,6 @@ describe("DES-FORM-003 差分", () => {
       assert.deepEqual(outcome.changedByUser, ["price"])
       assert.equal(outcome.computed["profit"], 130000)
     }
-    const delegated = outcomeFor(form, "delegate", values)
-    assert.equal(delegated.status, "delegated")
-    if (delegated.status === "delegated") {
-      assert.equal(delegated.values["price"], 2000)
-    }
     assert.deepEqual(outcomeFor(form, "chat", values), { status: "answer_in_chat" })
   })
 })
@@ -223,5 +218,47 @@ describe("DES-FORM-005 送り直しの文章", () => {
     const form = compiled(eventSpec)
     const values = initialValues(form.spec)
     assert.equal(resendMessage(form.spec, values, values, messages("ja")), undefined)
+  })
+})
+
+describe("DES-FORM-007 保留", () => {
+  const choice = { type: "choice", id: "due", label: "締め切り", options: ["yes", "no"].map((value) => ({ value, label: value })) }
+  const spec = withFields([
+    { type: "number", id: "size", label: "件数", default: 20, min: 5, max: 100 },
+    choice,
+    { type: "text", id: "memo", label: "補足", default: "なし" }
+  ])
+
+  it("DES-FORM-007 値のない項目と空欄の文字列を保留として並べ、推奨から保留にした項目をchangedByUserに含めない", () => {
+    const form = compiled(spec)
+    const outcome = outcomeFor(form, "submit", Result.getOrThrow(checkValues(form.spec, { due: "no", memo: "" }, ["size"])))
+    assert.deepEqual(outcome, {
+      status: "submitted",
+      values: { due: "no" },
+      held: ["size", "memo"],
+      changedByUser: ["due"],
+      computed: {}
+    })
+  })
+
+  it("DES-FORM-007 保留と値の間の変更を差分に数え、送り直しの文章では保留と書く", () => {
+    const form = compiled(spec)
+    const before = { size: 20, due: "no", memo: "なし" }
+    assert.deepEqual(changedFields(form.spec, before, { due: "no", memo: "" }), ["size", "memo"])
+    assert.deepEqual(changedFields(form.spec, { due: "no" }, { due: "no", memo: "" }), [])
+    assert.equal(
+      resendMessage(form.spec, before, { due: "no", memo: "なし" }, messages("ja")),
+      "「t」で件数を保留に変えたので、反映して続けてください。"
+    )
+    assert.equal(
+      resendMessage(form.spec, { due: "no" }, { size: 30, due: "no" }, messages("en")),
+      'In "t", I changed 件数 to 30. Please apply it and continue.'
+    )
+  })
+
+  it("DES-SPEC-001 defaultのない項目のreasonとreasonDetailsを指摘する", () => {
+    assert.match(problems(withFields([{ ...choice, reason: "理由" }])).join("\n"), /due.*defaultがない/)
+    assert.match(problems(withFields([{ type: "text", id: "a", label: "A", reasonDetails: "詳しく" }])).join("\n"), /a.*defaultがない/)
+    assert.equal(compiled(withFields([{ ...choice, default: "yes", reason: "理由" }])).spec.fields.length, 1)
   })
 })
