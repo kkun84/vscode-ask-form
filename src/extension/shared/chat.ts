@@ -5,6 +5,7 @@ export interface ChatPostRequest {
   readonly text: string
   readonly title: string
   readonly values: Values
+  readonly held: ReadonlyArray<string>
 }
 
 export const writeAttachment = async (storage: vscode.Uri, id: string, name: string, body: string): Promise<vscode.Uri> => {
@@ -16,7 +17,7 @@ export const writeAttachment = async (storage: vscode.Uri, id: string, name: str
 }
 
 export const postToChat = async (storage: vscode.Uri, request: ChatPostRequest): Promise<void> => {
-  const body = JSON.stringify({ title: request.title, values: request.values }, undefined, 2)
+  const body = JSON.stringify({ title: request.title, values: request.values, held: request.held }, undefined, 2)
   const file = await writeAttachment(storage, crypto.randomUUID(), attachmentName(request.title), body)
   await vscode.commands.executeCommand("workbench.action.chat.open", {
     query: request.text,

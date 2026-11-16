@@ -69,6 +69,5 @@ export const todoSpec = {
         { value: "no", label: "付けない" }
       ]
     }
-  ],
-  submitLabel: "この設定で作る"
+  ]
 } as const

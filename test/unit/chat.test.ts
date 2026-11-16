@@ -21,7 +21,8 @@ it("DES-CHAT-001 下書きとして入力欄に入れ、添付名を題名由来
     title,
     name,
     text: `post-${index}`,
-    values: { value: index }
+    values: { value: index },
+    held: []
   }))
   await Promise.all(posts.map((post) => postToChat(api.Uri.parse("/storage"), post)))
   assert.equal(recorder.files.size, posts.length)
@@ -41,6 +42,6 @@ it("DES-CHAT-001 下書きとして入力欄に入れ、添付名を題名由来
     assert.match(directory, /^\/storage\/answers\/[0-9a-f-]{36}$/)
     assert.ok(directories.includes(directory))
     assert.equal(posix.basename(path), post.name)
-    assert.deepEqual(JSON.parse(recorder.files.get(path) ?? "{}"), { title: post.title, values: post.values })
+    assert.deepEqual(JSON.parse(recorder.files.get(path) ?? "{}"), { title: post.title, values: post.values, held: [] })
   }
 })

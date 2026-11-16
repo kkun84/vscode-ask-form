@@ -24,10 +24,24 @@ export const allFields = (spec: FormSpec): ReadonlyArray<Field> =>
 export const activeFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> =>
   spec.fields.flatMap((field) => [field, ...branchFields(field, values[field.id])])
 
+const isBlank = (field: Field, value: FieldValue | undefined): boolean => value === undefined || (field.type === "text" && value === "")
+
+export const withoutHeld = (spec: FormSpec, values: Values, held: ReadonlySet<string>): Values =>
+  Object.fromEntries(
+    allFields(spec).flatMap((field) =>
+      held.has(field.id) || isBlank(field, values[field.id]) ? [] : [[field.id, values[field.id] as FieldValue]]
+    )
+  )
+
 export const answerValues = (spec: FormSpec, values: Values): Values =>
   Object.fromEntries(
-    activeFields(spec, values).flatMap((field) => (values[field.id] === undefined ? [] : [[field.id, values[field.id] as FieldValue]]))
+    activeFields(spec, values).flatMap((field) => (isBlank(field, values[field.id]) ? [] : [[field.id, values[field.id] as FieldValue]]))
   )
+
+export const heldFields = (spec: FormSpec, values: Values): ReadonlyArray<string> =>
+  activeFields(spec, values)
+    .filter((field) => isBlank(field, values[field.id]))
+    .map((field) => field.id)
 
 const parseExpressions = (spec: FormSpec): ReadonlyMap<string, Expr> => {
   const expressions = new Map<string, Expr>()
@@ -65,8 +79,8 @@ export const initialValues = (spec: FormSpec): Values =>
     })
   )
 
-export const unansweredFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> =>
-  activeFields(spec, values).filter((field) => values[field.id] === undefined)
+export const unansweredFields = (spec: FormSpec, values: Values, held: ReadonlySet<string> = new Set()): ReadonlyArray<Field> =>
+  activeFields(spec, values).filter((field) => field.type !== "text" && values[field.id] === undefined && !held.has(field.id))
 
 const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefined => {
   if (value === undefined) {
@@ -94,6 +108,9 @@ export const computeValues = (form: CompiledForm, values: Values): ComputedValue
 }
 
 const sameValue = (a: FieldValue | undefined, b: FieldValue | undefined): boolean => {
+  if ((a === undefined || a === "") && (b === undefined || b === "")) {
+    return true
+  }
   if (Array.isArray(a) && Array.isArray(b)) {
     const sortedB = b.toSorted()
     return a.length === b.length && a.toSorted().every((value, index) => value === sortedB[index])
@@ -120,6 +137,9 @@ export const formatNumber = (value: number, decimals?: number): string =>
   )
 
 export const describeValue = (field: Field, value: FieldValue | undefined, m: Messages): string => {
+  if (value === undefined) {
+    return m.held
+  }
   switch (field.type) {
     case "text":
       return typeof value === "string" && value !== "" ? value : m.empty
@@ -153,7 +173,7 @@ export const resendMessage = (spec: FormSpec, before: Values, after: Values, m: 
   }
   const parts = activeFields(spec, after)
     .filter((field) => changed.includes(field.id))
-    .map((field) => m.changeTo(field.label, describeValue(field, after[field.id], m)))
+    .map((field) => m.changeTo(field.label, isBlank(field, after[field.id]) ? m.onHold : describeValue(field, after[field.id], m)))
   return m.resendSentence(parts, spec.title)
 }
 
@@ -161,13 +181,13 @@ export type Outcome =
   | {
       readonly status: "submitted"
       readonly values: Values
+      readonly held: ReadonlyArray<string>
       readonly changedByUser: ReadonlyArray<string>
       readonly computed: ComputedValues
     }
-  | { readonly status: "delegated"; readonly values: Values; readonly computed: ComputedValues }
   | { readonly status: "answer_in_chat" }
 
-export type Action = "submit" | "delegate" | "chat"
+export type Action = "submit" | "chat"
 
 export const outcomeFor = (form: CompiledForm, action: Action, values: Values): Outcome => {
   switch (action) {
@@ -175,13 +195,10 @@ export const outcomeFor = (form: CompiledForm, action: Action, values: Values): 
       return {
         status: "submitted",
         values,
-        changedByUser: changedFields(form.spec, initialValues(form.spec), values),
+        held: heldFields(form.spec, values),
+        changedByUser: changedFields(form.spec, initialValues(form.spec), values).filter((id) => values[id] !== undefined),
         computed: computeValues(form, values)
       }
-    case "delegate": {
-      const defaults = answerValues(form.spec, initialValues(form.spec))
-      return { status: "delegated", values: defaults, computed: computeValues(form, defaults) }
-    }
     case "chat":
       return { status: "answer_in_chat" }
   }
@@ -191,11 +208,9 @@ export const outcomeText = (outcome: Outcome): string => {
   const json = JSON.stringify(outcome)
   switch (outcome.status) {
     case "submitted":
-      return `The user submitted the form. Treat fields listed in changedByUser as explicit decisions and the rest as accepted defaults. Continue the task.\n${json}`
-    case "delegated":
-      return `The user asked you to decide. Proceed with your proposed defaults and mention them briefly.\n${json}`
+      return `The user submitted the form. Treat fields listed in changedByUser as explicit decisions and the rest of values as accepted recommendations. Fields listed in held have no value: the user put them on hold. Do not assume a value for them; continue with the work that does not depend on them, and ask again when you need one. Continue the task.\n${json}`
     case "answer_in_chat":
-      return `The user will answer in the chat instead. End your turn now and wait for the user's next message.\n${json}`
+      return `The user cancelled the form without answering and will respond in the chat instead. End your turn now and wait for the user's next message.\n${json}`
   }
 }
 
