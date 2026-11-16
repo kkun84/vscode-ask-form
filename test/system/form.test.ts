@@ -203,7 +203,11 @@ describe("SPEC-EXPR-001 計算式", () => {
         const { key } = compile(expressionSpec).pipe(Result.getOrThrow)
         const fiber = yield* Effect.forkChild(h.call("ask_form", expressionSpec))
         yield* h.waitUntil(1)
-        yield* h.call("form_answer", { formKey: key, action: "delegate" })
+        yield* h.call("form_answer", {
+          formKey: key,
+          action: "submit",
+          values: initialValues(compile(expressionSpec).pipe(Result.getOrThrow).spec)
+        })
         const computed = structured(yield* Fiber.join(fiber))["computed"]
         assert.deepEqual(computed, { arith: 18.5, logic: 1, funcs: 9.23, choice: 2, text: true, prior: 27.73, divide: null })
       })
