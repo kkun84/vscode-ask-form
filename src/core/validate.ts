@@ -1,6 +1,6 @@
 import { Result, Schema } from "effect"
 import { references, parse } from "./expression.ts"
-import { activeFields, allFields, isMultiple, prepare, type CompiledForm, type FieldValue, type Values } from "./form.ts"
+import { activeFields, allFields, answerValues, heldFields, isMultiple, prepare, type CompiledForm, type Values } from "./form.ts"
 import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
@@ -85,7 +85,12 @@ const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
   return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
 }
 
-const fieldProblems = (field: Field): ReadonlyArray<string> => {
+const reasonProblems = (field: Field): ReadonlyArray<string> =>
+  field.default === undefined && (field.reason !== undefined || field.reasonDetails !== undefined)
+    ? [`項目「${field.id}」はdefaultがないので、reasonとreasonDetailsを付けられません。質問の説明はdescriptionに書いてください`]
+    : []
+
+const typeProblems = (field: Field): ReadonlyArray<string> => {
   switch (field.type) {
     case "number":
       return numberProblems(field)
@@ -95,6 +100,8 @@ const fieldProblems = (field: Field): ReadonlyArray<string> => {
       return []
   }
 }
+
+const fieldProblems = (field: Field): ReadonlyArray<string> => [...reasonProblems(field), ...typeProblems(field)]
 
 export const compile = (input: unknown): Result.Result<CompiledForm, ReadonlyArray<string>> => {
   const decoded = decodeSpec(input)
@@ -139,17 +146,38 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
   }
 }
 
-export const checkValues = (spec: FormSpec, input: unknown): Result.Result<Values, ReadonlyArray<string>> => {
+const heldProblems = (spec: FormSpec, values: Values, held: unknown): ReadonlyArray<string> => {
+  if (held === undefined) {
+    return []
+  }
+  if (!Array.isArray(held) || held.some((id) => typeof id !== "string")) {
+    return ["heldは項目のidの配列が必要です"]
+  }
+  const declared = new Set(held as ReadonlyArray<string>)
+  const actual = new Set(heldFields(spec, values))
+  return [
+    ...activeFields(spec, values)
+      .filter((field) => field.type !== "text" && actual.has(field.id) && !declared.has(field.id))
+      .map((field) => `項目「${field.id}」は値か保留が必要です`),
+    ...[...declared]
+      .filter((id) => !actual.has(id))
+      .map((id) => `項目「${id}」は保留にできません。値があるか、選ばれていない選択肢の項目です`)
+  ]
+}
+
+export const checkValues = (spec: FormSpec, input: unknown, held?: unknown): Result.Result<Values, ReadonlyArray<string>> => {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
     return Result.fail(["valuesはオブジェクトが必要です"])
   }
   const record = input as Record<string, unknown>
-  const fields = activeFields(spec, record as Values)
-  const problems = fields
+  const problems = activeFields(spec, record as Values)
+    .filter((field) => record[field.id] !== undefined)
     .map((field) => valueProblem(field, record[field.id]))
     .filter((problem): problem is string => problem !== undefined)
   if (problems.length > 0) {
     return Result.fail(problems)
   }
-  return Result.succeed(Object.fromEntries(fields.map((field) => [field.id, record[field.id] as FieldValue])))
+  const values = answerValues(spec, record as Values)
+  const unheld = heldProblems(spec, values, held)
+  return unheld.length > 0 ? Result.fail(unheld) : Result.succeed(values)
 }

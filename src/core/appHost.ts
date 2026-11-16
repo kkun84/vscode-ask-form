@@ -1,5 +1,5 @@
 import { Result } from "effect"
-import { outcomeFor, outcomeText, resendMessage, type Action, type CompiledForm, type Outcome, type Values } from "./form.ts"
+import { heldFields, outcomeFor, outcomeText, resendMessage, type Action, type CompiledForm, type Outcome, type Values } from "./form.ts"
 import { checkValues, compile } from "./validate.ts"
 import { languageOf, messages } from "./messages.ts"
 
@@ -13,6 +13,7 @@ export interface ResendRequest {
   readonly text: string
   readonly title: string
   readonly values: Values
+  readonly held: ReadonlyArray<string>
 }
 
 export interface AppHostOptions {
@@ -44,7 +45,7 @@ const textResult = (text: string, isError: boolean, structuredContent?: Readonly
   ...(structuredContent === undefined ? {} : { structuredContent })
 })
 
-const isAction = (value: unknown): value is Action => value === "submit" || value === "delegate" || value === "chat"
+const isAction = (value: unknown): value is Action => value === "submit" || value === "chat"
 
 interface HostState {
   status: "pending" | "answered" | "cancelled"
@@ -57,7 +58,7 @@ const answerWith = (options: AppHostOptions, state: HostState, params: Record<st
   const action = params["action"]
   let values: Values = {}
   if (action === "submit") {
-    const checked = checkValues(options.form.spec, params["values"])
+    const checked = checkValues(options.form.spec, params["values"], params["held"] ?? [])
     if (Result.isFailure(checked)) {
       return textResult(checked.failure.join("\n"), true)
     }
@@ -79,7 +80,7 @@ const resendWith = async (options: AppHostOptions, params: Record<string, unknow
   const before = checkValues(compiled.success.spec, params["before"])
   const after = checkValues(compiled.success.spec, params["after"])
   if (Result.isFailure(before) || Result.isFailure(after)) {
-    return textResult("invalid values", true)
+    return textResult([before, after].flatMap((checked) => (Result.isFailure(checked) ? checked.failure : [])).join("\n"), true)
   }
   const locale = typeof params["locale"] === "string" ? params["locale"] : options.context.locale
   const text = resendMessage(compiled.success.spec, before.success, after.success, messages(languageOf(locale)))
@@ -87,7 +88,12 @@ const resendWith = async (options: AppHostOptions, params: Record<string, unknow
     return textResult("no changes: 回答から変更がありません", true)
   }
   try {
-    await options.onResend({ text, title: compiled.success.spec.title, values: after.success })
+    await options.onResend({
+      text,
+      title: compiled.success.spec.title,
+      values: after.success,
+      held: heldFields(compiled.success.spec, after.success)
+    })
   } catch (error) {
     return textResult(error instanceof Error ? error.message : String(error), true)
   }
