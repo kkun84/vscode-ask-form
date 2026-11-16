@@ -120,7 +120,10 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
 
 test("REQ-ANS-005 保留にした質問は、値なしでheldとしてモデルに届く", async (session) => {
   await newForm(session)
-  await theFrame(session).getByRole("group", { name: "参加費" }).getByRole("checkbox", { name: "Decide later" }).check()
+  const hold = theFrame(session).getByRole("group", { name: "参加費" }).getByRole("checkbox", { name: "Decide later" })
+  await hold.focus()
+  await hold.press("Space")
+  await expect(hold).toBeChecked()
   const result = await answer(session)
   expect(result).toContain('"status":"submitted"')
   expect(result).toContain('"held":["price"]')
