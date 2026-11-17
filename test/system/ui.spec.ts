@@ -49,7 +49,7 @@ const selectStorage = async (frame: Frame, name: string) => {
 }
 
 const axeViolations = async (frame: Frame): Promise<ReadonlyArray<string>> => {
-  await frame.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)))
+  await expect.poll(() => frame.evaluate(() => document.getAnimations().length)).toBe(0)
   const results = await new AxeBuilder(frame).analyze()
   return results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
 }
@@ -679,6 +679,113 @@ const openHeld = async (page: Page): Promise<Frame> => {
 }
 
 const send = (frame: Frame) => frame.getByRole("button", { name: "送信", exact: true }).click()
+
+const note = (frame: Frame) => frame.getByRole("textbox", { name: "補足を書く" })
+
+const openWithNote = async (page: Page): Promise<Frame> => {
+  const frame = await open(page)
+  await frame.locator("details.note summary").click()
+  await note(frame).fill("会場は未定です")
+  return frame
+}
+
+test.describe("SPEC-UI-013 補足の入力", () => {
+  test("SPEC-UI-013 画面が描き直されても、書きかけの補足と開いた状態を保つ", async ({ page }) => {
+    const frame = await openWithNote(page)
+    await page.evaluate(() => {
+      document
+        .querySelector<HTMLIFrameElement>("#form")
+        ?.contentWindow?.postMessage({ jsonrpc: "2.0", method: "ui/notifications/host-context-changed", params: { theme: "light" } }, "*")
+    })
+    await expect(frame.locator("html")).toHaveAttribute("data-theme", "light")
+    await expect(frame.locator("details.note")).toHaveAttribute("open", "")
+    await expect(note(frame)).toHaveValue("会場は未定です")
+  })
+
+  test("SPEC-UI-013 2000文字を超える入力は、貼り付けても画面で切り詰める", async ({ page }) => {
+    const frame = await open(page)
+    await frame.locator("details.note summary").click()
+    await note(frame).evaluate((element: HTMLTextAreaElement) => {
+      element.value = `${"x".repeat(1999)}😀y`
+      element.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await expect(note(frame)).toHaveValue("x".repeat(1999))
+    await send(frame)
+    const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly note?: string }
+    expect(outcome.note).toBe("x".repeat(1999))
+  })
+})
+
+test.describe("SPEC-UI-013 補足", () => {
+  test("SPEC-UI-013 閉じた補足を開いて書くと、回答と一緒に届き、要約に残る", async ({ page }) => {
+    const frame = await open(page)
+    await expect(note(frame)).toBeHidden()
+    await frame.locator("details.note summary").click()
+    await expect(frame.locator("details.note")).toContainText("選択肢にない答えや、Copilotに伝えたいことを書けます")
+    await expect(note(frame)).toHaveAttribute("maxlength", "2000")
+    await note(frame).fill(" 会場は未定です\n参加費は任せます ")
+    expect(await axeViolations(frame)).toEqual([])
+    await note(frame).press("ControlOrMeta+Enter")
+    const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly note?: string }
+    expect(outcome.note).toBe("会場は未定です\n参加費は任せます")
+    await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です\n参加費は任せます")
+    expect(await frame.locator(".noted").evaluate((element) => element.textContent)).toBe("会場は未定です\n参加費は任せます")
+  })
+
+  test("SPEC-UI-013 補足を書いても、未回答の質問が残る間は送信できない", async ({ page }) => {
+    const frame = await open(page, {
+      args: {
+        title: "t",
+        fields: [{ type: "choice", id: "c", label: "方式", options: ["a", "b"].map((value) => ({ value, label: value })) }]
+      }
+    })
+    await frame.locator("details.note summary").click()
+    await note(frame).fill("どちらでもない方式にしたい")
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか保留にしてください: 方式")
+    await expect(note(frame)).toHaveValue("どちらでもない方式にしたい")
+    expect(await recorded(page, "outcomes")).toHaveLength(0)
+  })
+
+  test("SPEC-UI-013 補足を書かなければnoteを渡さず、要約にも出さない", async ({ page }) => {
+    const frame = await open(page)
+    await send(frame)
+    const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly note?: string }
+    expect("note" in outcome).toBe(false)
+    await expect(frame.locator(".summary dt", { hasText: "補足" })).toHaveCount(0)
+  })
+
+  test("SPEC-UI-013 送り直しの編集には補足を出さない", async ({ page }) => {
+    const frame = await openWithNote(page)
+    await startEditing(frame)
+    await expect(frame.locator("details.note")).toHaveCount(0)
+    await frame.getByRole("button", { name: "キャンセル" }).click()
+    await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です")
+  })
+
+  test("SPEC-UI-013 送り直しの下書きを置いた後の要約には補足を出さない", async ({ page }) => {
+    const frame = await openWithNote(page)
+    await startEditing(frame)
+    await setPrice(frame, "2500")
+    await frame.getByRole("button", { name: "変更を送信" }).click()
+    await expect(frame.locator(".summary .notice")).toBeVisible()
+    await expect(frame.locator(".summary dt", { hasText: "補足" })).toHaveCount(0)
+  })
+
+  test("SPEC-UI-013 ツールの結果から復元した要約にも補足を示す", async ({ page }) => {
+    const frame = await open(page, {
+      restore: {
+        status: "submitted",
+        values: { name: "技術交流会 2026" },
+        held: [],
+        changedByUser: [],
+        computed: {},
+        note: "会場は未定です"
+      }
+    })
+    await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です")
+  })
+})
 
 test.describe("SPEC-UI-012 保留", () => {
   test("SPEC-UI-012 どの質問も保留にでき、保留にした質問は値を届けず要約に保留と示す", async ({ page }) => {

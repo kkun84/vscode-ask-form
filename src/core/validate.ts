@@ -1,6 +1,16 @@
 import { Result, Schema } from "effect"
 import { references, parse } from "./expression.ts"
-import { activeFields, allFields, answerValues, heldFields, isMultiple, prepare, type CompiledForm, type Values } from "./form.ts"
+import {
+  activeFields,
+  allFields,
+  answerValues,
+  heldFields,
+  isMultiple,
+  maxNoteLength,
+  prepare,
+  type CompiledForm,
+  type Values
+} from "./form.ts"
 import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
@@ -165,6 +175,14 @@ const heldProblems = (spec: FormSpec, values: Values, held: unknown): ReadonlyAr
   ]
 }
 
+const checkNote = (input: unknown): Result.Result<string, ReadonlyArray<string>> => {
+  const note = input ?? ""
+  if (typeof note !== "string" || note.length > maxNoteLength) {
+    return Result.fail([`noteは${maxNoteLength}文字以下の文字列が必要です`])
+  }
+  return Result.succeed(note.trim())
+}
+
 export const checkValues = (spec: FormSpec, input: unknown, held?: unknown): Result.Result<Values, ReadonlyArray<string>> => {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
     return Result.fail(["valuesはオブジェクトが必要です"])
@@ -180,4 +198,18 @@ export const checkValues = (spec: FormSpec, input: unknown, held?: unknown): Res
   const values = answerValues(spec, record as Values)
   const unheld = heldProblems(spec, values, held)
   return unheld.length > 0 ? Result.fail(unheld) : Result.succeed(values)
+}
+
+export interface Answer {
+  readonly values: Values
+  readonly note: string | undefined
+}
+
+export const checkAnswer = (spec: FormSpec, input: Readonly<Record<string, unknown>>): Result.Result<Answer, ReadonlyArray<string>> => {
+  const values = checkValues(spec, input["values"], input["held"] ?? [])
+  const note = checkNote(input["note"])
+  if (Result.isSuccess(values) && Result.isSuccess(note)) {
+    return Result.succeed({ values: values.success, note: note.success === "" ? undefined : note.success })
+  }
+  return Result.fail([...(Result.isFailure(values) ? values.failure : []), ...(Result.isFailure(note) ? note.failure : [])])
 }

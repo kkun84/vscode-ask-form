@@ -139,6 +139,19 @@ test("REQ-ANS-005 保留にした質問は、値なしでheldとしてモデル�
   expect(result).not.toContain('"price":')
 })
 
+test("REQ-ANS-006 補足を書いて送信すると、noteとしてモデルに届く", async (session) => {
+  await newForm(session)
+  const frame = theFrame(session)
+  await settled(frame)
+  await frame.locator("details.note summary").click()
+  await frame.getByRole("textbox", { name: "Add a note" }).fill("The venue is not decided yet.")
+  const result = await answer(session)
+  expect(result).toContain('"status":"submitted"')
+  expect(result).toContain('"note":"The venue is not decided yet."')
+  expect(result).toContain("If note is present")
+  await expect(frame.locator(".summary-row").last()).toHaveText("NoteThe venue is not decided yet.")
+})
+
 test("REQ-ANS-003 キャンセルすると、answer_in_chatがモデルに届く", async (session) => {
   await newForm(session)
   const result = await answer(session, "Cancel")

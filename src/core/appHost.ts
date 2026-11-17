@@ -1,6 +1,6 @@
 import { Result } from "effect"
 import { heldFields, outcomeFor, outcomeText, resendMessage, type Action, type CompiledForm, type Outcome, type Values } from "./form.ts"
-import { checkValues, compile } from "./validate.ts"
+import { checkAnswer, checkValues, compile, type Answer } from "./validate.ts"
 import { languageOf, messages } from "./messages.ts"
 
 export interface HostContext {
@@ -56,15 +56,15 @@ const answerWith = (options: AppHostOptions, state: HostState, params: Record<st
     return textResult("expired: このフォームはもう回答を受け付けていません", true)
   }
   const action = params["action"]
-  let values: Values = {}
+  let answer: Answer = { values: {}, note: undefined }
   if (action === "submit") {
-    const checked = checkValues(options.form.spec, params["values"], params["held"] ?? [])
+    const checked = checkAnswer(options.form.spec, params)
     if (Result.isFailure(checked)) {
       return textResult(checked.failure.join("\n"), true)
     }
-    values = checked.success
+    answer = checked.success
   }
-  const outcome = outcomeFor(options.form, action, values)
+  const outcome = outcomeFor(options.form, action, answer.values, answer.note)
   state.status = "answered"
   const structured = { ...outcome, next: outcomeText(outcome) }
   options.onOutcome(outcome)

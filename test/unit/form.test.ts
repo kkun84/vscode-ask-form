@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Result } from "effect"
 import { changedFields, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
-import { checkValues } from "../../src/core/validate.ts"
+import { checkAnswer, checkValues } from "../../src/core/validate.ts"
 import { canonicalJson, stableHash } from "../../src/core/hash.ts"
 import { messages } from "../../src/core/messages.ts"
 import { eventSpec } from "../fixtures/event.ts"
@@ -295,6 +295,38 @@ describe("DES-FORM-005 送り直しの文章", () => {
     const form = compiled(eventSpec)
     const values = initialValues(form.spec)
     assert.equal(resendMessage(form.spec, values, values, messages("ja")), undefined)
+  })
+})
+
+describe("DES-FORM-008 補足", () => {
+  const form = compiled(withFields([{ type: "text", id: "name", label: "名前", default: "a" }]))
+  const answer = (note?: unknown) => checkAnswer(form.spec, { values: { name: "a" }, note })
+
+  it("DES-FORM-008 補足の前後の空白を除き、空なら補足なしとして回答に入れない", () => {
+    const noted = Result.getOrThrow(answer(" SQLiteにしたい\n"))
+    assert.equal(noted.note, "SQLiteにしたい")
+    assert.equal(outcomeFor(form, "submit", noted.values, noted.note).status, "submitted")
+    assert.deepEqual(outcomeFor(form, "submit", noted.values, noted.note), {
+      status: "submitted",
+      values: { name: "a" },
+      held: [],
+      changedByUser: [],
+      computed: {},
+      note: "SQLiteにしたい"
+    })
+    const blank = Result.getOrThrow(answer("  "))
+    assert.equal(blank.note, undefined)
+    assert.equal("note" in outcomeFor(form, "submit", blank.values, blank.note), false)
+    assert.equal(Result.getOrThrow(answer()).note, undefined)
+  })
+
+  it("DES-FORM-008 文字列でない補足と長すぎる補足を、値の誤りと一緒に返す", () => {
+    assert.ok(Result.isSuccess(answer("x".repeat(2000))))
+    assert.ok(Result.isFailure(answer("x".repeat(2001))))
+    assert.ok(Result.isFailure(answer(`${"x".repeat(1999)}  `)))
+    const both = checkAnswer(form.spec, { values: { name: 1 }, note: 1 })
+    assert.ok(Result.isFailure(both))
+    assert.equal(both.failure.length, 2)
   })
 })
 

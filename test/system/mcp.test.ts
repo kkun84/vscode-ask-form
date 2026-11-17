@@ -110,7 +110,22 @@ describe("SPEC-MCP-003 回答を待つ", () => {
       })
     ))
 
-  it("SPEC-MCP-005 値も保留もない項目と、値のある項目の保留を拒否する", () =>
+  it("SPEC-MCP-003 補足は前後の空白を除いてnoteで返し、空の補足は返さない", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const values = initialValues(form.spec)
+        const noted = yield* ask(h)
+        yield* h.call("form_answer", { formKey: form.key, action: "submit", values, note: "  会場は未定です\n" })
+        const result = yield* Fiber.join(noted)
+        assert.equal(structured(result)["note"], "会場は未定です")
+        assert.match(text(result), /If note is present.*follow it over any value it contradicts.*answers a held field/)
+        const plain = yield* ask(h)
+        yield* h.call("form_answer", { formKey: form.key, action: "submit", values, note: " \n" })
+        assert.equal("note" in structured(yield* Fiber.join(plain)), false)
+      })
+    ))
+
+  it("SPEC-MCP-005 値も保留もない項目、値のある項目の保留、文字列でない補足、長すぎる補足を拒否する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         yield* ask(h)
@@ -120,6 +135,9 @@ describe("SPEC-MCP-003 回答を待つ", () => {
           h.call("form_answer", { formKey: form.key, action: "submit", values: initialValues(form.spec), held: ["price"] }),
           /price.*保留にできません/
         )
+        const noted = { formKey: form.key, action: "submit", values: initialValues(form.spec) }
+        yield* expectError(h.call("form_answer", { ...noted, note: 1 }), /note/)
+        yield* expectError(h.call("form_answer", { ...noted, note: "x".repeat(2001) }), /note/)
         assert.equal(structured(yield* h.call("form_status", { formKey: form.key }))["status"], "pending")
       })
     ))
