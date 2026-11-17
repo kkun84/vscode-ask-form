@@ -71,6 +71,83 @@ describe("DES-SPEC-001 設計図の読み取り", () => {
   })
 })
 
+const describedOptions = (description: string) => [
+  { value: "a", label: "A", description },
+  { value: "b", label: "B" }
+]
+
+describe("DES-SPEC-001 文字数の目安と上限", () => {
+  const shownTexts: ReadonlyArray<readonly [string, number, (text: string) => unknown]> = [
+    ["設計図のtitle", 80, (text) => ({ ...withFields([{ type: "text", id: "a", label: "A" }]), title: text })],
+    ["設計図のdescription", 300, (text) => ({ ...withFields([{ type: "text", id: "a", label: "A" }]), description: text })],
+    ["項目のlabel", 60, (text) => withFields([{ type: "text", id: "a", label: text }])],
+    ["項目のdescription", 120, (text) => withFields([{ type: "text", id: "a", label: "A", description: text }])],
+    ["項目のreason", 60, (text) => withFields([{ type: "text", id: "a", label: "A", default: "d", reason: text }])],
+    ["項目のreasonDetails", 300, (text) => withFields([{ type: "text", id: "a", label: "A", default: "d", reasonDetails: text }])],
+    ["項目のplaceholder", 80, (text) => withFields([{ type: "text", id: "a", label: "A", placeholder: text }])],
+    [
+      "選択肢のlabel",
+      60,
+      (text) =>
+        withFields([
+          {
+            type: "choice",
+            id: "c",
+            label: "C",
+            options: [
+              { value: "a", label: text },
+              { value: "b", label: "B" }
+            ]
+          }
+        ])
+    ],
+    ["選択肢のdescription", 60, (text) => withFields([{ type: "choice", id: "c", label: "C", options: describedOptions(text) }])],
+    [
+      "選択肢のdetails",
+      300,
+      (text) =>
+        withFields([
+          {
+            type: "choice",
+            id: "c",
+            label: "C",
+            options: [
+              { value: "a", label: "A", details: text },
+              { value: "b", label: "B" }
+            ]
+          }
+        ])
+    ],
+    ["計算結果のlabel", 60, (text) => withFields([{ type: "text", id: "a", label: "A" }], [{ id: "x", label: text, expression: "1" }])]
+  ]
+
+  for (const [name, aim, build] of shownTexts) {
+    it(`DES-SPEC-001 ${name}は目安の2倍の${aim * 2}文字まで読み取り、それを超えると誤りにする`, () => {
+      compiled(build("x".repeat(aim * 2)))
+      assert.equal(problems(build("x".repeat(aim * 2 + 1))).length, 1)
+    })
+  }
+
+  it("DES-SPEC-001 id、選択肢のvalue、default、計算式、単位の上限は広げない", () => {
+    const number = { type: "number", id: "n", label: "N", min: 0, max: 1 }
+    const longValue = [
+      { value: "v".repeat(61), label: "A" },
+      { value: "b", label: "B" }
+    ]
+    for (const spec of [
+      withFields([{ type: "text", id: "a".repeat(41), label: "A" }]),
+      withFields([{ type: "text", id: "a", label: "A", default: "d".repeat(501) }]),
+      withFields([{ type: "choice", id: "c", label: "C", options: longValue }]),
+      withFields([{ ...number, prefix: "x".repeat(9) }]),
+      withFields([{ ...number, suffix: "x".repeat(9) }]),
+      withFields([number], [{ id: "x", label: "X", expression: `n${" + 0".repeat(75)}` }])
+    ]) {
+      assert.equal(problems(spec).length, 1)
+    }
+    compiled(withFields([number], [{ id: "x", label: "X", expression: `n${" + 0".repeat(74)}` }]))
+  })
+})
+
 describe("DES-SPEC-002 正規化と鍵", () => {
   it("DES-SPEC-002 キーの順序に関係なく同じ鍵になる", () => {
     const reordered = JSON.parse(JSON.stringify(eventSpec, Object.keys(eventSpec).toReversed()))
