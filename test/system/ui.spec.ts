@@ -49,7 +49,7 @@ const selectStorage = async (frame: Frame, name: string) => {
 }
 
 const axeViolations = async (frame: Frame): Promise<ReadonlyArray<string>> => {
-  await frame.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)))
+  await expect.poll(() => frame.evaluate(() => document.getAnimations().length)).toBe(0)
   const results = await new AxeBuilder(frame).analyze()
   return results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
 }
