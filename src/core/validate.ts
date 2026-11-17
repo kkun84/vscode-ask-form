@@ -1,6 +1,16 @@
 import { Result, Schema } from "effect"
 import { references, parse } from "./expression.ts"
-import { activeFields, allFields, answerValues, heldFields, isMultiple, prepare, type CompiledForm, type Values } from "./form.ts"
+import {
+  activeFields,
+  allFields,
+  answerValues,
+  heldFields,
+  isMultiple,
+  maxNoteLength,
+  prepare,
+  type CompiledForm,
+  type Values
+} from "./form.ts"
 import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
@@ -164,8 +174,6 @@ const heldProblems = (spec: FormSpec, values: Values, held: unknown): ReadonlyAr
       .map((id) => `項目「${id}」は保留にできません。値があるか、選ばれていない選択肢の項目です`)
   ]
 }
-
-const maxNoteLength = 2000
 
 const checkNote = (input: unknown): Result.Result<string, ReadonlyArray<string>> => {
   const note = input ?? ""

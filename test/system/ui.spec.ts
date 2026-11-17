@@ -688,12 +688,28 @@ test.describe("SPEC-UI-013 補足", () => {
     await expect(note(frame)).toBeHidden()
     await frame.locator("details.note summary").click()
     await expect(frame.locator("details.note")).toContainText("選択肢にない答えや、Copilotに伝えたいことを書けます")
+    await expect(note(frame)).toHaveAttribute("maxlength", "2000")
     await note(frame).fill(" 会場は未定です\n参加費は任せます ")
     expect(await axeViolations(frame)).toEqual([])
     await note(frame).press("ControlOrMeta+Enter")
     const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly note?: string }
     expect(outcome.note).toBe("会場は未定です\n参加費は任せます")
     await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です\n参加費は任せます")
+  })
+
+  test("SPEC-UI-013 補足を書いても、未回答の質問が残る間は送信できない", async ({ page }) => {
+    const frame = await open(page, {
+      args: {
+        title: "t",
+        fields: [{ type: "choice", id: "c", label: "方式", options: ["a", "b"].map((value) => ({ value, label: value })) }]
+      }
+    })
+    await frame.locator("details.note summary").click()
+    await note(frame).fill("どちらでもない方式にしたい")
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか保留にしてください: 方式")
+    await expect(note(frame)).toHaveValue("どちらでもない方式にしたい")
+    expect(await recorded(page, "outcomes")).toHaveLength(0)
   })
 
   test("SPEC-UI-013 補足を書かなければnoteを渡さず、要約にも出さない", async ({ page }) => {
