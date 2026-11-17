@@ -188,6 +188,8 @@ export type Outcome =
   | { readonly status: "answer_in_chat" }
   | { readonly status: "unavailable" }
 
+export const maxNoteLength = 2000
+
 export type Action = "submit" | "chat"
 
 export const outcomeFor = (form: CompiledForm, action: Action, values: Values, note?: string): Outcome => {
