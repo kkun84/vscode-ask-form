@@ -241,6 +241,25 @@ test("REQ-WAIT-002 質問に自動で応じる設定では、フォームは待�
   }
 })
 
+test("REQ-WAIT-002 フォームが待っている間に設定を有効にすると、待つのをやめてunavailableをモデルに返す", async (session) => {
+  await newForm(session)
+  await waiting(session).waitFor({ timeout: 30_000 })
+  await runCommand(session, "Ask Form: Toggle acceptance auto reply")
+  try {
+    const result = await until(
+      () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === session.callId)),
+      "the model receives the result without an answer",
+      60_000
+    )
+    expect(result.text).toContain('"status":"unavailable"')
+    await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
+    await expect(theFrame(session).getByRole("button")).toHaveCount(0, { timeout: 30_000 })
+    await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
+  } finally {
+    await runCommand(session, "Ask Form: Toggle acceptance auto reply")
+  }
+})
+
 const report = async (paths: Paths, session: Session, log: string): Promise<void> => {
   await session.window.screenshot({ path: join(paths.results, "chat-failure.png"), timeout: 10_000 }).catch(() => null)
   console.error(await readFile(log, "utf8").catch(() => "(no driver log)"))

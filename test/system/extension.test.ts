@@ -60,6 +60,13 @@ const submitRecommended = (panel: FakePanel | undefined): void =>
 
 const visible = (recorder: Recorder) => recorder.status.some((item) => item.visible)
 
+const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands: Recorder["commands"] = []): void => {
+  assert.equal(panel?.state.disposed, true)
+  assert.deepEqual(panel?.sent, [])
+  assert.deepEqual(recorder.commands, commands)
+  assert.equal(visible(recorder), false)
+}
+
 describe("SPEC-EXT-001 MCPサーバーの登録", () => {
   it("SPEC-EXT-001 起動するとトークンつきのHTTPのMCPサーバーを登録し、ask_formを呼べる", () =>
     runScoped(
@@ -188,10 +195,7 @@ describe("SPEC-EXT-004 web版", () => {
     const pending = tool.invoke({ input: eventSpec }, token)
     cancel()
     assert.match(resultText(await pending), /"status":"answer_in_chat"/)
-    assert.equal(recorder.panels[0]?.state.disposed, true)
-    assert.deepEqual(recorder.panels[0]?.sent, [])
-    assert.deepEqual(recorder.commands, [])
-    assert.equal(visible(recorder), false)
+    expectClosed(recorder, recorder.panels[0])
   })
 
   it("SPEC-EXT-004 回答せずにパネルを閉じると、キャンセルと同じ結果を返す", async () => {
@@ -240,12 +244,25 @@ describe("SPEC-EXT-004 回答後のパネル", () => {
         params: { name: "form_answer", arguments: { formKey, action, values } }
       })
       assert.equal(resultText(await pending).includes(`"status":"${status}"`), true)
-      assert.equal(panel?.state.disposed, true)
-      assert.deepEqual(panel?.sent, [])
-      assert.deepEqual(recorder.commands, commands)
-      assert.equal(visible(recorder), false)
+      expectClosed(recorder, panel, commands)
     })
   }
+
+  it("SPEC-EXT-004 チャットを開けない環境でも、キャンセルは結果を返してパネルを閉じ、例外を残さない", async () => {
+    const rejections: Array<unknown> = []
+    const record = (reason: unknown) => rejections.push(reason)
+    process.on("unhandledRejection", record)
+    const { recorder, pending, panel } = askOnWeb()
+    recorder.settings.set("test.commandsFail", true)
+    panel?.receive({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "form_answer", arguments: { formKey, action: "chat" } } })
+    assert.match(resultText(await pending), /"status":"answer_in_chat"/)
+    await new Promise((resolve) => {
+      setImmediate(resolve)
+    })
+    process.off("unhandledRejection", record)
+    assert.equal(panel?.state.disposed, true)
+    assert.deepEqual(rejections, [])
+  })
 
   it("SPEC-EXT-002 パネルで待つ間は、待機の表示を押すと先に待ち始めたフォームのパネルを前面に出す", async () => {
     const { recorder, tool } = web()
@@ -284,6 +301,29 @@ describe("SPEC-EXT-007 自動で応じる設定", () => {
         yield* waitThenCancel(recorder, connection)
       })
     ))
+
+  it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、MCPのask_formは待つのをやめてunavailableを返す", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, connection } = yield* desktopConnection
+        const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
+        yield* until(() => visible(recorder))
+        recorder.changeSetting("chat.autoReply", false)
+        recorder.changeSetting("unrelated.setting", 1)
+        assert.equal(fiber.pollUnsafe(), undefined)
+        recorder.changeSetting("chat.autoReply", true)
+        const result = yield* Fiber.join(fiber)
+        assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
+        yield* until(() => !visible(recorder))
+      })
+    ))
+
+  it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、拡張機能のツールはパネルを閉じてunavailableを返す", async () => {
+    const { recorder, pending, panel } = askOnWeb()
+    recorder.changeSetting("chat.autoReply", true)
+    assert.match(resultText(await pending), /"status":"unavailable"/)
+    expectClosed(recorder, panel)
+  })
 
   it("SPEC-EXT-007 chat.autoReplyが有効な間、拡張機能のツールはパネルを開かずにunavailableを返す", async () => {
     const { recorder, tool } = web()

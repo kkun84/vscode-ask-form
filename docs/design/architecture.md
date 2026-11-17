@@ -57,8 +57,6 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 `src/extension/web`と`src/extension/shared`は、Node.jsの組み込みモジュールと`src/mcp`に依存しない。
 
-- 添付の保存は`src/extension/shared`のファイル処理に置き、ファイル操作をVS CodeのAPIに集める。今この処理を使うのはデスクトップ版の入口だけである。
-
 派生元: SPEC-EXT-004
 
 ### ARCH-LAYER-005 入口は互いに依存しない
@@ -111,7 +109,7 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 ### ARCH-PORT-001 MCPサーバーへの差し込み口
 
-MCPサーバーはVS Codeに依存せずに添付の保存・読込と待機の表示を行うため、`AttachmentStore`と`WaitingIndicator`をEffectのサービスとして要求する。利用者が不在かどうかも、VS Codeの設定を読まずに知るため、`UserPresence`をサービスとして要求する。
+MCPサーバーはVS Codeに依存せずに添付の保存・読込と待機の表示を行うため、`AttachmentStore`と`WaitingIndicator`をEffectのサービスとして要求する。利用者が不在かどうかも、VS Codeの設定を読まずに知るため、`UserPresence`をサービスとして要求する。`UserPresence`は、今不在かどうかの問い合わせと、不在になったら完了する待ち合わせを持つ。MCPサーバーは、回答の待機とこの待ち合わせを競わせる。
 
 - デスクトップ版の入口が永続ファイルを使う保存実装を与え、テストはメモリ内の保存実装を与える。MCPサーバーは保存先を所有せず、別のサーバーインスタンスにも同じ保存先を渡せる。
 - 自動送信のポートは持たない。デスクトップの画面が`ui/message`で自分の会話に下書きを置き、利用者が送信する。

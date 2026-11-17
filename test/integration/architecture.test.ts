@@ -93,7 +93,7 @@ describe("ARCH-LAYER-003 MCPサーバーはVS Codeを知らない", () => {
     const report = analyze([
       [
         "src/mcp/http.ts",
-        'import * as vscode from "vscode"\nimport { writeAttachment } from "../extension/shared/chat.ts"\nexport const probe = [vscode.window, writeAttachment]'
+        'import * as vscode from "vscode"\nimport { panelHtml } from "../extension/shared/panel.ts"\nexport const probe = [vscode.window, panelHtml]'
       ]
     ])
     assert.deepEqual(policies(report), ["ARCH-LAYER-003 src/mcp/http.ts vscode"])
@@ -163,9 +163,9 @@ describe("ARCH-EFFECT-002 ツールの処理は通信手段を知らない", () 
 describe("ARCH-EFFECT-003 層を組み立てるのは入口だけ", () => {
   it("ARCH-EFFECT-003 入口のほかから層の組み立てへの依存を見つける", () => {
     const report = analyze([
-      ["src/extension/shared/chat.ts", 'import { serveForms } from "../../mcp/http.ts"\nexport const probe = serveForms']
+      ["src/extension/shared/labels.ts", 'import { serveForms } from "../../mcp/http.ts"\nexport const probe = serveForms']
     ])
-    assert.deepEqual(boundaries(report), ["src/extension/shared/chat.ts extension-shared->mcp-http"])
+    assert.deepEqual(boundaries(report), ["src/extension/shared/labels.ts extension-shared->mcp-http"])
   })
 })
 

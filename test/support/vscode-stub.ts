@@ -186,10 +186,30 @@ const createRecorder = (): Omit<Recorder, "run"> & { readonly configChanged: Emi
   }
 }
 
+const commandsOf = (recorder: Omit<Recorder, "run">) => {
+  const registered = new Map<string, () => void>()
+  return {
+    registerCommand: (command: string, handler: () => void) => {
+      registered.set(command, handler)
+      return { dispose: () => registered.delete(command) }
+    },
+    executeCommand: (command: string, ...args: ReadonlyArray<unknown>) => {
+      const handler = registered.get(command)
+      if (handler === undefined) {
+        recorder.commands.push({ command, args })
+      } else {
+        handler()
+      }
+      return recorder.settings.get("test.commandsFail") === true
+        ? Promise.reject(new Error("No default agent contributed"))
+        : Promise.resolve()
+    }
+  }
+}
+
 export const createVscode = (language = "ja"): { readonly vscode: unknown; readonly recorder: Recorder } => {
   const recorder = createRecorder()
   const configChanged = recorder.configChanged
-  const registered = new Map<string, () => void>()
   const vscode = {
     EventEmitter: Emitter,
     McpHttpServerDefinition,
@@ -238,21 +258,7 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
         }
       }
     },
-    commands: {
-      registerCommand: (command: string, handler: () => void) => {
-        registered.set(command, handler)
-        return { dispose: () => registered.delete(command) }
-      },
-      executeCommand: (command: string, ...args: ReadonlyArray<unknown>) => {
-        const handler = registered.get(command)
-        if (handler === undefined) {
-          recorder.commands.push({ command, args })
-        } else {
-          handler()
-        }
-        return Promise.resolve()
-      }
-    },
+    commands: commandsOf(recorder),
     lm: {
       registerTool: (name: string, tool: Recorder["tools"] extends Map<string, infer T> ? T : never) => {
         recorder.tools.set(name, tool)

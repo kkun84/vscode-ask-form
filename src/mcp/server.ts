@@ -115,7 +115,8 @@ const FormsHandlers = FormsToolkit.toLayer(
           if (yield* presence.unavailable) {
             return withNext({ status: "unavailable" })
           }
-          return withNext(yield* pending.wait(compiled.success))
+          const left = presence.away.pipe(Effect.as<Outcome>({ status: "unavailable" }))
+          return withNext(yield* Effect.raceFirst(pending.wait(compiled.success), left))
         }),
       form_answer: ({ formKey, action, values, held, note }) =>
         Effect.gen(function* () {

@@ -248,6 +248,26 @@ test("SPEC-UI-004 質問せずに進めた結果を受け取ると、その旨�
   await expect(frame.getByRole("button")).toHaveCount(0)
 })
 
+const cancelThenResult = async (page: Page, frame: Frame, status: string) => {
+  await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
+  await expect(frame.locator(".closed")).toBeVisible()
+  await page.evaluate((delivered) => {
+    document
+      .querySelector<HTMLIFrameElement>("#form")
+      ?.contentWindow?.postMessage(
+        { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: delivered } } },
+        window.location.origin
+      )
+  }, status)
+}
+
+test("SPEC-UI-004 中断を示した後に質問せずに進めた結果が届いたら、その旨に表示を改める", async ({ page }) => {
+  const frame = await open(page)
+  await cancelThenResult(page, frame, "unavailable")
+  await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
+  await expect(frame.getByRole("button")).toHaveCount(0)
+})
+
 test.describe("SPEC-UI-005 送り直し", () => {
   test("SPEC-UI-005 変えた項目の数を示し、変更がなければ送れない", async ({ page }) => {
     const frame = await open(page)
@@ -428,16 +448,7 @@ test.describe("SPEC-UI-006 中断と期限切れ", () => {
 
   test("SPEC-UI-006 中断の後にツールの結果が届いてもフォームを再開しない", async ({ page }) => {
     const frame = await open(page)
-    await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
-    await expect(frame.locator(".closed")).toBeVisible()
-    await page.evaluate(() => {
-      document
-        .querySelector<HTMLIFrameElement>("#form")
-        ?.contentWindow?.postMessage(
-          { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: "answer_in_chat" } } },
-          window.location.origin
-        )
-    })
+    await cancelThenResult(page, frame, "answer_in_chat")
     await expectCancelled(frame)
   })
 
