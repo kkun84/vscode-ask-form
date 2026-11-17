@@ -78,7 +78,7 @@
         "toolReferenceName": "askForm",
         "displayName": "Ask with a form",
         "userDescription": "Ask you through an interactive form with Copilot's recommendations and reasons.",
-        "modelDescription": "Ask the user a question through an interactive form shown in the chat, and wait for the answer. Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those). For a single simple choice, prefer the built-in askQuestions tool instead. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can put any question on hold instead of answering it; those ids come back in held without a value, and you ask again when you need one. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values or cancelled the form to answer in chat.",
+        "modelDescription": "Ask the user a question through an interactive form shown in the chat, and wait for the answer. Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those). For a single simple choice, prefer the built-in askQuestions tool instead. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can put any question on hold instead of answering it; those ids come back in held without a value, and you ask again when you need one. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown.",
         "canBeReferencedInPrompt": true,
         "when": "isWeb || !config.askForm.mcp.enabled || config.chat.mcp.access != 'all'",
         "inputSchema": {
@@ -87,11 +87,13 @@
             "title": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 80
+              "maxLength": 160,
+              "description": "Aim for 80 characters or fewer."
             },
             "description": {
               "type": "string",
-              "maxLength": 300
+              "maxLength": 600,
+              "description": "Aim for 300 characters or fewer."
             },
             "fields": {
               "type": "array",
@@ -114,23 +116,23 @@
                       "label": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 60,
-                        "description": "Label shown to the user, in the user's language."
+                        "maxLength": 120,
+                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
                       },
                       "description": {
                         "type": "string",
-                        "maxLength": 120,
-                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label."
+                        "maxLength": 240,
+                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
                       },
                       "reason": {
                         "type": "string",
-                        "maxLength": 60,
-                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default."
+                        "maxLength": 120,
+                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
                       },
                       "reasonDetails": {
                         "type": "string",
-                        "maxLength": 300,
-                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default."
+                        "maxLength": 600,
+                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
                       },
                       "advanced": {
                         "type": "boolean",
@@ -142,7 +144,8 @@
                       },
                       "placeholder": {
                         "type": "string",
-                        "maxLength": 80
+                        "maxLength": 160,
+                        "description": "Aim for 80 characters or fewer."
                       },
                       "multiline": {
                         "type": "boolean"
@@ -172,23 +175,23 @@
                       "label": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 60,
-                        "description": "Label shown to the user, in the user's language."
+                        "maxLength": 120,
+                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
                       },
                       "description": {
                         "type": "string",
-                        "maxLength": 120,
-                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label."
+                        "maxLength": 240,
+                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
                       },
                       "reason": {
                         "type": "string",
-                        "maxLength": 60,
-                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default."
+                        "maxLength": 120,
+                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
                       },
                       "reasonDetails": {
                         "type": "string",
-                        "maxLength": 300,
-                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default."
+                        "maxLength": 600,
+                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
                       },
                       "advanced": {
                         "type": "boolean",
@@ -242,23 +245,23 @@
                       "label": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 60,
-                        "description": "Label shown to the user, in the user's language."
+                        "maxLength": 120,
+                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
                       },
                       "description": {
                         "type": "string",
-                        "maxLength": 120,
-                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label."
+                        "maxLength": 240,
+                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
                       },
                       "reason": {
                         "type": "string",
-                        "maxLength": 60,
-                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default."
+                        "maxLength": 120,
+                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
                       },
                       "reasonDetails": {
                         "type": "string",
-                        "maxLength": 300,
-                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default."
+                        "maxLength": 600,
+                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
                       },
                       "advanced": {
                         "type": "boolean",
@@ -293,17 +296,18 @@
                             "label": {
                               "type": "string",
                               "minLength": 1,
-                              "maxLength": 60
+                              "maxLength": 120,
+                              "description": "Aim for 60 characters or fewer."
                             },
                             "description": {
                               "type": "string",
-                              "maxLength": 60,
-                              "description": "One sentence on what this option is or what happens if chosen. Always shown."
+                              "maxLength": 120,
+                              "description": "One sentence on what this option is or what happens if chosen. Always shown. Aim for 60 characters or fewer."
                             },
                             "details": {
                               "type": "string",
-                              "maxLength": 300,
-                              "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user."
+                              "maxLength": 600,
+                              "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user. Aim for 300 characters or fewer."
                             },
                             "fields": {
                               "type": "array",
@@ -326,23 +330,23 @@
                                       "label": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "maxLength": 60,
-                                        "description": "Label shown to the user, in the user's language."
+                                        "maxLength": 120,
+                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
                                       },
                                       "description": {
                                         "type": "string",
-                                        "maxLength": 120,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label."
+                                        "maxLength": 240,
+                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
                                       },
                                       "reason": {
                                         "type": "string",
-                                        "maxLength": 60,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default."
+                                        "maxLength": 120,
+                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
                                       },
                                       "reasonDetails": {
                                         "type": "string",
-                                        "maxLength": 300,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default."
+                                        "maxLength": 600,
+                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
                                       },
                                       "advanced": {
                                         "type": "boolean",
@@ -354,7 +358,8 @@
                                       },
                                       "placeholder": {
                                         "type": "string",
-                                        "maxLength": 80
+                                        "maxLength": 160,
+                                        "description": "Aim for 80 characters or fewer."
                                       },
                                       "multiline": {
                                         "type": "boolean"
@@ -384,23 +389,23 @@
                                       "label": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "maxLength": 60,
-                                        "description": "Label shown to the user, in the user's language."
+                                        "maxLength": 120,
+                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
                                       },
                                       "description": {
                                         "type": "string",
-                                        "maxLength": 120,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label."
+                                        "maxLength": 240,
+                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
                                       },
                                       "reason": {
                                         "type": "string",
-                                        "maxLength": 60,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default."
+                                        "maxLength": 120,
+                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
                                       },
                                       "reasonDetails": {
                                         "type": "string",
-                                        "maxLength": 300,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default."
+                                        "maxLength": 600,
+                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
                                       },
                                       "advanced": {
                                         "type": "boolean",
@@ -454,23 +459,23 @@
                                       "label": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "maxLength": 60,
-                                        "description": "Label shown to the user, in the user's language."
+                                        "maxLength": 120,
+                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
                                       },
                                       "description": {
                                         "type": "string",
-                                        "maxLength": 120,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label."
+                                        "maxLength": 240,
+                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
                                       },
                                       "reason": {
                                         "type": "string",
-                                        "maxLength": 60,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default."
+                                        "maxLength": 120,
+                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
                                       },
                                       "reasonDetails": {
                                         "type": "string",
-                                        "maxLength": 300,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default."
+                                        "maxLength": 600,
+                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
                                       },
                                       "advanced": {
                                         "type": "boolean",
@@ -505,17 +510,18 @@
                                             "label": {
                                               "type": "string",
                                               "minLength": 1,
-                                              "maxLength": 60
+                                              "maxLength": 120,
+                                              "description": "Aim for 60 characters or fewer."
                                             },
                                             "description": {
                                               "type": "string",
-                                              "maxLength": 60,
-                                              "description": "One sentence on what this option is or what happens if chosen. Always shown."
+                                              "maxLength": 120,
+                                              "description": "One sentence on what this option is or what happens if chosen. Always shown. Aim for 60 characters or fewer."
                                             },
                                             "details": {
                                               "type": "string",
-                                              "maxLength": 300,
-                                              "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user."
+                                              "maxLength": 600,
+                                              "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user. Aim for 300 characters or fewer."
                                             }
                                           },
                                           "required": [
@@ -579,7 +585,8 @@
                   "label": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 60
+                    "maxLength": 120,
+                    "description": "Aim for 60 characters or fewer."
                   },
                   "expression": {
                     "type": "string",

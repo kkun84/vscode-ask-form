@@ -288,7 +288,7 @@ describe("SPEC-EXT-007 自動で応じる設定", () => {
     recorder.changeSetting("chat.autoReply", true)
     const text = resultText(await tool.invoke({ input: eventSpec }, cancellation().token))
     assert.match(text, /"status":"unavailable"/)
-    assert.match(text, /Do not ask again/)
+    assert.match(text, /Do not ask these questions again/)
     assert.equal(recorder.panels.length, 0)
     assert.equal(visible(recorder), false)
     await assert.rejects(tool.invoke({ input: { title: "", fields: [] } }, cancellation().token))

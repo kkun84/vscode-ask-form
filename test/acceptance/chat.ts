@@ -101,9 +101,11 @@ const editAnswer = async (session: Session): Promise<void> => {
   await press(session, "Edit and resend")
 }
 
+const askedSpec = { ...eventSpec, description: `${eventSpec.description}${"The form explains itself at length. ".repeat(9)}` }
+
 const guesses = Object.fromEntries(eventSpec.fields.map((field) => [field.id, field.default]))
 
-test("REQ-ASK-001 Copilotのチャットで、AIがフォームで質問できる", async (session) => {
+test("REQ-ASK-001 Copilotのチャットで、AIが目安の文字数を超えた設計図でもフォームで質問できる", async (session) => {
   await receiveForm(session, 0)
 })
 
@@ -111,6 +113,7 @@ test("REQ-ASK-002 フォームにAIの推奨と理由が表示される", async 
   const frame = theFrame(session)
   check((await frame.getByRole("textbox", { name: "イベント名" }).inputValue()) === "技術交流会 2026", "the recommended value is filled in")
   await frame.getByText("README.mdより").waitFor({ timeout: 10_000 })
+  await frame.getByText(askedSpec.description).waitFor({ timeout: 10_000 })
 })
 
 test("REQ-WAIT-001 回答を待つ間、ステータスバーに表示される", async (session) => {
@@ -229,7 +232,7 @@ test("REQ-WAIT-002 質問に自動で応じる設定では、フォームは待�
       60_000
     )
     expect(result.text).toContain('"status":"unavailable"')
-    expect(result.text).toContain("Do not ask again")
+    expect(result.text).toContain("Do not ask these questions again")
     await session.window.getByText("FAKE_LLM_DONE", { exact: true }).waitFor({ timeout: 30_000 })
     await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
     await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
@@ -280,7 +283,7 @@ export const runChat = async (paths: Paths): Promise<void> => {
   await mkdir(paths.results, { recursive: true })
   const log = join(paths.results, "driver.log")
   await rm(log, { force: true })
-  const llm = await startFakeLlm(trigger, eventSpec)
+  const llm = await startFakeLlm(trigger, askedSpec)
   const profile = await mkdtemp(join(tmpdir(), "ask-form-chat-"))
   let app: ElectronApplication | undefined
   try {
