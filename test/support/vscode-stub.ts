@@ -35,14 +35,17 @@ export interface FakePanel {
   readonly sent: Array<Record<string, unknown>>
   readonly receive: (message: unknown) => void
   readonly dispose: () => void
+  readonly state: { revealed: number; disposed: boolean }
 }
 
 export interface StatusItem {
   visible: boolean
   text: string
+  command?: string
 }
 
 export interface Recorder {
+  readonly run: (command: string) => void
   readonly commands: Array<{ readonly command: string; readonly args: ReadonlyArray<unknown> }>
   readonly files: Map<string, string>
   readonly status: Array<StatusItem>
@@ -131,12 +134,12 @@ const createPanel = (title: string): FakePanel & { readonly api: unknown } => {
     },
     onDidReceiveMessage: received.event
   }
-  let isDisposed = false
+  const state = { revealed: 0, disposed: false }
   const dispose = () => {
-    if (isDisposed) {
+    if (state.disposed) {
       return
     }
-    isDisposed = true
+    state.disposed = true
     disposed.fire()
   }
   return {
@@ -145,9 +148,11 @@ const createPanel = (title: string): FakePanel & { readonly api: unknown } => {
     sent,
     receive: (message) => received.fire(message),
     dispose,
+    state,
     api: {
+      reveal: () => state.revealed++,
       get webview() {
-        if (isDisposed) {
+        if (state.disposed) {
           throw new Error("Webview is disposed")
         }
         return webview
@@ -162,7 +167,7 @@ interface ConfigEvent {
   readonly affectsConfiguration: (key: string) => boolean
 }
 
-const createRecorder = (): Recorder & { readonly configChanged: Emitter<ConfigEvent> } => {
+const createRecorder = (): Omit<Recorder, "run"> & { readonly configChanged: Emitter<ConfigEvent> } => {
   const configChanged = new Emitter<ConfigEvent>()
   const settings = new Map<string, unknown>()
   return {
@@ -184,6 +189,7 @@ const createRecorder = (): Recorder & { readonly configChanged: Emitter<ConfigEv
 export const createVscode = (language = "ja"): { readonly vscode: unknown; readonly recorder: Recorder } => {
   const recorder = createRecorder()
   const configChanged = recorder.configChanged
+  const registered = new Map<string, () => void>()
   const vscode = {
     EventEmitter: Emitter,
     McpHttpServerDefinition,
@@ -233,8 +239,17 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
       }
     },
     commands: {
+      registerCommand: (command: string, handler: () => void) => {
+        registered.set(command, handler)
+        return { dispose: () => registered.delete(command) }
+      },
       executeCommand: (command: string, ...args: ReadonlyArray<unknown>) => {
-        recorder.commands.push({ command, args })
+        const handler = registered.get(command)
+        if (handler === undefined) {
+          recorder.commands.push({ command, args })
+        } else {
+          handler()
+        }
         return Promise.resolve()
       }
     },
@@ -249,7 +264,7 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
       }
     }
   }
-  return { vscode, recorder }
+  return { vscode, recorder: { ...recorder, run: (command: string) => void vscode.commands.executeCommand(command) } }
 }
 
 export interface ExtensionModule {

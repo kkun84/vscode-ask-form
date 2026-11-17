@@ -6,7 +6,7 @@ import { Effect, Fiber, Schedule } from "effect"
 import { initialValues } from "../../src/core/form.ts"
 import { eventForm, eventSpec } from "../fixtures/event.ts"
 import { connect, runScoped } from "../support/server.ts"
-import { cancellation, createVscode, fakeContext, loadBundle, type Recorder } from "../support/vscode-stub.ts"
+import { cancellation, createVscode, fakeContext, loadBundle, type FakePanel, type Recorder } from "../support/vscode-stub.ts"
 
 const nodeBundle = fileURLToPath(new URL("../../dist/node/extension.cjs", import.meta.url))
 const webBundle = fileURLToPath(new URL("../../dist/web/extension.js", import.meta.url))
@@ -49,6 +49,14 @@ const desktopConnection = Effect.gen(function* () {
   const connection = yield* connect(definition.uri.toString(), token)
   return { recorder, connection }
 })
+
+const submitRecommended = (panel: FakePanel | undefined): void =>
+  panel?.receive({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: { name: "form_answer", arguments: { formKey, action: "submit", values: initialValues(eventForm.spec) } }
+  })
 
 const visible = (recorder: Recorder) => recorder.status.some((item) => item.visible)
 
@@ -93,12 +101,7 @@ describe("SPEC-EXT-006 MCPを使わない環境", () => {
     const pending = tool.invoke({ input: eventSpec }, cancellation().token)
     const panel = recorder.panels[0]
     assert.ok(panel)
-    panel.receive({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: "form_answer", arguments: { formKey, action: "submit", values: initialValues(eventForm.spec) } }
-    })
+    submitRecommended(panel)
     assert.match(resultText(await pending), /"status":"submitted"/)
     await dispose()
   })
@@ -124,6 +127,7 @@ describe("SPEC-EXT-002 待機の表示", () => {
         const { recorder, connection } = yield* desktopConnection
         assert.equal(visible(recorder), false)
         assert.equal(recorder.status[0]?.text.includes("Copilotが回答を待っています"), true)
+        assert.equal(recorder.status[0]?.command, "workbench.action.chat.open")
         const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
         yield* until(() => visible(recorder))
         yield* connection.call("form_answer", { formKey, action: "chat" })
@@ -241,6 +245,54 @@ describe("SPEC-EXT-004 web版", () => {
       assert.match(tool.name, /^[\w-]+$/)
       assert.doesNotMatch(tool.name, /^(?:vscode_|copilot_)/)
     }
+  })
+})
+
+const askOnWeb = () => {
+  const { recorder, tool } = web()
+  const pending = tool.invoke({ input: eventSpec }, cancellation().token)
+  return { recorder, pending, panel: recorder.panels[0] }
+}
+
+describe("SPEC-EXT-004 回答後のパネル", () => {
+  it("SPEC-EXT-004 キャンセルを押すとパネルを閉じ、チャットを開く", async () => {
+    const { recorder, pending, panel } = askOnWeb()
+    panel?.receive({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "form_answer", arguments: { formKey, action: "chat" } } })
+    assert.match(resultText(await pending), /"status":"answer_in_chat"/)
+    assert.equal(panel?.state.disposed, true)
+    assert.deepEqual(recorder.commands, [{ command: "workbench.action.chat.open", args: [] }])
+    assert.equal(visible(recorder), false)
+  })
+
+  it("SPEC-EXT-004 送信したパネルは閉じず、要約を残す", async () => {
+    const { recorder, pending, panel } = askOnWeb()
+    submitRecommended(panel)
+    await pending
+    assert.equal(panel?.state.disposed, false)
+    assert.deepEqual(recorder.commands, [])
+  })
+
+  it("SPEC-EXT-002 パネルで待つ間は、待機の表示を押すと先に待ち始めたフォームのパネルを前面に出す", async () => {
+    const { recorder, tool } = web()
+    const first = tool.invoke({ input: eventSpec }, cancellation().token)
+    const second = tool.invoke({ input: { ...eventSpec, title: "2つ目" } }, cancellation().token)
+    const command = recorder.status.find((item) => item.visible)?.command
+    assert.ok(command)
+    recorder.run(command)
+    assert.deepEqual(
+      recorder.panels.map((panel) => panel.state.revealed),
+      [1, 0]
+    )
+    recorder.panels[0]?.dispose()
+    await first
+    recorder.run(command)
+    assert.deepEqual(
+      recorder.panels.map((panel) => panel.state.revealed),
+      [1, 1]
+    )
+    recorder.panels[1]?.dispose()
+    await second
+    assert.deepEqual(recorder.commands, [])
   })
 })
 

@@ -5,13 +5,16 @@ export interface WaitingStatus extends vscode.Disposable {
   readonly update: (waiting: number) => void
 }
 
-export const createWaitingStatus = (): WaitingStatus => {
+const showFormCommand = "askForm.showWaitingForm"
+
+export const createWaitingStatus = (showForm?: () => void): WaitingStatus => {
   const label = waitingLabel()
   const item = vscode.window.createStatusBarItem("ask-form.waiting", vscode.StatusBarAlignment.Right, 1000)
   item.name = label
   item.text = `$(comment-discussion) ${label}`
   item.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground")
-  item.command = "workbench.action.chat.open"
+  item.command = showForm === undefined ? "workbench.action.chat.open" : showFormCommand
+  const command = showForm === undefined ? undefined : vscode.commands.registerCommand(showFormCommand, showForm)
   item.accessibilityInformation = { label, role: "status" }
   return {
     update: (waiting) => {
@@ -21,6 +24,9 @@ export const createWaitingStatus = (): WaitingStatus => {
         item.hide()
       }
     },
-    dispose: () => item.dispose()
+    dispose: () => {
+      command?.dispose()
+      item.dispose()
+    }
   }
 }
