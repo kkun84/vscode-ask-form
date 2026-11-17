@@ -229,6 +229,7 @@ const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands
   assert.equal(panel?.state.disposed, true)
   assert.deepEqual(recorder.commands, commands)
   assert.equal(visible(recorder), false)
+  assert.equal(recorder.configListeners(), 0)
 }
 
 describe("SPEC-EXT-004 回答後のパネル", () => {
@@ -294,24 +295,48 @@ describe("SPEC-EXT-007 自動で応じる設定", () => {
       })
     ))
 
-  it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、MCPのask_formは待つのをやめてunavailableを返す", () =>
+  it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、MCPのask_formは待つのをやめてunavailableを返し、設定の購読を残さない", () =>
     runScoped(
       Effect.gen(function* () {
         const { recorder, connection } = yield* desktopConnection
+        const idle = recorder.configListeners()
         const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
         yield* until(() => visible(recorder))
+        assert.equal(recorder.configListeners(), idle + 1)
         recorder.changeSetting("chat.autoReply", false)
         recorder.changeSetting("unrelated.setting", 1)
+        yield* Effect.sleep("50 millis")
         assert.equal(fiber.pollUnsafe(), undefined)
+        assert.equal(visible(recorder), true)
         recorder.changeSetting("chat.autoReply", true)
         const result = yield* Fiber.join(fiber)
         assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
         yield* until(() => !visible(recorder))
+        assert.equal(recorder.configListeners(), idle)
+      })
+    ))
+
+  it("SPEC-EXT-007 回答で終わったMCPのask_formも、設定の購読を残さない", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, connection } = yield* desktopConnection
+        const idle = recorder.configListeners()
+        yield* waitThenCancel(recorder, connection)
+        yield* until(() => recorder.configListeners() === idle)
       })
     ))
 
   it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、拡張機能のツールはパネルを閉じてunavailableを返す", async () => {
     const { recorder, pending, panel } = askOnWeb()
+    let settled = false
+    void pending.then(() => (settled = true))
+    recorder.changeSetting("chat.autoReply", false)
+    recorder.changeSetting("unrelated.setting", 1)
+    await new Promise((resolve) => {
+      setImmediate(resolve)
+    })
+    assert.equal(settled, false)
+    assert.equal(panel?.state.disposed, false)
     recorder.changeSetting("chat.autoReply", true)
     assert.match(resultText(await pending), /"status":"unavailable"/)
     expectClosed(recorder, panel)
@@ -322,7 +347,7 @@ describe("SPEC-EXT-007 自動で応じる設定", () => {
     recorder.changeSetting("chat.autoReply", true)
     const text = resultText(await tool.invoke({ input: eventSpec }, cancellation().token))
     assert.match(text, /"status":"unavailable"/)
-    assert.match(text, /Do not ask these questions again/)
+    assert.match(text, /Do not ask these questions again in this turn.*tell the user which assumptions you made/)
     assert.equal(recorder.panels.length, 0)
     assert.equal(visible(recorder), false)
     await assert.rejects(tool.invoke({ input: { title: "", fields: [] } }, cancellation().token))

@@ -14,6 +14,7 @@ interface Setup {
   readonly args: Readonly<Record<string, unknown>>
   readonly context: HostContext
   readonly expireOnAnswer: boolean
+  readonly unavailableBeforeExpiry: boolean
   readonly failResend: boolean
   readonly holdResend: boolean
   readonly omitCancellation: boolean
@@ -75,6 +76,9 @@ window.addEventListener("message", (event: MessageEvent<Record<string, unknown>>
     return
   }
   if (setup.expireOnAnswer && message["method"] === "tools/call" && params["name"] === "form_answer") {
+    if (setup.unavailableBeforeExpiry) {
+      post({ jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: "unavailable" } } })
+    }
     post({ jsonrpc: "2.0", id: message["id"], result: { isError: true, content: [{ type: "text", text: "expired" }] } })
     return
   }
