@@ -1,6 +1,6 @@
 {
   "globs": ["**/*.md"],
-  "ignores": ["node_modules/**", "dist/**", "test-results/**"],
+  "ignores": ["node_modules/**", "dist/**", "test-results/**", ".mutator/**"],
   "gitignore": true,
   "config": {
     "default": true,

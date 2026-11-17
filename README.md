@@ -341,6 +341,7 @@ pnpm build
 | `pnpm test`            | 単体、結合、システム、画面のテスト                                                                                                                                                                     |
 | `pnpm test:acceptance` | 実際のVS Code(デスクトップ版、web版、チャット)での受け入れテスト                                                                                                                                       |
 | `pnpm media`           | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る([`docs/media/README.md`](docs/media/README.md)) |
+| `pnpm mutation`        | 単体テストによるミューテーションテスト(`pnpm mutation:diff`は`origin/main`との差分だけ。結果は`.mutator/report`)                                                                                       |
 | `pnpm budget`          | 配布物の大きさの検査                                                                                                                                                                                   |
 | `pnpm traceability`    | `docs/traceability.md`の生成                                                                                                                                                                           |
 | `pnpm package`         | `.vsix`の作成                                                                                                                                                                                          |

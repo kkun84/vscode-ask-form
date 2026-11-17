@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/@mizchi/mutator/schema/mutator.config.schema.json",
+  "runner": "vitest",
+  "vitestConfig": "vitest.mutation.config.ts",
+  "include": ["src/core/**/*.ts", "src/mcp/**/*.ts", "src/ui/bridge.ts", "src/ui/status.ts", "src/extension/node/attachments.ts"],
+  "reporters": ["text", "html", "json"]
+}
