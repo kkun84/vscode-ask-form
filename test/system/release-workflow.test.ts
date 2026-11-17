@@ -3,7 +3,7 @@ import { spawnSync, type SpawnSyncReturns } from "node:child_process"
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { test } from "node:test"
+import { test } from "vitest"
 
 const workflow = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8")
 

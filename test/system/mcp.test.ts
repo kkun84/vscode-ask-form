@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { describe, it } from "node:test"
+import { describe, it } from "vitest"
 import { Deferred, Effect, Fiber, Ref, Result } from "effect"
 import type { McpSchema } from "effect/ai"
 import { initialValues } from "../../src/core/form.ts"

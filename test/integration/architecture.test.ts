@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process"
 import { appendFileSync, cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { describe, it } from "node:test"
+import { describe, it } from "vitest"
 
 const root = fileURLToPath(new URL("../..", import.meta.url))
 const fallow = join(root, "node_modules/.bin/fallow")

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { it } from "node:test"
+import { it } from "vitest"
 import { Result } from "effect"
 import { attachmentName, changedFields, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
 import { messages } from "../../src/core/messages.ts"

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { Server } from "node:http"
-import { it } from "node:test"
+import { it, onTestFinished, vi } from "vitest"
 import { Effect, Layer, Result } from "effect"
 import { FormsListenFailed, serveForms } from "../../src/mcp/http.ts"
 import { AttachmentStore, UserPresence, WaitingIndicator } from "../../src/mcp/ports.ts"
@@ -15,10 +15,13 @@ const services = Layer.mergeAll(
 )
 
 for (const asynchronous of [true, false]) {
-  it(`DES-HTTP-001 listenの${asynchronous ? "非同期" : "同期"}の失敗を型のある失敗にして受け口を片付ける`, async (context) => {
+  it(`DES-HTTP-001 listenの${asynchronous ? "非同期" : "同期"}の失敗を型のある失敗にして受け口を片付ける`, async () => {
     const failure = new Error("listen EPERM")
     const servers: Array<Server> = []
-    context.mock.method(Server.prototype, "listen", function (this: Server, ...args: ReadonlyArray<unknown>) {
+    onTestFinished(() => {
+      vi.restoreAllMocks()
+    })
+    vi.spyOn(Server.prototype, "listen").mockImplementation(function (this: Server, ...args: ReadonlyArray<unknown>) {
       servers.push(this)
       assert.ok(this.listenerCount("error") > 0)
       const callback = args.at(-1)

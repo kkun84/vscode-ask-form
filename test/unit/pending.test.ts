@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { describe, it } from "node:test"
+import { describe, it } from "vitest"
 import { Deferred, Effect, Fiber, Layer, Ref } from "effect"
 import type { CompiledForm, Outcome } from "../../src/core/form.ts"
 import { PendingForms, PendingFormsLive } from "../../src/mcp/pending.ts"

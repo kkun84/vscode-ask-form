@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { it } from "node:test"
+import { it } from "vitest"
 import { createAppHost } from "../../src/core/appHost.ts"
 import { eventForm, eventSpec } from "../fixtures/event.ts"
 

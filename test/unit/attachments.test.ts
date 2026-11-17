@@ -1,10 +1,13 @@
 import assert from "node:assert/strict"
-import { it } from "node:test"
+import { it, onTestFinished, vi } from "vitest"
 import { Effect, Result } from "effect"
 import { AttachmentStore, AttachmentStoreFailed } from "../../src/mcp/ports.ts"
 import { loadDesktopAttachments } from "../support/desktop-attachments.ts"
 
-it("DES-CHAT-001 デスクトップの添付を永続化し、再作成した保存先から読み取る", async (context) => {
+it("DES-CHAT-001 デスクトップの添付を永続化し、再作成した保存先から読み取る", async () => {
+  onTestFinished(() => {
+    vi.restoreAllMocks()
+  })
   const { recorder, api, layer } = await loadDesktopAttachments()
   const id = crypto.randomUUID()
   const name = "回答.json"
@@ -18,7 +21,7 @@ it("DES-CHAT-001 デスクトップの添付を永続化し、再作成した保
   const missing = await run((store) => Effect.result(store.read(id, "missing.json")))
   assert.ok(Result.isFailure(missing))
   assert.ok(missing.failure instanceof AttachmentStoreFailed)
-  context.mock.method(api.workspace.fs, "writeFile", () => Promise.reject(new Error("disk full")))
+  vi.spyOn(api.workspace.fs, "writeFile").mockImplementation(() => Promise.reject(new Error("disk full")))
   const failed = await run((store) => Effect.result(store.write(crypto.randomUUID(), name, body)))
   assert.ok(Result.isFailure(failed))
   assert.equal(failed.failure.message, "disk full")

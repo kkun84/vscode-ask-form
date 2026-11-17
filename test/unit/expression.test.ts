@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { describe, it } from "node:test"
+import { describe, it } from "vitest"
 import { evaluate, parse, references, type Expr, type Value } from "../../src/core/expression.ts"
 
 const parsed = (source: string): Expr => {
