@@ -41,6 +41,15 @@ AIは根拠を持って勧められるときだけ`default`を付ける。`reaso
 
 計算結果は`id`、`label`、`expression`(300文字以下)と、任意の`prefix`、`suffix`、`decimals`(0〜4)、`primary`を持つ。
 
+表示する文章の文字数は、AIに示す目安である。次のキーは、表の文字数の2倍まで受け付け、2倍を超えたら誤りとして返す。
+
+- 設計図の`title`と`description`
+- 項目の`label`、`description`、`reason`、`reasonDetails`、`placeholder`
+- 選択肢の`label`、`description`、`details`
+- 計算結果の`label`
+
+AIは文字数を正確に数えられず、英語は同じ内容に日本語より多くの文字を使う。目安を少し超えただけの設計図を誤りとして返すと、AIが作り直す間、利用者が待たされる。`id`、選択肢の`value`、`default`、`expression`、`prefix`と`suffix`の文字数は目安ではなく上限であり、超えたら誤りとして返す。
+
 - 項目と計算結果の`id`には、計算式の真偽値の予約語`true`と`false`を使えない。大文字と小文字は区別する。
 - `__proto__`は有効な`id`として扱い、計算結果の表示と回答の`computed`にもその名前で保持する。
 

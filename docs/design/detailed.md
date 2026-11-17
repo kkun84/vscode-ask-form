@@ -11,6 +11,7 @@
 - 項目と計算結果で共通の`id`のSchemaから、予約語と完全に一致する`true`と`false`を拒否する。`trueValue`や`True`など異なる名前は受け付ける。
 - `default`のない項目に`reason`か`reasonDetails`があれば、項目の`id`を含む誤りを返す。画面は推奨のない項目の理由を表示しないので、AIに`description`へ書き直させる。
 - 複数選択の`default`は、配列の長さと値の集合の大きさを比べ、重複があれば項目の`id`と`default`の誤りを返す。値を黙って削らず、空の配列と重複のない配列を受け付ける。
+- 設計図のSchemaは、文字数の倍率を受け取る関数で作る(`src/core/spec.ts`)。AIに示すJSON Schemaは倍率1で作り、読み取りに使うSchemaは倍率2で作る。倍率は表示する文章の上限にだけ掛け、`id`、選択肢の`value`、`default`、計算式、`prefix`と`suffix`の上限には掛けない。
 
 派生元: SPEC-FORM-001, SPEC-FORM-002, SPEC-MCP-004, ARCH-LAYER-001
 

@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { FormSpec } from "../core/spec.ts"
+import { AdvertisedFormSpec } from "../core/spec.ts"
 
 const inlineRefs = (value: unknown, definitions: Readonly<Record<string, unknown>>): unknown => {
   if (Array.isArray(value)) {
@@ -16,7 +16,7 @@ const inlineRefs = (value: unknown, definitions: Readonly<Record<string, unknown
   return value
 }
 
-const document = Schema.toJsonSchemaDocument(FormSpec)
+const document = Schema.toJsonSchemaDocument(AdvertisedFormSpec)
 
 export const formSpecJsonSchema = inlineRefs(document.schema, document.definitions) as {
   readonly type: "object"

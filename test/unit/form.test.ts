@@ -71,6 +71,23 @@ describe("DES-SPEC-001 設計図の読み取り", () => {
   })
 })
 
+const describedOptions = (description: string) => [
+  { value: "a", label: "A", description },
+  { value: "b", label: "B" }
+]
+
+describe("DES-SPEC-001 文字数の目安と上限", () => {
+  it("DES-SPEC-001 表示する文章は目安の2倍まで読み取り、2倍を超えると誤りにする", () => {
+    compiled(withFields([{ type: "choice", id: "c", label: "C", options: describedOptions("x".repeat(120)) }]))
+    assert.equal(problems(withFields([{ type: "choice", id: "c", label: "C", options: describedOptions("x".repeat(121)) }])).length, 1)
+  })
+
+  it("DES-SPEC-001 idと単位の上限は広げない", () => {
+    assert.equal(problems(withFields([{ type: "text", id: "a".repeat(41), label: "A" }])).length, 1)
+    assert.equal(problems(withFields([{ type: "number", id: "n", label: "N", min: 0, max: 1, suffix: "x".repeat(9) }])).length, 1)
+  })
+})
+
 describe("DES-SPEC-002 正規化と鍵", () => {
   it("DES-SPEC-002 キーの順序に関係なく同じ鍵になる", () => {
     const reordered = JSON.parse(JSON.stringify(eventSpec, Object.keys(eventSpec).toReversed()))

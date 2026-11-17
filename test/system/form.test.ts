@@ -29,12 +29,35 @@ describe("SPEC-FORM-001 設計図の形", () => {
   it("SPEC-FORM-001 長さ、個数、idの形の制約に反する設計図を拒否する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        yield* rejected(h, { title: "x".repeat(81), fields: [field()] })
+        yield* rejected(h, { title: "x".repeat(161), fields: [field()] })
         yield* rejected(h, { title: "t", fields: [] })
         yield* rejected(h, { title: "t", fields: Array.from({ length: 21 }, (_, i) => field({ id: `f${i}` })) })
         yield* rejected(h, { title: "t", fields: [field({ id: "1st" })] })
         yield* rejected(h, { title: "t", fields: [field({ type: "slider" })] })
-        yield* rejected(h, { title: "t", fields: [field({ reason: "r".repeat(121) })] })
+        yield* rejected(h, { title: "t", fields: [field({ default: "d", reason: "r".repeat(121) })] })
+      })
+    ))
+
+  it("SPEC-FORM-001 表示する文章は、目安の文字数を超えても2倍までは受け付ける", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const fiber = yield* Effect.forkChild(
+          h.call("ask_form", {
+            title: "x".repeat(160),
+            fields: [field({ label: "l".repeat(120), description: "d".repeat(240), default: "d", reason: "r".repeat(120) })]
+          })
+        )
+        yield* h.waitUntil(1)
+        yield* Fiber.interrupt(fiber)
+      })
+    ))
+
+  it("SPEC-FORM-001 AIに示すスキーマには、目安の文字数を書く", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const tool = yield* h.tool("ask_form")
+        const title = (tool.inputSchema as { readonly properties: Record<string, unknown> }).properties["title"]
+        assert.match(JSON.stringify(title), /"maxLength":80/)
       })
     ))
 })
