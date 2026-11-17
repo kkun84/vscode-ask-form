@@ -74,10 +74,7 @@ const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, t
           subscription.dispose()
         }
       }),
-      token.onCancellationRequested(() => {
-        host.cancel()
-        finish({ status: "answer_in_chat" })
-      })
+      token.onCancellationRequested(() => panel.dispose())
     ]
   })
 }

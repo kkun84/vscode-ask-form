@@ -37,6 +37,10 @@ test("REQ-WEB-001 web版でツールの呼び出しを取り消すと、待機�
   source.cancel()
   const settled = await pending.then(textOf, (error: unknown) => (error instanceof Error ? error.message : String(error)))
   check(settled.includes('"status":"answer_in_chat"') || settled.includes("Canceled"), `cancelling settles the call: ${settled}`)
+  await eventually(
+    () => !vscode.window.tabGroups.all.some((group) => group.tabs.some((tab) => tab.label === `${eventSpec.title} 2`)),
+    "the panel closes after the cancellation"
+  )
 })
 
 export { run }

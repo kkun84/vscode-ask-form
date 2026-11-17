@@ -182,21 +182,14 @@ describe("SPEC-EXT-004 web版", () => {
     assert.equal(visible(recorder), false)
   })
 
-  it("SPEC-EXT-004 読み込み中の取り消しも結果を返し、パネルの初期化後に再通知する", async () => {
+  it("SPEC-EXT-004 チャットを停止すると、読み込み中でも結果を返してパネルを閉じ、チャットを開かない", async () => {
     const { recorder, tool } = web()
     const { token, cancel } = cancellation()
     const pending = tool.invoke({ input: eventSpec }, token)
     cancel()
     assert.match(resultText(await pending), /"status":"answer_in_chat"/)
-    assert.equal(
-      recorder.panels[0]?.sent.some((message) => message["method"] === "ui/notifications/tool-cancelled"),
-      true
-    )
-    const panel = recorder.panels[0]
-    assert.ok(panel)
-    panel.sent.length = 0
-    panel.receive({ jsonrpc: "2.0", id: 1, method: "ui/initialize", params: {} })
-    assert.equal(panel.sent.at(-1)?.["method"], "ui/notifications/tool-cancelled")
+    assert.equal(recorder.panels[0]?.state.disposed, true)
+    assert.deepEqual(recorder.commands, [])
     assert.equal(visible(recorder), false)
   })
 
