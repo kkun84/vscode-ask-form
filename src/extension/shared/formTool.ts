@@ -13,10 +13,14 @@ const toolName = "forms_ask_form"
 const themeOf = (kind: vscode.ColorThemeKind): "light" | "dark" =>
   kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight ? "light" : "dark"
 
+interface Waiting {
+  readonly status: WaitingStatus
+  readonly panels: Set<vscode.WebviewPanel>
+}
+
 const askInPanel = (
   context: vscode.ExtensionContext,
-  waiting: WaitingStatus,
-  counter: { value: number },
+  waiting: Waiting,
   args: Readonly<Record<string, unknown>>,
   token: vscode.CancellationToken
 ): Promise<Outcome> => {
@@ -36,30 +40,38 @@ const askInPanel = (
   )
   const webview = panel.webview
   webview.html = panelHtml()
-  counter.value++
-  waiting.update(counter.value)
+  waiting.panels.add(panel)
+  waiting.status.update(waiting.panels.size)
   return new Promise<Outcome>((resolve) => {
-    let finished = false
+    let open = true
     const finish = (outcome: Outcome) => {
-      if (finished) {
-        return
+      if (waiting.panels.delete(panel)) {
+        waiting.status.update(waiting.panels.size)
+        resolve(outcome)
       }
-      finished = true
-      counter.value--
-      waiting.update(counter.value)
-      resolve(outcome)
     }
     const host = createAppHost({
       form,
       args,
       context: { theme: themeOf(vscode.window.activeColorTheme.kind), locale: vscode.env.language },
-      post: (message) => void webview.postMessage(message),
-      onOutcome: finish,
+      post: (message) => {
+        if (open) {
+          void webview.postMessage(message)
+        }
+      },
+      onOutcome: (outcome) => {
+        finish(outcome)
+        if (outcome.status === "answer_in_chat") {
+          panel.dispose()
+          void vscode.commands.executeCommand("workbench.action.chat.open")
+        }
+      },
       onResend: (request) => postToChat(context.globalStorageUri, request)
     })
     const subscriptions = [
       webview.onDidReceiveMessage((message: unknown) => void host.receive(message)),
       panel.onDidDispose(() => {
+        open = false
         host.cancel()
         finish({ status: "answer_in_chat" })
         for (const subscription of subscriptions) {
@@ -75,19 +87,19 @@ const askInPanel = (
 }
 
 export const registerFormTool = (context: vscode.ExtensionContext): vscode.Disposable => {
-  const waiting = createWaitingStatus()
-  const counter = { value: 0 }
+  const panels = new Set<vscode.WebviewPanel>()
+  const waiting: Waiting = { panels, status: createWaitingStatus(() => [...panels][0]?.reveal()) }
   const registration = vscode.lm.registerTool<FormSpec>(toolName, {
     prepareInvocation: (options) => ({ invocationMessage: options.input.title }),
     invoke: async (options, token) => {
-      const outcome = await askInPanel(context, waiting, counter, options.input as Readonly<Record<string, unknown>>, token)
+      const outcome = await askInPanel(context, waiting, options.input as Readonly<Record<string, unknown>>, token)
       return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(outcomeText(outcome))])
     }
   })
   return {
     dispose: () => {
       registration.dispose()
-      waiting.dispose()
+      waiting.status.dispose()
     }
   }
 }
