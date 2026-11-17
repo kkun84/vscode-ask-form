@@ -338,6 +338,7 @@ pnpm build
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `pnpm lint`            | oxlint、oxfmt、fallow(未使用のコード、重複、循環参照、層の境界、複雑さ)、markdownlint、コメントとトレーサビリティの検査                                                                                |
 | `pnpm typecheck`       | TypeScript 7とEffectの診断による型検査                                                                                                                                                                 |
+| `pnpm check`           | lint、型検査、単体・結合・システムのテスト、配布物の大きさの検査をまとめて実行。CIは同じ検査を1つずつ動かす                                                                                            |
 | `pnpm test`            | 単体、結合、システム、画面のテスト                                                                                                                                                                     |
 | `pnpm test:acceptance` | 実際のVS Code(デスクトップ版、web版、チャット)での受け入れテスト                                                                                                                                       |
 | `pnpm media`           | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る([`docs/media/README.md`](docs/media/README.md)) |
