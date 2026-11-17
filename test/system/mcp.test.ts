@@ -83,7 +83,7 @@ describe("SPEC-MCP-003 補足と不在", () => {
           const result = yield* h.call("ask_form", eventSpec)
           assert.deepEqual(Object.keys(structured(result)), ["status", "next"])
           assert.equal(structured(result)["status"], "unavailable")
-          assert.match(text(result), /Do not ask again/)
+          assert.match(text(result), /Do not ask these questions again/)
           assert.deepEqual(yield* Ref.get(h.waiting), [])
           assert.equal((yield* h.call("ask_form", { title: "", fields: [] })).isError, true)
         }),

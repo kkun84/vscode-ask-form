@@ -216,7 +216,7 @@ export const outcomeText = (outcome: Outcome): string => {
     case "answer_in_chat":
       return `The user cancelled the form without answering and will respond in the chat instead. End your turn now and wait for the user's next message.\n${json}`
     case "unavailable":
-      return `The form was not shown: the user turned on the chat.autoReply setting, so they are not available to answer and will review your work later. Do not ask again. Continue with the values you recommended as defaults; where you gave no default, use your best judgment and tell the user which assumptions you made.\n${json}`
+      return `The form was not shown: the user turned on the chat.autoReply setting, so they are not available to answer and will review your work later. Do not ask these questions again in this turn. Continue with the values you recommended as defaults; where you gave no default, use your best judgment and tell the user which assumptions you made.\n${json}`
   }
 }
 

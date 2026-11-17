@@ -232,7 +232,7 @@ test("REQ-WAIT-002 質問に自動で応じる設定では、フォームは待�
       60_000
     )
     expect(result.text).toContain('"status":"unavailable"')
-    expect(result.text).toContain("Do not ask again")
+    expect(result.text).toContain("Do not ask these questions again")
     await session.window.getByText("FAKE_LLM_DONE", { exact: true }).waitFor({ timeout: 30_000 })
     await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
     await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
