@@ -680,6 +680,55 @@ const openHeld = async (page: Page): Promise<Frame> => {
 
 const send = (frame: Frame) => frame.getByRole("button", { name: "送信", exact: true }).click()
 
+const note = (frame: Frame) => frame.getByRole("textbox", { name: "補足を書く" })
+
+test.describe("SPEC-UI-013 補足", () => {
+  test("SPEC-UI-013 閉じた補足を開いて書くと、回答と一緒に届き、要約に残る", async ({ page }) => {
+    const frame = await open(page)
+    await expect(note(frame)).toBeHidden()
+    await frame.locator("details.note summary").click()
+    await expect(frame.locator("details.note")).toContainText("選択肢にない答えや、Copilotに伝えたいことを書けます")
+    await note(frame).fill(" 会場は未定です\n参加費は任せます ")
+    expect(await axeViolations(frame)).toEqual([])
+    await note(frame).press("ControlOrMeta+Enter")
+    const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly note?: string }
+    expect(outcome.note).toBe("会場は未定です\n参加費は任せます")
+    await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です\n参加費は任せます")
+  })
+
+  test("SPEC-UI-013 補足を書かなければnoteを渡さず、要約にも出さない", async ({ page }) => {
+    const frame = await open(page)
+    await send(frame)
+    const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly note?: string }
+    expect("note" in outcome).toBe(false)
+    await expect(frame.locator(".summary dt", { hasText: "補足" })).toHaveCount(0)
+  })
+
+  test("SPEC-UI-013 送り直しの編集には補足を出さない", async ({ page }) => {
+    const frame = await open(page)
+    await frame.locator("details.note summary").click()
+    await note(frame).fill("会場は未定です")
+    await startEditing(frame)
+    await expect(frame.locator("details.note")).toHaveCount(0)
+    await frame.getByRole("button", { name: "キャンセル" }).click()
+    await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です")
+  })
+
+  test("SPEC-UI-013 ツールの結果から復元した要約にも補足を示す", async ({ page }) => {
+    const frame = await open(page, {
+      restore: {
+        status: "submitted",
+        values: { name: "技術交流会 2026" },
+        held: [],
+        changedByUser: [],
+        computed: {},
+        note: "会場は未定です"
+      }
+    })
+    await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です")
+  })
+})
+
 test.describe("SPEC-UI-012 保留", () => {
   test("SPEC-UI-012 どの質問も保留にでき、保留にした質問は値を届けず要約に保留と示す", async ({ page }) => {
     const frame = await openHeld(page)

@@ -419,12 +419,12 @@ input[type="radio"] {
   white-space: nowrap;
 }
 
-.advanced {
+:is(.advanced, .note) {
   border-top: 1px solid var(--border);
   padding-top: 8px;
 }
 
-.advanced summary {
+:is(.advanced, .note) summary {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -433,11 +433,11 @@ input[type="radio"] {
   color: var(--fg);
 }
 
-.advanced summary::-webkit-details-marker {
+:is(.advanced, .note) summary::-webkit-details-marker {
   display: none;
 }
 
-.advanced summary::before {
+:is(.advanced, .note) summary::before {
   content: "";
   width: 7px;
   height: 7px;
@@ -447,7 +447,7 @@ input[type="radio"] {
   transform: translateX(-1px) rotate(-45deg);
 }
 
-.advanced[open] summary::before {
+:is(.advanced, .note)[open] summary::before {
   transform: translateY(-2px) rotate(45deg);
 }
 
@@ -658,4 +658,13 @@ summary:focus-visible {
 
 .held-tag {
   color: var(--muted);
+}
+
+.note .q-desc {
+  margin: 8px 0 6px;
+}
+
+.noted {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

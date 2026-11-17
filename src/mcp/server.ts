@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Result, Schema } from "effect"
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai"
 import { attachmentName, heldFields, outcomeFor, outcomeText, resendMessage, type Action, type Outcome } from "../core/form.ts"
-import { checkValues, compile } from "../core/validate.ts"
+import { checkAnswer, checkValues, compile, type Answer } from "../core/validate.ts"
 import { languageOf, messages } from "../core/messages.ts"
 import { PendingForms } from "./pending.ts"
 import { formSpecJsonSchema } from "./schema.ts"
@@ -27,6 +27,7 @@ const OutcomeResult = Schema.Union([
     held: Schema.Array(Schema.String),
     changedByUser: Schema.Array(Schema.String),
     computed: ComputedValues,
+    note: Schema.optionalKey(Schema.String),
     next: Schema.String
   }),
   Schema.Struct({ status: Schema.Literal("answer_in_chat"), next: Schema.String })
@@ -46,6 +47,7 @@ export const askFormDescription = [
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",
   "The user can put any question on hold instead of answering it; those ids come back in held without a value, and you ask again when you need one.",
+  "The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note.",
   "The result tells you whether the user submitted values or cancelled the form to answer in chat."
 ].join(" ")
 
@@ -66,7 +68,8 @@ const FormAnswer = Tool.make("form_answer", {
     formKey: Schema.String,
     action: Schema.Literals(["submit", "chat"]),
     values: Schema.optionalKey(Schema.Unknown),
-    held: Schema.optionalKey(Schema.Unknown)
+    held: Schema.optionalKey(Schema.Unknown),
+    note: Schema.optionalKey(Schema.Unknown)
   }),
   success: Schema.Struct({ accepted: Schema.Boolean }),
   failure: FormRejected
@@ -110,21 +113,21 @@ const FormsHandlers = FormsToolkit.toLayer(
           }
           return withNext(yield* pending.wait(compiled.success))
         }),
-      form_answer: ({ formKey, action, values, held }) =>
+      form_answer: ({ formKey, action, values, held, note }) =>
         Effect.gen(function* () {
           const form = yield* pending.peek(formKey)
           if (form === undefined) {
             return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
           }
-          let checked: typeof Values.Type = {}
+          let answer: Answer = { values: {}, note: undefined }
           if (action === "submit") {
-            const result = checkValues(form.spec, values, held ?? [])
+            const result = checkAnswer(form.spec, { values, held, note })
             if (Result.isFailure(result)) {
               return yield* reject(result.failure)
             }
-            checked = result.success
+            answer = result.success
           }
-          const accepted = yield* pending.resolve(formKey, (latest) => outcomeFor(latest, action as Action, checked))
+          const accepted = yield* pending.resolve(formKey, (latest) => outcomeFor(latest, action as Action, answer.values, answer.note))
           if (!accepted) {
             return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
           }

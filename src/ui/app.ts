@@ -123,6 +123,8 @@ export class FormApp {
   private remembered: Values = {}
   private baseline: Values = {}
   private summaryValues: Values = {}
+  private note = ""
+  private noteOpen = false
   private placed = false
   private busy = false
   private error: string | undefined
@@ -189,6 +191,8 @@ export class FormApp {
     this.values = { ...this.initial }
     this.baseline = this.initial
     this.summaryValues = this.initial
+    this.note = ""
+    this.noteOpen = false
     this.placed = false
     this.held.clear()
     this.folded.clear()
@@ -222,6 +226,7 @@ export class FormApp {
       this.summaryValues = this.baseline
       this.placed = false
       this.restore(this.baseline)
+      this.note = typeof content["note"] === "string" ? content["note"] : ""
     }
     this.phase = { kind: "summary", status }
     this.render()
@@ -268,6 +273,7 @@ export class FormApp {
     this.baseline = values
     this.summaryValues = this.baseline
     this.values = this.editable(this.baseline)
+    this.note = this.note.trim()
     this.phase = { kind: "summary", status: statusOf[action] }
   }
 
@@ -301,7 +307,7 @@ export class FormApp {
       const result = await bridge.callTool("form_answer", {
         formKey: form.key,
         action,
-        ...(action === "submit" ? { values, held: heldFields(form.spec, values) } : {})
+        ...(action === "submit" ? { values, held: heldFields(form.spec, values), note: this.note } : {})
       })
       this.applyAnswer(action, result, values)
     })
@@ -492,6 +498,7 @@ export class FormApp {
             )
           ),
       (spec.computed ?? []).length === 0 ? null : this.computedView(),
+      mode === "answering" ? this.noteView() : null,
       mode === "answering" ? this.answerFooter() : this.resendFooter()
     )
     this.live.form = element
@@ -785,6 +792,25 @@ export class FormApp {
     return group
   }
 
+  private noteView(): HTMLElement {
+    const hintId = uid("note")
+    const input = h("textarea", { rows: 3, "aria-label": this.m.note, "aria-describedby": hintId }, this.note)
+    on(input, "input", () => {
+      this.note = input.value
+    })
+    const element = h(
+      "details",
+      { class: "note", open: this.noteOpen },
+      h("summary", {}, this.m.note),
+      h("p", { class: "q-desc", id: hintId }, this.m.noteHint),
+      input
+    )
+    on(element, "toggle", () => {
+      this.noteOpen = element.open
+    })
+    return element
+  }
+
   private computedView(): HTMLElement {
     const element = h("section", { class: "computed", "aria-live": "polite", "aria-label": this.m.results })
     this.live.computed = element
@@ -854,11 +880,13 @@ export class FormApp {
         )
       )
     )
+    const noted =
+      this.note === "" ? null : h("div", { class: "summary-row" }, h("dt", {}, this.m.noted), h("dd", { class: "noted" }, this.note))
     return h(
       "section",
       { class: "card summary" },
       head,
-      h("dl", {}, rows),
+      h("dl", {}, rows, noted),
       this.placed ? h("p", { class: "notice", role: "status" }, this.m.placed) : null,
       this.error === undefined ? null : h("p", { class: "error", role: "alert" }, this.error)
     )

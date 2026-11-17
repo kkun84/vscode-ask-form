@@ -183,12 +183,13 @@ export type Outcome =
       readonly held: ReadonlyArray<string>
       readonly changedByUser: ReadonlyArray<string>
       readonly computed: ComputedValues
+      readonly note?: string
     }
   | { readonly status: "answer_in_chat" }
 
 export type Action = "submit" | "chat"
 
-export const outcomeFor = (form: CompiledForm, action: Action, values: Values): Outcome => {
+export const outcomeFor = (form: CompiledForm, action: Action, values: Values, note?: string): Outcome => {
   switch (action) {
     case "submit":
       return {
@@ -196,7 +197,8 @@ export const outcomeFor = (form: CompiledForm, action: Action, values: Values): 
         values,
         held: heldFields(form.spec, values),
         changedByUser: changedFields(form.spec, initialValues(form.spec), values).filter((id) => values[id] !== undefined),
-        computed: computeValues(form, values)
+        computed: computeValues(form, values),
+        ...(note === undefined ? {} : { note })
       }
     case "chat":
       return { status: "answer_in_chat" }
@@ -207,7 +209,7 @@ export const outcomeText = (outcome: Outcome): string => {
   const json = JSON.stringify(outcome)
   switch (outcome.status) {
     case "submitted":
-      return `The user submitted the form. Treat fields listed in changedByUser as explicit decisions and the rest of values as accepted recommendations. Fields listed in held have no value: the user put them on hold. Do not assume a value for them; continue with the work that does not depend on them, and ask again when you need one. Continue the task.\n${json}`
+      return `The user submitted the form. Treat fields listed in changedByUser as explicit decisions and the rest of values as accepted recommendations. Fields listed in held have no value: the user put them on hold. Do not assume a value for them; continue with the work that does not depend on them, and ask again when you need one. If note is present, it is a message the user wrote to go with the answers: follow it over any value it contradicts, and use it when it answers a held field. Continue the task.\n${json}`
     case "answer_in_chat":
       return `The user cancelled the form without answering and will respond in the chat instead. End your turn now and wait for the user's next message.\n${json}`
   }
