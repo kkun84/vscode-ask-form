@@ -20,6 +20,7 @@ test("REQ-WEB-001 web版ではフォームを横のパネルに表示し、そ�
   const result = textOf(await pending)
   check(result.includes('"status":"submitted"'), `the answer becomes the tool result: ${result}`)
   check(result.includes('"changedByUser":["attendees"]'), `the tool result marks the changed field: ${result}`)
+  await eventually(() => !formTab(), "the panel closes after the answer")
 })
 
 test("REQ-WEB-001 web版でツールの呼び出しを取り消すと、待機が終わる", async () => {

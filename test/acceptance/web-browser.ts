@@ -31,7 +31,7 @@ const answer = async (page: Page): Promise<void> => {
   await frame.getByRole("spinbutton", { name: "参加者数" }).fill("150")
   await frame.getByRole("spinbutton", { name: "参加者数" }).press("Tab")
   await frame.locator("form.card button.primary").click()
-  await frame.locator(".summary").waitFor({ timeout: 30_000 })
+  await expect.poll(() => frame.isDetached(), { timeout: 30_000 }).toBe(true)
   console.log("browser answered the form")
 }
 

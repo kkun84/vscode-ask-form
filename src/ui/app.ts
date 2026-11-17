@@ -347,7 +347,7 @@ export class FormApp {
       | { readonly text?: unknown; readonly attachment?: { readonly uri: string; readonly name: string } }
       | undefined
     if (typeof message?.text !== "string" || message.attachment === undefined) {
-      return undefined
+      return this.m.sendFailed
     }
     const placed = await bridge.placeMessage([
       { type: "text", text: message.text },

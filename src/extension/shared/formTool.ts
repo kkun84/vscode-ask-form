@@ -4,7 +4,6 @@ import { createAppHost } from "../../core/appHost.ts"
 import { outcomeText, type Outcome } from "../../core/form.ts"
 import { compile } from "../../core/validate.ts"
 import type { FormSpec } from "../../core/spec.ts"
-import { postToChat } from "./chat.ts"
 import { autoReplies, createWaitingStatus, type WaitingStatus } from "./waiting.ts"
 import { panelHtml } from "./panel.ts"
 
@@ -18,12 +17,7 @@ interface Waiting {
   readonly panels: Set<vscode.WebviewPanel>
 }
 
-const askInPanel = (
-  context: vscode.ExtensionContext,
-  waiting: Waiting,
-  args: Readonly<Record<string, unknown>>,
-  token: vscode.CancellationToken
-): Promise<Outcome> => {
+const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, token: vscode.CancellationToken): Promise<Outcome> => {
   const compiled = compile(args)
   if (Result.isFailure(compiled)) {
     return Promise.reject(new Error(compiled.failure.join("\n")))
@@ -64,15 +58,14 @@ const askInPanel = (
       },
       onOutcome: (outcome) => {
         finish(outcome)
+        panel.dispose()
         if (outcome.status === "answer_in_chat") {
-          panel.dispose()
           void vscode.commands.executeCommand("workbench.action.chat.open")
         }
-      },
-      onResend: (request) => postToChat(context.globalStorageUri, request)
+      }
     })
     const subscriptions = [
-      webview.onDidReceiveMessage((message: unknown) => void host.receive(message)),
+      webview.onDidReceiveMessage((message: unknown) => host.receive(message)),
       panel.onDidDispose(() => {
         open = false
         host.cancel()
@@ -89,13 +82,13 @@ const askInPanel = (
   })
 }
 
-export const registerFormTool = (context: vscode.ExtensionContext): vscode.Disposable => {
+export const registerFormTool = (): vscode.Disposable => {
   const panels = new Set<vscode.WebviewPanel>()
   const waiting: Waiting = { panels, status: createWaitingStatus(() => [...panels][0]?.reveal()) }
   const registration = vscode.lm.registerTool<FormSpec>(toolName, {
     prepareInvocation: (options) => ({ invocationMessage: options.input.title }),
     invoke: async (options, token) => {
-      const outcome = await askInPanel(context, waiting, options.input as Readonly<Record<string, unknown>>, token)
+      const outcome = await askInPanel(waiting, options.input as Readonly<Record<string, unknown>>, token)
       return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(outcomeText(outcome))])
     }
   })
