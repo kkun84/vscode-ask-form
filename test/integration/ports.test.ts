@@ -32,13 +32,19 @@ describe("ARCH-PORT-001 MCPサーバーへの差し込み口", () => {
     )
   })
 
-  it("ARCH-PORT-001 VS Codeなしで、差し込んだ実装を通して利用者の不在を知る", () =>
-    withHarness(
-      (h) =>
-        Effect.gen(function* () {
-          const result = yield* h.call("ask_form", eventSpec)
-          assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
-        }),
-      { unavailable: true }
-    ))
+  for (const { name, options, waited } of [
+    { name: "利用者の不在を知る", options: { unavailable: true }, waited: [] },
+    { name: "待っている間に利用者が不在になった事を知る", options: { away: Effect.sleep("20 millis") }, waited: [1, 0] }
+  ]) {
+    it(`ARCH-PORT-001 VS Codeなしで、差し込んだ実装を通して${name}`, () =>
+      withHarness(
+        (h) =>
+          Effect.gen(function* () {
+            const result = yield* h.call("ask_form", eventSpec)
+            assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
+            assert.deepEqual(yield* Ref.get(h.waiting), waited)
+          }),
+        options
+      ))
+  }
 })

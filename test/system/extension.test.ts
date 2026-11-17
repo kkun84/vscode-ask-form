@@ -225,6 +225,12 @@ const askOnWeb = () => {
   return { recorder, pending, panel: recorder.panels[0] }
 }
 
+const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands: Recorder["commands"] = []): void => {
+  assert.equal(panel?.state.disposed, true)
+  assert.deepEqual(recorder.commands, commands)
+  assert.equal(visible(recorder), false)
+}
+
 describe("SPEC-EXT-004 回答後のパネル", () => {
   const cases = [
     {
@@ -246,9 +252,7 @@ describe("SPEC-EXT-004 回答後のパネル", () => {
         params: { name: "form_answer", arguments: { formKey, action, values } }
       })
       assert.equal(resultText(await pending).includes(`"status":"${status}"`), true)
-      assert.equal(panel?.state.disposed, true)
-      assert.deepEqual(recorder.commands, commands)
-      assert.equal(visible(recorder), false)
+      expectClosed(recorder, panel, commands)
     })
   }
 
@@ -289,6 +293,29 @@ describe("SPEC-EXT-007 自動で応じる設定", () => {
         yield* waitThenCancel(recorder, connection)
       })
     ))
+
+  it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、MCPのask_formは待つのをやめてunavailableを返す", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, connection } = yield* desktopConnection
+        const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
+        yield* until(() => visible(recorder))
+        recorder.changeSetting("chat.autoReply", false)
+        recorder.changeSetting("unrelated.setting", 1)
+        assert.equal(fiber.pollUnsafe(), undefined)
+        recorder.changeSetting("chat.autoReply", true)
+        const result = yield* Fiber.join(fiber)
+        assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
+        yield* until(() => !visible(recorder))
+      })
+    ))
+
+  it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、拡張機能のツールはパネルを閉じてunavailableを返す", async () => {
+    const { recorder, pending, panel } = askOnWeb()
+    recorder.changeSetting("chat.autoReply", true)
+    assert.match(resultText(await pending), /"status":"unavailable"/)
+    expectClosed(recorder, panel)
+  })
 
   it("SPEC-EXT-007 chat.autoReplyが有効な間、拡張機能のツールはパネルを開かずにunavailableを返す", async () => {
     const { recorder, tool } = web()

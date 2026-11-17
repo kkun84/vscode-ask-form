@@ -10,7 +10,7 @@ import { memoryAttachments } from "../support/attachments.ts"
 const services = Layer.mergeAll(
   Layer.succeed(AttachmentStore, memoryAttachments().store),
   Layer.succeed(WaitingIndicator, WaitingIndicator.of({ update: () => Effect.void })),
-  Layer.succeed(UserPresence, UserPresence.of({ unavailable: Effect.succeed(false) })),
+  Layer.succeed(UserPresence, UserPresence.of({ unavailable: Effect.succeed(false), away: Effect.never })),
   Layer.succeed(FormHtml, "")
 )
 
