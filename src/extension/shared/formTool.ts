@@ -5,7 +5,7 @@ import { outcomeText, type Outcome } from "../../core/form.ts"
 import { compile } from "../../core/validate.ts"
 import type { FormSpec } from "../../core/spec.ts"
 import { postToChat } from "./chat.ts"
-import { autoReplies, createWaitingStatus, type WaitingStatus } from "./waiting.ts"
+import { autoReplies, createWaitingStatus, onAutoReply, type WaitingStatus } from "./waiting.ts"
 import { panelHtml } from "./panel.ts"
 
 const toolName = "forms_ask_form"
@@ -84,6 +84,10 @@ const askInPanel = (
       token.onCancellationRequested(() => {
         host.cancel()
         finish({ status: "answer_in_chat" })
+      }),
+      onAutoReply(() => {
+        finish({ status: "unavailable" })
+        panel.dispose()
       })
     ]
   })

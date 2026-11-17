@@ -205,7 +205,7 @@ export class FormApp {
   }
 
   setResult(result: ToolResult): void {
-    if (this.phase.kind === "closed") {
+    if (this.phase.kind === "closed" && result.structuredContent?.["status"] !== "unavailable") {
       return
     }
     if (result.isError === true) {

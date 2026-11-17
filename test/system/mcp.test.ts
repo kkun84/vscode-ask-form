@@ -90,6 +90,17 @@ describe("SPEC-MCP-003 補足と不在", () => {
       { unavailable: true }
     ))
 
+  it("SPEC-MCP-003 待っている間に利用者が不在になったら、待つのをやめてunavailableを返し、以後の回答は受け付けない", () =>
+    withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          assert.equal(structured(yield* h.call("ask_form", eventSpec))["status"], "unavailable")
+          assert.deepEqual(yield* Ref.get(h.waiting), [1, 0])
+          yield* expectExpired(h, form.key)
+        }),
+      { away: Effect.sleep("50 millis") }
+    ))
+
   it("SPEC-MCP-003 補足は前後の空白を除いてnoteで返し、空の補足は返さない", () =>
     withHarness((h) =>
       Effect.gen(function* () {
