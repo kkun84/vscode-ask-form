@@ -66,7 +66,7 @@ export interface FakeToken {
   readonly onCancellationRequested: (listener: Listener<void>) => { readonly dispose: () => void }
 }
 
-export const cancellation = (): { readonly token: FakeToken; readonly cancel: () => void } => {
+export const cancellation = (): { readonly token: FakeToken; readonly cancel: () => void; readonly listeners: () => number } => {
   const emitter = new Emitter<void>()
   let cancelled = false
   return {
@@ -79,7 +79,8 @@ export const cancellation = (): { readonly token: FakeToken; readonly cancel: ()
     cancel: () => {
       cancelled = true
       emitter.fire()
-    }
+    },
+    listeners: () => emitter.size
   }
 }
 
@@ -191,6 +192,27 @@ const createRecorder = (): Omit<Recorder, "run" | "configListeners"> & { readonl
   }
 }
 
+const commandsOf = (recorder: Omit<Recorder, "run" | "configListeners">) => {
+  const registered = new Map<string, () => void>()
+  return {
+    registerCommand: (command: string, handler: () => void) => {
+      registered.set(command, handler)
+      return { dispose: () => registered.delete(command) }
+    },
+    executeCommand: (command: string, ...args: ReadonlyArray<unknown>) => {
+      const handler = registered.get(command)
+      if (handler === undefined) {
+        recorder.commands.push({ command, args })
+      } else {
+        handler()
+      }
+      return recorder.settings.get("test.commandsFail") === true
+        ? Promise.reject(new Error("No default agent contributed"))
+        : Promise.resolve()
+    }
+  }
+}
+
 const filesOf = (files: Map<string, string>) => ({
   createDirectory: () => Promise.resolve(),
   readFile: (target: FakeUri) => {
@@ -206,7 +228,6 @@ const filesOf = (files: Map<string, string>) => ({
 export const createVscode = (language = "ja"): { readonly vscode: unknown; readonly recorder: Recorder } => {
   const recorder = createRecorder()
   const configChanged = recorder.configChanged
-  const registered = new Map<string, () => void>()
   const vscode = {
     EventEmitter: Emitter,
     McpHttpServerDefinition,
@@ -245,21 +266,7 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
       onDidChangeConfiguration: configChanged.event,
       fs: filesOf(recorder.files)
     },
-    commands: {
-      registerCommand: (command: string, handler: () => void) => {
-        registered.set(command, handler)
-        return { dispose: () => registered.delete(command) }
-      },
-      executeCommand: (command: string, ...args: ReadonlyArray<unknown>) => {
-        const handler = registered.get(command)
-        if (handler === undefined) {
-          recorder.commands.push({ command, args })
-        } else {
-          handler()
-        }
-        return Promise.resolve()
-      }
-    },
+    commands: commandsOf(recorder),
     lm: {
       registerTool: (name: string, tool: Recorder["tools"] extends Map<string, infer T> ? T : never) => {
         recorder.tools.set(name, tool)

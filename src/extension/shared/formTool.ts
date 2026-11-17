@@ -60,7 +60,7 @@ const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, t
         finish(outcome)
         panel.dispose()
         if (outcome.status === "answer_in_chat") {
-          void vscode.commands.executeCommand("workbench.action.chat.open")
+          void Promise.resolve(vscode.commands.executeCommand("workbench.action.chat.open")).catch(() => null)
         }
       }
     })
@@ -74,10 +74,7 @@ const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, t
           subscription.dispose()
         }
       }),
-      token.onCancellationRequested(() => {
-        host.cancel()
-        finish({ status: "answer_in_chat" })
-      }),
+      token.onCancellationRequested(() => panel.dispose()),
       onAutoReply(() => {
         finish({ status: "unavailable" })
         panel.dispose()

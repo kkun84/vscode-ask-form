@@ -2,7 +2,7 @@ import { mkdir, readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { chromium, expect, type Browser, type Page } from "@playwright/test"
 import { open } from "@vscode/test-web"
-import { formFrame } from "./frames.ts"
+import { formFrame, until } from "./frames.ts"
 import { completeWebRun } from "./web-completion.ts"
 
 export interface WebPaths {
@@ -35,6 +35,32 @@ const answer = async (page: Page): Promise<void> => {
   console.log("browser answered the form")
 }
 
+const revealAndCancel = async (page: Page, logs: ReadonlyArray<string>): Promise<void> => {
+  const logged = (marker: string) => until(() => Promise.resolve(logs.some((line) => line.includes(marker)) || undefined), marker, 60_000)
+  await logged("ask-form: form covered")
+  await page.locator(".statusbar-item", { hasText: /回答を待っています|waiting for your answer/ }).click()
+  await logged("ask-form: form revealed")
+  const frame = await until(
+    async () => {
+      for (const candidate of page.frames()) {
+        const title = await candidate
+          .locator("form.card h1")
+          .textContent({ timeout: 500 })
+          .catch(() => null)
+        if (title?.endsWith(" 3") === true) {
+          return candidate
+        }
+      }
+      return null
+    },
+    "the third form is in the page",
+    30_000
+  )
+  await frame.locator("form.card button.ghost").click()
+  await expect.poll(() => frame.isDetached(), { timeout: 30_000 }).toBe(true)
+  console.log("browser cancelled the revealed form")
+}
+
 const report = async (page: Page, results: string): Promise<void> => {
   await page.screenshot({ path: join(results, "web-failure.png") }).catch(() => null)
   for (const frame of page.frames()) {
@@ -52,12 +78,15 @@ const drive = async (browser: Browser, endpoint: string, results: string): Promi
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
   page.setDefaultTimeout(30_000)
   try {
+    const logs: Array<string> = []
     await page.exposeFunction("codeAutomationLog", (type: "log" | "error" | "warn" | "info", args: ReadonlyArray<unknown>) => {
+      logs.push(args.map(String).join(" "))
       console[type](...args)
     })
     await completeWebRun(page, async () => {
       await page.goto(endpoint)
       await answer(page)
+      await revealAndCancel(page, logs)
     })
   } catch (error) {
     await report(page, results)

@@ -142,6 +142,7 @@
 ### DES-HOST-001 初期化前の中断
 
 - `createAppHost`は中断状態を保持し、初期化に応答して設計図を送った直後に中断を再通知する。初期化が繰り返されても同様に通知し、中断済みのフォームへの回答は拒否する。
+- 拡張機能はチャットの停止でパネルを閉じ、閉じたパネルには何も送らない。本番のパネルにこの再通知は届かない。届くのは、MCP Appsのホストの中断を再現する画面テストのホストである。
 
 派生元: SPEC-EXT-004, SPEC-UI-006, ARCH-UI-001
 
@@ -158,11 +159,11 @@
 ### DES-CHAT-001 投稿ごとの添付
 
 - 投稿ごとにWeb Cryptoの`randomUUID()`でディレクトリ名を作り、`<storage>/answers/<uuid>/<slug>.json`にJSONを保存する。`slug`は題名を整形して40コードポイントまでに切り詰め、空なら`form`とする。添付の表示名は`<slug>.json`とし、UUIDを含めない。
-- 同じ題名、同じ整形結果、空になる題名でも投稿ごとのディレクトリで以前の添付を再利用しない。`src/extension/shared/chat.ts`の共通処理でディレクトリ作成と書込の完了を待つ。
-- デスクトップ版は`AttachmentStore`の実装から共通保存処理を使い、`context.globalStorageUri/answers/<uuid>/<slug>.json`に保存する。読込もVS CodeのファイルAPIを使い、保存先の再作成後も同じ内容を返す。件数による削除は行わず、ファイル操作の失敗は`AttachmentStoreFailed`に変換する。
+- 同じ題名、同じ整形結果、空になる題名でも投稿ごとのディレクトリで以前の添付を再利用しない。`src/extension/node/attachments.ts`の保存処理でディレクトリ作成と書込の完了を待つ。
+- デスクトップ版は`AttachmentStore`の実装から、`context.globalStorageUri/answers/<uuid>/<slug>.json`に保存する。読込もVS CodeのファイルAPIを使い、保存先の再作成後も同じ内容を返す。件数による削除は行わず、ファイル操作の失敗は`AttachmentStoreFailed`に変換する。
 - 題名の整形後にコードポイントの配列へ変えて40個までを結合する。39個の`a`に続く`𠮷`も分断せず、`encodeURIComponent`が成功する。
 
-派生元: SPEC-MCP-008, ARCH-LAYER-004, ARCH-PORT-001
+派生元: SPEC-MCP-008, ARCH-PORT-001
 
 ## 検査の実行
 

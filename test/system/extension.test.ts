@@ -60,6 +60,14 @@ const submitRecommended = (panel: FakePanel | undefined): void =>
 
 const visible = (recorder: Recorder) => recorder.status.some((item) => item.visible)
 
+const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands: Recorder["commands"] = []): void => {
+  assert.equal(panel?.state.disposed, true)
+  assert.deepEqual(panel?.sent, [])
+  assert.deepEqual(recorder.commands, commands)
+  assert.equal(visible(recorder), false)
+  assert.equal(recorder.configListeners(), 0)
+}
+
 describe("SPEC-EXT-001 MCPサーバーの登録", () => {
   it("SPEC-EXT-001 起動するとトークンつきのHTTPのMCPサーバーを登録し、ask_formを呼べる", () =>
     runScoped(
@@ -128,6 +136,17 @@ const waitThenCancel = (recorder: Recorder, connection: Connection) =>
     yield* Fiber.join(fiber)
   })
 
+it("SPEC-EXT-002 拡張機能を止めると、待機の表示のコマンドも片付ける", async () => {
+  const { recorder, dispose } = await start()
+  const command = recorder.status.map((item) => item.command).find((name) => name !== "workbench.action.chat.open")
+  assert.ok(command)
+  recorder.run(command)
+  assert.deepEqual(recorder.commands, [])
+  await dispose()
+  recorder.run(command)
+  assert.deepEqual(recorder.commands, [{ command, args: [] }])
+})
+
 describe("SPEC-EXT-002 待機の表示", () => {
   it("SPEC-EXT-002 回答を待つ間だけステータスバーに表示する", () =>
     runScoped(
@@ -156,6 +175,19 @@ const web = () => {
 const resultText = (result: unknown): string =>
   (result as { readonly content: ReadonlyArray<{ readonly value: string }> }).content[0]?.value ?? ""
 
+const askOnWeb = () => {
+  const { recorder, tool } = web()
+  const source = cancellation()
+  const pending = tool.invoke({ input: eventSpec }, source.token)
+  return { recorder, pending, panel: recorder.panels[0], source }
+}
+
+const expectSettled = async (asked: ReturnType<typeof askOnWeb>, status: string, commands: Recorder["commands"] = []): Promise<void> => {
+  assert.equal(resultText(await asked.pending).includes(`"status":"${status}"`), true)
+  expectClosed(asked.recorder, asked.panel, commands)
+  assert.equal(asked.source.listeners(), 0)
+}
+
 describe("SPEC-EXT-004 web版", () => {
   it("SPEC-EXT-004 ツールが呼ばれるとパネルにフォームを表示し、回答を結果として返す", async () => {
     const { recorder, tool } = web()
@@ -182,30 +214,20 @@ describe("SPEC-EXT-004 web版", () => {
     assert.equal(visible(recorder), false)
   })
 
-  it("SPEC-EXT-004 読み込み中の取り消しも結果を返し、パネルの初期化後に再通知する", async () => {
+  it("SPEC-EXT-004 チャットを停止すると、読み込み中でも結果を返してパネルを閉じ、チャットを開かない", async () => {
     const { recorder, tool } = web()
-    const { token, cancel } = cancellation()
-    const pending = tool.invoke({ input: eventSpec }, token)
-    cancel()
+    const source = cancellation()
+    const pending = tool.invoke({ input: eventSpec }, source.token)
+    source.cancel()
     assert.match(resultText(await pending), /"status":"answer_in_chat"/)
-    assert.equal(
-      recorder.panels[0]?.sent.some((message) => message["method"] === "ui/notifications/tool-cancelled"),
-      true
-    )
-    const panel = recorder.panels[0]
-    assert.ok(panel)
-    panel.sent.length = 0
-    panel.receive({ jsonrpc: "2.0", id: 1, method: "ui/initialize", params: {} })
-    assert.equal(panel.sent.at(-1)?.["method"], "ui/notifications/tool-cancelled")
-    assert.equal(visible(recorder), false)
+    expectClosed(recorder, recorder.panels[0])
+    assert.equal(source.listeners(), 0)
   })
 
-  it("SPEC-EXT-004 回答せずにパネルを閉じると、キャンセルと同じ結果を返す", async () => {
-    const opened = web()
-    const result = opened.tool.invoke({ input: eventSpec }, cancellation().token)
-    opened.recorder.panels.at(-1)?.dispose()
-    assert.match(resultText(await result), /"status":"answer_in_chat"/)
-    assert.equal(visible(opened.recorder), false)
+  it("SPEC-EXT-004 回答せずにパネルを閉じると、キャンセルと同じ結果を返し、購読を残さない", async () => {
+    const asked = askOnWeb()
+    asked.panel?.dispose()
+    await expectSettled(asked, "answer_in_chat")
   })
 
   it("SPEC-EXT-004 ツール名は予約された接頭辞を使わない", async () => {
@@ -219,19 +241,6 @@ describe("SPEC-EXT-004 web版", () => {
   })
 })
 
-const askOnWeb = () => {
-  const { recorder, tool } = web()
-  const pending = tool.invoke({ input: eventSpec }, cancellation().token)
-  return { recorder, pending, panel: recorder.panels[0] }
-}
-
-const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands: Recorder["commands"] = []): void => {
-  assert.equal(panel?.state.disposed, true)
-  assert.deepEqual(recorder.commands, commands)
-  assert.equal(visible(recorder), false)
-  assert.equal(recorder.configListeners(), 0)
-}
-
 describe("SPEC-EXT-004 回答後のパネル", () => {
   const cases = [
     {
@@ -244,18 +253,34 @@ describe("SPEC-EXT-004 回答後のパネル", () => {
   ]
   for (const { name, action, status, commands } of cases) {
     it(`SPEC-EXT-004 ${name}`, async () => {
-      const { recorder, pending, panel } = askOnWeb()
+      const asked = askOnWeb()
+      assert.equal(asked.source.listeners(), 1)
       const values = initialValues(eventForm.spec)
-      panel?.receive({
+      asked.panel?.receive({
         jsonrpc: "2.0",
         id: 1,
         method: "tools/call",
         params: { name: "form_answer", arguments: { formKey, action, values } }
       })
-      assert.equal(resultText(await pending).includes(`"status":"${status}"`), true)
-      expectClosed(recorder, panel, commands)
+      await expectSettled(asked, status, commands)
     })
   }
+
+  it("SPEC-EXT-004 チャットを開けない環境でも、キャンセルは結果を返してパネルを閉じ、例外を残さない", async () => {
+    const rejections: Array<unknown> = []
+    const record = (reason: unknown) => rejections.push(reason)
+    process.on("unhandledRejection", record)
+    const { recorder, pending, panel } = askOnWeb()
+    recorder.settings.set("test.commandsFail", true)
+    panel?.receive({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "form_answer", arguments: { formKey, action: "chat" } } })
+    assert.match(resultText(await pending), /"status":"answer_in_chat"/)
+    await new Promise((resolve) => {
+      setImmediate(resolve)
+    })
+    process.off("unhandledRejection", record)
+    assert.equal(panel?.state.disposed, true)
+    assert.deepEqual(rejections, [])
+  })
 
   it("SPEC-EXT-002 パネルで待つ間は、待機の表示を押すと先に待ち始めたフォームのパネルを前面に出す", async () => {
     const { recorder, tool } = web()
@@ -327,19 +352,18 @@ describe("SPEC-EXT-007 自動で応じる設定", () => {
     ))
 
   it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、拡張機能のツールはパネルを閉じてunavailableを返す", async () => {
-    const { recorder, pending, panel } = askOnWeb()
+    const asked = askOnWeb()
     let settled = false
-    void pending.then(() => (settled = true))
-    recorder.changeSetting("chat.autoReply", false)
-    recorder.changeSetting("unrelated.setting", 1)
+    void asked.pending.then(() => (settled = true))
+    asked.recorder.changeSetting("chat.autoReply", false)
+    asked.recorder.changeSetting("unrelated.setting", 1)
     await new Promise((resolve) => {
       setImmediate(resolve)
     })
     assert.equal(settled, false)
-    assert.equal(panel?.state.disposed, false)
-    recorder.changeSetting("chat.autoReply", true)
-    assert.match(resultText(await pending), /"status":"unavailable"/)
-    expectClosed(recorder, panel)
+    assert.equal(asked.panel?.state.disposed, false)
+    asked.recorder.changeSetting("chat.autoReply", true)
+    await expectSettled(asked, "unavailable")
   })
 
   it("SPEC-EXT-007 chat.autoReplyが有効な間、拡張機能のツールはパネルを開かずにunavailableを返す", async () => {
