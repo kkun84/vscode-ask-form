@@ -9,6 +9,7 @@ import {
   formatNumber,
   heldFields,
   initialValues,
+  maxNoteLength,
   prepare,
   unansweredFields,
   withoutHeld,
@@ -794,7 +795,7 @@ export class FormApp {
 
   private noteView(): HTMLElement {
     const hintId = uid("note")
-    const input = h("textarea", { rows: 3, "aria-label": this.m.note, "aria-describedby": hintId }, this.note)
+    const input = h("textarea", { rows: 3, maxlength: maxNoteLength, "aria-label": this.m.note, "aria-describedby": hintId }, this.note)
     on(input, "input", () => {
       this.note = input.value
     })

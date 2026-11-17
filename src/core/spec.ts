@@ -9,140 +9,114 @@ const Identifier = Schema.String.check(Schema.isMaxLength(40), Schema.isPattern(
 
 const options = <S extends Schema.Top>(option: S) => Schema.Array(option).check(Schema.isMinLength(2), Schema.isMaxLength(6))
 
-const shownTexts = (scale: number) => ({
-  shown: (max: number) => text(max * scale),
-  shownRequired: (max: number) => required(max * scale)
+const tolerance = 2
+
+const aim = (max: number, description: string | undefined) => ({
+  description: `${description === undefined ? "" : `${description} `}Aim for ${max} characters or fewer.`
 })
 
-type ShownTexts = ReturnType<typeof shownTexts>
+const shown = (max: number, description?: string) => text(max * tolerance).annotate(aim(max, description))
 
-const commonFieldsOf = ({ shown, shownRequired }: ShownTexts) => ({
+const shownRequired = (max: number, description?: string) => required(max * tolerance).annotate(aim(max, description))
+
+const commonFields = {
   id: Identifier,
-  label: shownRequired(60).annotate({ description: "Label shown to the user, in the user's language." }),
+  label: shownRequired(60, "Label shown to the user, in the user's language."),
   description: Schema.optionalKey(
-    shown(120).annotate({
-      description: "What this question asks or what the value is used for, independent of your recommendation. Shown under the label."
-    })
+    shown(120, "What this question asks or what the value is used for, independent of your recommendation. Shown under the label.")
   ),
   reason: Schema.optionalKey(
-    shown(60).annotate({
-      description:
-        "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default."
-    })
+    shown(
+      60,
+      "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default."
+    )
   ),
   reasonDetails: Schema.optionalKey(
-    shown(300).annotate({
-      description:
-        "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default."
-    })
+    shown(300, "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default.")
   ),
   advanced: Schema.optionalKey(
     Schema.Boolean.annotate({
       description: "Fold this field into the collapsed Details section."
     })
   )
+}
+
+const ChoiceOption = Schema.Struct({
+  value: required(60),
+  label: shownRequired(60),
+  description: Schema.optionalKey(shown(60, "One sentence on what this option is or what happens if chosen. Always shown.")),
+  details: Schema.optionalKey(
+    shown(300, "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user.")
+  )
 })
 
-const choiceOptionOf = ({ shown, shownRequired }: ShownTexts) =>
-  Schema.Struct({
-    value: required(60),
-    label: shownRequired(60),
-    description: Schema.optionalKey(
-      shown(60).annotate({ description: "One sentence on what this option is or what happens if chosen. Always shown." })
-    ),
-    details: Schema.optionalKey(
-      shown(300).annotate({
-        description: "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user."
-      })
-    )
-  })
+const Computed = Schema.Struct({
+  id: Identifier,
+  label: shownRequired(60),
+  expression: required(300).annotate({
+    description:
+      "Arithmetic over field ids and earlier computed ids. Operators + - * / % < <= > >= == != && || ! ?: and min max abs floor ceil round."
+  }),
+  prefix: Schema.optionalKey(text(8)),
+  suffix: Schema.optionalKey(text(8)),
+  decimals: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 4 }))),
+  primary: Schema.optionalKey(Schema.Boolean)
+})
 
-const computedOf = ({ shownRequired }: ShownTexts) =>
-  Schema.Struct({
-    id: Identifier,
-    label: shownRequired(60),
-    expression: required(300).annotate({
+const TextField = Schema.Struct({
+  type: Schema.Literal("text"),
+  ...commonFields,
+  default: Schema.optionalKey(text(500)),
+  placeholder: Schema.optionalKey(shown(80)),
+  multiline: Schema.optionalKey(Schema.Boolean)
+})
+
+const NumberField = Schema.Struct({
+  type: Schema.Literal("number"),
+  ...commonFields,
+  default: Schema.optionalKey(Schema.Finite),
+  min: Schema.Finite,
+  max: Schema.Finite,
+  step: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0))),
+  prefix: Schema.optionalKey(text(8)),
+  suffix: Schema.optionalKey(text(8))
+})
+
+const choiceFields = {
+  type: Schema.Literal("choice"),
+  ...commonFields,
+  default: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
+  multiple: Schema.optionalKey(Schema.Boolean)
+}
+
+const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
+
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField])
+
+const BranchOption = Schema.Struct({
+  ...ChoiceOption.fields,
+  fields: Schema.optionalKey(
+    Schema.Array(NestedField).check(Schema.isMinLength(1), Schema.isMaxLength(10)).annotate({
       description:
-        "Arithmetic over field ids and earlier computed ids. Operators + - * / % < <= > >= == != && || ! ?: and min max abs floor ceil round."
-    }),
-    prefix: Schema.optionalKey(text(8)),
-    suffix: Schema.optionalKey(text(8)),
-    decimals: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 4 }))),
-    primary: Schema.optionalKey(Schema.Boolean)
-  })
+        "Follow-up fields asked only while this option is selected. Only for a single-select choice at the top level; the answer contains only the chosen option's fields."
+    })
+  )
+})
 
-const fieldsOf = (texts: ShownTexts) => {
-  const commonFields = commonFieldsOf(texts)
+const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-  const TextField = Schema.Struct({
-    type: Schema.Literal("text"),
-    ...commonFields,
-    default: Schema.optionalKey(text(500)),
-    placeholder: Schema.optionalKey(texts.shown(80)),
-    multiline: Schema.optionalKey(Schema.Boolean)
-  })
+const Field = Schema.Union([TextField, NumberField, ChoiceField])
 
-  const NumberField = Schema.Struct({
-    type: Schema.Literal("number"),
-    ...commonFields,
-    default: Schema.optionalKey(Schema.Finite),
-    min: Schema.Finite,
-    max: Schema.Finite,
-    step: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0))),
-    prefix: Schema.optionalKey(text(8)),
-    suffix: Schema.optionalKey(text(8))
-  })
+export const FormSpec = Schema.Struct({
+  title: shownRequired(80),
+  description: Schema.optionalKey(shown(300)),
+  fields: Schema.Array(Field).check(Schema.isMinLength(1), Schema.isMaxLength(20)),
+  computed: Schema.optionalKey(Schema.Array(Computed).check(Schema.isMaxLength(8)))
+})
 
-  const ChoiceOption = choiceOptionOf(texts)
-
-  const choiceFields = {
-    type: Schema.Literal("choice"),
-    ...commonFields,
-    default: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
-    multiple: Schema.optionalKey(Schema.Boolean)
-  }
-
-  const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
-
-  const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField])
-
-  const BranchOption = Schema.Struct({
-    ...ChoiceOption.fields,
-    fields: Schema.optionalKey(
-      Schema.Array(NestedField).check(Schema.isMinLength(1), Schema.isMaxLength(10)).annotate({
-        description:
-          "Follow-up fields asked only while this option is selected. Only for a single-select choice at the top level; the answer contains only the chosen option's fields."
-      })
-    )
-  })
-
-  const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
-
-  return { TextField, NumberField, ChoiceField, Field: Schema.Union([TextField, NumberField, ChoiceField]) }
-}
-
-const formSpec = (scale: number) => {
-  const texts = shownTexts(scale)
-  const fields = fieldsOf(texts)
-  const Computed = computedOf(texts)
-  const FormSpec = Schema.Struct({
-    title: texts.shownRequired(80),
-    description: Schema.optionalKey(texts.shown(300)),
-    fields: Schema.Array(fields.Field).check(Schema.isMinLength(1), Schema.isMaxLength(20)),
-    computed: Schema.optionalKey(Schema.Array(Computed).check(Schema.isMaxLength(8)))
-  })
-  return { ...fields, Computed, FormSpec }
-}
-
-const accepted = formSpec(2)
-
-export const AdvertisedFormSpec = formSpec(1).FormSpec
-
-export const FormSpec = accepted.FormSpec
-
-export type TextField = typeof accepted.TextField.Type
-export type NumberField = typeof accepted.NumberField.Type
-export type ChoiceField = typeof accepted.ChoiceField.Type
-export type Field = typeof accepted.Field.Type
-export type Computed = typeof accepted.Computed.Type
+export type TextField = typeof TextField.Type
+export type NumberField = typeof NumberField.Type
+export type ChoiceField = typeof ChoiceField.Type
+export type Field = typeof Field.Type
+export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type
