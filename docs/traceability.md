@@ -19,8 +19,8 @@
 | REQ-RES-002 | 変更して送り直せる | - | SPEC-MCP-008, SPEC-UI-005 | `test/acceptance/chat.ts`, MAT-RES-001 |
 | REQ-RES-003 | 同じ内容は送り直せない | - | SPEC-MCP-008, SPEC-UI-005 | `test/acceptance/chat.ts`, MAT-RES-001 |
 | REQ-CANCEL-001 | 中断が分かる | - | SPEC-MCP-005, SPEC-MCP-007, SPEC-UI-006, SPEC-UI-010, SPEC-EXT-004 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
-| REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
-| REQ-WAIT-002 | 利用者が不在の設定では待たない | - | SPEC-MCP-003, SPEC-UI-004, SPEC-EXT-007 | `test/acceptance/chat.ts` |
+| REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.ts`, MAT-CANCEL-001, MAT-ENV-001 |
+| REQ-WAIT-002 | 利用者が不在の設定では待たない | - | SPEC-MCP-003, SPEC-UI-004, SPEC-EXT-007 | `test/acceptance/chat.ts`, MAT-WAIT-001 |
 | REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/web.ts`, MAT-WEB-001 |
 | REQ-ENV-001 | MCPを使わない環境でも回答できる | - | SPEC-EXT-006 | MAT-ENV-001 |
 | REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/desktop.ts`, MAT-PERF-001 |

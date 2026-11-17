@@ -52,12 +52,12 @@ describe("SPEC-FORM-001 設計図の形", () => {
       })
     ))
 
-  it("SPEC-FORM-001 AIに示すスキーマには、目安の文字数を書く", () =>
+  it("SPEC-FORM-001 AIに示すスキーマには、受け付ける上限を書き、目安は説明に書く", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const tool = yield* h.tool("ask_form")
         const title = (tool.inputSchema as { readonly properties: Record<string, unknown> }).properties["title"]
-        assert.match(JSON.stringify(title), /"maxLength":80/)
+        assert.deepEqual(title, { type: "string", minLength: 1, maxLength: 160, description: "Aim for 80 characters or fewer." })
       })
     ))
 })
