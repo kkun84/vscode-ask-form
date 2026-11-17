@@ -259,7 +259,7 @@ export class FormApp {
   }
 
   private applyAnswer(action: Action, result: ToolResult, values: Values): void {
-    if (this.phase.kind === "closed") {
+    if (this.phase.kind !== "answering") {
       return
     }
     if (isExpired(result)) {

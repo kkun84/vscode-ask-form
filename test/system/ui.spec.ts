@@ -268,6 +268,20 @@ test("SPEC-UI-004 中断を示した後に質問せずに進めた結果が届�
   await expect(frame.getByRole("button")).toHaveCount(0)
 })
 
+test("SPEC-UI-004 質問せずに進めた旨を示した後に、遅れた返答が届いても表示を変えない", async ({ page }) => {
+  const frame = await open(page, { expireOnAnswer: true, unavailableBeforeExpiry: true })
+  await frame.getByRole("button", { name: "送信", exact: true }).click()
+  await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
+  await frame.evaluate(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(resolve, 100)
+      })
+  )
+  await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
+  await expect(frame.getByText("この質問は終了しています")).toHaveCount(0)
+})
+
 test.describe("SPEC-UI-005 送り直し", () => {
   test("SPEC-UI-005 変えた項目の数を示し、変更がなければ送れない", async ({ page }) => {
     const frame = await open(page)

@@ -12,7 +12,10 @@ import { attachmentStore } from "./attachments.ts"
 const providerId = "ask-form.mcp"
 
 const away = Effect.callback<void>((resume) => {
-  const subscription = onAutoReply(() => resume(Effect.void))
+  const subscription = onAutoReply(() => {
+    subscription.dispose()
+    resume(Effect.void)
+  })
   return Effect.sync(() => subscription.dispose())
 })
 

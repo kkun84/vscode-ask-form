@@ -48,7 +48,7 @@ export const askFormDescription = [
   "Do not use it when the user asked you to work autonomously.",
   "The user can put any question on hold instead of answering it; those ids come back in held without a value, and you ask again when you need one.",
   "The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note.",
-  "The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown."
+  "The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn."
 ].join(" ")
 
 const AskForm = Tool.dynamic("ask_form", {
