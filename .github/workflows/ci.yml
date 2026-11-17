@@ -40,8 +40,6 @@ jobs:
         run: pnpm lint
       - name: Type check
         run: pnpm typecheck
-      - name: Audit dependencies
-        run: pnpm audit --audit-level moderate
       - name: Unit tests
         run: pnpm test:unit
       - name: Integration tests

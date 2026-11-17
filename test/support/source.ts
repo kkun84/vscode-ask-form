@@ -6,5 +6,6 @@ export const withVscode = async <A>(vscode: unknown, load: () => Promise<A>): Pr
     return await load()
   } finally {
     vi.doUnmock("vscode")
+    vi.resetModules()
   }
 }
