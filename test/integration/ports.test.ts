@@ -31,4 +31,14 @@ describe("ARCH-PORT-001 MCPサーバーへの差し込み口", () => {
       { attachments: store }
     )
   })
+
+  it("ARCH-PORT-001 VS Codeなしで、差し込んだ実装を通して利用者の不在を知る", () =>
+    withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          const result = yield* h.call("ask_form", eventSpec)
+          assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
+        }),
+      { unavailable: true }
+    ))
 })

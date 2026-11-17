@@ -5,7 +5,7 @@ import { checkAnswer, checkValues, compile, type Answer } from "../core/validate
 import { languageOf, messages } from "../core/messages.ts"
 import { PendingForms } from "./pending.ts"
 import { formSpecJsonSchema } from "./schema.ts"
-import { AttachmentStore } from "./ports.ts"
+import { AttachmentStore, UserPresence } from "./ports.ts"
 
 export const resourceUri = "ui://ask-form/form.html"
 export const resourceMimeType = "text/html;profile=mcp-app"
@@ -30,7 +30,7 @@ const OutcomeResult = Schema.Union([
     note: Schema.optionalKey(Schema.String),
     next: Schema.String
   }),
-  Schema.Struct({ status: Schema.Literal("answer_in_chat"), next: Schema.String })
+  Schema.Struct({ status: Schema.Literals(["answer_in_chat", "unavailable"]), next: Schema.String })
 ])
 
 const withNext = (outcome: Outcome): typeof OutcomeResult.Type => ({ ...outcome, next: outcomeText(outcome) })
@@ -103,6 +103,7 @@ const FormsHandlers = FormsToolkit.toLayer(
   Effect.gen(function* () {
     const pending = yield* PendingForms
     const attachments = yield* AttachmentStore
+    const presence = yield* UserPresence
     return FormsToolkit.of({
       form_status: ({ formKey }) => pending.status(formKey).pipe(Effect.map((status) => ({ status }))),
       ask_form: (params) =>
@@ -110,6 +111,9 @@ const FormsHandlers = FormsToolkit.toLayer(
           const compiled = compile(params)
           if (Result.isFailure(compiled)) {
             return yield* reject(compiled.failure)
+          }
+          if (yield* presence.unavailable) {
+            return withNext({ status: "unavailable" })
           }
           return withNext(yield* pending.wait(compiled.success))
         }),

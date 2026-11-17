@@ -5,7 +5,7 @@ import { describe, it } from "node:test"
 import { Effect, Fiber, Schedule } from "effect"
 import { initialValues } from "../../src/core/form.ts"
 import { eventForm, eventSpec } from "../fixtures/event.ts"
-import { connect, runScoped } from "../support/server.ts"
+import { connect, runScoped, type Connection } from "../support/server.ts"
 import { cancellation, createVscode, fakeContext, loadBundle, type FakePanel, type Recorder } from "../support/vscode-stub.ts"
 
 const nodeBundle = fileURLToPath(new URL("../../dist/node/extension.cjs", import.meta.url))
@@ -120,6 +120,14 @@ describe("SPEC-EXT-006 MCPを使わない環境", () => {
   })
 })
 
+const waitThenCancel = (recorder: Recorder, connection: Connection) =>
+  Effect.gen(function* () {
+    const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
+    yield* until(() => visible(recorder))
+    yield* connection.call("form_answer", { formKey, action: "chat" })
+    yield* Fiber.join(fiber)
+  })
+
 describe("SPEC-EXT-002 待機の表示", () => {
   it("SPEC-EXT-002 回答を待つ間だけステータスバーに表示する", () =>
     runScoped(
@@ -128,10 +136,7 @@ describe("SPEC-EXT-002 待機の表示", () => {
         assert.equal(visible(recorder), false)
         assert.equal(recorder.status[0]?.text.includes("Copilotが回答を待っています"), true)
         assert.equal(recorder.status[0]?.command, "workbench.action.chat.open")
-        const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
-        yield* until(() => visible(recorder))
-        yield* connection.call("form_answer", { formKey, action: "chat" })
-        yield* Fiber.join(fiber)
+        yield* waitThenCancel(recorder, connection)
         yield* until(() => !visible(recorder))
       })
     ))
@@ -293,6 +298,32 @@ describe("SPEC-EXT-004 回答後のパネル", () => {
     recorder.panels[1]?.dispose()
     await second
     assert.deepEqual(recorder.commands, [])
+  })
+})
+
+describe("SPEC-EXT-007 自動で応じる設定", () => {
+  it("SPEC-EXT-007 chat.autoReplyが有効な間、MCPのask_formは待たずにunavailableを返す", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, connection } = yield* desktopConnection
+        recorder.changeSetting("chat.autoReply", true)
+        const result = yield* connection.call("ask_form", eventSpec)
+        assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
+        assert.equal(visible(recorder), false)
+        recorder.changeSetting("chat.autoReply", false)
+        yield* waitThenCancel(recorder, connection)
+      })
+    ))
+
+  it("SPEC-EXT-007 chat.autoReplyが有効な間、拡張機能のツールはパネルを開かずにunavailableを返す", async () => {
+    const { recorder, tool } = web()
+    recorder.changeSetting("chat.autoReply", true)
+    const text = resultText(await tool.invoke({ input: eventSpec }, cancellation().token))
+    assert.match(text, /"status":"unavailable"/)
+    assert.match(text, /Do not ask again/)
+    assert.equal(recorder.panels.length, 0)
+    assert.equal(visible(recorder), false)
+    await assert.rejects(tool.invoke({ input: { title: "", fields: [] } }, cancellation().token))
   })
 })
 

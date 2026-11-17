@@ -5,7 +5,7 @@ import { outcomeText, type Outcome } from "../../core/form.ts"
 import { compile } from "../../core/validate.ts"
 import type { FormSpec } from "../../core/spec.ts"
 import { postToChat } from "./chat.ts"
-import { createWaitingStatus, type WaitingStatus } from "./waiting.ts"
+import { autoReplies, createWaitingStatus, type WaitingStatus } from "./waiting.ts"
 import { panelHtml } from "./panel.ts"
 
 const toolName = "forms_ask_form"
@@ -27,6 +27,9 @@ const askInPanel = (
   const compiled = compile(args)
   if (Result.isFailure(compiled)) {
     return Promise.reject(new Error(compiled.failure.join("\n")))
+  }
+  if (autoReplies()) {
+    return Promise.resolve({ status: "unavailable" })
   }
   const form = compiled.success
   const panel = vscode.window.createWebviewPanel(

@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto"
 import * as vscode from "vscode"
 import { Effect, Exit, Layer, Scope } from "effect"
 import { serveForms } from "../../mcp/http.ts"
-import { WaitingIndicator } from "../../mcp/ports.ts"
+import { UserPresence, WaitingIndicator } from "../../mcp/ports.ts"
 import { FormHtml } from "../../mcp/server.ts"
 import { formHtml, version } from "../shared/assets.ts"
 import { registerFormTool } from "../shared/formTool.ts"
-import { createWaitingStatus } from "../shared/waiting.ts"
+import { autoReplies, createWaitingStatus } from "../shared/waiting.ts"
 import { attachmentStore } from "./attachments.ts"
 
 const providerId = "ask-form.mcp"
@@ -21,6 +21,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
   const services = Layer.mergeAll(
     attachmentStore(context.globalStorageUri),
     Layer.succeed(WaitingIndicator, WaitingIndicator.of({ update: (count) => Effect.sync(() => waiting.update(count)) })),
+    Layer.succeed(UserPresence, UserPresence.of({ unavailable: Effect.sync(autoReplies) })),
     Layer.succeed(FormHtml, formHtml)
   )
   const token = randomUUID()

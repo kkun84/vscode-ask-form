@@ -1,6 +1,8 @@
 import * as vscode from "vscode"
 import { waitingLabel } from "./labels.ts"
 
+export const autoReplies = (): boolean => vscode.workspace.getConfiguration("chat").get<boolean>("autoReply", false)
+
 export interface WaitingStatus extends vscode.Disposable {
   readonly update: (waiting: number) => void
 }

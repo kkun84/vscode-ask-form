@@ -309,6 +309,13 @@ VS Codeの拡張機能のAPIには、送り先の会話を指定してメッセ�
 </details>
 
 <details>
+<summary>席を外している間に、フォームで作業が止まりませんか？</summary>
+
+VS Codeの設定`chat.autoReply`を有効にすると、Ask Formはフォームを出して待つ代わりに、利用者が不在であることをCopilotに伝えます。Copilotは推奨した値と自分の判断で進めます。この設定は、VS Codeの組み込みの質問にも同じように効きます。
+
+</details>
+
+<details>
 <summary>パスワードなどの秘密も聞かれますか？</summary>
 
 Copilotには、秘密や認証情報をフォームで聞かないように指示しています。

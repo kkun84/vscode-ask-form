@@ -242,6 +242,12 @@ test.describe("SPEC-UI-004 回答後の要約", () => {
   })
 })
 
+test("SPEC-UI-004 質問せずに進めた結果を受け取ると、その旨を示して回答を受け付けない", async ({ page }) => {
+  const frame = await open(page, { restore: { status: "unavailable", next: "" } })
+  await expect(frame.locator(".summary")).toHaveText("✓質問に自動で応じる設定(chat.autoReply)が有効なため、質問せずに進めました")
+  await expect(frame.getByRole("button")).toHaveCount(0)
+})
+
 test.describe("SPEC-UI-005 送り直し", () => {
   test("SPEC-UI-005 変えた項目の数を示し、変更がなければ送れない", async ({ page }) => {
     const frame = await open(page)

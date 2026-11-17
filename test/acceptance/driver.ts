@@ -85,7 +85,15 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
     })
     log(`chat ${scenario} opened`)
   }
-  context.subscriptions.push(vscode.commands.registerCommand("ask-form-e2e.newChat", openChat))
+  const toggleAutoReply = async (): Promise<void> => {
+    const chat = vscode.workspace.getConfiguration("chat")
+    await chat.update("autoReply", chat.get<boolean>("autoReply", false) !== true, vscode.ConfigurationTarget.Global)
+    log(`chat.autoReply ${String(vscode.workspace.getConfiguration("chat").get("autoReply"))}`)
+  }
+  context.subscriptions.push(
+    vscode.commands.registerCommand("ask-form-e2e.newChat", openChat),
+    vscode.commands.registerCommand("ask-form-e2e.autoReply", toggleAutoReply)
+  )
   await openChat()
 }
 

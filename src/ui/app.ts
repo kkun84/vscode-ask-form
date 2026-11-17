@@ -22,7 +22,7 @@ import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 import { watchStatus } from "./status.ts"
 
-type Status = "submitted" | "answer_in_chat"
+type Status = "submitted" | "answer_in_chat" | "unavailable"
 
 type Phase =
   | { readonly kind: "loading" }
@@ -36,7 +36,7 @@ type Action = "submit" | "chat"
 
 const statusOf: Readonly<Record<Action, Status>> = { submit: "submitted", chat: "answer_in_chat" }
 
-const isStatus = (value: unknown): value is Status => value === "submitted" || value === "answer_in_chat"
+const isStatus = (value: unknown): value is Status => value === "submitted" || value === "answer_in_chat" || value === "unavailable"
 
 const resultText = (result: ToolResult): string => (result.content ?? []).map((item) => item.text ?? "").join("\n")
 
@@ -844,13 +844,13 @@ export class FormApp {
 
   private summary(status: Status): HTMLElement {
     const form = this.form
-    const title = status === "submitted" ? this.m.answered : this.m.answeredInChat
+    const title = { submitted: this.m.answered, answer_in_chat: this.m.answeredInChat, unavailable: this.m.unavailable }[status]
     const head = h(
       "div",
       { class: "summary-head" },
       h("span", { class: "check", "aria-hidden": "true" }, "✓"),
       h("span", { tabindex: -1, "data-focus": true }, title),
-      form === undefined || status === "answer_in_chat"
+      form === undefined || status !== "submitted"
         ? null
         : on(h("button", { type: "button", class: "link" }, this.m.editAndResend), "click", () => {
             this.phase = { kind: "resending" }
@@ -861,7 +861,7 @@ export class FormApp {
             this.render()
           })
     )
-    if (form === undefined || status === "answer_in_chat") {
+    if (form === undefined || status !== "submitted") {
       return h("section", { class: "card summary", role: "status" }, head)
     }
     const changedByUser = changedFields(form.spec, this.initial, this.summaryValues)

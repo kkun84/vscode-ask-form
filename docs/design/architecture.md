@@ -111,12 +111,12 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 ### ARCH-PORT-001 MCPサーバーへの差し込み口
 
-MCPサーバーはVS Codeに依存せずに添付の保存・読込と待機の表示を行うため、`AttachmentStore`と`WaitingIndicator`をEffectのサービスとして要求する。
+MCPサーバーはVS Codeに依存せずに添付の保存・読込と待機の表示を行うため、`AttachmentStore`と`WaitingIndicator`をEffectのサービスとして要求する。利用者が不在かどうかも、VS Codeの設定を読まずに知るため、`UserPresence`をサービスとして要求する。
 
 - デスクトップ版の入口が永続ファイルを使う保存実装を与え、テストはメモリ内の保存実装を与える。MCPサーバーは保存先を所有せず、別のサーバーインスタンスにも同じ保存先を渡せる。
 - 自動送信のポートは持たない。デスクトップの画面が`ui/message`で自分の会話に下書きを置き、利用者が送信する。
 
-派生元: SPEC-EXT-002, SPEC-MCP-008, SPEC-UI-005
+派生元: SPEC-EXT-002, SPEC-EXT-007, SPEC-MCP-008, SPEC-UI-005
 
 ### ARCH-UI-001 画面の通信は1種類
 

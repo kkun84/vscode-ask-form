@@ -2,7 +2,7 @@ import { Effect, Layer, Ref, Schedule, type Scope } from "effect"
 import { McpClient, McpProtocol, type McpSchema } from "effect/ai"
 import { FetchHttpClient } from "effect/http"
 import { serveForms } from "../../src/mcp/http.ts"
-import { AttachmentStore, WaitingIndicator } from "../../src/mcp/ports.ts"
+import { AttachmentStore, UserPresence, WaitingIndicator } from "../../src/mcp/ports.ts"
 import { FormHtml } from "../../src/mcp/server.ts"
 import { memoryAttachments } from "./attachments.ts"
 
@@ -55,6 +55,7 @@ export const testHtml = "<!doctype html><html><head></head><body>form</body></ht
 interface HarnessOptions {
   readonly attachments?: typeof AttachmentStore.Service
   readonly onWaiting?: (count: number) => Effect.Effect<void>
+  readonly unavailable?: boolean
 }
 
 const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
@@ -69,6 +70,7 @@ const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, 
           update: (count) => Ref.update(waiting, (all) => [...all, count]).pipe(Effect.andThen(options.onWaiting?.(count) ?? Effect.void))
         })
       ),
+      Layer.succeed(UserPresence, UserPresence.of({ unavailable: Effect.succeed(options.unavailable ?? false) })),
       Layer.succeed(FormHtml, testHtml)
     )
     const { url } = yield* serveForms({ token, version: "0.0.0-test", services })
