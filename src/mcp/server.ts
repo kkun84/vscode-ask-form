@@ -5,7 +5,7 @@ import { checkAnswer, checkValues, compile, type Answer } from "../core/validate
 import { languageOf, messages } from "../core/messages.ts"
 import { PendingForms } from "./pending.ts"
 import { formSpecJsonSchema } from "./schema.ts"
-import { AttachmentStore } from "./ports.ts"
+import { AttachmentStore, UserPresence } from "./ports.ts"
 
 export const resourceUri = "ui://ask-form/form.html"
 export const resourceMimeType = "text/html;profile=mcp-app"
@@ -30,7 +30,7 @@ const OutcomeResult = Schema.Union([
     note: Schema.optionalKey(Schema.String),
     next: Schema.String
   }),
-  Schema.Struct({ status: Schema.Literal("answer_in_chat"), next: Schema.String })
+  Schema.Struct({ status: Schema.Literals(["answer_in_chat", "unavailable"]), next: Schema.String })
 ])
 
 const withNext = (outcome: Outcome): typeof OutcomeResult.Type => ({ ...outcome, next: outcomeText(outcome) })
@@ -48,7 +48,7 @@ export const askFormDescription = [
   "Do not use it when the user asked you to work autonomously.",
   "The user can put any question on hold instead of answering it; those ids come back in held without a value, and you ask again when you need one.",
   "The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note.",
-  "The result tells you whether the user submitted values or cancelled the form to answer in chat."
+  "The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn."
 ].join(" ")
 
 const AskForm = Tool.dynamic("ask_form", {
@@ -103,6 +103,7 @@ const FormsHandlers = FormsToolkit.toLayer(
   Effect.gen(function* () {
     const pending = yield* PendingForms
     const attachments = yield* AttachmentStore
+    const presence = yield* UserPresence
     return FormsToolkit.of({
       form_status: ({ formKey }) => pending.status(formKey).pipe(Effect.map((status) => ({ status }))),
       ask_form: (params) =>
@@ -111,7 +112,11 @@ const FormsHandlers = FormsToolkit.toLayer(
           if (Result.isFailure(compiled)) {
             return yield* reject(compiled.failure)
           }
-          return withNext(yield* pending.wait(compiled.success))
+          if (yield* presence.unavailable) {
+            return withNext({ status: "unavailable" })
+          }
+          const left = presence.away.pipe(Effect.as<Outcome>({ status: "unavailable" }))
+          return withNext(yield* Effect.raceFirst(pending.wait(compiled.success), left))
         }),
       form_answer: ({ formKey, action, values, held, note }) =>
         Effect.gen(function* () {

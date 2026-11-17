@@ -15,7 +15,12 @@ export const buildDriver = async (root: string, driver: string): Promise<void> =
       engines: { vscode: "^1.110.0" },
       main: "./driver.cjs",
       activationEvents: ["onStartupFinished"],
-      contributes: { commands: [{ command: "ask-form-e2e.newChat", title: "Ask Form: New acceptance chat" }] }
+      contributes: {
+        commands: [
+          { command: "ask-form-e2e.newChat", title: "Ask Form: New acceptance chat" },
+          { command: "ask-form-e2e.autoReply", title: "Ask Form: Toggle acceptance auto reply" }
+        ]
+      }
     })
   )
 }

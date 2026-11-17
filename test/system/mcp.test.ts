@@ -75,6 +75,48 @@ describe("SPEC-MCP-002 画面のリソース", () => {
     ))
 })
 
+describe("SPEC-MCP-003 補足と不在", () => {
+  it("SPEC-MCP-003 利用者が不在の設定なら、待たずにunavailableを返し、推奨と自分の判断で進めるよう指示する", () =>
+    withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          const result = yield* h.call("ask_form", eventSpec)
+          assert.deepEqual(Object.keys(structured(result)), ["status", "next"])
+          assert.equal(structured(result)["status"], "unavailable")
+          assert.match(text(result), /Do not ask these questions again/)
+          assert.deepEqual(yield* Ref.get(h.waiting), [])
+          assert.equal((yield* h.call("ask_form", { title: "", fields: [] })).isError, true)
+        }),
+      { unavailable: true }
+    ))
+
+  it("SPEC-MCP-003 待っている間に利用者が不在になったら、待つのをやめてunavailableを返し、以後の回答は受け付けない", () =>
+    withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          assert.equal(structured(yield* h.call("ask_form", eventSpec))["status"], "unavailable")
+          assert.deepEqual(yield* Ref.get(h.waiting), [1, 0])
+          yield* expectExpired(h, form.key)
+        }),
+      { away: Effect.sleep("50 millis") }
+    ))
+
+  it("SPEC-MCP-003 補足は前後の空白を除いてnoteで返し、空の補足は返さない", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const values = initialValues(form.spec)
+        const noted = yield* ask(h)
+        yield* h.call("form_answer", { formKey: form.key, action: "submit", values, note: "  会場は未定です\n" })
+        const result = yield* Fiber.join(noted)
+        assert.equal(structured(result)["note"], "会場は未定です")
+        assert.match(text(result), /If note is present.*follow it over any value it contradicts.*answers a held field/)
+        const plain = yield* ask(h)
+        yield* h.call("form_answer", { formKey: form.key, action: "submit", values, note: " \n" })
+        assert.equal("note" in structured(yield* Fiber.join(plain)), false)
+      })
+    ))
+})
+
 describe("SPEC-MCP-003 回答を待つ", () => {
   it("SPEC-MCP-003 回答が届くまで待ち、回答をstructuredContentと文章で返す", () =>
     withHarness((h) =>
@@ -107,21 +149,6 @@ describe("SPEC-MCP-003 回答を待つ", () => {
         assert.deepEqual(outcome["changedByUser"], [])
         assert.deepEqual(outcome["computed"], { cost: 170000, profit: null, breakEven: null })
         assert.match(text(result), /Do not assume a value/)
-      })
-    ))
-
-  it("SPEC-MCP-003 補足は前後の空白を除いてnoteで返し、空の補足は返さない", () =>
-    withHarness((h) =>
-      Effect.gen(function* () {
-        const values = initialValues(form.spec)
-        const noted = yield* ask(h)
-        yield* h.call("form_answer", { formKey: form.key, action: "submit", values, note: "  会場は未定です\n" })
-        const result = yield* Fiber.join(noted)
-        assert.equal(structured(result)["note"], "会場は未定です")
-        assert.match(text(result), /If note is present.*follow it over any value it contradicts.*answers a held field/)
-        const plain = yield* ask(h)
-        yield* h.call("form_answer", { formKey: form.key, action: "submit", values, note: " \n" })
-        assert.equal("note" in structured(yield* Fiber.join(plain)), false)
       })
     ))
 

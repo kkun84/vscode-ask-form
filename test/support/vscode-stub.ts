@@ -11,6 +11,10 @@ class Emitter<T> {
     return { dispose: () => (this.listeners = this.listeners.filter((item) => item !== listener)) }
   }
 
+  get size(): number {
+    return this.listeners.length
+  }
+
   fire(value: T): void {
     for (const listener of this.listeners) {
       listener(value)
@@ -45,6 +49,7 @@ export interface StatusItem {
 }
 
 export interface Recorder {
+  readonly configListeners: () => number
   readonly run: (command: string) => void
   readonly commands: Array<{ readonly command: string; readonly args: ReadonlyArray<unknown> }>
   readonly files: Map<string, string>
@@ -167,7 +172,7 @@ interface ConfigEvent {
   readonly affectsConfiguration: (key: string) => boolean
 }
 
-const createRecorder = (): Omit<Recorder, "run"> & { readonly configChanged: Emitter<ConfigEvent> } => {
+const createRecorder = (): Omit<Recorder, "run" | "configListeners"> & { readonly configChanged: Emitter<ConfigEvent> } => {
   const configChanged = new Emitter<ConfigEvent>()
   const settings = new Map<string, unknown>()
   return {
@@ -185,6 +190,18 @@ const createRecorder = (): Omit<Recorder, "run"> & { readonly configChanged: Emi
     }
   }
 }
+
+const filesOf = (files: Map<string, string>) => ({
+  createDirectory: () => Promise.resolve(),
+  readFile: (target: FakeUri) => {
+    const text = files.get(target.path)
+    return text === undefined ? Promise.reject(new Error("file not found")) : Promise.resolve(new TextEncoder().encode(text))
+  },
+  writeFile: (target: FakeUri, content: Uint8Array) => {
+    files.set(target.path, new TextDecoder().decode(content))
+    return Promise.resolve()
+  }
+})
 
 export const createVscode = (language = "ja"): { readonly vscode: unknown; readonly recorder: Recorder } => {
   const recorder = createRecorder()
@@ -226,17 +243,7 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
         get: <T>(key: string, fallback: T): T => (recorder.settings.get(`${section}.${key}`) as T | undefined) ?? fallback
       }),
       onDidChangeConfiguration: configChanged.event,
-      fs: {
-        createDirectory: () => Promise.resolve(),
-        readFile: (target: FakeUri) => {
-          const text = recorder.files.get(target.path)
-          return text === undefined ? Promise.reject(new Error("file not found")) : Promise.resolve(new TextEncoder().encode(text))
-        },
-        writeFile: (target: FakeUri, content: Uint8Array) => {
-          recorder.files.set(target.path, new TextDecoder().decode(content))
-          return Promise.resolve()
-        }
-      }
+      fs: filesOf(recorder.files)
     },
     commands: {
       registerCommand: (command: string, handler: () => void) => {
@@ -264,7 +271,14 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
       }
     }
   }
-  return { vscode, recorder: { ...recorder, run: (command: string) => void vscode.commands.executeCommand(command) } }
+  return {
+    vscode,
+    recorder: {
+      ...recorder,
+      run: (command: string) => void vscode.commands.executeCommand(command),
+      configListeners: () => configChanged.size
+    }
+  }
 }
 
 export interface ExtensionModule {

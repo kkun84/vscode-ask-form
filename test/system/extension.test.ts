@@ -5,7 +5,7 @@ import { describe, it } from "node:test"
 import { Effect, Fiber, Schedule } from "effect"
 import { initialValues } from "../../src/core/form.ts"
 import { eventForm, eventSpec } from "../fixtures/event.ts"
-import { connect, runScoped } from "../support/server.ts"
+import { connect, runScoped, type Connection } from "../support/server.ts"
 import { cancellation, createVscode, fakeContext, loadBundle, type FakePanel, type Recorder } from "../support/vscode-stub.ts"
 
 const nodeBundle = fileURLToPath(new URL("../../dist/node/extension.cjs", import.meta.url))
@@ -120,6 +120,14 @@ describe("SPEC-EXT-006 MCPを使わない環境", () => {
   })
 })
 
+const waitThenCancel = (recorder: Recorder, connection: Connection) =>
+  Effect.gen(function* () {
+    const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
+    yield* until(() => visible(recorder))
+    yield* connection.call("form_answer", { formKey, action: "chat" })
+    yield* Fiber.join(fiber)
+  })
+
 describe("SPEC-EXT-002 待機の表示", () => {
   it("SPEC-EXT-002 回答を待つ間だけステータスバーに表示する", () =>
     runScoped(
@@ -128,10 +136,7 @@ describe("SPEC-EXT-002 待機の表示", () => {
         assert.equal(visible(recorder), false)
         assert.equal(recorder.status[0]?.text.includes("Copilotが回答を待っています"), true)
         assert.equal(recorder.status[0]?.command, "workbench.action.chat.open")
-        const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
-        yield* until(() => visible(recorder))
-        yield* connection.call("form_answer", { formKey, action: "chat" })
-        yield* Fiber.join(fiber)
+        yield* waitThenCancel(recorder, connection)
         yield* until(() => !visible(recorder))
       })
     ))
@@ -254,14 +259,19 @@ const askOnWeb = () => {
   return { recorder, pending, panel: recorder.panels[0] }
 }
 
+const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands: Recorder["commands"] = []): void => {
+  assert.equal(panel?.state.disposed, true)
+  assert.deepEqual(recorder.commands, commands)
+  assert.equal(visible(recorder), false)
+  assert.equal(recorder.configListeners(), 0)
+}
+
 describe("SPEC-EXT-004 回答後のパネル", () => {
   it("SPEC-EXT-004 キャンセルを押すとパネルを閉じ、チャットを開く", async () => {
     const { recorder, pending, panel } = askOnWeb()
     panel?.receive({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "form_answer", arguments: { formKey, action: "chat" } } })
     assert.match(resultText(await pending), /"status":"answer_in_chat"/)
-    assert.equal(panel?.state.disposed, true)
-    assert.deepEqual(recorder.commands, [{ command: "workbench.action.chat.open", args: [] }])
-    assert.equal(visible(recorder), false)
+    expectClosed(recorder, panel, [{ command: "workbench.action.chat.open", args: [] }])
   })
 
   it("SPEC-EXT-004 送信したパネルは閉じず、要約を残す", async () => {
@@ -293,6 +303,79 @@ describe("SPEC-EXT-004 回答後のパネル", () => {
     recorder.panels[1]?.dispose()
     await second
     assert.deepEqual(recorder.commands, [])
+  })
+})
+
+describe("SPEC-EXT-007 自動で応じる設定", () => {
+  it("SPEC-EXT-007 chat.autoReplyが有効な間、MCPのask_formは待たずにunavailableを返す", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, connection } = yield* desktopConnection
+        recorder.changeSetting("chat.autoReply", true)
+        const result = yield* connection.call("ask_form", eventSpec)
+        assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
+        assert.equal(visible(recorder), false)
+        recorder.changeSetting("chat.autoReply", false)
+        yield* waitThenCancel(recorder, connection)
+      })
+    ))
+
+  it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、MCPのask_formは待つのをやめてunavailableを返し、設定の購読を残さない", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, connection } = yield* desktopConnection
+        const idle = recorder.configListeners()
+        const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
+        yield* until(() => visible(recorder))
+        assert.equal(recorder.configListeners(), idle + 1)
+        recorder.changeSetting("chat.autoReply", false)
+        recorder.changeSetting("unrelated.setting", 1)
+        yield* Effect.sleep("50 millis")
+        assert.equal(fiber.pollUnsafe(), undefined)
+        assert.equal(visible(recorder), true)
+        recorder.changeSetting("chat.autoReply", true)
+        const result = yield* Fiber.join(fiber)
+        assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
+        yield* until(() => !visible(recorder))
+        assert.equal(recorder.configListeners(), idle)
+      })
+    ))
+
+  it("SPEC-EXT-007 回答で終わったMCPのask_formも、設定の購読を残さない", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, connection } = yield* desktopConnection
+        const idle = recorder.configListeners()
+        yield* waitThenCancel(recorder, connection)
+        yield* until(() => recorder.configListeners() === idle)
+      })
+    ))
+
+  it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、拡張機能のツールはパネルを閉じてunavailableを返す", async () => {
+    const { recorder, pending, panel } = askOnWeb()
+    let settled = false
+    void pending.then(() => (settled = true))
+    recorder.changeSetting("chat.autoReply", false)
+    recorder.changeSetting("unrelated.setting", 1)
+    await new Promise((resolve) => {
+      setImmediate(resolve)
+    })
+    assert.equal(settled, false)
+    assert.equal(panel?.state.disposed, false)
+    recorder.changeSetting("chat.autoReply", true)
+    assert.match(resultText(await pending), /"status":"unavailable"/)
+    expectClosed(recorder, panel)
+  })
+
+  it("SPEC-EXT-007 chat.autoReplyが有効な間、拡張機能のツールはパネルを開かずにunavailableを返す", async () => {
+    const { recorder, tool } = web()
+    recorder.changeSetting("chat.autoReply", true)
+    const text = resultText(await tool.invoke({ input: eventSpec }, cancellation().token))
+    assert.match(text, /"status":"unavailable"/)
+    assert.match(text, /Do not ask these questions again in this turn.*tell the user which assumptions you made/)
+    assert.equal(recorder.panels.length, 0)
+    assert.equal(visible(recorder), false)
+    await assert.rejects(tool.invoke({ input: { title: "", fields: [] } }, cancellation().token))
   })
 })
 

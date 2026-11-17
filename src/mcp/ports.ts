@@ -15,6 +15,14 @@ export class AttachmentStoreFailed extends Schema.TaggedError<AttachmentStoreFai
   }
 ) {}
 
+export class UserPresence extends Context.Service<
+  UserPresence,
+  {
+    readonly unavailable: Effect.Effect<boolean>
+    readonly away: Effect.Effect<void>
+  }
+>()("ask-form/UserPresence") {}
+
 export class WaitingIndicator extends Context.Service<
   WaitingIndicator,
   {

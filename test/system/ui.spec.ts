@@ -242,6 +242,46 @@ test.describe("SPEC-UI-004 回答後の要約", () => {
   })
 })
 
+test("SPEC-UI-004 質問せずに進めた結果を受け取ると、その旨を示して回答を受け付けない", async ({ page }) => {
+  const frame = await open(page, { restore: { status: "unavailable", next: "" } })
+  await expect(frame.locator(".summary")).toHaveText("✓質問に自動で応じる設定(chat.autoReply)が有効なため、質問せずに進めました")
+  await expect(frame.getByRole("button")).toHaveCount(0)
+})
+
+const cancelThenResult = async (page: Page, frame: Frame, status: string) => {
+  await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
+  await expect(frame.locator(".closed")).toBeVisible()
+  await page.evaluate((delivered) => {
+    document
+      .querySelector<HTMLIFrameElement>("#form")
+      ?.contentWindow?.postMessage(
+        { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: delivered } } },
+        window.location.origin
+      )
+  }, status)
+}
+
+test("SPEC-UI-004 中断を示した後に質問せずに進めた結果が届いたら、その旨に表示を改める", async ({ page }) => {
+  const frame = await open(page)
+  await cancelThenResult(page, frame, "unavailable")
+  await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
+  await expect(frame.getByRole("button")).toHaveCount(0)
+})
+
+test("SPEC-UI-004 質問せずに進めた旨を示した後に、遅れた返答が届いても表示を変えない", async ({ page }) => {
+  const frame = await open(page, { expireOnAnswer: true, unavailableBeforeExpiry: true })
+  await frame.getByRole("button", { name: "送信", exact: true }).click()
+  await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
+  await frame.evaluate(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(resolve, 100)
+      })
+  )
+  await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
+  await expect(frame.getByText("この質問は終了しています")).toHaveCount(0)
+})
+
 test.describe("SPEC-UI-005 送り直し", () => {
   test("SPEC-UI-005 変えた項目の数を示し、変更がなければ送れない", async ({ page }) => {
     const frame = await open(page)
@@ -427,16 +467,7 @@ test.describe("SPEC-UI-006 中断と期限切れ", () => {
 
   test("SPEC-UI-006 中断の後にツールの結果が届いてもフォームを再開しない", async ({ page }) => {
     const frame = await open(page)
-    await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
-    await expect(frame.locator(".closed")).toBeVisible()
-    await page.evaluate(() => {
-      document
-        .querySelector<HTMLIFrameElement>("#form")
-        ?.contentWindow?.postMessage(
-          { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: "answer_in_chat" } } },
-          window.location.origin
-        )
-    })
+    await cancelThenResult(page, frame, "answer_in_chat")
     await expectCancelled(frame)
   })
 

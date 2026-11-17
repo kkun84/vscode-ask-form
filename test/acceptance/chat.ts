@@ -52,12 +52,16 @@ const receiveForm = async (session: Session, callIndex: number, previous: Readon
   session.frame = await formFrame(session.window, previous)
 }
 
+const runCommand = async (session: Session, title: string): Promise<void> => {
+  await session.window.keyboard.press("F1")
+  await session.window.locator(".quick-input-widget input").fill(`>${title}`)
+  await session.window.locator(".quick-input-list .monaco-list-row", { hasText: title }).click()
+}
+
 const newForm = async (session: Session): Promise<void> => {
   const previous = session.window.frames()
   const callIndex = session.llm.toolCalls.length
-  await session.window.keyboard.press("F1")
-  await session.window.locator(".quick-input-widget input").fill(">Ask Form: New acceptance chat")
-  await session.window.locator(".quick-input-list .monaco-list-row", { hasText: "Ask Form: New acceptance chat" }).click()
+  await runCommand(session, "Ask Form: New acceptance chat")
   await receiveForm(session, callIndex, previous)
 }
 
@@ -214,6 +218,46 @@ test("REQ-CANCEL-001 待機中にチャットを停止すると、フォーム�
   await expect(frame.getByRole("button")).toHaveCount(0)
   await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
   await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
+})
+
+test("REQ-WAIT-002 質問に自動で応じる設定では、フォームは待たずにunavailableをモデルに返す", async (session) => {
+  await runCommand(session, "Ask Form: Toggle acceptance auto reply")
+  try {
+    const callIndex = session.llm.toolCalls.length
+    await runCommand(session, "Ask Form: New acceptance chat")
+    const call = await until(() => Promise.resolve(session.llm.toolCalls[callIndex]), "the model asks with a form", 120_000)
+    const result = await until(
+      () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === call.id)),
+      "the model receives the result without an answer",
+      60_000
+    )
+    expect(result.text).toContain('"status":"unavailable"')
+    expect(result.text).toContain("Do not ask these questions again")
+    await session.window.getByText("FAKE_LLM_DONE", { exact: true }).waitFor({ timeout: 30_000 })
+    await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
+    await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
+  } finally {
+    await runCommand(session, "Ask Form: Toggle acceptance auto reply")
+  }
+})
+
+test("REQ-WAIT-002 フォームが待っている間に設定を有効にすると、待つのをやめてunavailableをモデルに返す", async (session) => {
+  await newForm(session)
+  await waiting(session).waitFor({ timeout: 30_000 })
+  await runCommand(session, "Ask Form: Toggle acceptance auto reply")
+  try {
+    const result = await until(
+      () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === session.callId)),
+      "the model receives the result without an answer",
+      60_000
+    )
+    expect(result.text).toContain('"status":"unavailable"')
+    await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
+    await expect(theFrame(session).getByRole("button")).toHaveCount(0, { timeout: 30_000 })
+    await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
+  } finally {
+    await runCommand(session, "Ask Form: Toggle acceptance auto reply")
+  }
 })
 
 const report = async (paths: Paths, session: Session, log: string): Promise<void> => {
