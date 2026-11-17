@@ -19,6 +19,7 @@ export class UserPresence extends Context.Service<
   UserPresence,
   {
     readonly unavailable: Effect.Effect<boolean>
+    readonly away: Effect.Effect<void>
   }
 >()("ask-form/UserPresence") {}
 

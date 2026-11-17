@@ -4,7 +4,7 @@ import { createAppHost } from "../../core/appHost.ts"
 import { outcomeText, type Outcome } from "../../core/form.ts"
 import { compile } from "../../core/validate.ts"
 import type { FormSpec } from "../../core/spec.ts"
-import { autoReplies, createWaitingStatus, type WaitingStatus } from "./waiting.ts"
+import { autoReplies, createWaitingStatus, onAutoReply, type WaitingStatus } from "./waiting.ts"
 import { panelHtml } from "./panel.ts"
 
 const toolName = "forms_ask_form"
@@ -60,7 +60,7 @@ const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, t
         finish(outcome)
         panel.dispose()
         if (outcome.status === "answer_in_chat") {
-          void vscode.commands.executeCommand("workbench.action.chat.open")
+          void Promise.resolve(vscode.commands.executeCommand("workbench.action.chat.open")).catch(() => null)
         }
       }
     })
@@ -74,7 +74,11 @@ const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, t
           subscription.dispose()
         }
       }),
-      token.onCancellationRequested(() => panel.dispose())
+      token.onCancellationRequested(() => panel.dispose()),
+      onAutoReply(() => {
+        finish({ status: "unavailable" })
+        panel.dispose()
+      })
     ]
   })
 }

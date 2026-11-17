@@ -56,6 +56,7 @@ interface HarnessOptions {
   readonly attachments?: typeof AttachmentStore.Service
   readonly onWaiting?: (count: number) => Effect.Effect<void>
   readonly unavailable?: boolean
+  readonly away?: Effect.Effect<void>
 }
 
 const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
@@ -70,7 +71,10 @@ const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, 
           update: (count) => Ref.update(waiting, (all) => [...all, count]).pipe(Effect.andThen(options.onWaiting?.(count) ?? Effect.void))
         })
       ),
-      Layer.succeed(UserPresence, UserPresence.of({ unavailable: Effect.succeed(options.unavailable ?? false) })),
+      Layer.succeed(
+        UserPresence,
+        UserPresence.of({ unavailable: Effect.succeed(options.unavailable ?? false), away: options.away ?? Effect.never })
+      ),
       Layer.succeed(FormHtml, testHtml)
     )
     const { url } = yield* serveForms({ token, version: "0.0.0-test", services })
