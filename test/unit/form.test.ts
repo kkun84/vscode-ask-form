@@ -323,6 +323,7 @@ describe("DES-FORM-008 補足", () => {
   it("DES-FORM-008 文字列でない補足と長すぎる補足を、値の誤りと一緒に返す", () => {
     assert.ok(Result.isSuccess(answer("x".repeat(2000))))
     assert.ok(Result.isFailure(answer("x".repeat(2001))))
+    assert.ok(Result.isFailure(answer(`${"x".repeat(1999)}  `)))
     const both = checkAnswer(form.spec, { values: { name: 1 }, note: 1 })
     assert.ok(Result.isFailure(both))
     assert.equal(both.failure.length, 2)

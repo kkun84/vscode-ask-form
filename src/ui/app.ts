@@ -797,6 +797,9 @@ export class FormApp {
     const hintId = uid("note")
     const input = h("textarea", { rows: 3, maxlength: maxNoteLength, "aria-label": this.m.note, "aria-describedby": hintId }, this.note)
     on(input, "input", () => {
+      if (input.value.length > maxNoteLength) {
+        input.value = input.value.slice(0, maxNoteLength).replace(/[\uD800-\uDBFF]$/, "")
+      }
       this.note = input.value
     })
     const element = h(
@@ -882,7 +885,9 @@ export class FormApp {
       )
     )
     const noted =
-      this.note === "" ? null : h("div", { class: "summary-row" }, h("dt", {}, this.m.noted), h("dd", { class: "noted" }, this.note))
+      this.note === "" || this.placed
+        ? null
+        : h("div", { class: "summary-row" }, h("dt", {}, this.m.noted), h("dd", { class: "noted" }, this.note))
     return h(
       "section",
       { class: "card summary" },
