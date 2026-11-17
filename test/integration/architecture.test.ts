@@ -93,7 +93,7 @@ describe("ARCH-LAYER-003 MCPサーバーはVS Codeを知らない", () => {
     const report = analyze([
       [
         "src/mcp/http.ts",
-        'import * as vscode from "vscode"\nimport { postToChat } from "../extension/shared/chat.ts"\nexport const probe = [vscode.window, postToChat]'
+        'import * as vscode from "vscode"\nimport { writeAttachment } from "../extension/shared/chat.ts"\nexport const probe = [vscode.window, writeAttachment]'
       ]
     ])
     assert.deepEqual(policies(report), ["ARCH-LAYER-003 src/mcp/http.ts vscode"])

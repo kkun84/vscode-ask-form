@@ -336,45 +336,40 @@ test.describe("SPEC-UI-005 フォームの会話への送り直し", () => {
     expect(order).toEqual(["form_resend", "ui/message"])
     await expect(frame.locator(".summary .notice")).toHaveText("チャットの入力欄に入れました。内容を確かめて送信してください")
     expect(messages.find((message) => message.method === "ui/message")?.params?.content).toEqual([
-      { type: "text", text: "resent" },
+      { type: "text", text: "「交流会の条件」でライブ配信をなしに変えたので、反映して続けてください。" },
       { type: "resource_link", uri: "ask-form://answers/1/form.json", name: "form.json", mimeType: "application/json" }
     ])
   })
 
-  for (const placeMessage of ["placed", undefined] as const) {
-    test(`SPEC-UI-005 ${placeMessage === undefined ? "web" : "デスクトップ"}の下書き後も回答を基準にし、最新の編集値を要約に保つ`, async ({
-      page
-    }) => {
-      const baseline = { ...defaults(), price: 3000 }
-      const frame = await open(page, {
-        ...(placeMessage === undefined ? {} : { placeMessage }),
-        restore: { status: "submitted", values: baseline, computed: {} }
-      })
-      const edit = frame.getByRole("button", { name: "変更して送り直す" })
-      const send = frame.getByRole("button", { name: "変更を送信" })
-      await edit.click()
-      for (const price of ["2500", "4000"]) {
-        await setPrice(frame, price)
-        await send.click()
-        await expect(frame.locator(".summary .notice")).toHaveText("チャットの入力欄に入れました。内容を確かめて送信してください")
-        await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText(`¥${Number(price).toLocaleString("en-US")}`)
-        await edit.click()
-        await expect(send).toBeEnabled()
-      }
-      const calls = await recorded<{ readonly params?: { readonly name?: string; readonly arguments?: { readonly before?: unknown } } }>(
-        page,
-        "messages"
-      )
-      expect(calls.filter((call) => call.params?.name === "form_resend").map((call) => call.params?.arguments?.before)).toEqual([
-        baseline,
-        baseline
-      ])
-      await setPrice(frame, "3000")
-      await expect(send).toBeDisabled()
-      await frame.getByRole("button", { name: "キャンセル", exact: true }).click()
-      await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText("¥4,000")
+  test("SPEC-UI-005 下書き後も回答を基準にし、最新の編集値を要約に保つ", async ({ page }) => {
+    const baseline = { ...defaults(), price: 3000 }
+    const frame = await open(page, {
+      restore: { status: "submitted", values: baseline, computed: {} }
     })
-  }
+    const edit = frame.getByRole("button", { name: "変更して送り直す" })
+    const send = frame.getByRole("button", { name: "変更を送信" })
+    await edit.click()
+    for (const price of ["2500", "4000"]) {
+      await setPrice(frame, price)
+      await send.click()
+      await expect(frame.locator(".summary .notice")).toHaveText("チャットの入力欄に入れました。内容を確かめて送信してください")
+      await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText(`¥${Number(price).toLocaleString("en-US")}`)
+      await edit.click()
+      await expect(send).toBeEnabled()
+    }
+    const calls = await recorded<{ readonly params?: { readonly name?: string; readonly arguments?: { readonly before?: unknown } } }>(
+      page,
+      "messages"
+    )
+    expect(calls.filter((call) => call.params?.name === "form_resend").map((call) => call.params?.arguments?.before)).toEqual([
+      baseline,
+      baseline
+    ])
+    await setPrice(frame, "3000")
+    await expect(send).toBeDisabled()
+    await frame.getByRole("button", { name: "キャンセル", exact: true }).click()
+    await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText("¥4,000")
+  })
 
   test("SPEC-UI-005 入力欄に置けなければ送信させず、会話を開くよう示す", async ({ page }) => {
     const frame = await openResend(page, { placeMessage: "refused" })

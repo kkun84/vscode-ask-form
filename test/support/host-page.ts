@@ -1,7 +1,14 @@
 import { Result } from "effect"
-import { createAppHost, type HostContext, type ResendRequest } from "../../src/core/appHost.ts"
-import type { Outcome } from "../../src/core/form.ts"
-import { compile } from "../../src/core/validate.ts"
+import { createAppHost, type HostContext } from "../../src/core/appHost.ts"
+import { heldFields, resendMessage, type Outcome, type Values } from "../../src/core/form.ts"
+import { languageOf, messages } from "../../src/core/messages.ts"
+import { checkValues, compile } from "../../src/core/validate.ts"
+
+interface ResendRequest {
+  readonly text: string
+  readonly values: Values
+  readonly held: ReadonlyArray<string>
+}
 
 interface Setup {
   readonly args: Readonly<Record<string, unknown>>
@@ -50,18 +57,7 @@ const host = createAppHost({
   args: setup.args,
   context: setup.context,
   post,
-  onOutcome: (outcome) => recorder.outcomes.push(outcome),
-  onResend: (request) => {
-    if (setup.failResend) {
-      return Promise.reject(new Error("chat unavailable"))
-    }
-    recorder.resends.push(request)
-    return setup.holdResend
-      ? new Promise<void>((resolve) => {
-          recorder.release = resolve
-        })
-      : Promise.resolve()
-  }
+  onOutcome: (outcome) => recorder.outcomes.push(outcome)
 })
 recorder.cancel = () => host.cancel()
 
@@ -76,7 +72,7 @@ window.addEventListener("message", (event: MessageEvent<Record<string, unknown>>
     recorder.releaseStatus = (result) => post({ jsonrpc: "2.0", id: message["id"], result })
     return
   }
-  if (setup.placeMessage !== undefined && answerAsDesktop(message, params)) {
+  if (answerAsServer(message, params)) {
     return
   }
   if (setup.expireOnAnswer && message["method"] === "tools/call" && params["name"] === "form_answer") {
@@ -86,28 +82,50 @@ window.addEventListener("message", (event: MessageEvent<Record<string, unknown>>
     post({ jsonrpc: "2.0", id: message["id"], result: { isError: true, content: [{ type: "text", text: "expired" }] } })
     return
   }
-  void relay(message)
+  relay(message)
 })
 
-const answerAsDesktop = (message: Record<string, unknown>, params: Record<string, unknown>): boolean => {
+const failed = (text: string) => ({ isError: true, content: [{ type: "text", text }] })
+
+const prepareResend = (args: Record<string, unknown>): Record<string, unknown> => {
+  const { spec } = compiled.success
+  const before = checkValues(spec, args["before"])
+  const after = checkValues(spec, args["after"])
+  if (setup.failResend || Result.isFailure(before) || Result.isFailure(after)) {
+    return failed("chat unavailable")
+  }
+  const text = resendMessage(spec, before.success, after.success, messages(languageOf(setup.context.locale)))
+  if (text === undefined) {
+    return failed("no changes")
+  }
+  recorder.resends.push({ text, values: after.success, held: heldFields(spec, after.success) })
+  return {
+    isError: false,
+    content: [{ type: "text", text: "" }],
+    structuredContent: { text, attachment: { uri: "ask-form://answers/1/form.json", name: "form.json" } }
+  }
+}
+
+const answerAsServer = (message: Record<string, unknown>, params: Record<string, unknown>): boolean => {
   const reply = (result: Record<string, unknown>) => post({ jsonrpc: "2.0", id: message["id"], result })
   if (message["method"] === "ui/message") {
     reply({ isError: setup.placeMessage === "refused" })
     return true
   }
   if (message["method"] === "tools/call" && params["name"] === "form_resend") {
-    reply({
-      isError: false,
-      content: [{ type: "text", text: "" }],
-      structuredContent: { text: "resent", attachment: { uri: "ask-form://answers/1/form.json", name: "form.json" } }
-    })
+    const result = prepareResend((params["arguments"] ?? {}) as Record<string, unknown>)
+    if (setup.holdResend) {
+      recorder.release = () => reply(result)
+    } else {
+      reply(result)
+    }
     return true
   }
   return false
 }
 
-const relay = async (message: Record<string, unknown>) => {
-  await host.receive(message)
+const relay = (message: Record<string, unknown>) => {
+  host.receive(message)
   if (message["method"] === "ui/initialize" && setup.restore !== undefined) {
     post({
       jsonrpc: "2.0",

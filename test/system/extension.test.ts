@@ -156,40 +156,6 @@ const web = () => {
 const resultText = (result: unknown): string =>
   (result as { readonly content: ReadonlyArray<{ readonly value: string }> }).content[0]?.value ?? ""
 
-it("SPEC-EXT-003 web版ではJSONを保存して添付し、利用者が送信する下書きとして入力欄に入れる", async () => {
-  const { recorder, tool } = web()
-  const source = cancellation()
-  const pending = tool.invoke({ input: eventSpec }, source.token)
-  const panel = recorder.panels[0]
-  assert.ok(panel)
-  const before = initialValues(eventForm.spec)
-  panel.receive({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "tools/call",
-    params: { name: "form_answer", arguments: { formKey, action: "submit", values: before } }
-  })
-  await pending
-  const after = { ...before, price: 2500 }
-  panel.receive({
-    jsonrpc: "2.0",
-    id: 2,
-    method: "tools/call",
-    params: { name: "form_resend", arguments: { spec: eventSpec, before, after } }
-  })
-  await Effect.runPromise(until(() => recorder.commands.length > 0))
-  assert.equal(recorder.commands.length, 1)
-  const command = recorder.commands[0]
-  assert.equal(command?.command, "workbench.action.chat.open")
-  const draft = command?.args[0] as { readonly isPartialQuery: boolean; readonly attachFiles: ReadonlyArray<{ readonly path: string }> }
-  assert.equal(draft.isPartialQuery, true)
-  assert.deepEqual(JSON.parse(recorder.files.get(draft.attachFiles[0]?.path ?? "") ?? "null"), {
-    title: eventSpec.title,
-    values: after,
-    held: []
-  })
-})
-
 describe("SPEC-EXT-004 web版", () => {
   it("SPEC-EXT-004 ツールが呼ばれるとパネルにフォームを表示し、回答を結果として返す", async () => {
     const { recorder, tool } = web()
@@ -267,20 +233,29 @@ const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands
 }
 
 describe("SPEC-EXT-004 回答後のパネル", () => {
-  it("SPEC-EXT-004 キャンセルを押すとパネルを閉じ、チャットを開く", async () => {
-    const { recorder, pending, panel } = askOnWeb()
-    panel?.receive({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "form_answer", arguments: { formKey, action: "chat" } } })
-    assert.match(resultText(await pending), /"status":"answer_in_chat"/)
-    expectClosed(recorder, panel, [{ command: "workbench.action.chat.open", args: [] }])
-  })
-
-  it("SPEC-EXT-004 送信したパネルは閉じず、要約を残す", async () => {
-    const { recorder, pending, panel } = askOnWeb()
-    submitRecommended(panel)
-    await pending
-    assert.equal(panel?.state.disposed, false)
-    assert.deepEqual(recorder.commands, [])
-  })
+  const cases = [
+    {
+      name: "キャンセルを押すとパネルを閉じ、チャットを開く",
+      action: "chat",
+      status: "answer_in_chat",
+      commands: [{ command: "workbench.action.chat.open", args: [] }]
+    },
+    { name: "送信するとパネルを閉じ、チャットにフォーカスを移さない", action: "submit", status: "submitted", commands: [] }
+  ]
+  for (const { name, action, status, commands } of cases) {
+    it(`SPEC-EXT-004 ${name}`, async () => {
+      const { recorder, pending, panel } = askOnWeb()
+      const values = initialValues(eventForm.spec)
+      panel?.receive({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "form_answer", arguments: { formKey, action, values } }
+      })
+      assert.equal(resultText(await pending).includes(`"status":"${status}"`), true)
+      expectClosed(recorder, panel, commands)
+    })
+  }
 
   it("SPEC-EXT-002 パネルで待つ間は、待機の表示を押すと先に待ち始めたフォームのパネルを前面に出す", async () => {
     const { recorder, tool } = web()

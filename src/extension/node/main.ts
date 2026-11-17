@@ -39,7 +39,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
   const changed = new vscode.EventEmitter<void>()
   context.subscriptions.push(
     changed,
-    registerFormTool(context),
+    registerFormTool(),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("askForm.mcp.enabled") || event.affectsConfiguration("chat.mcp.access")) {
         changed.fire()

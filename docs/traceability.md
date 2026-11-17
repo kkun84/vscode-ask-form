@@ -16,7 +16,7 @@
 | REQ-ANS-006 | 補足を添えられる | - | SPEC-MCP-003, SPEC-MCP-005, SPEC-UI-004, SPEC-UI-013 | `test/acceptance/chat.ts`, MAT-ANS-002 |
 | REQ-ANS-004 | キーボードだけで回答できる | - | SPEC-UI-003, SPEC-UI-008 | MAT-ANS-001 |
 | REQ-RES-001 | 回答の要約が残る | - | SPEC-UI-004 | `test/acceptance/chat.ts`, MAT-RES-001 |
-| REQ-RES-002 | 変更して送り直せる | - | SPEC-MCP-008, SPEC-UI-005, SPEC-EXT-003 | `test/acceptance/chat.ts`, MAT-RES-001 |
+| REQ-RES-002 | 変更して送り直せる | - | SPEC-MCP-008, SPEC-UI-005 | `test/acceptance/chat.ts`, MAT-RES-001 |
 | REQ-RES-003 | 同じ内容は送り直せない | - | SPEC-MCP-008, SPEC-UI-005 | `test/acceptance/chat.ts`, MAT-RES-001 |
 | REQ-CANCEL-001 | 中断が分かる | - | SPEC-MCP-005, SPEC-MCP-007, SPEC-UI-006, SPEC-UI-010, SPEC-EXT-004 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
 | REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
@@ -60,7 +60,6 @@
 | SPEC-UI-010 | 画面への通知の送り主 | REQ-SEC-001, REQ-CANCEL-001 | ARCH-UI-001, DES-UI-002 | `test/system/ui.spec.ts` |
 | SPEC-EXT-001 | MCPサーバーの登録 | REQ-ASK-001, REQ-SEC-001 | ARCH-CYCLE-001, ARCH-LAYER-005, ARCH-EFFECT-003, DES-HTTP-001 | `test/system/extension.test.ts`, `test/system/startup.test.ts` |
 | SPEC-EXT-002 | 待機の表示 | REQ-WAIT-001 | ARCH-EFFECT-001, ARCH-PORT-001, DES-PEND-001 | `test/system/extension.test.ts` |
-| SPEC-EXT-003 | web版の下書き | REQ-RES-002 | ARCH-LAYER-004, DES-CHAT-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-004 | web版 | REQ-WEB-001, REQ-CANCEL-001 | ARCH-LAYER-002, ARCH-LAYER-004, ARCH-LAYER-005, ARCH-UI-001, DES-UI-002, DES-HOST-001, DES-TOOLS-002 | `test/system/extension.test.ts` |
 | SPEC-EXT-006 | MCPを使わない環境 | REQ-ENV-001 | - | `test/system/extension.test.ts` |
 | SPEC-EXT-007 | 利用者が不在の設定 | REQ-WAIT-002 | ARCH-PORT-001 | `test/system/extension.test.ts` |
@@ -75,7 +74,7 @@
 | ARCH-LAYER-001 | 中核は純粋 | SPEC-FORM-001, SPEC-FORM-002, SPEC-EXPR-001, SPEC-MCP-006 | DES-SPEC-001, DES-FORM-004, DES-FORM-008 | `test/integration/architecture.test.ts` |
 | ARCH-LAYER-002 | 画面はブラウザだけで動く | SPEC-UI-001, SPEC-EXT-004, SPEC-EXT-005 | - | `test/integration/architecture.test.ts` |
 | ARCH-LAYER-003 | MCPサーバーはVS Codeを知らない | SPEC-MCP-001 | - | `test/integration/architecture.test.ts` |
-| ARCH-LAYER-004 | web版の入口はNode.jsを使わない | SPEC-EXT-004, SPEC-EXT-003 | DES-CHAT-001 | `test/integration/architecture.test.ts` |
+| ARCH-LAYER-004 | web版の入口はNode.jsを使わない | SPEC-EXT-004 | DES-CHAT-001 | `test/integration/architecture.test.ts` |
 | ARCH-LAYER-005 | 入口は互いに依存しない | SPEC-EXT-001, SPEC-EXT-004 | - | `test/integration/architecture.test.ts` |
 | ARCH-LAYER-006 | 画面が使う中核はEffectを使わない | SPEC-EXT-005, SPEC-UI-002, SPEC-EXPR-001, SPEC-MCP-003, SPEC-UI-005 | DES-EXPR-002, DES-FORM-002, DES-FORM-003, DES-FORM-007 | `test/integration/architecture.test.ts` |
 | ARCH-EFFECT-001 | サービスの定義は実装を知らない | SPEC-EXT-002, SPEC-MCP-008 | - | `test/integration/architecture.test.ts` |
@@ -107,7 +106,7 @@
 | DES-UI-002 | メッセージの送り主の検査 | SPEC-UI-010, SPEC-EXT-004, ARCH-UI-001 | - | `test/unit/bridge.test.ts`, `test/unit/panel-bridge.test.ts` |
 | DES-HOST-001 | 初期化前の中断 | SPEC-EXT-004, SPEC-UI-006, ARCH-UI-001 | - | `test/unit/app-host.test.ts` |
 | DES-HTTP-001 | 待ち受けの失敗 | SPEC-EXT-001, SPEC-MCP-009, ARCH-EFFECT-003 | - | `test/unit/http.test.ts` |
-| DES-CHAT-001 | 投稿ごとの添付 | SPEC-EXT-003, SPEC-MCP-008, ARCH-LAYER-004, ARCH-PORT-001 | - | `test/unit/attachments.test.ts`, `test/unit/chat.test.ts`, `test/unit/form-edge-cases.test.ts` |
+| DES-CHAT-001 | 投稿ごとの添付 | SPEC-MCP-008, ARCH-LAYER-004, ARCH-PORT-001 | - | `test/unit/attachments.test.ts`, `test/unit/chat.test.ts`, `test/unit/form-edge-cases.test.ts` |
 | DES-TOOLS-001 | 時間の予算による終了 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/process.test.ts` |
 | DES-TOOLS-002 | web受け入れテストの完了 | SPEC-EXT-004, ARCH-UI-001 | - | `test/unit/web-completion.test.ts` |
 | DES-REL-001 | 版数と変更履歴の検査 | SPEC-REL-001, ARCH-REL-001 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |

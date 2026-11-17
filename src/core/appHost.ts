@@ -1,19 +1,11 @@
 import { Result } from "effect"
-import { heldFields, outcomeFor, outcomeText, resendMessage, type Action, type CompiledForm, type Outcome, type Values } from "./form.ts"
-import { checkAnswer, checkValues, compile, type Answer } from "./validate.ts"
-import { languageOf, messages } from "./messages.ts"
+import { outcomeFor, outcomeText, type Action, type CompiledForm, type Outcome } from "./form.ts"
+import { checkAnswer, type Answer } from "./validate.ts"
 
 export interface HostContext {
   readonly theme: "light" | "dark"
   readonly locale: string
   readonly styles?: { readonly variables: Readonly<Record<string, string>> }
-}
-
-export interface ResendRequest {
-  readonly text: string
-  readonly title: string
-  readonly values: Values
-  readonly held: ReadonlyArray<string>
 }
 
 export interface AppHostOptions {
@@ -22,11 +14,10 @@ export interface AppHostOptions {
   readonly context: HostContext
   readonly post: (message: Record<string, unknown>) => void
   readonly onOutcome: (outcome: Outcome) => void
-  readonly onResend: (request: ResendRequest) => Promise<void>
 }
 
 export interface AppHost {
-  readonly receive: (message: unknown) => Promise<void>
+  readonly receive: (message: unknown) => void
   readonly cancel: () => void
   readonly settled: () => boolean
 }
@@ -72,34 +63,6 @@ const answerWith = (options: AppHostOptions, state: HostState, params: Record<st
   return textResult(JSON.stringify({ accepted: true }), false, { accepted: true })
 }
 
-const resendWith = async (options: AppHostOptions, params: Record<string, unknown>): Promise<ToolResult> => {
-  const compiled = compile(params["spec"])
-  if (Result.isFailure(compiled)) {
-    return textResult(compiled.failure.join("\n"), true)
-  }
-  const before = checkValues(compiled.success.spec, params["before"])
-  const after = checkValues(compiled.success.spec, params["after"])
-  if (Result.isFailure(before) || Result.isFailure(after)) {
-    return textResult([before, after].flatMap((checked) => (Result.isFailure(checked) ? checked.failure : [])).join("\n"), true)
-  }
-  const locale = typeof params["locale"] === "string" ? params["locale"] : options.context.locale
-  const text = resendMessage(compiled.success.spec, before.success, after.success, messages(languageOf(locale)))
-  if (text === undefined) {
-    return textResult("no changes: 回答から変更がありません", true)
-  }
-  try {
-    await options.onResend({
-      text,
-      title: compiled.success.spec.title,
-      values: after.success,
-      held: heldFields(compiled.success.spec, after.success)
-    })
-  } catch (error) {
-    return textResult(error instanceof Error ? error.message : String(error), true)
-  }
-  return textResult(JSON.stringify({ posted: true }), false, { posted: true })
-}
-
 export const createAppHost = (options: AppHostOptions): AppHost => {
   const state: HostState = { status: "pending" }
   const notify = (method: string, params: unknown) => options.post({ jsonrpc: "2.0", method, params })
@@ -118,13 +81,11 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
     }
   }
 
-  const callTool = async (id: number | string, params: Record<string, unknown>) => {
+  const callTool = (id: number | string, params: Record<string, unknown>) => {
     const args = (params["arguments"] ?? {}) as Record<string, unknown>
     switch (params["name"]) {
       case "form_answer":
         return respond(id, answerWith(options, state, args))
-      case "form_resend":
-        return respond(id, await resendWith(options, args))
       case "form_status": {
         const status = { status: args["formKey"] === options.form.key ? state.status : "unknown" }
         return respond(id, textResult(JSON.stringify(status), false, status))
@@ -134,7 +95,7 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
     }
   }
 
-  const receive = async (raw: unknown) => {
+  const receive = (raw: unknown) => {
     if (raw === null || typeof raw !== "object") {
       return
     }
@@ -145,7 +106,7 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
     if (method === "ui/initialize") {
       initialize(id)
     } else if (method === "tools/call") {
-      await callTool(id, params)
+      callTool(id, params)
     } else {
       respond(id, {})
     }

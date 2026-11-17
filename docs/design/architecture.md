@@ -59,7 +59,7 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 - 投稿ごとの一意なUUIDはWeb Cryptoで作り、保存先ディレクトリは共有のファイル処理で作る。添付名は題名由来の`<slug>.json`に保ち、UUIDはディレクトリ名に使う。ファイル操作はVS CodeのAPIに集める。
 
-派生元: SPEC-EXT-004, SPEC-EXT-003
+派生元: SPEC-EXT-004
 
 ### ARCH-LAYER-005 入口は互いに依存しない
 
