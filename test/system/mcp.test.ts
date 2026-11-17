@@ -118,7 +118,7 @@ describe("SPEC-MCP-003 回答を待つ", () => {
         yield* h.call("form_answer", { formKey: form.key, action: "submit", values, note: "  会場は未定です\n" })
         const result = yield* Fiber.join(noted)
         assert.equal(structured(result)["note"], "会場は未定です")
-        assert.match(text(result), /If note is present/)
+        assert.match(text(result), /If note is present.*follow it over any value it contradicts.*answers a held field/)
         const plain = yield* ask(h)
         yield* h.call("form_answer", { formKey: form.key, action: "submit", values, note: " \n" })
         assert.equal("note" in structured(yield* Fiber.join(plain)), false)

@@ -77,10 +77,56 @@ const describedOptions = (description: string) => [
 ]
 
 describe("DES-SPEC-001 文字数の目安と上限", () => {
-  it("DES-SPEC-001 表示する文章は目安の2倍まで読み取り、2倍を超えると誤りにする", () => {
-    compiled(withFields([{ type: "choice", id: "c", label: "C", options: describedOptions("x".repeat(120)) }]))
-    assert.equal(problems(withFields([{ type: "choice", id: "c", label: "C", options: describedOptions("x".repeat(121)) }])).length, 1)
-  })
+  const shownTexts: ReadonlyArray<readonly [string, number, (text: string) => unknown]> = [
+    ["設計図のtitle", 80, (text) => ({ ...withFields([{ type: "text", id: "a", label: "A" }]), title: text })],
+    ["設計図のdescription", 300, (text) => ({ ...withFields([{ type: "text", id: "a", label: "A" }]), description: text })],
+    ["項目のlabel", 60, (text) => withFields([{ type: "text", id: "a", label: text }])],
+    ["項目のdescription", 120, (text) => withFields([{ type: "text", id: "a", label: "A", description: text }])],
+    ["項目のreason", 60, (text) => withFields([{ type: "text", id: "a", label: "A", default: "d", reason: text }])],
+    ["項目のreasonDetails", 300, (text) => withFields([{ type: "text", id: "a", label: "A", default: "d", reasonDetails: text }])],
+    ["項目のplaceholder", 80, (text) => withFields([{ type: "text", id: "a", label: "A", placeholder: text }])],
+    [
+      "選択肢のlabel",
+      60,
+      (text) =>
+        withFields([
+          {
+            type: "choice",
+            id: "c",
+            label: "C",
+            options: [
+              { value: "a", label: text },
+              { value: "b", label: "B" }
+            ]
+          }
+        ])
+    ],
+    ["選択肢のdescription", 60, (text) => withFields([{ type: "choice", id: "c", label: "C", options: describedOptions(text) }])],
+    [
+      "選択肢のdetails",
+      300,
+      (text) =>
+        withFields([
+          {
+            type: "choice",
+            id: "c",
+            label: "C",
+            options: [
+              { value: "a", label: "A", details: text },
+              { value: "b", label: "B" }
+            ]
+          }
+        ])
+    ],
+    ["計算結果のlabel", 60, (text) => withFields([{ type: "text", id: "a", label: "A" }], [{ id: "x", label: text, expression: "1" }])]
+  ]
+
+  for (const [name, aim, build] of shownTexts) {
+    it(`DES-SPEC-001 ${name}は目安の2倍の${aim * 2}文字まで読み取り、それを超えると誤りにする`, () => {
+      compiled(build("x".repeat(aim * 2)))
+      assert.equal(problems(build("x".repeat(aim * 2 + 1))).length, 1)
+    })
+  }
 
   it("DES-SPEC-001 id、選択肢のvalue、default、計算式、単位の上限は広げない", () => {
     const number = { type: "number", id: "n", label: "N", min: 0, max: 1 }
@@ -277,6 +323,7 @@ describe("DES-FORM-008 補足", () => {
   it("DES-FORM-008 文字列でない補足と長すぎる補足を、値の誤りと一緒に返す", () => {
     assert.ok(Result.isSuccess(answer("x".repeat(2000))))
     assert.ok(Result.isFailure(answer("x".repeat(2001))))
+    assert.ok(Result.isFailure(answer(`${"x".repeat(1999)}  `)))
     const both = checkAnswer(form.spec, { values: { name: 1 }, note: 1 })
     assert.ok(Result.isFailure(both))
     assert.equal(both.failure.length, 2)
