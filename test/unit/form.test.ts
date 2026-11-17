@@ -82,9 +82,23 @@ describe("DES-SPEC-001 文字数の目安と上限", () => {
     assert.equal(problems(withFields([{ type: "choice", id: "c", label: "C", options: describedOptions("x".repeat(121)) }])).length, 1)
   })
 
-  it("DES-SPEC-001 idと単位の上限は広げない", () => {
-    assert.equal(problems(withFields([{ type: "text", id: "a".repeat(41), label: "A" }])).length, 1)
-    assert.equal(problems(withFields([{ type: "number", id: "n", label: "N", min: 0, max: 1, suffix: "x".repeat(9) }])).length, 1)
+  it("DES-SPEC-001 id、選択肢のvalue、default、計算式、単位の上限は広げない", () => {
+    const number = { type: "number", id: "n", label: "N", min: 0, max: 1 }
+    const longValue = [
+      { value: "v".repeat(61), label: "A" },
+      { value: "b", label: "B" }
+    ]
+    for (const spec of [
+      withFields([{ type: "text", id: "a".repeat(41), label: "A" }]),
+      withFields([{ type: "text", id: "a", label: "A", default: "d".repeat(501) }]),
+      withFields([{ type: "choice", id: "c", label: "C", options: longValue }]),
+      withFields([{ ...number, prefix: "x".repeat(9) }]),
+      withFields([{ ...number, suffix: "x".repeat(9) }]),
+      withFields([number], [{ id: "x", label: "X", expression: `n${" + 0".repeat(75)}` }])
+    ]) {
+      assert.equal(problems(spec).length, 1)
+    }
+    compiled(withFields([number], [{ id: "x", label: "X", expression: `n${" + 0".repeat(74)}` }]))
   })
 })
 
