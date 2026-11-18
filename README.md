@@ -349,7 +349,7 @@ pnpm build
 | `pnpm traceability`      | `docs/traceability.md`の生成                                                                                                                                                                           |
 | `pnpm package`           | `.vsix`の作成                                                                                                                                                                                          |
 
-コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。pushの前には`pnpm mutation:diff`を実行して結果を表示します。pushは止めません。`origin/main`が無い環境では何もしません。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
+コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。pushの前には`pnpm mutation:diff`と`pnpm mutation:findings`を実行し、検出できなかったミュータントの件数と、見直しの手順を表示します。pushは止めません。`origin/main`が無い環境では何もしません。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
 
 ### 実機での受け入れテスト
 

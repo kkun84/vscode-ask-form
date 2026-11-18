@@ -17,4 +17,4 @@ pre-push:
     - name: mutation
       only:
         - run: git rev-parse --verify --quiet origin/main
-      run: pnpm -s mutation:diff
+      run: pnpm -s mutation:diff && { pnpm -s mutation:findings || true; }

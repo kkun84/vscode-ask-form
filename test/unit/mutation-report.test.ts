@@ -25,7 +25,8 @@ test("DES-TOOLS-003 検出できなくなったミュータントを行に付け
   assert.deepEqual(review, {
     lines: [
       "::error file=src/core/form.ts,line=12,title=テストが弱くなった::変わっていないコードのミュータントweak(EqualityOperatorでa > bに置き換え)を、前は「test/unit/form.test.ts#境界」、「test/unit/form.test.ts#上限」が検出していましたが、今はどのテストも検出しません。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。",
-      "テストが弱くなった箇所: 1件、何も検出しない新しいテスト: 0件"
+      "テストが弱くなった箇所: 1件、何も検出しない新しいテスト: 0件",
+      "テストが検出できなかったミュータント: 1件。テストが足りないのか、コードが要らないのかを見直してください。テストを足すときは、呼び出す側から見える振る舞いを確かめます。手順はnode_modules/@mizchi/mutator/skills/mutation-test-loop/SKILL.mdにあります。"
     ],
     exitCode: 1
   })

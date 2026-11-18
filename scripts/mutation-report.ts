@@ -71,6 +71,8 @@ const noKills = (finding: Finding): Annotation => ({
   message: finding.test ?? ""
 })
 
+const guide = "node_modules/@mizchi/mutator/skills/mutation-test-loop/SKILL.md"
+
 export const reviewFindings = (report: MutationReport | undefined, path: string): Review => {
   if (report === undefined) {
     return {
@@ -87,6 +89,7 @@ export const reviewFindings = (report: MutationReport | undefined, path: string)
   const findings = report.findings ?? []
   const regressions = findings.filter((finding) => finding.kind === "detectionRegression").map((finding) => regression(report, finding))
   const idle = findings.filter((finding) => finding.kind === "newTestNoKills").map((finding) => noKills(finding))
+  const gaps = findings.filter((finding) => finding.kind === "mutationGap").length
   const unmeasured: ReadonlyArray<Annotation> =
     report.comparison === "unavailable"
       ? [
@@ -101,7 +104,12 @@ export const reviewFindings = (report: MutationReport | undefined, path: string)
   return {
     lines: [
       ...[...unmeasured, ...regressions, ...idle].map((annotation) => formatAnnotation(annotation)),
-      `テストが弱くなった箇所: ${regressions.length}件、何も検出しない新しいテスト: ${idle.length}件`
+      `テストが弱くなった箇所: ${regressions.length}件、何も検出しない新しいテスト: ${idle.length}件`,
+      ...(gaps === 0
+        ? []
+        : [
+            `テストが検出できなかったミュータント: ${gaps}件。テストが足りないのか、コードが要らないのかを見直してください。テストを足すときは、呼び出す側から見える振る舞いを確かめます。手順は${guide}にあります。`
+          ])
     ],
     exitCode: regressions.length === 0 ? 0 : 1
   }
