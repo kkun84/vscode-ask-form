@@ -1,4 +1,11 @@
 minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - "@mizchi/mutator@0.3.0"
+  - "@mizchi/mutator-core@0.3.0"
+  - "@mizchi/mutator-vitest@0.3.0"
+  - "@mizchi/mutator-jest@0.3.0"
+  - "@mizchi/mutator-playwright@0.3.0"
+  - "@mizchi/mutator-typecheck@0.3.0"
 allowBuilds:
   lefthook: true
   "@playwright/browser-chromium": false
