@@ -343,7 +343,7 @@ pnpm build
 | `pnpm test:acceptance`   | 実際のVS Code(デスクトップ版、web版、チャット)での受け入れテスト                                                                                                                                       |
 | `pnpm media`             | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る([`docs/media/README.md`](docs/media/README.md)) |
 | `pnpm mutation`          | 単体テストによるミューテーションテストを全件で実行。結果は`.mutator/report`。失敗にしない指標                                                                                                          |
-| `pnpm mutation:diff`     | `origin/main`との差分と、変更したテストが確かめるコードだけのミューテーションテスト。何も検出しない新しいテストも探す。表示だけで失敗にしない                                                          |
+| `pnpm mutation:diff`     | `origin/main`との差分と、変更したテストが確かめるコードだけのミューテーションテスト。何も検出しない新しいテストはCIが探す。表示だけで失敗にしない                                                      |
 | `pnpm mutation:findings` | 直前のミューテーションテストの結果から、テストが弱くなった箇所(失敗にする)と何も検出しない新しいテスト(警告)を、GitHub Actionsの注釈の形で出す                                                         |
 | `pnpm budget`            | 配布物の大きさの検査                                                                                                                                                                                   |
 | `pnpm traceability`      | `docs/traceability.md`の生成                                                                                                                                                                           |
