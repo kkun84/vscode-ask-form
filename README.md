@@ -334,20 +334,22 @@ pnpm install
 pnpm build
 ```
 
-| コマンド               | 内容                                                                                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm lint`            | oxlint、oxfmt、fallow(未使用のコード、重複、循環参照、層の境界、複雑さ)、markdownlint、コメントとトレーサビリティの検査                                                                                |
-| `pnpm typecheck`       | TypeScript 7とEffectの診断による型検査                                                                                                                                                                 |
-| `pnpm check`           | lint、型検査、単体・結合・システムのテスト、配布物の大きさの検査をまとめて実行。CIは同じ検査を1つずつ動かす                                                                                            |
-| `pnpm test`            | 単体、結合、システム、画面のテスト                                                                                                                                                                     |
-| `pnpm test:acceptance` | 実際のVS Code(デスクトップ版、web版、チャット)での受け入れテスト                                                                                                                                       |
-| `pnpm media`           | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る([`docs/media/README.md`](docs/media/README.md)) |
-| `pnpm mutation`        | 単体テストによるミューテーションテスト(`pnpm mutation:diff`は`origin/main`との差分だけ。結果は`.mutator/report`)                                                                                       |
-| `pnpm budget`          | 配布物の大きさの検査                                                                                                                                                                                   |
-| `pnpm traceability`    | `docs/traceability.md`の生成                                                                                                                                                                           |
-| `pnpm package`         | `.vsix`の作成                                                                                                                                                                                          |
+| コマンド                 | 内容                                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm lint`              | oxlint、oxfmt、fallow(未使用のコード、重複、循環参照、層の境界、複雑さ)、markdownlint、コメントとトレーサビリティの検査                                                                                |
+| `pnpm typecheck`         | TypeScript 7とEffectの診断による型検査                                                                                                                                                                 |
+| `pnpm check`             | lint、型検査、単体・結合・システムのテスト、配布物の大きさの検査をまとめて実行。CIは同じ検査を1つずつ動かす                                                                                            |
+| `pnpm test`              | 単体、結合、システム、画面のテスト                                                                                                                                                                     |
+| `pnpm test:acceptance`   | 実際のVS Code(デスクトップ版、web版、チャット)での受け入れテスト                                                                                                                                       |
+| `pnpm media`             | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る([`docs/media/README.md`](docs/media/README.md)) |
+| `pnpm mutation`          | 単体テストによるミューテーションテストを全件で実行。結果は`.mutator/report`。失敗にしない指標                                                                                                          |
+| `pnpm mutation:diff`     | `origin/main`との差分と、変更したテストが確かめるコードだけのミューテーションテスト。何も検出しない新しいテストも探す。表示だけで失敗にしない                                                          |
+| `pnpm mutation:findings` | 直前のミューテーションテストの結果から、テストが弱くなった箇所(失敗にする)と何も検出しない新しいテスト(警告)を、GitHub Actionsの注釈の形で出す                                                         |
+| `pnpm budget`            | 配布物の大きさの検査                                                                                                                                                                                   |
+| `pnpm traceability`      | `docs/traceability.md`の生成                                                                                                                                                                           |
+| `pnpm package`           | `.vsix`の作成                                                                                                                                                                                          |
 
-コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
+コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。pushの前には`pnpm mutation:diff`を実行して結果を表示します。pushは止めません。`origin/main`が無い環境では何もしません。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
 
 ### 実機での受け入れテスト
 
@@ -371,6 +373,9 @@ V字モデルに沿って、要求から設計までを段階ごとの文書に�
 - ソースコードにコメントを書きません(`scripts/no-comments.ts`で検査します)。
 - 依存は少なく保ちます。配布物が使う外部パッケージは`effect`だけです。
 - テストの実行時間と配布物の大きさの上限は`budgets.json`にあります。
+- ミューテーションテストの結果は、失敗にしない指標です。CIはPRで、変更した行の検出できなかったミュータントに警告を付けます。失敗にするのは、変わっていないコードのミュータントを前は検出していたのに検出できなくなった、つまりテストを弱めた変更だけです。何も検出しない新しいテストは警告になります。
+- コードやテストを変えたら`pnpm mutation:diff`を実行します。検出できなかったミュータントには、そのミュータントで変わる振る舞いを確かめるテストを足します。どんな入力でも振る舞いが変わらないミュータントだけを、`pnpm exec mutator accept <key> --reason <理由>`で`mutator.accepted.json`に記録します。`<key>`は`pnpm exec mutator --since origin/main --reporter agent`の出力にあります。手順は`node_modules/@mizchi/mutator/skills/mutation-test-loop/SKILL.md`にあります。
+- ミューテーションテストの数字を満たすためだけのテストは書きません。テストは振る舞いを確かめるために書きます。
 
 ## ライセンス
 

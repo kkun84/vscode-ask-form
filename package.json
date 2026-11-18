@@ -37,7 +37,8 @@
     "package": "pnpm -s build && cd out/extension && pnpm dlx @vscode/vsce@4.0.0 package --no-dependencies --out ../..",
     "check-env": "node scripts/check-env.ts",
     "mutation": "mutator",
-    "mutation:diff": "mutator --since origin/main"
+    "mutation:diff": "mutator --since origin/main --include-test-changes --kill-matrix",
+    "mutation:findings": "node scripts/mutation-findings.ts"
   },
   "dependencies": {
     "effect": "4.1.4"
