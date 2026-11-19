@@ -1,8 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import { Result } from "effect"
-import { attachmentName, changedFields, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
-import { messages } from "../../src/core/messages.ts"
+import { changedFields, computeValues, initialValues, outcomeFor } from "../../src/core/form.ts"
 import { checkValues, compile } from "../../src/core/validate.ts"
 import { eventSpec } from "../fixtures/event.ts"
 
@@ -34,10 +33,6 @@ it("DES-FORM-003 NULを含む複数選択の変更を検出し、並び順だけ
     changedByUser: ["selection"],
     computed: { count: 2 }
   })
-  assert.equal(
-    resendMessage(form.spec, before, after, messages("ja")),
-    "「選択」で選択肢をc、a\u0000bに変えたので、反映して続けてください。"
-  )
 })
 
 it("DES-SPEC-001 複数選択のdefaultに重複した値があれば拒否する", () => {
@@ -48,7 +43,7 @@ it("DES-SPEC-001 複数選択のdefaultに重複した値があれば拒否す�
 
 it("DES-FORM-004 複数選択の回答に重複した値があれば拒否する", () => {
   const form = compile(selectionSpec(["a"])).pipe(Result.getOrThrow)
-  const result = checkValues(form.spec, { selection: ["a", "a"] })
+  const result = checkValues(form.spec, { selection: ["a", "a"] }, [])
   assert.ok(Result.isFailure(result))
   assert.ok(result.failure.some((problem) => problem.includes("項目「selection」") && problem.includes("重複")))
 })
@@ -57,7 +52,7 @@ it("DES-FORM-002 重複のない複数選択は空の配列も受け付け、表
   for (const selection of [[], ["a"], ["a", "c"]]) {
     const form = compile(selectionSpec(selection)).pipe(Result.getOrThrow)
     const defaults = initialValues(form.spec)
-    const checked = checkValues(form.spec, defaults).pipe(Result.getOrThrow)
+    const checked = checkValues(form.spec, defaults, []).pipe(Result.getOrThrow)
     assert.deepEqual(checked, { selection })
     assert.deepEqual(computeValues(form, checked), { count: selection.length })
   }
@@ -113,13 +108,4 @@ it("DES-SPEC-001 予約語と一致しないidは計算式から参照できる"
     computed: ids.map((id) => ({ id: `${id}Result`, label: id, expression: `${id} == 1 ? 1 : 0` }))
   }).pipe(Result.getOrThrow)
   assert.deepEqual(computeValues(form, initialValues(form.spec)), Object.fromEntries(ids.map((id) => [`${id}Result`, 0])))
-})
-
-it("DES-CHAT-001 添付名を40コードポイントで切り詰め、境界のサロゲートペアを保つ", () => {
-  const title = "a".repeat(39) + "𠮷"
-  for (const input of [title, title + "続き"]) {
-    const name = attachmentName(input)
-    assert.equal(name, `${title}.json`)
-    assert.equal(decodeURIComponent(encodeURIComponent(name)), name)
-  }
 })

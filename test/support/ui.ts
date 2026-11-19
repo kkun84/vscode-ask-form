@@ -11,11 +11,8 @@ export interface PageOptions {
   readonly context?: Partial<HostContext>
   readonly expireOnAnswer?: boolean
   readonly unavailableBeforeExpiry?: boolean
-  readonly failResend?: boolean
-  readonly holdResend?: boolean
   readonly omitCancellation?: boolean
   readonly holdStatus?: boolean
-  readonly placeMessage?: "placed" | "refused"
   readonly restore?: Readonly<Record<string, unknown>>
 }
 
@@ -73,11 +70,8 @@ export const openForm = async (page: Page, server: HarnessServer, options: PageO
       context,
       expireOnAnswer: options.expireOnAnswer ?? false,
       unavailableBeforeExpiry: options.unavailableBeforeExpiry ?? false,
-      failResend: options.failResend ?? false,
-      holdResend: options.holdResend ?? false,
       omitCancellation: options.omitCancellation ?? false,
       holdStatus: options.holdStatus ?? false,
-      placeMessage: options.placeMessage,
       restore: options.restore,
       background: backgrounds[context.theme]
     }
@@ -92,5 +86,5 @@ export const openForm = async (page: Page, server: HarnessServer, options: PageO
   return handle
 }
 
-export const recorded = <T>(page: Page, key: "outcomes" | "resends" | "messages"): Promise<ReadonlyArray<T>> =>
+export const recorded = <T>(page: Page, key: "outcomes" | "messages"): Promise<ReadonlyArray<T>> =>
   page.evaluate((name) => (window as unknown as { harness: Record<string, unknown> }).harness[name], key) as Promise<ReadonlyArray<T>>

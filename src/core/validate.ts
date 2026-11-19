@@ -157,9 +157,6 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
 }
 
 const heldProblems = (spec: FormSpec, values: Values, held: unknown): ReadonlyArray<string> => {
-  if (held === undefined) {
-    return []
-  }
   if (!Array.isArray(held) || held.some((id) => typeof id !== "string")) {
     return ["heldは項目のidの配列が必要です"]
   }
@@ -183,7 +180,7 @@ const checkNote = (input: unknown): Result.Result<string, ReadonlyArray<string>>
   return Result.succeed(note.trim())
 }
 
-export const checkValues = (spec: FormSpec, input: unknown, held?: unknown): Result.Result<Values, ReadonlyArray<string>> => {
+export const checkValues = (spec: FormSpec, input: unknown, held: unknown): Result.Result<Values, ReadonlyArray<string>> => {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
     return Result.fail(["valuesはオブジェクトが必要です"])
   }

@@ -87,23 +87,7 @@ const answer = async (session: Session, button = "Send"): Promise<string> => {
   return result.text
 }
 
-const press = async (session: Session, name: string): Promise<void> => {
-  const frame = theFrame(session)
-  await settled(frame)
-  await frame.getByRole("button", { name, exact: true }).click()
-}
-
-const editAnswer = async (session: Session): Promise<void> => {
-  await newForm(session)
-  await setAttendees(session, "150")
-  const result = await answer(session)
-  check(result.includes('"status":"submitted"'), `the initial answer is submitted: ${result}`)
-  await press(session, "Edit and resend")
-}
-
 const askedSpec = { ...eventSpec, description: `${eventSpec.description}${"The form explains itself at length. ".repeat(9)}` }
-
-const guesses = Object.fromEntries(eventSpec.fields.map((field) => [field.id, field.default]))
 
 test("REQ-ASK-001 Copilotのチャットで、AIが目安の文字数を超えた設計図でもフォームで質問できる", async (session) => {
   await receiveForm(session, 0)
@@ -161,52 +145,6 @@ test("REQ-ANS-003 キャンセルすると、answer_in_chatがモデルに届く
   const result = await answer(session, "Cancel")
   expect(result).toContain('"status":"answer_in_chat"')
   expect(result).toContain("End your turn now and wait for the user's next message")
-})
-
-test("REQ-RES-002 変更を入力欄に置き、利用者が送信すると差分の発言とJSON添付がモデルに届く", async (session) => {
-  await editAnswer(session)
-  const frame = theFrame(session)
-  const price = frame.getByRole("spinbutton", { name: "参加費" })
-  await price.fill("2500")
-  await price.press("Tab")
-  const messageIndex = session.llm.userMessages.length
-  await press(session, "Send changes")
-  await expect(frame.locator(".summary .notice")).toHaveText("Placed in the chat input. Review it before sending.")
-  expect(session.llm.userMessages).toHaveLength(messageIndex)
-  await session.window.locator(".interactive-input-part .monaco-editor .view-lines").last().click()
-  await session.window.keyboard.press("End")
-  await session.window.keyboard.press("Enter")
-  const difference = `In "${eventSpec.title}", I changed 参加費 to ¥2,500. Please apply it and continue.`
-  const posted = session.window.locator(".interactive-request", { hasText: difference })
-  await expect(posted).toBeVisible({ timeout: 30_000 })
-  await expect(posted.getByText(`${eventSpec.title}.json`, { exact: true })).toBeVisible()
-  const received = await until(
-    () => Promise.resolve(session.llm.userMessages.slice(messageIndex).find((message) => message.includes(difference))),
-    "the model receives the resend as a user message",
-    60_000
-  )
-  expect(received).toContain(`${eventSpec.title}.json`)
-  const attachment = received.match(/\{\s*"title":\s*"[^"]+",\s*"values":\s*\{[^}]+\},\s*"held":\s*\[[^\]]*\]\s*\}/)?.[0]
-  check(attachment !== undefined, `the model receives the JSON attachment contents: ${received}`)
-  expect(JSON.parse(attachment ?? "null")).toEqual({
-    title: eventSpec.title,
-    values: { ...guesses, attendees: 150, price: 2500 },
-    held: []
-  })
-  await expect(frame.locator(".summary")).toBeVisible()
-  await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
-})
-
-test("REQ-RES-003 送り直しで変更がなければ送信ボタンが無効になる", async (session) => {
-  await editAnswer(session)
-  const frame = theFrame(session)
-  const send = frame.getByRole("button", { name: "Send changes", exact: true })
-  await expect(send).toBeDisabled()
-  await expect(frame.getByText("No changes yet", { exact: true })).toBeVisible()
-  await setAttendees(session, "180")
-  await expect(send).toBeEnabled()
-  await setAttendees(session, "150")
-  await expect(send).toBeDisabled()
 })
 
 test("REQ-CANCEL-001 待機中にチャットを停止すると、フォームとステータスバーが中断を示す", async (session) => {

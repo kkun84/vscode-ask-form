@@ -1,7 +1,6 @@
 export const query = "TODOアプリを新しく作りたいです。設定をフォームで聞いてください。"
 export const reply =
   "ありがとうございます。画面はReact、データはサーバーに保存し、ポート3000でログイン付きにします。src/server.tsとsrc/App.tsxから作り始めます。"
-export const followUp = "1ページの件数を50件にしました。一覧の表示とページ送りのテストも合わせて直します。"
 
 export const captions: ReadonlyArray<{ readonly step: string; readonly text: string }> = [
   { step: "1 頼む", text: "決めることが多いとき、「フォームで聞いて」と頼むと…" },
