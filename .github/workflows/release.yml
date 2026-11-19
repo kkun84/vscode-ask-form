@@ -72,6 +72,8 @@ jobs:
           pnpm typecheck
           pnpm test
           pnpm budget
+      - name: Allow Codex's sandbox in the acceptance tests
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Acceptance tests
         shell: nix develop .#acceptance --command bash -euo pipefail {0}
         run: xvfb-run -a -s "-screen 0 1600x1000x24" pnpm test:acceptance
