@@ -71,6 +71,27 @@ const openSession = async (session: Session, harness: Harness): Promise<Page> =>
   return session.window
 }
 
+const send = async (page: Page): Promise<void> => {
+  const editor = page.locator(".interactive-input-part .monaco-editor:visible").first()
+  await editor.click()
+  await page.keyboard.press("ControlOrMeta+A")
+  await page.keyboard.press("Backspace")
+  await page.keyboard.type(`${trigger} Please ask me with a form.`)
+  await until(
+    async () => {
+      if (!(await editor.innerText()).includes(trigger)) {
+        return true
+      }
+      await editor.click()
+      await page.keyboard.press("Enter")
+      await sleep(2000)
+      return null
+    },
+    "the chat accepts the request",
+    60_000
+  )
+}
+
 const ask = async (
   session: Session,
   harness: Harness,
@@ -85,9 +106,7 @@ const ask = async (
   for (let attempt = 0; attempt < 5 && !(await allow.isVisible()) && !called(); attempt++) {
     const before = await missing.count()
     await sleep(attempt * 5000)
-    await page.locator(".interactive-input-part .monaco-editor").click()
-    await page.keyboard.type(`${trigger} Please ask me with a form.`)
-    await page.keyboard.press("Enter")
+    await send(page)
     await until(
       async () => ((await allow.isVisible()) || called() || (await missing.count()) > before ? true : undefined),
       `${harness} asks for permission, calls ask_form, or answers without ask_form`,
@@ -213,7 +232,7 @@ const agentHostLog = async (profile: string): Promise<string> => {
 }
 
 const report = async (paths: Paths, session: Session, profile: string): Promise<void> => {
-  const { app, window, agents } = session
+  const { app, agents } = session
   for (const [index, page] of app.windows().entries()) {
     await page.screenshot({ path: join(paths.results, `agents-failure-${index}.png`), timeout: 10_000 }).catch(() => null)
   }
@@ -221,7 +240,9 @@ const report = async (paths: Paths, session: Session, profile: string): Promise<
     join(paths.results, "agents-llm.json"),
     JSON.stringify({ toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames }, undefined, 2)
   )
-  await printChat(window)
+  for (const page of app.windows()) {
+    await printChat(page)
+  }
   console.error(`fake agents: ${agents.toolNames.length} request(s), ask_form calls ${JSON.stringify(agents.toolCalls)}`)
   for (const names of agents.toolNames) {
     console.error(`  tools(${names.length}): ${names.filter((name) => /ask|search|user_input/i.test(name)).join(",")}`)
