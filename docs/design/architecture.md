@@ -128,6 +128,6 @@ MCPサーバーはVS Codeに依存せずに待機の表示を行うため、`Wai
 
 ### ARCH-REL-001 検出と公開の権限を分ける
 
-- ワークフローの先頭のdetectジョブはcontents:readで版数とoriginのタグを確認する。書き込み権限を持つreleaseジョブはdetectに依存し、release出力がtrueの場合だけ公開する。ワークフロー全体をconcurrencyグループreleaseで直列化し、cancel-in-progressはfalseとする。
+- ワークフローの先頭のdetectジョブはcontents:readで版数、mainの先頭、originのタグを確認し、actionにrelease、bump、noneのいずれかを出力する。bumpジョブはactionがbumpの場合だけ動き、`GITHUB_TOKEN`はcontents:readに留め、ContentsとPull requestsだけを書けるGitHub Appのトークンで版数を上げるリリースPRを作る。書き込み権限を持つreleaseジョブはdetectに依存し、actionがreleaseの場合だけ公開する。ワークフロー全体をconcurrencyグループreleaseで直列化し、cancel-in-progressはfalseとする。
 
 派生元: SPEC-REL-001

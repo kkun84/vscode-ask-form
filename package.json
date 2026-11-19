@@ -21,7 +21,7 @@
     "build": "node scripts/build.ts",
     "manifest": "node scripts/manifest.ts",
     "typecheck": "node scripts/typecheck.ts",
-    "lint": "oxlint --deny-warnings && oxfmt --check && fallow --fail-on-issues && markdownlint-cli2 && node scripts/no-comments.ts && node scripts/manifest.ts --check && node scripts/traceability.ts",
+    "lint": "oxlint --deny-warnings && oxfmt --check && fallow --fail-on-issues && markdownlint-cli2 && node scripts/no-comments.ts && node scripts/manifest.ts --check && node scripts/changelog-check.ts && node scripts/traceability.ts",
     "format": "oxfmt",
     "test:unit": "node scripts/timed.ts unit node --test --test-timeout=5000 \"test/unit/**/*.test.ts\"",
     "test:system": "pnpm -s build && node scripts/timed.ts system node --test --test-timeout=5000 \"test/system/**/*.test.ts\"",

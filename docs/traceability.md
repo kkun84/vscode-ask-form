@@ -26,7 +26,7 @@
 | REQ-SEC-001 | 回答を偽装されない | - | SPEC-MCP-009, SPEC-UI-010, SPEC-EXT-001 | MAT-SEC-001 |
 | REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | MAT-LOOK-001 |
 | REQ-A11Y-001 | 支援技術で使える | - | SPEC-UI-008 | MAT-LOOK-001 |
-| REQ-DIST-001 | リリースを配布する | - | SPEC-REL-001 | MAT-DIST-001 |
+| REQ-DIST-001 | リリースを配布する | - | SPEC-REL-001, SPEC-REL-002 | MAT-DIST-001 |
 
 ## システム仕様
 
@@ -63,7 +63,8 @@
 | SPEC-EXT-006 | MCPを使わない環境 | REQ-ENV-001 | - | `test/system/extension.test.ts` |
 | SPEC-EXT-007 | 利用者が不在の設定 | REQ-WAIT-002 | ARCH-EFFECT-001, ARCH-PORT-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-005 | 起動・サイズ・検査の予算 | REQ-PERF-001 | ARCH-LAYER-002, ARCH-LAYER-006, ARCH-DEPS-001, DES-TOOLS-001 | `test/system/extension.test.ts`, `test/system/process.test.ts` |
-| SPEC-REL-001 | 配布前の検査と公開 | REQ-DIST-001 | ARCH-REL-001, DES-REL-001 | `test/system/release-check.test.ts`, `test/system/release-workflow.test.ts` |
+| SPEC-REL-001 | 配布前の検査と公開 | REQ-DIST-001 | ARCH-REL-001, DES-REL-001 | `test/system/release-check.test.ts`, `test/system/release-prepare.test.ts`, `test/system/release-workflow.test.ts` |
+| SPEC-REL-002 | 変更履歴の項目の検査 | REQ-DIST-001 | DES-REL-002 | `test/system/changelog-check.test.ts` |
 
 ## アーキテクチャ設計
 
@@ -108,3 +109,4 @@
 | DES-TOOLS-001 | 時間の予算による終了 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/process.test.ts` |
 | DES-TOOLS-002 | web受け入れテストの完了 | SPEC-EXT-004, ARCH-UI-001 | - | `test/unit/web-completion.test.ts` |
 | DES-REL-001 | 版数と変更履歴の検査 | SPEC-REL-001, ARCH-REL-001 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |
+| DES-REL-002 | 変更履歴の項目の検査 | SPEC-REL-002 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |
