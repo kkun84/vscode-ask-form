@@ -169,8 +169,9 @@
 - `scripts/release-check.ts`がNode.jsのファイル操作と環境変数を扱い、検査結果をワークフローへ渡す。パッケージ用スクリプト末尾のvsceに`--pre-release`を渡し、GitHub Releasesには`--prerelease`、MarketplaceとOpen VSXには`--pre-release`を渡す。
 
 - detectはpackage.jsonからversionと`v<version>`のtag、対象のshaを出力する。`git ls-remote --exit-code origin refs/heads/main`のコミットがshaと違えばaction=noneとする。`git ls-remote --exit-code --tags origin "refs/tags/$TAG"`の終了コード0ならaction=bump、2ならaction=releaseを出力する。それ以外は失敗とする。
-- `scripts/release.ts`の`prepareRelease`は、`## 未リリース`に箇条書きがなければ`undefined`を返し、あれば次の版数と書き換えたCHANGELOGを返す。`scripts/release-prepare.ts`がpackage.jsonの`"version"`の値とCHANGELOG.mdを書き換え、versionをGITHUB_OUTPUTに出す。bumpはversionがあればコミットして`HEAD:refs/heads/main`にpushし、tagとshaを出力する。
-- releaseはbumpかdetectのtagを検査CLIの第1引数と公開に使い、同じくshaをcheckoutし、`gh release create`の`--target "$SHA"`でタグを作る。
+- `scripts/release.ts`の`prepareRelease`は、`## 未リリース`に箇条書きがなければ`undefined`を返し、あれば次の版数と書き換えたCHANGELOGを返す。`scripts/release-prepare.ts`がpackage.jsonの`"version"`の値とCHANGELOG.mdを書き換え、versionをGITHUB_OUTPUTに出す。
+- bumpは`actions/create-github-app-token`でContentsとPull requestsに書き込めるトークンを作り、checkoutと`gh`に使う。versionがあれば、Appのbotユーザーとしてコミットして`release/next`にforce pushし、検査CLIで書き出した対象版の本文をPRの説明にする。`release/next`から開いたPRが無ければ作り、あれば更新し、`gh pr merge --auto --squash`でauto-mergeを設定する。
+- releaseはdetectのtagを検査CLIの第1引数と公開に使い、detectのshaをcheckoutし、`gh release create`の`--target "$SHA"`でタグを作る。
 
 派生元: SPEC-REL-001, ARCH-REL-001
 

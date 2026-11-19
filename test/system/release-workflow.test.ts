@@ -7,22 +7,22 @@ import { test } from "node:test"
 
 const workflow = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8")
 
-test("ARCH-REL-001 読み取り専用の検出後に版数を上げて公開しワークフロー全体を直列化する", () => {
+test("ARCH-REL-001 GITHUB_TOKENの書き込みは公開だけに使い、版数はAppのPRで上げ、ワークフロー全体を直列化する", () => {
   assert.match(workflow, /concurrency:\n  group: release\n  cancel-in-progress: false/)
-  const detect = workflow.split("  bump:\n")[0] ?? ""
+  const [detect = "", rest = ""] = workflow.split("  bump:\n")
+  const [bump = "", release = ""] = rest.split("  release:\n")
   assert.match(detect, /jobs:\n  detect:/)
   assert.match(detect, /    permissions:\n      contents: read/)
   assert.doesNotMatch(detect, /contents: write/)
-  const bump = workflow.split("  bump:\n")[1]?.split("  release:\n")[0] ?? ""
-  assert.match(bump, /    needs: detect\n    if: needs.detect.outputs.action == 'bump'/)
-  assert.match(bump, /    permissions:\n      contents: write\n    outputs:/)
-  assert.match(
-    workflow,
-    /  release:\n    needs: \[detect, bump\]\n    if: \$\{\{ !cancelled\(\) && \(needs.detect.outputs.action == 'release' \|\| needs.bump.outputs.tag != ''\) \}\}/
-  )
+  assert.match(bump, /^    needs: detect\n    if: needs.detect.outputs.action == 'bump'/)
+  assert.match(bump, /    permissions:\n      contents: read\n/)
+  assert.doesNotMatch(bump, /(?<!-)contents: write|GITHUB_TOKEN|github.token/)
+  assert.match(bump, /permission-contents: write\n          permission-pull-requests: write/)
+  assert.match(release, /^    needs: detect\n    if: needs.detect.outputs.action == 'release'/)
+  assert.match(release, /      contents: write/)
 })
 
-test("SPEC-REL-001 mainの先頭だけを扱い、タグが無ければ公開し、あれば版数を上げ、照会失敗を伝える", async () => {
+test("SPEC-REL-001 mainの先頭だけを扱い、タグが無ければ公開し、あれば版数を上げるPRに回し、照会失敗を伝える", async () => {
   const directory = await mkdtemp(join(tmpdir(), "release-detect-"))
   const script = workflow.split("        run: |\n")[1]?.split("  bump:\n")[0]
   assert.ok(script)

@@ -61,37 +61,55 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
-      contents: write
-    outputs:
-      tag: ${{ steps.bump.outputs.tag }}
-      sha: ${{ steps.bump.outputs.sha }}
+      contents: read
+    env:
+      BRANCH: release/next
     steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.detect.outputs.sha }}
+          token: ${{ steps.app.outputs.token }}
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
       - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
       - name: Bump the prerelease version
         id: prepare
         run: node scripts/release-prepare.ts
-      - name: Commit the version to main
-        id: bump
+      - name: Open the release pull request
         if: steps.prepare.outputs.version != ''
         env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "${VERSION}をプレリリースとして配布する"
-          git push origin HEAD:refs/heads/main
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          TITLE="${VERSION}をプレリリースとして配布する"
+          USER_ID=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -am "$TITLE"
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          GITHUB_OUTPUT=/dev/null node scripts/release-check.ts "v$VERSION" "$RUNNER_TEMP/notes.md"
+          { printf 'mainのCIが成功すると自動でマージし、プレリリースとして公開します。\n\n'; cat "$RUNNER_TEMP/notes.md"; } > "$RUNNER_TEMP/body.md"
+          NUMBER=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          if [[ -z "$NUMBER" ]]; then
+            gh pr create --head "$BRANCH" --base main --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr edit "$NUMBER" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+          fi
+          gh pr merge "$BRANCH" --auto --squash
   release:
-    needs: [detect, bump]
-    if: ${{ !cancelled() && (needs.detect.outputs.action == 'release' || needs.bump.outputs.tag != '') }}
+    needs: detect
+    if: needs.detect.outputs.action == 'release'
     env:
-      TAG: ${{ needs.bump.outputs.tag || needs.detect.outputs.tag }}
-      SHA: ${{ needs.bump.outputs.sha || needs.detect.outputs.sha }}
+      TAG: ${{ needs.detect.outputs.tag }}
+      SHA: ${{ needs.detect.outputs.sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

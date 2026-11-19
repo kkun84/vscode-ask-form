@@ -10,7 +10,7 @@
 
 ## プレリリースを出す条件
 
-プレリリースは、mainへのマージごとに自動で出します。次の条件をすべて満たすと、リリースのワークフローが版数を上げて公開します。
+プレリリースは、mainへのマージごとに自動で出します。次の条件をすべて満たすと、リリースのワークフローが版数を上げるリリースPRを作り、そのPRがマージされると公開します。
 
 - mainのCIが、実機のVS Codeでの受け入れテストを含めて成功している。
 - CIが成功したコミットが、その時点のmainの先頭である。
@@ -36,11 +36,20 @@
 
 1. package.jsonのversionを上げます。minorが奇数ならpatchを1つ上げ(`0.3.0`→`0.3.1`)、偶数なら次の奇数のminorの`.0`にします(`0.4.2`→`0.5.0`)。
 2. CHANGELOG.mdの`## 未リリース`を`## <version>`に書き換え、その上に空の`## 未リリース`を置きます。
-3. この2つの変更を`github-actions[bot]`のコミットとしてmainにpushし、そのコミットに`v<version>`のタグとリリースを作ります。
+3. この2つの変更をGitHub Appのコミットとして`release/next`ブランチにforce pushし、mainへのリリースPRを作ります。既に開いていれば、タイトルと説明を更新します。PRにはauto-mergeを設定します。
+4. リリースPRのCIが成功するとsquashでマージされ、mainのCIが成功すると、そのコミットに`v<version>`のタグとリリースを作ります。
 
-`GITHUB_TOKEN`でpushしたコミットでは、CIは動きません。版数を上げるコミットが変えるのはpackage.jsonとCHANGELOG.mdだけで、リリースのワークフローが公開の前にテストを実行し直します。
+リリースPRがマージされる前に別のPRがmainに入ると、そのmainのCIの成功で`release/next`を作り直し、新しい項目もリリースPRに含めます。
 
-mainのブランチ保護やルールセットで直接のpushを禁じている場合は、GitHub Actionsを例外に加えます。例外が無いとpushが拒否され、プレリリースは出ません。pushの前にmainが先へ進んだ場合もpushが拒否されます。この場合は次のマージのCIで改めて公開します。
+### リリース用のGitHub App
+
+版数を上げるコミットとリリースPRは、GitHub Appのトークンで作ります。`GITHUB_TOKEN`で作ったPRとpushでは、CIのワークフローが動かないためです。
+
+1. 個人のアカウントにGitHub Appを作ります。Repository permissionsはContentsとPull requestsをRead and writeにします。Webhookは要りません。
+2. Appをこのリポジトリだけにインストールします。
+3. AppのClient IDをリポジトリのVariablesに`RELEASE_APP_CLIENT_ID`として、秘密鍵をSecretsに`RELEASE_APP_PRIVATE_KEY`として登録します。
+4. リポジトリのSettingsでAllow auto-mergeを有効にします。
+5. mainにルールセットを作り、PRを必須にし、CIの`check`とChangelogの`entry`を必須のステータスチェックにします。Bypass listには何も加えません。
 
 ### 正式リリースと修正版
 
