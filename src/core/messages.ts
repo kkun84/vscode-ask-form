@@ -8,7 +8,6 @@ const ja = {
   hold: "保留",
   holdHint: "今は決めません。Copilotは値を決めつけずに進め、必要になったら聞き直します。",
   held: "保留",
-  onHold: "保留",
   details: "詳細",
   note: "補足を書く",
   noted: "補足",
@@ -19,32 +18,20 @@ const ja = {
   detailsOf: (label: string) => `${label}の詳しい説明`,
   whyRecommended: "推奨の理由",
   recommendedWas: (value: string) => `推奨: ${value}`,
-  previously: (value: string) => `前回: ${value}`,
   backToRecommended: "推奨に戻す",
   answered: "送信しました",
-  placed: "チャットの入力欄に入れました。内容を確かめて送信してください",
   answeredInChat: "回答せずに閉じました",
   unavailable: "質問に自動で応じる設定(chat.autoReply)が有効なため、質問せずに進めました",
   cancelled: "キャンセルされました",
   expired: "この質問は終了しています",
-  editAndResend: "変更して送り直す",
-  resend: "変更を送信",
-  cancel: "キャンセル",
-  noChanges: "変更はまだありません",
   unanswered: (labels: ReadonlyArray<string>) => `答えるか保留にしてください: ${labels.join("、")}`,
-  changedCount: (n: number) => `${n}項目を変更`,
   waiting: "回答を待っています",
   sending: "送信中…",
   none: "なし",
   empty: "(空欄)",
   listSeparator: "、",
   yes: "はい",
-  no: "いいえ",
-  sendFailed: "送信できませんでした",
-  openConversation: "このフォームのある会話を開き、入力欄を空にしてから、もう一度送ってください",
-  resendSentence: (changes: ReadonlyArray<string>, title: string) =>
-    `「${title}」で${changes.join("、")}に変えたので、反映して続けてください。`,
-  changeTo: (label: string, value: string) => `${label}を${value}`
+  no: "いいえ"
 }
 
 const en: typeof ja = {
@@ -53,7 +40,6 @@ const en: typeof ja = {
   hold: "Decide later",
   holdHint: "Leave this undecided for now. Copilot will not assume a value and will ask again when it needs one.",
   held: "On hold",
-  onHold: "on hold",
   details: "Details",
   note: "Add a note",
   noted: "Note",
@@ -64,32 +50,20 @@ const en: typeof ja = {
   detailsOf: (label: string) => `Details for ${label}`,
   whyRecommended: "Why recommended",
   recommendedWas: (value: string) => `Recommended: ${value}`,
-  previously: (value: string) => `Before: ${value}`,
   backToRecommended: "Use recommended",
   answered: "Sent",
-  placed: "Placed in the chat input. Review it before sending.",
   answeredInChat: "Closed without answering",
   unavailable: "Not asked: the chat.autoReply setting is on, so Copilot continued without your answer",
   cancelled: "Cancelled",
   expired: "This question has ended",
-  editAndResend: "Edit and resend",
-  resend: "Send changes",
-  cancel: "Cancel",
-  noChanges: "No changes yet",
   unanswered: (labels: ReadonlyArray<string>) => `Answer these or choose to decide later: ${labels.join(", ")}`,
-  changedCount: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
   waiting: "Waiting for your answer",
   sending: "Sending…",
   none: "None",
   empty: "(empty)",
   listSeparator: ", ",
   yes: "Yes",
-  no: "No",
-  sendFailed: "Could not send",
-  openConversation: "Open the conversation with this form and clear its input, then send again",
-  resendSentence: (changes: ReadonlyArray<string>, title: string) =>
-    `In "${title}", I changed ${changes.join(", ")}. Please apply it and continue.`,
-  changeTo: (label: string, value: string) => `${label} to ${value}`
+  no: "No"
 }
 
 export type Messages = typeof ja

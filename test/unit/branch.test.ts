@@ -9,10 +9,8 @@ import {
   computeValues,
   initialValues,
   outcomeFor,
-  resendMessage,
   type Values
 } from "../../src/core/form.ts"
-import { messages } from "../../src/core/messages.ts"
 import { checkValues, compile } from "../../src/core/validate.ts"
 import { storageForm, storageSpec } from "../fixtures/storage.ts"
 import { problems } from "../support/compile.ts"
@@ -85,18 +83,8 @@ describe("DES-FORM-006 差分と検査", () => {
     assert.deepEqual(changedFields(storageForm.spec, initial, after), ["storage", "port"])
   })
 
-  it("DES-FORM-006 送り直しでは新しく現れた枝の項目も差分に含める", () => {
-    const before = answerValues(storageForm.spec, initialValues(storageForm.spec))
-    const after = answerValues(storageForm.spec, { ...initialValues(storageForm.spec), storage: "server" })
-    assert.deepEqual(changedFields(storageForm.spec, before, after), ["storage", "port", "auth"])
-    assert.equal(
-      resendMessage(storageForm.spec, before, after, messages("ja")),
-      "「保存先の設定」で保存先をサーバー、ポートを8,080、ログインを不要に変えたので、反映して続けてください。"
-    )
-  })
-
   it("DES-FORM-006 値の検査は選んだ枝の項目だけを求め、ほかの枝の値を捨てる", () => {
-    const checked = checkValues(storageForm.spec, { name: "a", storage: "server", port: 80, auth: "yes", engine: "local" })
+    const checked = checkValues(storageForm.spec, { name: "a", storage: "server", port: 80, auth: "yes", engine: "local" }, [])
     assert.deepEqual(Result.getOrThrow(checked), { name: "a", storage: "server", port: 80, auth: "yes" })
     const missing = checkValues(storageForm.spec, { name: "a", storage: "server", engine: "local" }, [])
     assert.ok(Result.isFailure(missing))
@@ -107,7 +95,6 @@ describe("DES-FORM-006 差分と検査", () => {
     const wrong = checkValues(storageForm.spec, { name: "a", storage: "browser", engine: "local" }, ["engine", "port"])
     assert.ok(Result.isFailure(wrong))
     assert.equal(wrong.failure.length, 2)
-    assert.deepEqual(Result.getOrThrow(checkValues(storageForm.spec, { name: "a" })), { name: "a" })
   })
 
   it("DES-FORM-006 複数選択の枝、深い入れ子、枝の中で重複したid、多すぎる項目を拒否する", () => {

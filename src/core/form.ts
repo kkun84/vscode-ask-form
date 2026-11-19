@@ -165,17 +165,6 @@ export const describeComputed = (item: Computed, value: Value | null | undefined
   return affixed(value, item.prefix, item.suffix)
 }
 
-export const resendMessage = (spec: FormSpec, before: Values, after: Values, m: Messages): string | undefined => {
-  const changed = changedFields(spec, before, after)
-  if (changed.length === 0) {
-    return undefined
-  }
-  const parts = activeFields(spec, after)
-    .filter((field) => changed.includes(field.id))
-    .map((field) => m.changeTo(field.label, isBlank(field, after[field.id]) ? m.onHold : describeValue(field, after[field.id], m)))
-  return m.resendSentence(parts, spec.title)
-}
-
 export type Outcome =
   | {
       readonly status: "submitted"
@@ -218,10 +207,4 @@ export const outcomeText = (outcome: Outcome): string => {
     case "unavailable":
       return `The form was not shown, or was withdrawn while it waited: the user turned on the chat.autoReply setting, so they are not available to answer and will review your work later. Do not ask these questions again in this turn. Continue with the values you recommended as defaults; where you gave no default, use your best judgment and tell the user which assumptions you made.\n${json}`
   }
-}
-
-export const attachmentName = (title: string): string => {
-  const normalized = title.replaceAll(/[^\p{L}\p{N}]+/gu, "-").replaceAll(/^-|-$/g, "")
-  const slug = [...normalized].slice(0, 40).join("")
-  return `${slug === "" ? "form" : slug}.json`
 }

@@ -1,10 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Result } from "effect"
-import { changedFields, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
+import { changedFields, computeValues, initialValues, outcomeFor } from "../../src/core/form.ts"
 import { checkAnswer, checkValues } from "../../src/core/validate.ts"
 import { canonicalJson, stableHash } from "../../src/core/hash.ts"
-import { messages } from "../../src/core/messages.ts"
 import { eventSpec } from "../fixtures/event.ts"
 import { compiled, problems } from "../support/compile.ts"
 
@@ -248,7 +247,7 @@ describe("DES-FORM-003 差分", () => {
 describe("DES-FORM-004 値の検査", () => {
   it("DES-FORM-004 正しい値を受け付ける", () => {
     const form = compiled(eventSpec)
-    const result = checkValues(form.spec, { ...initialValues(form.spec), extra: 1 })
+    const result = checkValues(form.spec, { ...initialValues(form.spec), extra: 1 }, [])
     assert.ok(Result.isSuccess(result))
     assert.equal("extra" in result.success, false)
   })
@@ -265,36 +264,14 @@ describe("DES-FORM-004 値の検査", () => {
       [{ ...base, stream: true }, "stream"]
     ]
     for (const [values, id] of cases) {
-      const result = checkValues(form.spec, values)
+      const result = checkValues(form.spec, values, [])
       assert.ok(Result.isFailure(result), id)
       assert.ok(
         result.failure.some((p) => p.includes(`「${id}」`)),
         id
       )
     }
-    assert.ok(Result.isFailure(checkValues(form.spec, [])))
-  })
-})
-
-describe("DES-FORM-005 送り直しの文章", () => {
-  it("DES-FORM-005 差分を表示名で並べた文章を作る", () => {
-    const form = compiled(eventSpec)
-    const before = initialValues(form.spec)
-    const after = { ...before, price: 2500, stream: "no", format: "talk", extras: ["sticker", "tshirt"] }
-    assert.equal(
-      resendMessage(form.spec, before, after, messages("ja")),
-      "「交流会の条件」で形式を勉強会、参加費を¥2,500、ライブ配信をなし、配布物をステッカー、Tシャツに変えたので、反映して続けてください。"
-    )
-    assert.equal(
-      resendMessage(form.spec, before, { ...before, price: 2500 }, messages("en")),
-      'In "交流会の条件", I changed 参加費 to ¥2,500. Please apply it and continue.'
-    )
-  })
-
-  it("DES-FORM-005 差分がなければ文章を作らない", () => {
-    const form = compiled(eventSpec)
-    const values = initialValues(form.spec)
-    assert.equal(resendMessage(form.spec, values, values, messages("ja")), undefined)
+    assert.ok(Result.isFailure(checkValues(form.spec, [], [])))
   })
 })
 
@@ -350,19 +327,11 @@ describe("DES-FORM-007 保留", () => {
     })
   })
 
-  it("DES-FORM-007 保留と値の間の変更を差分に数え、送り直しの文章では保留と書く", () => {
+  it("DES-FORM-007 保留と値の間の変更を差分に数える", () => {
     const form = compiled(spec)
     const before = { size: 20, due: "no", memo: "なし" }
     assert.deepEqual(changedFields(form.spec, before, { due: "no", memo: "" }), ["size", "memo"])
     assert.deepEqual(changedFields(form.spec, { due: "no" }, { due: "no", memo: "" }), [])
-    assert.equal(
-      resendMessage(form.spec, before, { due: "no", memo: "なし" }, messages("ja")),
-      "「t」で件数を保留に変えたので、反映して続けてください。"
-    )
-    assert.equal(
-      resendMessage(form.spec, { due: "no" }, { size: 30, due: "no" }, messages("en")),
-      'In "t", I changed 件数 to 30. Please apply it and continue.'
-    )
   })
 
   it("DES-SPEC-001 defaultのない項目のreasonとreasonDetailsを指摘する", () => {

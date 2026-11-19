@@ -1,6 +1,5 @@
 import {
   activeFields,
-  allFields,
   answerValues,
   changedFields,
   computeValues,
@@ -30,7 +29,6 @@ type Phase =
   | { readonly kind: "invalid"; readonly message: string }
   | { readonly kind: "answering" }
   | { readonly kind: "summary"; readonly status: Status }
-  | { readonly kind: "resending" }
   | { readonly kind: "closed"; readonly reason: "cancelled" | "expired" }
 
 type Action = "submit" | "chat"
@@ -115,18 +113,13 @@ const affix = (content: string | undefined): HTMLElement | null => (content === 
 export class FormApp {
   private phase: Phase = { kind: "loading" }
   private m: Messages = messages("en")
-  private locale: string | undefined
   private form: CompiledForm | undefined
-  private rawSpec: Readonly<Record<string, unknown>> = {}
   private values: Record<string, FieldValue> = {}
   private readonly held = new Set<string>()
   private initial: Values = {}
-  private remembered: Values = {}
-  private baseline: Values = {}
   private summaryValues: Values = {}
   private note = ""
   private noteOpen = false
-  private placed = false
   private busy = false
   private error: string | undefined
   private bridge: Bridge | undefined
@@ -164,7 +157,6 @@ export class FormApp {
 
   setContext(context: HostContext): void {
     if (context.locale !== undefined) {
-      this.locale = context.locale
       this.m = messages(languageOf(context.locale))
       document.documentElement.lang = languageOf(context.locale)
     }
@@ -186,15 +178,11 @@ export class FormApp {
       return
     }
     this.form = form
-    this.rawSpec = args
     this.initial = initialValues(form.spec)
-    this.remembered = this.initial
     this.values = { ...this.initial }
-    this.baseline = this.initial
     this.summaryValues = this.initial
     this.note = ""
     this.noteOpen = false
-    this.placed = false
     this.held.clear()
     this.folded.clear()
     this.showMissing = false
@@ -217,16 +205,12 @@ export class FormApp {
     }
     const content = result.structuredContent ?? {}
     const status = content["status"]
-    if (!isStatus(status) || this.phase.kind === "resending") {
+    if (!isStatus(status)) {
       return
     }
     const values = content["values"]
     if (values !== undefined && typeof values === "object" && values !== null && this.form !== undefined) {
-      this.remembered = { ...this.values }
-      this.baseline = values as Values
-      this.summaryValues = this.baseline
-      this.placed = false
-      this.restore(this.baseline)
+      this.summaryValues = values as Values
       this.note = typeof content["note"] === "string" ? content["note"] : ""
     }
     this.phase = { kind: "summary", status }
@@ -240,7 +224,7 @@ export class FormApp {
     }
   }
 
-  private async whileBusy(task: (bridge: Bridge) => Promise<void>, failurePrefix = ""): Promise<void> {
+  private async whileBusy(task: (bridge: Bridge) => Promise<void>): Promise<void> {
     if (this.bridge === undefined || this.busy) {
       return
     }
@@ -251,7 +235,7 @@ export class FormApp {
     try {
       await task(this.bridge)
     } catch (error) {
-      this.error = `${failurePrefix}${error instanceof Error ? error.message : String(error)}`
+      this.error = error instanceof Error ? error.message : String(error)
     } finally {
       this.busy = false
       this.render()
@@ -270,10 +254,7 @@ export class FormApp {
       this.error = resultText(result)
       return
     }
-    this.remembered = { ...this.values }
-    this.baseline = values
-    this.summaryValues = this.baseline
-    this.values = this.editable(this.baseline)
+    this.summaryValues = values
     this.note = this.note.trim()
     this.phase = { kind: "summary", status: statusOf[action] }
   }
@@ -314,85 +295,12 @@ export class FormApp {
     })
   }
 
-  private resend(): Promise<void> {
-    if (this.changedSinceAnswer().length === 0 || (this.form !== undefined && this.blockUnanswered(this.form))) {
-      return Promise.resolve()
-    }
-    const after = this.answered(this.current())
-    return this.whileBusy(async (bridge) => {
-      const result = await bridge.callTool("form_resend", {
-        spec: this.rawSpec,
-        before: this.baseline,
-        after,
-        ...(this.locale === undefined ? {} : { locale: this.locale })
-      })
-      if (result.isError === true) {
-        this.error = `${this.m.sendFailed}: ${resultText(result)}`
-        return
-      }
-      const failure = await this.deliver(bridge, result)
-      if (failure === undefined) {
-        this.remembered = { ...this.values }
-        this.summaryValues = after
-        this.placed = true
-        this.values = this.editable(after)
-        this.phase = { kind: "summary", status: "submitted" }
-      } else {
-        this.error = failure
-      }
-    }, `${this.m.sendFailed}: `)
-  }
-
-  private async deliver(bridge: Bridge, result: ToolResult): Promise<string | undefined> {
-    const message = result.structuredContent as
-      | { readonly text?: unknown; readonly attachment?: { readonly uri: string; readonly name: string } }
-      | undefined
-    if (typeof message?.text !== "string" || message.attachment === undefined) {
-      return this.m.sendFailed
-    }
-    const placed = await bridge.placeMessage([
-      { type: "text", text: message.text },
-      { type: "resource_link", uri: message.attachment.uri, name: message.attachment.name, mimeType: "application/json" }
-    ])
-    if (!placed) {
-      return this.m.openConversation
-    }
-    return undefined
-  }
-
   private answered(values: Values): Values {
     return this.form === undefined ? values : answerValues(this.form.spec, values)
   }
 
-  private editable(values: Values): Record<string, FieldValue> {
-    return { ...this.initial, ...this.remembered, ...values }
-  }
-
   private current(): Values {
     return this.form === undefined ? this.values : withoutHeld(this.form.spec, this.values, this.held)
-  }
-
-  private restore(answer: Values): void {
-    const form = this.form
-    if (form === undefined) {
-      return
-    }
-    this.values = this.editable(answer)
-    for (const field of activeFields(form.spec, answer)) {
-      this.held.delete(field.id)
-      if (answer[field.id] !== undefined) {
-        continue
-      }
-      if (field.type === "text") {
-        this.values[field.id] = ""
-      } else {
-        this.held.add(field.id)
-      }
-    }
-  }
-
-  private changedSinceAnswer(): ReadonlyArray<string> {
-    return this.form === undefined ? [] : changedFields(this.form.spec, this.baseline, this.current())
   }
 
   private setValue(id: string, value: FieldValue): void {
@@ -458,12 +366,11 @@ export class FormApp {
       case "summary":
         return this.summary(phase.status)
       case "answering":
-      case "resending":
-        return this.formView(phase.kind)
+        return this.formView()
     }
   }
 
-  private formView(mode: "answering" | "resending"): HTMLElement {
+  private formView(): HTMLElement {
     const form = this.form
     if (form === undefined) {
       return h("p", { class: "notice" }, this.m.waiting)
@@ -499,8 +406,8 @@ export class FormApp {
             )
           ),
       (spec.computed ?? []).length === 0 ? null : this.computedView(),
-      mode === "answering" ? this.noteView() : null,
-      mode === "answering" ? this.answerFooter() : this.resendFooter()
+      this.noteView(),
+      this.answerFooter()
     )
     this.live.form = element
     on(element, "submit", (event) => {
@@ -513,20 +420,10 @@ export class FormApp {
       if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault()
         event.target?.dispatchEvent(new Event("change"))
-        void (mode === "answering" ? this.answer("submit") : this.resend())
-      } else if (event.key === "Escape" && mode === "resending" && !this.busy && this.changedSinceAnswer().length === 0) {
-        event.preventDefault()
-        this.cancelResend()
+        void this.answer("submit")
       }
     })
     return element
-  }
-
-  private cancelResend(): void {
-    this.restore(this.summaryValues)
-    this.error = undefined
-    this.phase = { kind: "summary", status: "submitted" }
-    this.render()
   }
 
   private reveal(field: ChoiceField, option: ChoiceField["options"][number]): HTMLElement | null {
@@ -842,10 +739,6 @@ export class FormApp {
     )
   }
 
-  private resendFooter(): HTMLElement {
-    return this.footer(this.m.resend, () => void this.resend(), [this.ghost(this.m.cancel, () => this.cancelResend())], [])
-  }
-
   private summary(status: Status): HTMLElement {
     const form = this.form
     const title = { submitted: this.m.answered, answer_in_chat: this.m.answeredInChat, unavailable: this.m.unavailable }[status]
@@ -853,17 +746,7 @@ export class FormApp {
       "div",
       { class: "summary-head" },
       h("span", { class: "check", "aria-hidden": "true" }, "✓"),
-      h("span", { tabindex: -1, "data-focus": true }, title),
-      form === undefined || status !== "submitted"
-        ? null
-        : on(h("button", { type: "button", class: "link" }, this.m.editAndResend), "click", () => {
-            this.phase = { kind: "resending" }
-            this.folded.clear()
-            for (const field of allFields(this.form?.spec ?? { title: "", fields: [] })) {
-              this.folded.add(field.id)
-            }
-            this.render()
-          })
+      h("span", { tabindex: -1, "data-focus": true }, title)
     )
     if (form === undefined || status !== "submitted") {
       return h("section", { class: "card summary", role: "status" }, head)
@@ -885,38 +768,27 @@ export class FormApp {
       )
     )
     const noted =
-      this.note === "" || this.placed
-        ? null
-        : h("div", { class: "summary-row" }, h("dt", {}, this.m.noted), h("dd", { class: "noted" }, this.note))
-    return h(
-      "section",
-      { class: "card summary" },
-      head,
-      h("dl", {}, rows, noted),
-      this.placed ? h("p", { class: "notice", role: "status" }, this.m.placed) : null,
-      this.error === undefined ? null : h("p", { class: "error", role: "alert" }, this.error)
-    )
+      this.note === "" ? null : h("div", { class: "summary-row" }, h("dt", {}, this.m.noted), h("dd", { class: "noted" }, this.note))
+    return h("section", { class: "card summary" }, head, h("dl", {}, rows, noted))
   }
 
-  private refreshCards(sinceAnswer: ReadonlyArray<string>): void {
+  private refreshCards(): void {
     if (this.form === undefined) {
       return
     }
     const current = this.current()
     const sinceRecommended = changedFields(this.form.spec, this.initial, current)
-    const missing =
-      this.phase.kind === "answering" || this.phase.kind === "resending"
-        ? unansweredFields(this.form.spec, current, this.held).map((field) => field.id)
-        : []
+    const missing = new Set(unansweredFields(this.form.spec, current, this.held).map((field) => field.id))
     const held = heldFields(this.form.spec, current)
     for (const card of this.live.cards) {
-      const unanswered = missing.includes(card.field.id)
+      const unanswered = missing.has(card.field.id)
       markInvalid(card.element, unanswered && this.showMissing)
       card.answer.replaceChildren(
         unanswered
           ? this.missingTag()
-          : (this.resendTag(card.field, sinceAnswer.includes(card.field.id)) ??
-              (held.includes(card.field.id) && card.field.type === "text" ? h("span", { class: "held-tag" }, this.m.held) : ""))
+          : held.includes(card.field.id) && card.field.type === "text"
+            ? h("span", { class: "held-tag" }, this.m.held)
+            : ""
       )
       if (card.back !== null) {
         card.back.hidden = !sinceRecommended.includes(card.field.id)
@@ -930,12 +802,6 @@ export class FormApp {
 
   private initialText(field: Field): string | undefined {
     return field.default === undefined ? undefined : describeValue(field, this.initial[field.id], this.m)
-  }
-
-  private resendTag(field: Field, changedSinceAnswer: boolean): HTMLElement | null {
-    return this.phase.kind === "resending" && changedSinceAnswer
-      ? h("span", { class: "muted" }, this.m.previously(describeValue(field, this.baseline[field.id], this.m)))
-      : null
   }
 
   private refreshComputed(form: CompiledForm): void {
@@ -959,17 +825,11 @@ export class FormApp {
     }
   }
 
-  private statusText(sinceAnswer: ReadonlyArray<string>): string {
+  private statusText(): string {
     if (this.error !== undefined) {
       return this.error
     }
-    if (this.busy) {
-      return this.m.sending
-    }
-    if (this.phase.kind !== "resending") {
-      return ""
-    }
-    return sinceAnswer.length === 0 ? this.m.noChanges : this.m.changedCount(sinceAnswer.length)
+    return this.busy ? this.m.sending : ""
   }
 
   private refresh(): void {
@@ -977,21 +837,20 @@ export class FormApp {
     if (form === undefined) {
       return
     }
-    const sinceAnswer = this.changedSinceAnswer()
     for (const branch of this.live.branches) {
       branch.element.hidden = this.held.has(branch.id) || this.values[branch.id] !== branch.value
     }
-    this.refreshCards(sinceAnswer)
+    this.refreshCards()
     this.refreshComputed(form)
     if (this.live.status !== undefined) {
-      this.live.status.textContent = this.statusText(sinceAnswer)
+      this.live.status.textContent = this.statusText()
       this.live.status.classList.toggle("error", this.error !== undefined)
     }
     if (this.live.form !== undefined) {
       this.live.form.inert = this.busy
     }
     if (this.live.primary !== undefined) {
-      this.live.primary.disabled = this.busy || (this.phase.kind === "resending" && sinceAnswer.length === 0)
+      this.live.primary.disabled = this.busy
     }
   }
 }

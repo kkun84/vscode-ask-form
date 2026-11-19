@@ -5,8 +5,8 @@ import type { ElectronApplication, Frame, Locator, Page } from "@playwright/test
 import { todoSpec } from "../fixtures/todo.ts"
 import { startFakeLlm } from "./fake-llm.ts"
 import { formFrame, sleep, until } from "./frames.ts"
-import { Pointer, Recorder, typeNumber, run } from "./recording.ts"
-import { followUp, query, reply } from "./stage-content.ts"
+import { Pointer, Recorder, run } from "./recording.ts"
+import { query, reply } from "./stage-content.ts"
 import { cleanUp, closeApp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
 
 export interface MediaPaths extends VscodePaths {
@@ -142,25 +142,6 @@ const scenario = async (page: Page, pointer: Pointer, images: string, recorder: 
   regions["answered"] = await regionOf(frame.locator("body"), page.locator(".interactive-response").last())
   await sleep(1500)
   await shoot(page, images, "answered")
-  recorder.mark("resend")
-  await pointer.click(frame.getByRole("button", { name: "変更して送り直す" }))
-  await sleep(900)
-  await typeNumber(pointer, recorder, frame, "1ページの件数", "50")
-  await sleep(1500)
-  await pointer.click(frame.getByRole("button", { name: "変更を送信" }))
-  await frame.locator(".summary .notice").waitFor()
-  recorder.mark("placed")
-  regions["placed"] = await regionOf(frame.locator(".summary .notice"), page.locator(".interactive-input-part").last())
-  await sleep(2800)
-  await shoot(page, images, "placed")
-  recorder.mark("send-resend")
-  const send = page.locator(".interactive-input-part").last().getByRole("button", { name: /^送信/ }).first()
-  await pointer.click(send)
-  await page
-    .locator(".interactive-response", { hasText: followUp.slice(0, 12) })
-    .last()
-    .waitFor({ timeout: 60_000 })
-  recorder.mark("followed")
   await sleep(3500)
   recorder.mark("end")
   return regions
@@ -204,7 +185,7 @@ export const captureMedia = async (paths: MediaPaths): Promise<Capture> => {
   await rm(frames, { recursive: true, force: true })
   await mkdir(frames, { recursive: true })
   const profile = await mkdtemp(join(tmpdir(), "ask-form-media-"))
-  const llm = await startFakeLlm(trigger, todoSpec, reply, followUp)
+  const llm = await startFakeLlm(trigger, todoSpec, reply)
   const options = { llm, log: join(profile, "driver.log"), profile, locale: "ja", query, settings, draft: true, scale: density }
   let app: ElectronApplication | undefined
   try {
