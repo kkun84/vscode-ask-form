@@ -4,6 +4,8 @@
 
 バージョンはSemVerの`major.minor.patch`だけを使います。VS Code Marketplaceは`-rc.1`などのプレリリースのタグを受け付けません。minorが奇数(`0.1.x`、`0.3.x`)ならプレリリース、偶数(`0.2.x`、`0.4.x`)なら正式リリースです。これは[VS Codeの公式の推奨](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions)です。
 
+プレリリースのpatchは、出すたびに1つ上げる通し番号です。不具合の修正だけを表すものではありません。
+
 正式リリースの前にプレリリースの版数を上げておくと、プレリリースの利用者が正式版へ戻されません。たとえば`0.2.0`の前に`0.3.0`を配布します。
 
 ## プレリリースを出す条件
