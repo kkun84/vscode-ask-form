@@ -278,11 +278,11 @@ VS Codeのチャットでは、エージェントを動かすハーネスを選�
 | ハーネス | メインウィンドウ | Agentsウィンドウ |
 | -------- | ---------------- | ---------------- |
 | Copilot  | 使える           | 使える           |
-| Codex    | 使える           | 使えない         |
+| Codex    | 使える           | 使える           |
 | Claude   | 使えない         | 使えない         |
 
 - Claudeのハーネスは、Ask Formのツールを呼んでも、VS Codeがツールを実行せずに止まります。VS Codeの不具合とみています。
-- AgentsウィンドウのCodexには、拡張機能のツールが渡りません。
+- Codexは、モデルによってツールの渡し方が違います。GPT-5.5ではツールを直接呼び、GPT-6.1-Solなど新しいモデル(Agentsウィンドウの既定)では、JavaScriptを実行するツール`exec`の中から`tools.askForm(...)`として呼びます(コードモード)。どちらでも使えます。
 - 配布物が使う外部パッケージは[Effect](https://effect.website)だけです。
 
 ## よくある質問
@@ -341,7 +341,7 @@ pnpm build
 
 受け入れテストは、実際のVS CodeとビルトインのCopilot Chatを動かします。チャットのモデルには、決まった応答を返す偽のLLM APIをBYOK(Custom Endpoint)としてつなぎ、フォームの表示、回答、中断までを通して確かめます。READMEの画像と動画も、同じしくみで撮っています。
 
-CopilotとCodexのハーネスも、同じように偽のLLM APIで確かめます(対象`agents`)。偽のAPIはOpenAI Chat CompletionsとOpenAI Responsesに答えます。CopilotはBYOKのモデルとして、Codexは環境変数`CODEX_HOME`の設定で偽のAPIに向けます。Agentsウィンドウでも確かめます。各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、対象`agents`を流しません。
+CopilotとCodexのハーネスも、同じように偽のLLM APIで確かめます(対象`agents`)。偽のAPIはOpenAI Chat CompletionsとOpenAI Responsesに答え、Codexのコードモードの`exec`の呼び出しも真似ます。CopilotはBYOKのモデルとして、Codexは環境変数`CODEX_HOME`の設定で偽のAPIに向けます。Agentsウィンドウでも確かめます。各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、対象`agents`を流しません。
 
 ### 文書とテストの対応
 

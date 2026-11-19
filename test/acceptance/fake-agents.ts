@@ -176,13 +176,24 @@ const qualified = (tool: Json): ReadonlyArray<string> =>
     ? records(tool["tools"]).map((inner) => `${String(tool["name"])}.${String(inner["name"])}`)
     : [String(tool["name"])]
 
+const codeModeNames = (input: ReadonlyArray<Json>): ReadonlyArray<string> =>
+  input
+    .filter((item) => item["type"] === "additional_tools")
+    .flatMap((item) => records(item["tools"]))
+    .flatMap((tool) => records(tool["tools"]))
+    .filter((tool) => tool["name"] === "exec")
+    .flatMap((tool) => [...String(tool["description"]).matchAll(/^### `(\w+)`$/gm)].map((match) => `exec.${String(match[1])}`))
+
 const responsesTurn = (state: State, script: Script, body: Json): Turn => {
   const input = records(body["input"])
   const tools = records(body["tools"])
   const loaded = input.filter((item) => item["type"] === "tool_search_output").flatMap((item) => records(item["tools"]))
-  const names = [...tools, ...loaded].filter((tool) => typeof tool["name"] === "string").flatMap((tool) => qualified(tool))
+  const names = [
+    ...[...tools, ...loaded].filter((tool) => typeof tool["name"] === "string").flatMap((tool) => qualified(tool)),
+    ...codeModeNames(input)
+  ]
   state.toolNames.push(names)
-  for (const item of input.filter((entry) => entry["type"] === "function_call_output")) {
+  for (const item of input.filter((entry) => entry["type"] === "function_call_output" || entry["type"] === "custom_tool_call_output")) {
     remember(state, String(item["call_id"]), item["output"])
   }
   const start = input.findLastIndex(
@@ -192,7 +203,9 @@ const responsesTurn = (state: State, script: Script, body: Json): Turn => {
   return {
     asked: start >= 0,
     answered: turn.some(
-      (item) => item["type"] === "function_call" && isAskForm(`${String(item["namespace"] ?? "")}.${String(item["name"])}`)
+      (item) =>
+        (item["type"] === "function_call" && isAskForm(`${String(item["namespace"] ?? "")}.${String(item["name"])}`)) ||
+        (item["type"] === "custom_tool_call" && item["name"] === "exec")
     ),
     searched: turn.some((item) => item["type"] === "tool_search_call"),
     names,
@@ -223,6 +236,22 @@ const responseItem = (state: State, reply: Reply): Json => {
   const dot = reply.name.lastIndexOf(".")
   const id = state.nextId("call")
   state.toolCalls.push({ api: "responses", id, name: reply.name })
+  if (reply.name.startsWith("exec.")) {
+    const tool = reply.name.slice(dot + 1)
+    return {
+      type: "custom_tool_call",
+      id: state.nextId("ctc"),
+      call_id: id,
+      namespace: "functions",
+      name: "exec",
+      input: [
+        '// @exec: {"yield_time_ms": 3600000}',
+        `const result = await tools.${tool}(${JSON.stringify(reply.input)})`,
+        'text(typeof result === "string" ? result : (result?.content ?? []).map((part) => part.text ?? "").join("\\n") || JSON.stringify(result))'
+      ].join("\n"),
+      status: "completed"
+    }
+  }
   return {
     type: "function_call",
     id: state.nextId("fc"),

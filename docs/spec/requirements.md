@@ -78,7 +78,7 @@ VS CodeでチャットのハーネスにCodexを選んだときも、利用者�
 
 ### REQ-ENV-003 Agentsウィンドウでも回答できる
 
-VS CodeのAgentsウィンドウで既定のCopilotのハーネスを使うときも、利用者はパネルのフォームで回答できる。フォームはAgentsウィンドウの中のパネルに出る。
+VS CodeのAgentsウィンドウでCopilotやCodexのハーネスを使うときも、利用者はパネルのフォームで回答できる。フォームはAgentsウィンドウの中のパネルに出る。
 
 ### REQ-PERF-001 軽い
 

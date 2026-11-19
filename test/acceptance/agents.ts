@@ -216,6 +216,11 @@ test(
   answeredInPanel("Copilot", inAgentsWindow("Copilot"))
 )
 
+test(
+  "REQ-ENV-003 AgentsウィンドウのCodexハーネスでも、既定のモデルがコードモードでツールを呼んで、フォームがパネルに出て回答が届く",
+  answeredInPanel("Codex", inAgentsWindow("Codex"))
+)
+
 const agentHostLog = async (profile: string): Promise<string> => {
   const logs = join(profile, "user", "logs")
   const sessions = await readdir(logs).catch(() => [])
