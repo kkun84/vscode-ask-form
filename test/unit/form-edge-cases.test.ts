@@ -26,7 +26,7 @@ it("DES-FORM-003 NULを含む複数選択の変更を検出し、並び順だけ
   const after = { selection: Object.freeze(["c", "a\u0000b"]) }
   assert.deepEqual(changedFields(form.spec, before, after), ["selection"])
   assert.deepEqual(changedFields(form.spec, after, { selection: ["a\u0000b", "c"] }), [])
-  assert.deepEqual(outcomeFor(form, "submit", after), {
+  assert.deepEqual(outcomeFor(form, "submit", { values: after }), {
     status: "submitted",
     values: after,
     held: [],
@@ -43,7 +43,7 @@ it("DES-SPEC-001 複数選択のdefaultに重複した値があれば拒否す�
 
 it("DES-FORM-004 複数選択の回答に重複した値があれば拒否する", () => {
   const form = compile(selectionSpec(["a"])).pipe(Result.getOrThrow)
-  const result = checkValues(form.spec, { selection: ["a", "a"] }, [])
+  const result = checkValues(form.spec, { selection: ["a", "a"] })
   assert.ok(Result.isFailure(result))
   assert.ok(result.failure.some((problem) => problem.includes("項目「selection」") && problem.includes("重複")))
 })
@@ -52,7 +52,7 @@ it("DES-FORM-002 重複のない複数選択は空の配列も受け付け、表
   for (const selection of [[], ["a"], ["a", "c"]]) {
     const form = compile(selectionSpec(selection)).pipe(Result.getOrThrow)
     const defaults = initialValues(form.spec)
-    const checked = checkValues(form.spec, defaults, []).pipe(Result.getOrThrow)
+    const checked = checkValues(form.spec, defaults).pipe(Result.getOrThrow)
     assert.deepEqual(checked, { selection })
     assert.deepEqual(computeValues(form, checked), { count: selection.length })
   }

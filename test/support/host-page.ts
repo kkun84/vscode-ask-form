@@ -12,6 +12,7 @@ interface Setup {
   readonly holdStatus: boolean
   readonly restore: Readonly<Record<string, unknown>> | undefined
   readonly background: string
+  readonly commentPresets?: ReadonlyArray<string>
 }
 
 interface Recorder {
@@ -44,6 +45,7 @@ const host = createAppHost({
   form: compiled.success,
   args: setup.args,
   context: setup.context,
+  commentPresets: setup.commentPresets,
   post,
   onOutcome: (outcome) => recorder.outcomes.push(outcome)
 })

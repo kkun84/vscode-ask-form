@@ -6,6 +6,7 @@ import { compile } from "../../core/validate.ts"
 import type { FormSpec } from "../../core/spec.ts"
 import { autoReplies, createWaitingStatus, onAutoReply, type WaitingStatus } from "./waiting.ts"
 import { panelHtml } from "./panel.ts"
+import { commentPresets } from "./settings.ts"
 
 const toolName = "forms_ask_form"
 
@@ -51,6 +52,7 @@ const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, t
       form,
       args,
       context: { theme: themeOf(vscode.window.activeColorTheme.kind), locale: vscode.env.language },
+      commentPresets: commentPresets(),
       post: (message) => {
         if (open) {
           void webview.postMessage(message)
