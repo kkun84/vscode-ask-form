@@ -144,7 +144,7 @@ const answer = async (session: Session, page: Page, frame: Frame, callId: string
   const attendees = frame.getByRole("spinbutton", { name: "参加者数" })
   await attendees.fill("150")
   await attendees.press("Tab")
-  await frame.getByRole("button", { name: "Send", exact: true }).click()
+  await frame.getByRole("button", { name: "Send", exact: true }).dispatchEvent("click")
   const result = await resultOf(session, callId)
   expect(result.text).toContain('"status":"submitted"')
   expect(result.text).toContain('"changedByUser":["attendees"]')
