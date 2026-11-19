@@ -759,15 +759,19 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
     const frame = await openAnswered(page)
     await clearNumber(frame, "件数")
     await openComment(frame, "件数")
-    await expect(presets(frame, "件数")).toHaveText(["あとで決める。", "どれでもよい。", "答えない。"])
-    await presets(frame, "件数").filter({ hasText: "どれでもよい。" }).click()
-    await expect(comment(frame, "件数")).toHaveValue("どれでもよい。")
+    await expect(presets(frame, "件数")).toHaveText([
+      "他の要件を先に決める。",
+      "この質問の意味がわからない。説明が足りない。",
+      "インターネットで調査した上でもう一度検討しよう。"
+    ])
+    await presets(frame, "件数").filter({ hasText: "他の要件を先に決める。" }).click()
+    await expect(comment(frame, "件数")).toHaveValue("他の要件を先に決める。")
     await expect(comment(frame, "件数")).toBeFocused()
-    await presets(frame, "件数").filter({ hasText: "あとで決める。" }).click()
-    await expect(comment(frame, "件数")).toHaveValue("どれでもよい。あとで決める。")
+    await presets(frame, "件数").filter({ hasText: "インターネットで調査した上でもう一度検討しよう。" }).click()
+    await expect(comment(frame, "件数")).toHaveValue("他の要件を先に決める。インターネットで調査した上でもう一度検討しよう。")
     const outcome = await submitChecked(page, frame)
     expect(outcome.held).toEqual(["size"])
-    expect(outcome.comments).toEqual({ size: "どれでもよい。あとで決める。" })
+    expect(outcome.comments).toEqual({ size: "他の要件を先に決める。インターネットで調査した上でもう一度検討しよう。" })
   })
 
   test("SPEC-UI-014 設定した定型文に置き換える", async ({ page }) => {

@@ -60,17 +60,18 @@
       "title": "Ask Form",
       "properties": {
         "askForm.commentPresets": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "type": "string",
             "maxLength": 500
           },
           "maxItems": 8,
-          "default": null,
-          "markdownDescription": "Preset comments shown under each question's comment box. Clicking one adds it to the comment. When `null`, presets in the display language are used (for example \"Decide later.\" and \"Any is fine.\"). Set `[]` to hide presets."
+          "default": [
+            "他の要件を先に決める。",
+            "この質問の意味がわからない。説明が足りない。",
+            "インターネットで調査した上でもう一度検討しよう。"
+          ],
+          "markdownDescription": "Preset comments shown under each question's comment box. Clicking one adds it to the comment. Remove all items to hide presets."
         },
         "askForm.mcp.enabled": {
           "type": "boolean",

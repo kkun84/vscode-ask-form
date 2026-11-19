@@ -7,7 +7,11 @@ const ja = {
   dismiss: "キャンセル",
   held: "回答なし",
   comment: "コメント",
-  commentPresets: ["あとで決める。", "どれでもよい。", "答えない。"] as ReadonlyArray<string>,
+  commentPresets: [
+    "他の要件を先に決める。",
+    "この質問の意味がわからない。説明が足りない。",
+    "インターネットで調査した上でもう一度検討しよう。"
+  ] as ReadonlyArray<string>,
   presetsOf: (label: string) => `${label}へのコメントの定型文`,
   clear: "選択を解除",
   clearOf: (label: string) => `${label}の選択を解除`,
@@ -45,7 +49,11 @@ const en: typeof ja = {
   dismiss: "Cancel",
   held: "No answer",
   comment: "Comment",
-  commentPresets: ["Decide later.", "Any is fine.", "Skip this."] as ReadonlyArray<string>,
+  commentPresets: [
+    "Decide the other requirements first.",
+    "I don't understand this question. It needs more explanation.",
+    "Research this online, then reconsider it."
+  ] as ReadonlyArray<string>,
   presetsOf: (label: string) => `Preset comments for ${label}`,
   clear: "Clear selection",
   clearOf: (label: string) => `Clear selection for ${label}`,
