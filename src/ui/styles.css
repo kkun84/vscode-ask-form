@@ -653,6 +653,17 @@ summary:focus-visible {
   border-color: var(--input-border);
 }
 
+.q-head .comment-open {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 4px;
+}
+
+.q-head .comment-open[aria-expanded="true"],
+.q-head .comment-open.has-comment {
+  color: var(--link);
+}
+
 .q-comment {
   margin-top: 6px;
 }

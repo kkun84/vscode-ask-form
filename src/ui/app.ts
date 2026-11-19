@@ -120,6 +120,9 @@ const recordOf = (value: unknown): Readonly<Record<string, unknown>> =>
 
 const affix = (content: string | undefined): HTMLElement | null => (content === undefined ? null : h("span", { class: "muted" }, content))
 
+const commentIcon =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2.5 2h11A1.5 1.5 0 0 1 15 3.5v7a1.5 1.5 0 0 1-1.5 1.5H8.2l-3.4 2.7A.5.5 0 0 1 4 14.3V12H2.5A1.5 1.5 0 0 1 1 10.5v-7A1.5 1.5 0 0 1 2.5 2Zm0 1a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5H5v2.2L7.9 11h5.6a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5h-11Z"/></svg>'
+
 export class FormApp {
   private phase: Phase = { kind: "loading" }
   private m: Messages = messages("en")
@@ -475,19 +478,24 @@ export class FormApp {
       this.comments[field.id] = input.value
       this.refresh()
     })
-    const open = on(
-      h(
-        "button",
-        { type: "button", class: "head-action comment-open", title: this.m.commentHint, "aria-label": this.m.commentOf(field.label) },
-        this.m.comment
-      ),
-      "click",
-      () => {
-        this.commenting.add(field.id)
+    const open = h("button", {
+      type: "button",
+      class: "head-action comment-open",
+      title: this.m.commentOf(field.label),
+      "aria-label": this.m.commentOf(field.label),
+      "aria-expanded": "false"
+    })
+    open.innerHTML = commentIcon
+    on(open, "click", () => {
+      if (this.commenting.has(field.id)) {
+        this.commenting.delete(field.id)
         this.refresh()
-        input.focus()
+        return
       }
-    )
+      this.commenting.add(field.id)
+      this.refresh()
+      input.focus()
+    })
     const presets = (this.presets ?? this.m.commentPresets).map((preset) =>
       on(h("button", { type: "button", class: "preset" }, preset), "click", () => {
         const current = input.value.trim()
@@ -1008,12 +1016,13 @@ export class FormApp {
   }
 
   private refreshComment(field: Field, element: HTMLElement, button: HTMLElement, unset: boolean): void {
-    const open = this.commenting.has(field.id) || (this.comments[field.id] ?? "") !== ""
+    const open = this.commenting.has(field.id)
     const input = element.querySelector("textarea")
     if (input === null) {
       return
     }
-    button.hidden = open
+    button.setAttribute("aria-expanded", String(open))
+    button.classList.toggle("has-comment", (this.comments[field.id] ?? "").trim() !== "")
     element.hidden = !open
     input.placeholder = unset ? this.m.unsetHint : this.m.commentHint
   }
