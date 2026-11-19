@@ -153,7 +153,6 @@ export class FormApp {
       readonly back: HTMLElement | null
       readonly comment: HTMLElement
       readonly open: HTMLElement
-      readonly clear: HTMLElement
     }>,
     branches: [] as Array<{ readonly id: string; readonly value: string; readonly element: HTMLElement }>,
     computed: undefined as HTMLElement | undefined,
@@ -161,7 +160,7 @@ export class FormApp {
     primary: undefined as HTMLButtonElement | undefined,
     form: undefined as HTMLElement | undefined,
     setters: new Map<string, (value: FieldValue) => void>(),
-    clearers: new Map<string, () => void>()
+    unselects: new Map<string, HTMLElement>()
   }
   private readonly folded = new Set<string>()
   private showMissing = false
@@ -445,25 +444,16 @@ export class FormApp {
     return this.form === undefined ? [] : changedAnswers(this.form.spec, this.baseline, this.answeredNow())
   }
 
-  private setValue(id: string, value: FieldValue): void {
-    this.values[id] = value
+  private unset(id: string): void {
+    delete this.values[id]
     this.error = undefined
     this.refresh()
   }
 
-  private clearButton(field: Field, comment: HTMLElement): HTMLElement {
-    return on(
-      h("button", { type: "button", class: "head-action", "aria-label": this.m.clearOf(field.label) }, this.m.clear),
-      "click",
-      () => {
-        delete this.values[field.id]
-        this.live.clearers.get(field.id)?.()
-        this.commenting.add(field.id)
-        this.error = undefined
-        this.refresh()
-        comment.querySelector("textarea")?.focus()
-      }
-    )
+  private setValue(id: string, value: FieldValue): void {
+    this.values[id] = value
+    this.error = undefined
+    this.refresh()
   }
 
   private commentView(field: Field): { readonly open: HTMLElement; readonly box: HTMLElement } {
@@ -529,7 +519,7 @@ export class FormApp {
     this.live.cards.length = 0
     this.live.branches.length = 0
     this.live.setters.clear()
-    this.live.clearers.clear()
+    this.live.unselects.clear()
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
@@ -648,7 +638,6 @@ export class FormApp {
     const groupId = uid("group")
     const answer = h("span", { class: "q-answer", id: uid("answer") })
     const comment = this.commentView(field)
-    const clear = this.clearButton(field, comment.box)
     const toggle = hasDetails(field)
       ? h("button", {
           type: "button",
@@ -671,7 +660,6 @@ export class FormApp {
         toggle ?? h("span", { class: "fold-space" }),
         h("span", { class: "q-label", id: labelId }, field.label),
         answer,
-        clear,
         comment.open
       ),
       field.description === undefined ? null : h("p", { class: "q-desc", id: descId }, field.description),
@@ -683,7 +671,7 @@ export class FormApp {
       ),
       comment.box
     )
-    this.live.cards.push({ field, element, toggle, answer, back, comment: comment.box, open: comment.open, clear })
+    this.live.cards.push({ field, element, toggle, answer, back, comment: comment.box, open: comment.open })
     if (back !== null) {
       on(back, "click", () => {
         this.live.setters.get(field.id)?.(this.initial[field.id] as FieldValue)
@@ -747,9 +735,6 @@ export class FormApp {
     const common = { name: field.id, "aria-labelledby": labelId, "aria-describedby": describedBy, placeholder: field.placeholder }
     const input = field.multiline === true ? h("textarea", { ...common, rows: 3 }, value) : h("input", { ...common, type: "text", value })
     const typed = () => this.setValue(field.id, input.value)
-    this.live.clearers.set(field.id, () => {
-      input.value = ""
-    })
     on(input, "input", typed)
     this.live.setters.set(field.id, (next) => {
       input.value = String(next)
@@ -796,11 +781,6 @@ export class FormApp {
       show(clamped)
     }
     on(slider, "input", () => update(Number(slider.value)))
-    this.live.clearers.set(field.id, () => {
-      slider.classList.add("unset")
-      slider.setAttribute("aria-valuetext", this.m.notAnswered)
-      exact.value = ""
-    })
     this.live.setters.set(field.id, (next) => update(Number(next)))
     on(exact, "input", () => {
       const next = Number(exact.value)
@@ -809,7 +789,11 @@ export class FormApp {
       }
     })
     on(exact, "change", () => {
-      if (exact.value !== "" && Number.isFinite(Number(exact.value))) {
+      if (exact.value === "") {
+        slider.classList.add("unset")
+        slider.setAttribute("aria-valuetext", this.m.notAnswered)
+        this.unset(field.id)
+      } else if (Number.isFinite(Number(exact.value))) {
         update(Number(exact.value))
       } else {
         exact.value = typeof this.values[field.id] === "number" ? slider.value : ""
@@ -864,12 +848,25 @@ export class FormApp {
       const revealed = this.reveal(field, option)
       return revealed === null ? [row] : [row, revealed]
     })
-    const group = h("div", { class: "options" }, options)
-    this.live.clearers.set(field.id, () => {
-      for (const input of group.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)) {
-        input.checked = false
-      }
-    })
+    const unselect = multiple
+      ? null
+      : on(
+          h("button", { type: "button", class: "link unselect", "aria-label": this.m.clearOf(field.label) }, this.m.clear),
+          "click",
+          () => {
+            for (const input of group.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)) {
+              input.checked = false
+            }
+            this.unset(field.id)
+            this.commenting.add(field.id)
+            this.refresh()
+            group.closest(".q")?.querySelector<HTMLElement>(":scope > .q-comment textarea")?.focus()
+          }
+        )
+    if (unselect !== null) {
+      this.live.unselects.set(field.id, unselect)
+    }
+    const group = h("div", { class: "options" }, options, unselect)
     on(group, "pointerdown", (event) => {
       pointing = (event.target as HTMLElement).closest(".reveal") === null
     })
@@ -1007,7 +1004,6 @@ export class FormApp {
           ? this.missingTag()
           : (this.resendTag(card.field, answerChanged.has(card.field.id)) ?? (unset ? h("span", { class: "muted" }, this.m.held) : ""))
       )
-      card.clear.hidden = unset
       this.refreshComment(card.field, card.comment, card.open, unset)
       if (card.back !== null) {
         card.back.hidden = !sinceRecommended.includes(card.field.id)
@@ -1081,6 +1077,9 @@ export class FormApp {
       return
     }
     const sinceAnswer = this.changedSinceAnswer()
+    for (const [id, unselect] of this.live.unselects) {
+      unselect.hidden = this.values[id] === undefined
+    }
     for (const branch of this.live.branches) {
       branch.element.hidden = this.values[branch.id] !== branch.value
     }

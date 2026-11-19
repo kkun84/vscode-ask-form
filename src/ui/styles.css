@@ -674,6 +674,16 @@ summary:focus-visible {
   font-size: 12px;
 }
 
+.options .unselect {
+  display: block;
+  margin: 2px 4px 2px auto;
+  border-color: transparent;
+}
+
+.options .unselect[hidden] {
+  display: none;
+}
+
 .presets {
   display: flex;
   flex-wrap: wrap;

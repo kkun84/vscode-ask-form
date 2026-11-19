@@ -140,7 +140,10 @@ const settledForm = async (session: Session) => {
 
 test("REQ-ANS-005 値を外してコメントを書いた質問は、値なしでheldとheldFormとしてモデルに届く", async (session) => {
   const frame = await settledForm(session)
-  await frame.getByRole("button", { name: "Clear 参加費" }).click()
+  const price = frame.getByRole("spinbutton", { name: "参加費" })
+  await price.fill("")
+  await price.press("Tab")
+  await frame.getByRole("button", { name: "Comment on 参加費" }).click()
   await frame.getByRole("group", { name: "Preset comments for 参加費" }).getByRole("button", { name: "Decide later." }).click()
   const result = await answer(session)
   expect(result).toContain('"status":"submitted"')
