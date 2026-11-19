@@ -313,7 +313,7 @@ Copilotには、秘密や認証情報をフォームで聞かないように指�
 
 配布の条件と手順は[リリースの基準](docs/release.md)にあります。
 
-開発環境はnixで用意します。実機のVS Codeでの受け入れテストには、VS Codeを含む`nix develop .#acceptance`を使います。
+開発環境はnixで用意します。実機のVS Codeでの受け入れテストには、VS Codeを含む`nix develop .#acceptance`を使います。このVS Codeは、nixpkgsとは別に`flake.nix`で版を固定しています。公開から3日たった最新の安定版を使い、新しい版が出たら版と各OS向けのハッシュ(`nix-prefetch-url https://update.code.visualstudio.com/<版>/<OS>/stable`)を更新します。
 
 ```sh
 nix develop

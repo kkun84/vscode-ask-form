@@ -5,7 +5,7 @@ import { expect, type ElectronApplication, type Frame, type Locator, type Page }
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
 import { formFrame, settled, until } from "./frames.ts"
-import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
+import { cleanUp, fitWindow, launchVscode, localHarness, type VscodePaths } from "./vscode.ts"
 
 interface Paths extends VscodePaths {
   readonly results: string
@@ -265,7 +265,14 @@ export const runChat = async (paths: Paths): Promise<void> => {
   const profile = await mkdtemp(join(tmpdir(), "ask-form-chat-"))
   let app: ElectronApplication | undefined
   try {
-    app = await launchVscode(paths, { llm, log, profile, locale: "en", query: `${trigger} Please ask me with a form.` })
+    app = await launchVscode(paths, {
+      llm,
+      log,
+      profile,
+      locale: "en",
+      query: `${trigger} Please ask me with a form.`,
+      settings: localHarness
+    })
     const window = await fitWindow(app, { width: 1600, height: 1000 })
     window.context().setDefaultTimeout(30_000)
     const session: Session = { window, llm, frame: undefined, callId: undefined }

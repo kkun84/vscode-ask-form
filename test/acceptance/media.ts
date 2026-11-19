@@ -7,7 +7,7 @@ import { startFakeLlm } from "./fake-llm.ts"
 import { formFrame, sleep, until } from "./frames.ts"
 import { Pointer, Recorder, run } from "./recording.ts"
 import { query, reply } from "./stage-content.ts"
-import { cleanUp, closeApp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
+import { cleanUp, closeApp, fitWindow, launchVscode, localHarness, type VscodePaths } from "./vscode.ts"
 
 export interface MediaPaths extends VscodePaths {
   readonly cli: string
@@ -148,6 +148,7 @@ const scenario = async (page: Page, pointer: Pointer, images: string, recorder: 
 }
 
 const settings = {
+  ...localHarness,
   "workbench.colorTheme": "Default Dark Modern",
   "workbench.secondarySideBar.defaultVisibility": "maximized",
   "window.titleBarStyle": "native",
