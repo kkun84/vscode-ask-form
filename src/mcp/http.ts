@@ -25,7 +25,7 @@ export class FormsListenFailed extends Schema.TaggedError<FormsListenFailed, { r
 }) {}
 
 const instructions =
-  "Use ask_form to confirm several interdependent assumptions at once through a prefilled interactive form. Prefer the built-in askQuestions tool for a single simple choice."
+  "Whenever you need to ask the user something, use ask_form instead of the built-in askQuestions tool or a question in your chat reply, even for a single choice. Put the related questions into one prefilled form."
 
 const appLayer = (options: FormsServerOptions) =>
   FormsServer.pipe(
