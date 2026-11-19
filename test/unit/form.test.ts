@@ -1,7 +1,15 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Result } from "effect"
-import { changedFields, commentPresetsFrom, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
+import {
+  appendPreset,
+  changedFields,
+  commentPresetsFrom,
+  computeValues,
+  initialValues,
+  outcomeFor,
+  resendMessage
+} from "../../src/core/form.ts"
 import { checkAnswer, checkValues } from "../../src/core/validate.ts"
 import { canonicalJson, stableHash } from "../../src/core/hash.ts"
 import { messages } from "../../src/core/messages.ts"
@@ -409,6 +417,13 @@ describe("DES-FORM-009 項目ごとのコメント", () => {
     assert.ok(Result.isFailure(check({ size: 1 })))
     assert.ok(Result.isFailure(check({ other: "x" })))
     assert.ok(Result.isFailure(check(["x"])))
+  })
+
+  it("DES-FORM-009 定型文は空のコメントにはそのまま入れ、日本語の後ろには空白なしで、それ以外の後ろには空白を挟んで足す", () => {
+    assert.equal(appendPreset("  ", "あとで決める。"), "あとで決める。")
+    assert.equal(appendPreset("仮の名前。", "どれでもよい。"), "仮の名前。どれでもよい。")
+    assert.equal(appendPreset("予算次第 ", "あとで決める。"), "予算次第あとで決める。")
+    assert.equal(appendPreset("Keep it short.", "Any is fine."), "Keep it short. Any is fine.")
   })
 
   it("DES-FORM-009 設定の定型文は、文字列だけを空白を除いて8個まで使い、配列でなければ既定に任せる", () => {

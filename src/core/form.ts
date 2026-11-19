@@ -229,6 +229,14 @@ export const maxCommentLength = 500
 
 const maxCommentPresets = 8
 
+export const appendPreset = (current: string, preset: string): string => {
+  const text = current.trim()
+  if (text === "") {
+    return preset
+  }
+  return /[\u3000-\u30FF\u4E00-\u9FFF\uFF00-\uFFEF]$/u.test(text) ? `${text}${preset}` : `${text} ${preset}`
+}
+
 export const commentPresetsFrom = (input: unknown): ReadonlyArray<string> | undefined =>
   Array.isArray(input)
     ? input

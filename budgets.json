@@ -1,6 +1,6 @@
 {
   "size": {
-    "dist/form.html": 48000,
+    "dist/form.html": 50000,
     "dist/node/extension.cjs": 700000,
     "dist/web/extension.js": 360000
   },

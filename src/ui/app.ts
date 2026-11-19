@@ -11,6 +11,7 @@ import {
   formatNumber,
   heldFields,
   initialValues,
+  appendPreset,
   commentPresetsFrom,
   maxCommentLength,
   maxNoteLength,
@@ -122,6 +123,12 @@ const affix = (content: string | undefined): HTMLElement | null => (content === 
 
 const commentIcon =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2.5 2h11A1.5 1.5 0 0 1 15 3.5v7a1.5 1.5 0 0 1-1.5 1.5H8.2l-3.4 2.7A.5.5 0 0 1 4 14.3V12H2.5A1.5 1.5 0 0 1 1 10.5v-7A1.5 1.5 0 0 1 2.5 2Zm0 1a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5H5v2.2L7.9 11h5.6a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5h-11Z"/></svg>'
+
+const icon = (): HTMLElement => {
+  const element = h("span", { class: "comment-icon", "aria-hidden": "true" })
+  element.innerHTML = commentIcon
+  return element
+}
 
 export class FormApp {
   private phase: Phase = { kind: "loading" }
@@ -488,8 +495,7 @@ export class FormApp {
     })
     const presets = (this.presets ?? this.m.commentPresets).map((preset) =>
       on(h("button", { type: "button", class: "preset" }, preset), "click", () => {
-        const current = input.value.trim()
-        input.value = current === "" ? preset : `${current} ${preset}`
+        input.value = appendPreset(input.value, preset)
         input.dispatchEvent(new Event("input"))
         input.focus()
       })
@@ -499,6 +505,7 @@ export class FormApp {
       box: h(
         "div",
         { class: "q-comment" },
+        h("div", { class: "comment-head", "aria-hidden": "true" }, icon(), h("span", {}, this.m.comment)),
         input,
         presets.length === 0 ? null : h("div", { class: "presets", role: "group", "aria-label": this.m.presetsOf(field.label) }, presets)
       )
@@ -965,7 +972,9 @@ export class FormApp {
           changedByUser.includes(field.id) && field.default !== undefined
             ? h("span", { class: "mark" }, this.m.recommendedWas(describeValue(field, this.initial[field.id], this.m)))
             : null,
-          shown.comments?.[field.id] === undefined || this.placed ? null : h("span", { class: "commented" }, shown.comments[field.id])
+          shown.comments?.[field.id] === undefined || this.placed
+            ? null
+            : h("span", { class: "commented" }, icon(), h("span", {}, shown.comments[field.id]))
         )
       )
     )

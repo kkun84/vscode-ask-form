@@ -978,10 +978,10 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
     await expect(comment(frame, "件数")).toHaveValue("どれでもよい。")
     await expect(comment(frame, "件数")).toBeFocused()
     await presets(frame, "件数").filter({ hasText: "あとで決める。" }).click()
-    await expect(comment(frame, "件数")).toHaveValue("どれでもよい。 あとで決める。")
+    await expect(comment(frame, "件数")).toHaveValue("どれでもよい。あとで決める。")
     const outcome = await submitChecked(page, frame)
     expect(outcome.held).toEqual(["size"])
-    expect(outcome.comments).toEqual({ size: "どれでもよい。 あとで決める。" })
+    expect(outcome.comments).toEqual({ size: "どれでもよい。あとで決める。" })
   })
 
   test("SPEC-UI-014 設定した定型文に置き換える", async ({ page }) => {
