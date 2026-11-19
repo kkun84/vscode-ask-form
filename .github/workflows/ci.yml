@@ -105,7 +105,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           pnpm exec mutator --since "origin/${GITHUB_BASE_REF}" --include-test-changes --kill-matrix --time-budget 1200 --reporter text --reporter json
-          pnpm mutation:findings
+          pnpm mutation:findings "origin/${GITHUB_BASE_REF}"
       - name: Mutation testing of everything
         if: github.event_name == 'push'
         run: pnpm exec mutator --time-budget 1200 --reporter text --reporter json
