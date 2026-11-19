@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
+import { expect, type ElectronApplication, type Frame, type Locator, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
 import { formFrame, settled, until } from "./frames.ts"
@@ -115,22 +115,43 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
   await theFrame(session).locator(".summary").waitFor({ timeout: 30_000 })
 })
 
-test("REQ-ANS-005 保留にした質問は、値なしでheldとしてモデルに届く", async (session) => {
-  await newForm(session)
-  const hold = theFrame(session).getByRole("group", { name: "参加費" }).getByRole("checkbox", { name: "Decide later" })
-  await hold.focus()
-  await hold.press("Space")
-  await expect(hold).toBeChecked()
-  const result = await answer(session)
-  expect(result).toContain('"status":"submitted"')
-  expect(result).toContain('"held":["price"]')
-  expect(result).not.toContain('"price":')
-})
+const pressKey = async (button: Locator): Promise<void> => {
+  await button.focus()
+  await button.press("Enter")
+}
 
-test("REQ-ANS-006 補足を書いて送信すると、noteとしてモデルに届く", async (session) => {
+const settledForm = async (session: Session) => {
   await newForm(session)
   const frame = theFrame(session)
   await settled(frame)
+  return frame
+}
+
+test("REQ-ANS-005 値を外してコメントを書いた質問は、値なしでheldとheldFormとしてモデルに届く", async (session) => {
+  const frame = await settledForm(session)
+  const price = frame.getByRole("spinbutton", { name: "参加費" })
+  await price.fill("")
+  await price.press("Tab")
+  await pressKey(frame.getByRole("button", { name: "Comment on 参加費" }))
+  await pressKey(frame.getByRole("group", { name: "Preset comments for 参加費" }).getByRole("button", { name: "他の要件を先に決める。" }))
+  const result = await answer(session)
+  expect(result).toContain('"status":"submitted"')
+  expect(result).toContain('"held":["price"]')
+  expect(result).toContain('"heldForm":{')
+  expect(result).toContain('"comments":{"price":"他の要件を先に決める。"}')
+  expect(result).not.toContain('"price":2')
+})
+
+test("REQ-ANS-007 質問へのコメントは、commentsとしてモデルに届く", async (session) => {
+  const frame = await settledForm(session)
+  await pressKey(frame.getByRole("button", { name: "Comment on 参加費" }))
+  await frame.getByRole("textbox", { name: "Comment on 参加費" }).fill("Keep it under 3000.")
+  const result = await answer(session)
+  expect(result).toContain('"comments":{"price":"Keep it under 3000."}')
+})
+
+test("REQ-ANS-006 補足を書いて送信すると、noteとしてモデルに届く", async (session) => {
+  const frame = await settledForm(session)
   await frame.locator("details.note summary").click()
   await frame.getByRole("textbox", { name: "Add a note" }).fill("The venue is not decided yet.")
   const result = await answer(session)

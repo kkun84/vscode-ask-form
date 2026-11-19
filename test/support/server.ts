@@ -2,7 +2,7 @@ import { Effect, Layer, Ref, Schedule, type Scope } from "effect"
 import { McpClient, McpProtocol, type McpSchema } from "effect/ai"
 import { FetchHttpClient } from "effect/http"
 import { serveForms } from "../../src/mcp/http.ts"
-import { UserPresence, WaitingIndicator } from "../../src/mcp/ports.ts"
+import { UserPresence, UserSettings, WaitingIndicator } from "../../src/mcp/ports.ts"
 import { FormHtml } from "../../src/mcp/server.ts"
 
 export interface Harness {
@@ -55,6 +55,7 @@ interface HarnessOptions {
   readonly onWaiting?: (count: number) => Effect.Effect<void>
   readonly unavailable?: boolean
   readonly away?: Effect.Effect<void>
+  readonly commentPresets?: ReadonlyArray<string>
 }
 
 const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
@@ -72,6 +73,7 @@ const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, 
         UserPresence,
         UserPresence.of({ unavailable: Effect.succeed(options.unavailable ?? false), away: options.away ?? Effect.never })
       ),
+      Layer.succeed(UserSettings, UserSettings.of({ commentPresets: Effect.succeed(options.commentPresets) })),
       Layer.succeed(FormHtml, testHtml)
     )
     const { url } = yield* serveForms({ token, version: "0.0.0-test", services })

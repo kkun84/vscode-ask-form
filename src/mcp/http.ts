@@ -6,13 +6,13 @@ import { Effect, Layer, Schema, type Scope } from "effect"
 import { McpProtocol, McpServer } from "effect/ai"
 import { HttpRouter } from "effect/http"
 import { PendingFormsLive } from "./pending.ts"
-import type { UserPresence, WaitingIndicator } from "./ports.ts"
+import type { UserPresence, UserSettings, WaitingIndicator } from "./ports.ts"
 import { FormsServer, type FormHtml } from "./server.ts"
 
 export interface FormsServerOptions {
   readonly token: string
   readonly version: string
-  readonly services: Layer.Layer<UserPresence | WaitingIndicator | FormHtml>
+  readonly services: Layer.Layer<UserPresence | UserSettings | WaitingIndicator | FormHtml>
 }
 
 export interface RunningFormsServer {

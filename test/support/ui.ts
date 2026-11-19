@@ -14,6 +14,7 @@ export interface PageOptions {
   readonly omitCancellation?: boolean
   readonly holdStatus?: boolean
   readonly restore?: Readonly<Record<string, unknown>>
+  readonly commentPresets?: ReadonlyArray<string>
 }
 
 let hostScript: Promise<string> | undefined
@@ -73,6 +74,7 @@ export const openForm = async (page: Page, server: HarnessServer, options: PageO
       omitCancellation: options.omitCancellation ?? false,
       holdStatus: options.holdStatus ?? false,
       restore: options.restore,
+      ...(options.commentPresets === undefined ? {} : { commentPresets: options.commentPresets }),
       background: backgrounds[context.theme]
     }
   )

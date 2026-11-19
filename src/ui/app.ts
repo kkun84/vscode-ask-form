@@ -2,17 +2,22 @@ import {
   activeFields,
   answerValues,
   changedFields,
+  commentsFor,
   computeValues,
   describeComputed,
   describeValue,
   formatNumber,
   heldFields,
   initialValues,
+  appendPreset,
+  commentPresetsFrom,
+  maxCommentLength,
   maxNoteLength,
   prepare,
   unansweredFields,
-  withoutHeld,
+  type Answered,
   type CompiledForm,
+  type Comments,
   type FieldValue,
   type Values
 } from "../core/form.ts"
@@ -108,16 +113,30 @@ const optionRow = (
     )
   )
 
+const recordOf = (value: unknown): Readonly<Record<string, unknown>> =>
+  value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Readonly<Record<string, unknown>>) : {}
+
 const affix = (content: string | undefined): HTMLElement | null => (content === undefined ? null : h("span", { class: "muted" }, content))
+
+const commentIcon =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2.5 2h11A1.5 1.5 0 0 1 15 3.5v7a1.5 1.5 0 0 1-1.5 1.5H8.2l-3.4 2.7A.5.5 0 0 1 4 14.3V12H2.5A1.5 1.5 0 0 1 1 10.5v-7A1.5 1.5 0 0 1 2.5 2Zm0 1a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5H5v2.2L7.9 11h5.6a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5h-11Z"/></svg>'
+
+const icon = (): HTMLElement => {
+  const element = h("span", { class: "comment-icon", "aria-hidden": "true" })
+  element.innerHTML = commentIcon
+  return element
+}
 
 export class FormApp {
   private phase: Phase = { kind: "loading" }
   private m: Messages = messages("en")
   private form: CompiledForm | undefined
   private values: Record<string, FieldValue> = {}
-  private readonly held = new Set<string>()
+  private comments: Record<string, string> = {}
+  private readonly commenting = new Set<string>()
+  private presets: ReadonlyArray<string> | undefined
   private initial: Values = {}
-  private summaryValues: Values = {}
+  private summaryAnswer: Answered = { values: {} }
   private note = ""
   private noteOpen = false
   private busy = false
@@ -131,13 +150,16 @@ export class FormApp {
       readonly toggle: HTMLElement | null
       readonly answer: HTMLElement
       readonly back: HTMLElement | null
+      readonly comment: HTMLElement
+      readonly open: HTMLElement
     }>,
     branches: [] as Array<{ readonly id: string; readonly value: string; readonly element: HTMLElement }>,
     computed: undefined as HTMLElement | undefined,
     status: undefined as HTMLElement | undefined,
     primary: undefined as HTMLButtonElement | undefined,
     form: undefined as HTMLElement | undefined,
-    setters: new Map<string, (value: FieldValue) => void>()
+    setters: new Map<string, (value: FieldValue) => void>(),
+    unselects: new Map<string, HTMLElement>()
   }
   private readonly folded = new Set<string>()
   private showMissing = false
@@ -153,6 +175,19 @@ export class FormApp {
   attach(bridge: Bridge): void {
     this.bridge = bridge
     this.syncStatus()
+    void this.loadSettings(bridge)
+  }
+
+  private async loadSettings(bridge: Bridge): Promise<void> {
+    try {
+      const result = await bridge.callTool("form_settings", {})
+      this.presets = result.isError === true ? undefined : commentPresetsFrom(result.structuredContent?.["commentPresets"])
+    } catch {
+      return
+    }
+    if (this.presets !== undefined) {
+      this.render()
+    }
   }
 
   setContext(context: HostContext): void {
@@ -180,10 +215,11 @@ export class FormApp {
     this.form = form
     this.initial = initialValues(form.spec)
     this.values = { ...this.initial }
-    this.summaryValues = this.initial
+    this.summaryAnswer = { values: this.initial }
     this.note = ""
     this.noteOpen = false
-    this.held.clear()
+    this.comments = {}
+    this.commenting.clear()
     this.folded.clear()
     this.showMissing = false
     if (this.phase.kind === "loading") {
@@ -210,7 +246,12 @@ export class FormApp {
     }
     const values = content["values"]
     if (values !== undefined && typeof values === "object" && values !== null && this.form !== undefined) {
-      this.summaryValues = values as Values
+      this.summaryAnswer = {
+        values: values as Values,
+        comments: Object.fromEntries(
+          Object.entries(recordOf(content["comments"])).filter(([, text]) => typeof text === "string")
+        ) as Comments
+      }
       this.note = typeof content["note"] === "string" ? content["note"] : ""
     }
     this.phase = { kind: "summary", status }
@@ -242,7 +283,7 @@ export class FormApp {
     }
   }
 
-  private applyAnswer(action: Action, result: ToolResult, values: Values): void {
+  private applyAnswer(action: Action, result: ToolResult, answered: Answered): void {
     if (this.phase.kind !== "answering") {
       return
     }
@@ -254,13 +295,13 @@ export class FormApp {
       this.error = resultText(result)
       return
     }
-    this.summaryValues = values
+    this.summaryAnswer = answered
     this.note = this.note.trim()
     this.phase = { kind: "summary", status: statusOf[action] }
   }
 
   private blockUnanswered(form: CompiledForm): boolean {
-    const unanswered = unansweredFields(form.spec, this.current(), this.held)
+    const unanswered = unansweredFields(form.spec, this.current(), this.commented())
     if (unanswered.length === 0) {
       return false
     }
@@ -281,7 +322,7 @@ export class FormApp {
     if (form === undefined) {
       return Promise.resolve()
     }
-    const values = this.answered(this.current())
+    const answered = this.answeredNow()
     if (action === "submit" && this.blockUnanswered(form)) {
       return Promise.resolve()
     }
@@ -289,39 +330,95 @@ export class FormApp {
       const result = await bridge.callTool("form_answer", {
         formKey: form.key,
         action,
-        ...(action === "submit" ? { values, held: heldFields(form.spec, values), note: this.note } : {})
+        ...(action === "submit"
+          ? {
+              values: answered.values,
+              held: heldFields(form.spec, answered.values),
+              comments: answered.comments,
+              note: this.note
+            }
+          : {})
       })
-      this.applyAnswer(action, result, values)
+      this.applyAnswer(action, result, answered)
     })
   }
 
-  private answered(values: Values): Values {
-    return this.form === undefined ? values : answerValues(this.form.spec, values)
+  private answeredNow(): Answered {
+    const form = this.form
+    if (form === undefined) {
+      return { values: this.values }
+    }
+    const values = answerValues(form.spec, this.current())
+    return { values, comments: commentsFor(form.spec, values, this.comments) }
+  }
+
+  private commented(): ReadonlySet<string> {
+    return new Set(Object.keys(this.form === undefined ? {} : commentsFor(this.form.spec, this.values, this.comments)))
   }
 
   private current(): Values {
-    return this.form === undefined ? this.values : withoutHeld(this.form.spec, this.values, this.held)
+    return this.values
+  }
+
+  private unset(id: string): void {
+    delete this.values[id]
+    this.error = undefined
+    this.refresh()
   }
 
   private setValue(id: string, value: FieldValue): void {
     this.values[id] = value
-    this.held.delete(id)
     this.error = undefined
     this.refresh()
   }
 
-  private setHeld(id: string, held: boolean): void {
-    if (held) {
-      this.held.add(id)
-    } else {
-      this.held.delete(id)
+  private commentView(field: Field): { readonly open: HTMLElement; readonly box: HTMLElement } {
+    const input = h("textarea", {
+      rows: 2,
+      maxlength: maxCommentLength,
+      class: "comment-input",
+      "aria-label": this.m.commentOf(field.label)
+    })
+    input.value = this.comments[field.id] ?? ""
+    on(input, "input", () => {
+      this.comments[field.id] = input.value
+      this.refresh()
+    })
+    const open = h("button", {
+      type: "button",
+      class: "head-action comment-open",
+      title: this.m.commentOf(field.label),
+      "aria-label": this.m.commentOf(field.label),
+      "aria-expanded": "false"
+    })
+    open.innerHTML = commentIcon
+    on(open, "click", () => {
+      if (this.commenting.has(field.id)) {
+        this.commenting.delete(field.id)
+        this.refresh()
+        return
+      }
+      this.commenting.add(field.id)
+      this.refresh()
+      input.focus()
+    })
+    const presets = (this.presets ?? this.m.commentPresets).map((preset) =>
+      on(h("button", { type: "button", class: "preset" }, preset), "click", () => {
+        input.value = appendPreset(input.value, preset)
+        input.dispatchEvent(new Event("input"))
+        input.focus()
+      })
+    )
+    return {
+      open,
+      box: h(
+        "div",
+        { class: "q-comment" },
+        h("div", { class: "comment-head", "aria-hidden": "true" }, icon(), h("span", {}, this.m.comment)),
+        input,
+        presets.length === 0 ? null : h("div", { class: "presets", role: "group", "aria-label": this.m.presetsOf(field.label) }, presets)
+      )
     }
-    this.error = undefined
-    this.refresh()
-  }
-
-  private holdInput(field: Field): HTMLInputElement | null {
-    return field.type === "text" ? null : h("input", { type: "checkbox", checked: this.held.has(field.id), title: this.m.holdHint })
   }
 
   private syncStatus(): void {
@@ -338,6 +435,7 @@ export class FormApp {
     this.live.cards.length = 0
     this.live.branches.length = 0
     this.live.setters.clear()
+    this.live.unselects.clear()
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
@@ -444,7 +542,7 @@ export class FormApp {
     const descId = field.description === undefined ? undefined : uid("desc")
     const groupId = uid("group")
     const answer = h("span", { class: "q-answer", id: uid("answer") })
-    const hold = this.holdInput(field)
+    const comment = this.commentView(field)
     const toggle = hasDetails(field)
       ? h("button", {
           type: "button",
@@ -467,17 +565,18 @@ export class FormApp {
         toggle ?? h("span", { class: "fold-space" }),
         h("span", { class: "q-label", id: labelId }, field.label),
         answer,
-        hold === null ? null : h("label", { class: "hold", title: this.m.holdHint }, hold, this.m.hold)
+        comment.open
       ),
       field.description === undefined ? null : h("p", { class: "q-desc", id: descId }, field.description),
       h(
         "div",
         { class: field.type === "choice" ? "q-group choices" : "q-group", id: groupId },
-        this.control(field, labelId, [answer.id, rec?.id].filter((id) => id !== undefined && id !== "").join(" "), hold),
+        this.control(field, labelId, [answer.id, rec?.id].filter((id) => id !== undefined && id !== "").join(" ")),
         rec
-      )
+      ),
+      comment.box
     )
-    this.live.cards.push({ field, element, toggle, answer, back })
+    this.live.cards.push({ field, element, toggle, answer, back, comment: comment.box, open: comment.open })
     if (back !== null) {
       on(back, "click", () => {
         this.live.setters.get(field.id)?.(this.initial[field.id] as FieldValue)
@@ -489,7 +588,7 @@ export class FormApp {
       const head = element.querySelector<HTMLElement>(".q-head")
       if (head !== null) {
         on(head, "click", (event) => {
-          if (event.target !== toggle && (event.target as HTMLElement).closest(".hold") === null) {
+          if (event.target !== toggle && (event.target as HTMLElement).closest(".head-action") === null) {
             this.setFolded(field.id, !this.folded.has(field.id))
           }
         })
@@ -507,14 +606,14 @@ export class FormApp {
     return element
   }
 
-  private control(field: Field, labelId: string, describedBy: string, hold: HTMLInputElement | null): HTMLElement {
+  private control(field: Field, labelId: string, describedBy: string): HTMLElement {
     switch (field.type) {
       case "text":
         return this.textView(field, labelId, describedBy)
       case "number":
-        return this.numberView(field, labelId, describedBy, hold ?? h("input"))
+        return this.numberView(field, labelId, describedBy)
       case "choice":
-        return this.choiceView(field, describedBy, hold ?? h("input"))
+        return this.choiceView(field, describedBy)
     }
   }
 
@@ -540,16 +639,17 @@ export class FormApp {
     const value = String(this.values[field.id] ?? "")
     const common = { name: field.id, "aria-labelledby": labelId, "aria-describedby": describedBy, placeholder: field.placeholder }
     const input = field.multiline === true ? h("textarea", { ...common, rows: 3 }, value) : h("input", { ...common, type: "text", value })
-    on(input, "input", () => this.setValue(field.id, input.value))
+    const typed = () => this.setValue(field.id, input.value)
+    on(input, "input", typed)
     this.live.setters.set(field.id, (next) => {
       input.value = String(next)
-      this.setValue(field.id, input.value)
+      typed()
     })
     return input
   }
 
-  private numberView(field: NumberField, labelId: string, describedBy: string, hold: HTMLInputElement): HTMLElement {
-    const unset = this.values[field.id] === undefined || this.held.has(field.id)
+  private numberView(field: NumberField, labelId: string, describedBy: string): HTMLElement {
+    const unset = this.values[field.id] === undefined
     const value = Number(this.values[field.id] ?? field.min)
     const step = field.step ?? "any"
     const text = (next: number) => `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`
@@ -576,7 +676,6 @@ export class FormApp {
     })
     const show = (next: number) => {
       slider.classList.remove("unset")
-      hold.checked = false
       slider.value = String(next)
       slider.setAttribute("aria-valuetext", text(next))
       this.setValue(field.id, next)
@@ -595,31 +694,24 @@ export class FormApp {
       }
     })
     on(exact, "change", () => {
-      if (exact.value !== "" && Number.isFinite(Number(exact.value))) {
+      if (exact.value === "") {
+        slider.classList.add("unset")
+        slider.setAttribute("aria-valuetext", this.m.notAnswered)
+        this.unset(field.id)
+      } else if (Number.isFinite(Number(exact.value))) {
         update(Number(exact.value))
       } else {
-        exact.value = typeof this.values[field.id] === "number" && !this.held.has(field.id) ? slider.value : ""
-      }
-    })
-    on(hold, "change", () => {
-      const stored = this.values[field.id]
-      if (hold.checked || typeof stored !== "number") {
-        slider.classList.add("unset")
-        slider.setAttribute("aria-valuetext", hold.checked ? this.m.held : this.m.notAnswered)
-        exact.value = ""
-        this.setHeld(field.id, hold.checked)
-      } else {
-        update(stored)
+        exact.value = typeof this.values[field.id] === "number" ? slider.value : ""
       }
     })
     return h("div", { class: "row" }, slider, affix(field.prefix), exact, affix(field.suffix))
   }
 
-  private choiceView(field: ChoiceField, describedBy: string, hold: HTMLInputElement): HTMLElement {
+  private choiceView(field: ChoiceField, describedBy: string): HTMLElement {
     const multiple = field.multiple === true
     const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
     const name = uid(field.id)
-    const current = this.held.has(field.id) ? undefined : this.values[field.id]
+    const current = this.values[field.id]
     let pointing = false
     const options = field.options.flatMap((option) => {
       const checked = multiple ? Array.isArray(current) && current.includes(option.value) : current === option.value
@@ -646,7 +738,6 @@ export class FormApp {
           .join(" ")
       })
       on(input, "change", () => {
-        hold.checked = false
         if (multiple) {
           const selected = Array.isArray(this.values[field.id]) ? [...(this.values[field.id] as ReadonlyArray<string>)] : []
           this.setValue(field.id, input.checked ? [...selected, option.value] : selected.filter((item) => item !== option.value))
@@ -662,25 +753,25 @@ export class FormApp {
       const revealed = this.reveal(field, option)
       return revealed === null ? [row] : [row, revealed]
     })
-    on(hold, "change", () => {
-      if (hold.checked) {
-        if (multiple) {
-          this.values[field.id] = []
-        }
-        for (const input of group.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)) {
-          input.checked = false
-        }
-      } else if (!multiple && typeof this.values[field.id] === "string") {
-        const previous = group.querySelector<HTMLInputElement>(
-          `input[name="${name}"][value="${CSS.escape(String(this.values[field.id]))}"]`
+    const unselect = multiple
+      ? null
+      : on(
+          h("button", { type: "button", class: "link unselect", "aria-label": this.m.clearOf(field.label) }, this.m.clear),
+          "click",
+          () => {
+            for (const input of group.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)) {
+              input.checked = false
+            }
+            this.unset(field.id)
+            this.commenting.add(field.id)
+            this.refresh()
+            group.closest(".q")?.querySelector<HTMLElement>(":scope > .q-comment textarea")?.focus()
+          }
         )
-        if (previous !== null) {
-          previous.checked = true
-        }
-      }
-      this.setHeld(field.id, hold.checked)
-    })
-    const group = h("div", { class: "options" }, options)
+    if (unselect !== null) {
+      this.live.unselects.set(field.id, unselect)
+    }
+    const group = h("div", { class: "options" }, options, unselect)
     on(group, "pointerdown", (event) => {
       pointing = (event.target as HTMLElement).closest(".reveal") === null
     })
@@ -751,8 +842,9 @@ export class FormApp {
     if (form === undefined || status !== "submitted") {
       return h("section", { class: "card summary", role: "status" }, head)
     }
-    const changedByUser = changedFields(form.spec, this.initial, this.summaryValues)
-    const rows = activeFields(form.spec, this.summaryValues).map((field) =>
+    const shown = this.summaryAnswer
+    const changedByUser = changedFields(form.spec, this.initial, shown.values)
+    const rows = activeFields(form.spec, shown.values).map((field) =>
       h(
         "div",
         { class: "summary-row" },
@@ -760,10 +852,13 @@ export class FormApp {
         h(
           "dd",
           {},
-          describeValue(field, this.summaryValues[field.id], this.m),
+          describeValue(field, shown.values[field.id], this.m),
           changedByUser.includes(field.id) && field.default !== undefined
             ? h("span", { class: "mark" }, this.m.recommendedWas(describeValue(field, this.initial[field.id], this.m)))
-            : null
+            : null,
+          shown.comments?.[field.id] === undefined
+            ? null
+            : h("span", { class: "commented" }, icon(), h("span", {}, shown.comments[field.id]))
         )
       )
     )
@@ -778,22 +873,29 @@ export class FormApp {
     }
     const current = this.current()
     const sinceRecommended = changedFields(this.form.spec, this.initial, current)
-    const missing = new Set(unansweredFields(this.form.spec, current, this.held).map((field) => field.id))
-    const held = heldFields(this.form.spec, current)
+    const missing = new Set(unansweredFields(this.form.spec, current, this.commented()).map((field) => field.id))
     for (const card of this.live.cards) {
       const unanswered = missing.has(card.field.id)
+      const unset = current[card.field.id] === undefined
       markInvalid(card.element, unanswered && this.showMissing)
-      card.answer.replaceChildren(
-        unanswered
-          ? this.missingTag()
-          : held.includes(card.field.id) && card.field.type === "text"
-            ? h("span", { class: "held-tag" }, this.m.held)
-            : ""
-      )
+      card.answer.replaceChildren(unanswered ? this.missingTag() : unset ? h("span", { class: "muted" }, this.m.held) : "")
+      this.refreshComment(card.field, card.comment, card.open, unset)
       if (card.back !== null) {
         card.back.hidden = !sinceRecommended.includes(card.field.id)
       }
     }
+  }
+
+  private refreshComment(field: Field, element: HTMLElement, button: HTMLElement, unset: boolean): void {
+    const open = this.commenting.has(field.id)
+    const input = element.querySelector("textarea")
+    if (input === null) {
+      return
+    }
+    button.setAttribute("aria-expanded", String(open))
+    button.classList.toggle("has-comment", (this.comments[field.id] ?? "").trim() !== "")
+    element.hidden = !open
+    input.placeholder = unset ? this.m.unsetHint : this.m.commentHint
   }
 
   private missingTag(): HTMLElement {
@@ -837,8 +939,11 @@ export class FormApp {
     if (form === undefined) {
       return
     }
+    for (const [id, unselect] of this.live.unselects) {
+      unselect.hidden = this.values[id] === undefined
+    }
     for (const branch of this.live.branches) {
-      branch.element.hidden = this.held.has(branch.id) || this.values[branch.id] !== branch.value
+      branch.element.hidden = this.values[branch.id] !== branch.value
     }
     this.refreshCards()
     this.refreshComputed(form)

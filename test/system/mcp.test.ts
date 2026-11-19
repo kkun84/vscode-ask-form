@@ -51,7 +51,7 @@ describe("SPEC-MCP-001 質問のツール", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const tools = yield* h.client.listTools()
-        assert.deepEqual(tools.map((tool) => tool.name).toSorted(), ["ask_form", "form_answer", "form_status"])
+        assert.deepEqual(tools.map((tool) => tool.name).toSorted(), ["ask_form", "form_answer", "form_settings", "form_status"])
         const tool = yield* h.tool("ask_form")
         assert.equal(tool.annotations?.readOnlyHint, true)
         assert.equal(tool.annotations?.openWorldHint, false)
@@ -135,31 +135,46 @@ describe("SPEC-MCP-003 回答を待つ", () => {
       })
     ))
 
-  it("SPEC-MCP-003 保留にした項目は値を返さず、heldに並べて聞き直しを指示する", () =>
+  it("SPEC-MCP-003 値のない項目はheldとheldFormで返し、値のある項目のコメントも添える", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const fiber = yield* ask(h)
         const { price: _price, format: _format, ...values } = initialValues(form.spec)
-        yield* h.call("form_answer", { formKey: form.key, action: "submit", values, held: ["format", "price"] })
+        yield* h.call("form_answer", {
+          formKey: form.key,
+          action: "submit",
+          values,
+          held: ["format", "price"],
+          comments: { price: " 予算が決まったら ", format: "任せる", name: "仮の名前" }
+        })
         const result = yield* Fiber.join(fiber)
         const outcome = structured(result)
         assert.deepEqual(outcome["values"], values)
         assert.deepEqual(outcome["held"], ["format", "price"])
+        assert.deepEqual(outcome["comments"], { name: "仮の名前", format: "任せる", price: "予算が決まったら" })
+        assert.deepEqual(outcome["heldForm"], {
+          title: eventSpec.title,
+          fields: form.spec.fields.filter((field) => field.id === "format" || field.id === "price")
+        })
         assert.deepEqual(outcome["changedByUser"], [])
         assert.deepEqual(outcome["computed"], { cost: 170000, profit: null, breakEven: null })
-        assert.match(text(result), /Do not assume a value/)
+        assert.match(text(result), /follow each for its field.*let you decide.*does not matter.*heldForm/)
       })
     ))
 
-  it("SPEC-MCP-005 値も保留もない項目、値のある項目の保留、文字列でない補足、長すぎる補足を拒否する", () =>
+  it("SPEC-MCP-005 値もコメントもない項目、値のある項目のheld、文字列でないコメントと補足、長すぎる補足を拒否する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         yield* ask(h)
         const { price: _price, ...values } = initialValues(form.spec)
-        yield* expectError(h.call("form_answer", { formKey: form.key, action: "submit", values }), /price.*値か保留/)
+        yield* expectError(h.call("form_answer", { formKey: form.key, action: "submit", values, held: ["price"] }), /price.*コメントが必要/)
         yield* expectError(
           h.call("form_answer", { formKey: form.key, action: "submit", values: initialValues(form.spec), held: ["price"] }),
-          /price.*保留にできません/
+          /price.*できません/
+        )
+        yield* expectError(
+          h.call("form_answer", { formKey: form.key, action: "submit", values: initialValues(form.spec), comments: { price: 1 } }),
+          /price.*コメント/
         )
         const noted = { formKey: form.key, action: "submit", values: initialValues(form.spec) }
         yield* expectError(h.call("form_answer", { ...noted, note: 1 }), /note/)
@@ -220,7 +235,7 @@ describe("SPEC-MCP-005 回答を受け取るツール", () => {
   it("SPEC-MCP-005 画面専用でAIからは見えない印を持つ", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        for (const name of ["form_answer", "form_status"]) {
+        for (const name of ["form_answer", "form_settings", "form_status"]) {
           const tool = yield* h.tool(name)
           assert.deepEqual((tool._meta as Record<string, unknown>)["ui"], { resourceUri, visibility: ["app"] })
         }
@@ -350,6 +365,23 @@ const rawSession = (h: Harness) =>
     yield* rpc({ method: "notifications/initialized" })
     return rpc
   })
+
+describe("SPEC-MCP-010 画面の設定のツール", () => {
+  it("SPEC-MCP-010 利用者の設定したコメントの定型文を返し、設定がなければnullを返す", async () => {
+    await withHarness((h) =>
+      Effect.gen(function* () {
+        assert.deepEqual(structured(yield* h.call("form_settings", {})), { commentPresets: null })
+      })
+    )
+    await withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          assert.deepEqual(structured(yield* h.call("form_settings", {})), { commentPresets: ["保留", "任せる"] })
+        }),
+      { commentPresets: ["保留", "任せる"] }
+    )
+  })
+})
 
 const post = (url: string, headers: Record<string, string>) =>
   Effect.promise(() =>

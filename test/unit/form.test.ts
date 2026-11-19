@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Result } from "effect"
-import { changedFields, computeValues, initialValues, outcomeFor } from "../../src/core/form.ts"
+import { appendPreset, changedFields, commentPresetsFrom, computeValues, initialValues, outcomeFor } from "../../src/core/form.ts"
 import { checkAnswer, checkValues } from "../../src/core/validate.ts"
 import { canonicalJson, stableHash } from "../../src/core/hash.ts"
 import { eventSpec } from "../fixtures/event.ts"
@@ -234,20 +234,20 @@ describe("DES-FORM-003 差分", () => {
   it("DES-FORM-003 回答では推奨から変えた項目を changedByUser にする", () => {
     const form = compiled(eventSpec)
     const values = { ...initialValues(form.spec), price: 2500 }
-    const outcome = outcomeFor(form, "submit", values)
+    const outcome = outcomeFor(form, "submit", { values })
     assert.equal(outcome.status, "submitted")
     if (outcome.status === "submitted") {
       assert.deepEqual(outcome.changedByUser, ["price"])
       assert.equal(outcome.computed["profit"], 130000)
     }
-    assert.deepEqual(outcomeFor(form, "chat", values), { status: "answer_in_chat" })
+    assert.deepEqual(outcomeFor(form, "chat", { values }), { status: "answer_in_chat" })
   })
 })
 
 describe("DES-FORM-004 値の検査", () => {
   it("DES-FORM-004 正しい値を受け付ける", () => {
     const form = compiled(eventSpec)
-    const result = checkValues(form.spec, { ...initialValues(form.spec), extra: 1 }, [])
+    const result = checkValues(form.spec, { ...initialValues(form.spec), extra: 1 })
     assert.ok(Result.isSuccess(result))
     assert.equal("extra" in result.success, false)
   })
@@ -264,14 +264,14 @@ describe("DES-FORM-004 値の検査", () => {
       [{ ...base, stream: true }, "stream"]
     ]
     for (const [values, id] of cases) {
-      const result = checkValues(form.spec, values, [])
+      const result = checkValues(form.spec, values)
       assert.ok(Result.isFailure(result), id)
       assert.ok(
         result.failure.some((p) => p.includes(`「${id}」`)),
         id
       )
     }
-    assert.ok(Result.isFailure(checkValues(form.spec, [], [])))
+    assert.ok(Result.isFailure(checkValues(form.spec, [])))
   })
 })
 
@@ -282,8 +282,8 @@ describe("DES-FORM-008 補足", () => {
   it("DES-FORM-008 補足の前後の空白を除き、空なら補足なしとして回答に入れない", () => {
     const noted = Result.getOrThrow(answer(" SQLiteにしたい\n"))
     assert.equal(noted.note, "SQLiteにしたい")
-    assert.equal(outcomeFor(form, "submit", noted.values, noted.note).status, "submitted")
-    assert.deepEqual(outcomeFor(form, "submit", noted.values, noted.note), {
+    assert.equal(outcomeFor(form, "submit", noted).status, "submitted")
+    assert.deepEqual(outcomeFor(form, "submit", noted), {
       status: "submitted",
       values: { name: "a" },
       held: [],
@@ -293,7 +293,7 @@ describe("DES-FORM-008 補足", () => {
     })
     const blank = Result.getOrThrow(answer("  "))
     assert.equal(blank.note, undefined)
-    assert.equal("note" in outcomeFor(form, "submit", blank.values, blank.note), false)
+    assert.equal("note" in outcomeFor(form, "submit", blank), false)
     assert.equal(Result.getOrThrow(answer()).note, undefined)
   })
 
@@ -307,31 +307,92 @@ describe("DES-FORM-008 補足", () => {
   })
 })
 
-describe("DES-FORM-007 保留", () => {
-  const choice = { type: "choice", id: "due", label: "締め切り", options: ["yes", "no"].map((value) => ({ value, label: value })) }
-  const spec = withFields([
-    { type: "number", id: "size", label: "件数", default: 20, min: 5, max: 100 },
-    choice,
-    { type: "text", id: "memo", label: "補足", default: "なし" }
-  ])
+const choice = { type: "choice", id: "due", label: "締め切り", options: ["yes", "no"].map((value) => ({ value, label: value })) }
+const sizeField = { type: "number", id: "size", label: "件数", default: 20, min: 5, max: 100 }
 
-  it("DES-FORM-007 値のない項目と空欄の文字列を保留として並べ、推奨から保留にした項目をchangedByUserに含めない", () => {
+describe("DES-FORM-007 値のない回答", () => {
+  const spec = withFields([sizeField, choice, { type: "text", id: "memo", label: "補足", default: "なし" }])
+
+  it("DES-FORM-007 値がなくコメントのある項目をheldに入れ、その設計図をheldFormに入れる", () => {
     const form = compiled(spec)
-    const outcome = outcomeFor(form, "submit", Result.getOrThrow(checkValues(form.spec, { due: "no", memo: "" }, ["size"])))
-    assert.deepEqual(outcome, {
+    const answer = Result.getOrThrow(
+      checkAnswer(form.spec, { values: { due: "no", memo: "なし" }, held: ["size"], comments: { size: "予算次第" } })
+    )
+    assert.deepEqual(outcomeFor(form, "submit", answer), {
       status: "submitted",
-      values: { due: "no" },
-      held: ["size", "memo"],
+      values: { due: "no", memo: "なし" },
+      held: ["size"],
       changedByUser: ["due"],
-      computed: {}
+      computed: {},
+      comments: { size: "予算次第" },
+      heldForm: { title: "t", fields: [form.spec.fields[0]] }
     })
   })
 
-  it("DES-FORM-007 保留と値の間の変更を差分に数える", () => {
+  it("DES-FORM-007 値とコメントの両方を受け付け、空欄の文字列は答えとして扱う", () => {
+    const form = compiled(spec)
+    const answer = Result.getOrThrow(checkAnswer(form.spec, { values: { size: 20, due: "no", memo: "" }, comments: { due: "来月から" } }))
+    const outcome = outcomeFor(form, "submit", answer)
+    assert.deepEqual(outcome.status === "submitted" ? [outcome.values, outcome.held, outcome.comments] : undefined, [
+      { size: 20, due: "no", memo: "" },
+      [],
+      { due: "来月から" }
+    ])
+  })
+
+  it("DES-FORM-007 値のない項目の申告漏れ、コメントのない値なし、値のある項目の申告を拒否する", () => {
+    const form = compiled(spec)
+    const failure = (input: Record<string, unknown>) => String(checkAnswer(form.spec, input).pipe(Result.flip, Result.getOrThrow))
+    assert.match(failure({ values: { size: 20, due: "no" }, comments: { memo: "x" } }), /memo.*heldが必要/)
+    assert.match(failure({ values: { size: 20, due: "no" }, held: ["memo"] }), /memo.*コメントが必要/)
+    assert.match(failure({ values: { size: 20, due: "no", memo: "" }, held: ["size"] }), /size.*できません/)
+    assert.match(failure({ values: {}, held: "size" }), /heldは項目のidの配列/)
+  })
+
+  it("DES-FORM-007 値と値なしの間の変更を差分に数える", () => {
     const form = compiled(spec)
     const before = { size: 20, due: "no", memo: "なし" }
     assert.deepEqual(changedFields(form.spec, before, { due: "no", memo: "" }), ["size", "memo"])
-    assert.deepEqual(changedFields(form.spec, { due: "no" }, { due: "no", memo: "" }), [])
+  })
+})
+
+describe("DES-FORM-009 項目ごとのコメント", () => {
+  const spec = withFields([sizeField, { type: "text", id: "memo", label: "補足", default: "なし" }])
+
+  it("DES-FORM-009 前後の空白を除き、空のコメントを捨てて回答に入れる", () => {
+    const form = compiled(spec)
+    const answer = Result.getOrThrow(
+      checkAnswer(form.spec, { values: { memo: "なし" }, held: ["size"], comments: { size: " 予算次第 ", memo: "  " } })
+    )
+    assert.deepEqual(answer.comments, { size: "予算次第" })
+    const outcome = outcomeFor(form, "submit", answer)
+    assert.deepEqual(outcome.status === "submitted" ? outcome.comments : undefined, { size: "予算次第" })
+    assert.equal("comments" in outcomeFor(form, "submit", { values: { size: 20, memo: "なし" } }), false)
+  })
+
+  it("DES-FORM-009 有効でない項目へのコメント、文字列でないコメント、長すぎるコメントを拒否する", () => {
+    const form = compiled(spec)
+    const check = (comments: unknown) => checkAnswer(form.spec, { values: { size: 20, memo: "なし" }, comments })
+    assert.ok(Result.isSuccess(check({ size: "x".repeat(500) })))
+    assert.ok(Result.isFailure(check({ size: "x".repeat(501) })))
+    assert.ok(Result.isFailure(check({ size: 1 })))
+    assert.ok(Result.isFailure(check({ other: "x" })))
+    assert.ok(Result.isFailure(check(["x"])))
+  })
+
+  it("DES-FORM-009 定型文は空のコメントにはそのまま入れ、日本語の後ろには空白なしで、それ以外の後ろには空白を挟んで足す", () => {
+    assert.equal(appendPreset("  ", "あとで決める。"), "あとで決める。")
+    assert.equal(appendPreset("仮の名前。", "どれでもよい。"), "仮の名前。どれでもよい。")
+    assert.equal(appendPreset("予算次第 ", "あとで決める。"), "予算次第あとで決める。")
+    assert.equal(appendPreset("Keep it short.", "Any is fine."), "Keep it short. Any is fine.")
+  })
+
+  it("DES-FORM-009 設定の定型文は、文字列だけを空白を除いて8個まで使い、配列でなければ既定に任せる", () => {
+    assert.equal(commentPresetsFrom(null), undefined)
+    assert.equal(commentPresetsFrom("あとで"), undefined)
+    assert.deepEqual(commentPresetsFrom([]), [])
+    assert.deepEqual(commentPresetsFrom([" あとで ", 1, "", "x".repeat(501), "任せる"]), ["あとで", "任せる"])
+    assert.equal(commentPresetsFrom(Array.from({ length: 10 }, (_, index) => String(index)))?.length, 8)
   })
 
   it("DES-SPEC-001 defaultのない項目のreasonとreasonDetailsを指摘する", () => {
