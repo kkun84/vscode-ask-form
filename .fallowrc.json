@@ -40,18 +40,6 @@
         "patterns": ["src/ui/**"]
       },
       {
-        "name": "ports",
-        "patterns": ["src/mcp/ports.ts"]
-      },
-      {
-        "name": "mcp-http",
-        "patterns": ["src/mcp/http.ts"]
-      },
-      {
-        "name": "mcp-tools",
-        "patterns": ["src/mcp/**"]
-      },
-      {
         "name": "extension-node",
         "patterns": ["src/extension/node/**"]
       },
@@ -88,20 +76,8 @@
         "allowTypeOnly": ["core"]
       },
       {
-        "from": "ports",
-        "allow": ["core-pure"]
-      },
-      {
-        "from": "mcp-tools",
-        "allow": ["ports", "core-pure", "core"]
-      },
-      {
-        "from": "mcp-http",
-        "allow": ["mcp-tools", "ports", "core-pure", "core"]
-      },
-      {
         "from": "extension-node",
-        "allow": ["mcp-http", "mcp-tools", "ports", "extension-shared", "core-pure", "core"]
+        "allow": ["extension-shared", "core-pure", "core"]
       },
       {
         "from": "extension-web",

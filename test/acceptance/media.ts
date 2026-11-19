@@ -139,7 +139,7 @@ const scenario = async (page: Page, pointer: Pointer, images: string, recorder: 
     .waitFor({ timeout: 60_000 })
   recorder.mark("answered")
   await sleep(1500)
-  regions["answered"] = await regionOf(frame.locator("body"), page.locator(".interactive-response").last())
+  regions["answered"] = await regionOf(page.locator(".interactive-response").last())
   await sleep(1500)
   await shoot(page, images, "answered")
   await sleep(3500)

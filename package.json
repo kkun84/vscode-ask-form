@@ -3,7 +3,7 @@
   "displayName": "Ask Form",
   "version": "0.3.1",
   "private": true,
-  "description": "Lets GitHub Copilot ask you through interactive forms in the chat, with its recommendations and the reasons for them.",
+  "description": "Lets GitHub Copilot ask you through interactive forms beside the chat, with its recommendations and the reasons for them.",
   "categories": [
     "AI",
     "Chat"
@@ -78,29 +78,17 @@
             "インターネットで調査した上でもう一度検討しよう。"
           ],
           "markdownDescription": "Preset comments shown under each question's comment box. Clicking one adds it to the comment. Remove all items to hide presets."
-        },
-        "askForm.mcp.enabled": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Provide Ask Form to Copilot as an MCP server (the form appears inside the chat). When off, or when MCP is restricted by your organization (`#chat.mcp.access#`), Ask Form is provided as an extension tool instead and the form appears in a panel beside the chat."
         }
       }
     },
-    "mcpServerDefinitionProviders": [
-      {
-        "id": "ask-form.mcp",
-        "label": "Ask Form"
-      }
-    ],
     "languageModelTools": [
       {
         "name": "forms_ask_form",
         "toolReferenceName": "askForm",
         "displayName": "Ask with a form",
         "userDescription": "Ask you through an interactive form with Copilot's recommendations and reasons.",
-        "modelDescription": "Ask the user a question through an interactive form shown in the chat, and wait for the answer. Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those). For a single simple choice, prefer the built-in askQuestions tool instead. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
+        "modelDescription": "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer. Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice. Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
         "canBeReferencedInPrompt": true,
-        "when": "isWeb || !config.askForm.mcp.enabled || config.chat.mcp.access != 'all'",
         "inputSchema": {
           "type": "object",
           "properties": {
