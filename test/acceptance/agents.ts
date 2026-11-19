@@ -16,35 +16,40 @@ interface Paths extends VscodePaths {
 const trigger = "ASK_FORM_E2E"
 
 interface Session {
+  readonly app: ElectronApplication
   readonly window: Page
   readonly agents: FakeAgents
 }
 
-type Harness = "Claude" | "Codex"
+type Harness = "Claude" | "Codex" | "Copilot"
 
 const { test, run } = createSteps<Session>()
 
-const waiting = (session: Session) => waitingStatus(session.window)
+const waiting = (page: Page) => waitingStatus(page)
 
-const runCommand = async (session: Session, title: string): Promise<void> => {
-  const input = session.window.locator(".quick-input-widget input")
+const runCommand = async (page: Page, title: string): Promise<void> => {
+  const input = page.locator(".quick-input-widget input")
+  const row = page.locator(".quick-input-list .monaco-list-row", { hasText: title })
   await until(
     async () => {
-      await session.window.locator(".monaco-workbench").click({ position: { x: 600, y: 400 } })
-      await session.window.keyboard.press("F1")
-      return (await input.isVisible().catch(() => false)) ? true : undefined
+      await page.keyboard.press("Escape")
+      await page.locator(".monaco-workbench").click({ position: { x: 600, y: 400 } })
+      await page.keyboard.press("F1")
+      if (!(await input.isVisible().catch(() => false))) {
+        return null
+      }
+      await input.fill(`>${title}`)
+      return (await row.isVisible().catch(() => false)) ? true : undefined
     },
-    "the command palette opens",
-    60_000
+    `the command palette offers ${title}`,
+    120_000
   )
-  await input.fill(`>${title}`)
-  await session.window.locator(".quick-input-list .monaco-list-row", { hasText: title }).click()
+  await row.click()
 }
 
-const openSession = async (session: Session, harness: Harness): Promise<void> => {
-  await runCommand(session, `Ask Form: New acceptance ${harness} session`)
-  const download = session.window.locator(".monaco-button:visible", { hasText: /^Download$/ })
-  const noModel = session.window.locator(".interactive-input-part").getByText("Models", { exact: true })
+const modelReady = async (page: Page, harness: Harness): Promise<void> => {
+  const download = page.locator(".monaco-button:visible", { hasText: /^Download$/ })
+  const noModel = page.locator(".interactive-input-part").getByText("Models", { exact: true })
   let ready = 0
   await until(
     async () => {
@@ -60,28 +65,52 @@ const openSession = async (session: Session, harness: Harness): Promise<void> =>
   )
 }
 
-const ask = async (session: Session, harness: Harness): Promise<{ readonly frame: Frame; readonly callId: string }> => {
-  const previous = session.window.frames()
+const openSession = async (session: Session, harness: Harness): Promise<Page> => {
+  await runCommand(session.window, `Ask Form: New acceptance ${harness} session`)
+  await modelReady(session.window, harness)
+  return session.window
+}
+
+const ask = async (
+  session: Session,
+  harness: Harness,
+  open: () => Promise<Page>
+): Promise<{ readonly page: Page; readonly frame: Frame; readonly callId: string }> => {
   const callIndex = session.agents.toolCalls.length
-  await openSession(session, harness)
-  const allow = session.window.locator(".monaco-button:visible", { hasText: "Allow in this Session" })
-  const missing = session.window.getByText(/^NO_ASK_FORM/)
-  for (let attempt = 0; attempt < 5 && !(await allow.isVisible()); attempt++) {
+  const page = await open()
+  const previous = page.frames()
+  const allow = page.locator(".monaco-button:visible", { hasText: "Allow in this Session" })
+  const missing = page.getByText(/^NO_ASK_FORM/)
+  const called = () => session.agents.toolCalls.length > callIndex
+  for (let attempt = 0; attempt < 5 && !(await allow.isVisible()) && !called(); attempt++) {
     const before = await missing.count()
     await sleep(attempt * 5000)
-    await session.window.locator(".interactive-input-part .monaco-editor").click()
-    await session.window.keyboard.type(`${trigger} Please ask me with a form.`)
-    await session.window.keyboard.press("Enter")
+    await page.locator(".interactive-input-part .monaco-editor").click()
+    await page.keyboard.type(`${trigger} Please ask me with a form.`)
+    await page.keyboard.press("Enter")
     await until(
-      async () => ((await allow.isVisible()) || (await missing.count()) > before ? true : undefined),
-      `${harness} asks for permission or answers without ask_form`,
+      async () => ((await allow.isVisible()) || called() || (await missing.count()) > before ? true : undefined),
+      `${harness} asks for permission, calls ask_form, or answers without ask_form`,
       120_000
     )
   }
-  await allow.click()
   const call = await until(() => Promise.resolve(session.agents.toolCalls[callIndex]), `${harness} calls ask_form`, 120_000)
-  const frame = await formFrame(session.window, previous)
-  return { frame, callId: call.id }
+  let shown = false
+  const approved = until(
+    async () => {
+      if (!shown && (await allow.isVisible())) {
+        await allow.click()
+      }
+      return shown ? true : undefined
+    },
+    `${harness} runs ask_form`,
+    150_000
+  )
+  const frame = await formFrame(page, previous).finally(() => {
+    shown = true
+  })
+  await approved
+  return { page, frame, callId: call.id }
 }
 
 const resultOf = (session: Session, callId: string) =>
@@ -91,9 +120,7 @@ const resultOf = (session: Session, callId: string) =>
     60_000
   )
 
-const answeredInPanel = (harness: Harness) => async (session: Session) => {
-  const { frame, callId } = await ask(session, harness)
-  await waiting(session).waitFor({ timeout: 30_000 })
+const answer = async (session: Session, page: Page, frame: Frame, callId: string): Promise<void> => {
   await settled(frame)
   const attendees = frame.getByRole("spinbutton", { name: "参加者数" })
   await attendees.fill("150")
@@ -102,19 +129,73 @@ const answeredInPanel = (harness: Harness) => async (session: Session) => {
   const result = await resultOf(session, callId)
   expect(result.text).toContain('"status":"submitted"')
   expect(result.text).toContain('"changedByUser":["attendees"]')
-  await until(() => Promise.resolve(frame.isDetached() ? true : undefined), "the panel closes", 30_000)
-  await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
-  await session.window.getByText("FAKE_AGENT_DONE", { exact: true }).waitFor({ timeout: 60_000 })
+  await page.getByText("FAKE_AGENT_DONE", { exact: true }).waitFor({ timeout: 60_000 })
 }
+
+const answeredInPanel = (harness: Harness) => async (session: Session) => {
+  const { page, frame, callId } = await ask(session, harness, () => openSession(session, harness))
+  await waiting(page).waitFor({ timeout: 30_000 })
+  await answer(session, page, frame, callId)
+  await until(() => Promise.resolve(frame.isDetached() ? true : undefined), "the panel closes", 30_000)
+  await waiting(page).waitFor({ state: "hidden", timeout: 30_000 })
+}
+
+test("REQ-ASK-001 既定のCopilotハーネスでは、フォームがチャットの中に出て、回答がモデルに届く", async (session) => {
+  const { page, frame, callId } = await ask(session, "Copilot", () => openSession(session, "Copilot"))
+  await waiting(page).waitFor({ timeout: 30_000 })
+  await answer(session, page, frame, callId)
+  await frame.locator(".summary").waitFor({ timeout: 30_000 })
+  await waiting(page).waitFor({ state: "hidden", timeout: 30_000 })
+})
+
+const agentsWindow = async (session: Session): Promise<Page> => {
+  const existing = session.app.windows().find((page) => page.url().includes("sessions.html"))
+  if (existing !== undefined) {
+    return existing
+  }
+  const opened = session.app.waitForEvent("window", { predicate: (page) => page.url().includes("sessions.html"), timeout: 60_000 })
+  await runCommand(session.window, "Ask Form: Open acceptance Agents window")
+  const page = await opened
+  const skip = page.getByText("Continue Without Signing In", { exact: true })
+  await skip.waitFor({ timeout: 60_000 })
+  await skip.click()
+  return page
+}
+
+const newAgentsSession = async (page: Page, harness: Harness): Promise<Page> => {
+  await page.getByRole("button", { name: /^New/ }).first().click()
+  const picker = page.locator(".monaco-action-bar .action-label:visible", { hasText: /^(Copilot|Claude|Codex)$/ }).first()
+  await picker.waitFor({ timeout: 60_000 })
+  if ((await picker.innerText()).trim() !== harness) {
+    await picker.click()
+    await page.locator(".monaco-list-row:visible", { hasText: harness }).first().click()
+  }
+  await modelReady(page, harness)
+  return page
+}
+
+test("REQ-ENV-003 Agentsウィンドウの既定のCopilotハーネスでは、フォームがチャットの中に出て、回答がモデルに届く", async (session) => {
+  const window = await agentsWindow(session)
+  const { page, frame, callId } = await ask(session, "Copilot", () => newAgentsSession(window, "Copilot"))
+  await answer(session, page, frame, callId)
+  await frame.locator(".summary").waitFor({ timeout: 30_000 })
+})
+
+test("REQ-ENV-003 AgentsウィンドウのClaudeのハーネスでは、フォームがAgentsウィンドウのパネルに出て、回答がモデルに届く", async (session) => {
+  const window = await agentsWindow(session)
+  const { page, frame, callId } = await ask(session, "Claude", () => newAgentsSession(window, "Claude"))
+  await answer(session, page, frame, callId)
+  await until(() => Promise.resolve(frame.isDetached() ? true : undefined), "the panel closes", 30_000)
+})
 
 test("REQ-ENV-002 Claudeのハーネスでは、フォームがチャットの横のパネルに出て、回答がモデルに届く", answeredInPanel("Claude"))
 
 test("REQ-ENV-002 Claudeのハーネスでチャットを停止すると、パネルが閉じる", async (session) => {
-  const { frame } = await ask(session, "Claude")
-  await waiting(session).waitFor({ timeout: 30_000 })
-  await session.window.locator(".interactive-input-part .codicon-stop-circle").click()
+  const { page, frame } = await ask(session, "Claude", () => openSession(session, "Claude"))
+  await waiting(page).waitFor({ timeout: 30_000 })
+  await page.locator(".interactive-input-part .codicon-stop-circle").click()
   await until(() => Promise.resolve(frame.isDetached() ? true : undefined), "the panel closes", 30_000)
-  await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
+  await waiting(page).waitFor({ state: "hidden", timeout: 30_000 })
 })
 
 test("REQ-ENV-002 Codexのハーネスでは、フォームがチャットの横のパネルに出て、回答がモデルに届く", answeredInPanel("Codex"))
@@ -132,8 +213,10 @@ const agentHostLog = async (profile: string): Promise<string> => {
 }
 
 const report = async (paths: Paths, session: Session, profile: string): Promise<void> => {
-  const { window, agents } = session
-  await window.screenshot({ path: join(paths.results, "agents-failure.png"), timeout: 10_000 }).catch(() => null)
+  const { app, window, agents } = session
+  for (const [index, page] of app.windows().entries()) {
+    await page.screenshot({ path: join(paths.results, `agents-failure-${index}.png`), timeout: 10_000 }).catch(() => null)
+  }
   await writeFile(
     join(paths.results, "agents-llm.json"),
     JSON.stringify({ toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames }, undefined, 2)
@@ -184,12 +267,13 @@ export const runAgents = async (paths: Paths): Promise<void> => {
         ANTHROPIC_BASE_URL: agents.origin,
         ANTHROPIC_API_KEY: "sk-ant-fake",
         CODEX_HOME: join(profile, "codex"),
+        ASK_FORM_E2E_BYOK_URL: `${agents.origin}/v1/chat/completions`,
         ...(process.getuid?.() === 0 ? { IS_SANDBOX: "1" } : {})
       }
     })
     const window = await fitWindow(app, { width: 1600, height: 1000 })
     window.context().setDefaultTimeout(30_000)
-    const session: Session = { window, agents }
+    const session: Session = { app, window, agents }
     await run(session, () => report(paths, session, profile))
   } finally {
     await cleanUp(app, agents, profile)

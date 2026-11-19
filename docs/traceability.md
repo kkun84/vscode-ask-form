@@ -6,7 +6,7 @@
 
 | ID | 名前 | 派生元 | 派生先 | 検証 |
 | --- | --- | --- | --- | --- |
-| REQ-ASK-001 | フォームで質問できる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-MCP-001, SPEC-MCP-002, SPEC-MCP-004, SPEC-EXT-001 | `test/acceptance/chat.ts`, MAT-ASK-001 |
+| REQ-ASK-001 | フォームで質問できる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-MCP-001, SPEC-MCP-002, SPEC-MCP-004, SPEC-EXT-001 | `test/acceptance/agents.ts`, `test/acceptance/chat.ts`, MAT-ASK-001 |
 | REQ-ASK-002 | 推奨と理由が見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.ts`, MAT-ASK-001 |
 | REQ-ASK-003 | 結果がその場で変わる | - | SPEC-FORM-001, SPEC-EXPR-001, SPEC-UI-002 | MAT-ASK-001 |
 | REQ-ASK-004 | 選んだ選択肢に応じて続きを聞ける | - | SPEC-FORM-002, SPEC-MCP-003, SPEC-UI-011 | MAT-ASK-002 |
@@ -22,6 +22,7 @@
 | REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/web.ts`, MAT-WEB-001 |
 | REQ-ENV-001 | MCPを使わない環境でも回答できる | - | SPEC-EXT-006 | MAT-ENV-001 |
 | REQ-ENV-002 | ClaudeとCodexのハーネスでも回答できる | - | SPEC-MCP-010, SPEC-EXT-008 | `test/acceptance/agents.ts`, MAT-ENV-002 |
+| REQ-ENV-003 | Agentsウィンドウでも回答できる | - | SPEC-EXT-008 | `test/acceptance/agents.ts`, MAT-ENV-003 |
 | REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/desktop.ts`, MAT-PERF-001 |
 | REQ-SEC-001 | 回答を偽装されない | - | SPEC-MCP-009, SPEC-UI-010, SPEC-EXT-001 | MAT-SEC-001 |
 | REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | MAT-LOOK-001 |
@@ -61,7 +62,7 @@
 | SPEC-EXT-004 | web版 | REQ-WEB-001, REQ-CANCEL-001 | ARCH-LAYER-002, ARCH-LAYER-004, ARCH-LAYER-005, ARCH-UI-001, DES-UI-002, DES-HOST-001, DES-TOOLS-002 | `test/system/extension.test.ts` |
 | SPEC-EXT-006 | MCPを使わない環境 | REQ-ENV-001 | - | `test/system/extension.test.ts` |
 | SPEC-EXT-007 | 利用者が不在の設定 | REQ-WAIT-002 | ARCH-EFFECT-001, ARCH-PORT-001 | `test/system/extension.test.ts` |
-| SPEC-EXT-008 | フォームを描けないハーネス | REQ-ENV-002 | ARCH-PORT-001 | `test/system/extension.test.ts` |
+| SPEC-EXT-008 | フォームを描けないハーネス | REQ-ENV-002, REQ-ENV-003 | ARCH-PORT-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-005 | 起動・サイズ・検査の予算 | REQ-PERF-001 | ARCH-LAYER-002, ARCH-LAYER-006, ARCH-DEPS-001, DES-TOOLS-001 | `test/system/extension.test.ts`, `test/system/process.test.ts` |
 | SPEC-REL-001 | 配布前の検査と公開 | REQ-DIST-001 | ARCH-REL-001, DES-REL-001 | `test/system/release-check.test.ts`, `test/system/release-workflow.test.ts` |
 

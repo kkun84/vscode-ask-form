@@ -81,14 +81,19 @@
                 pkgs.ffmpeg-headless
               ]
               ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.xvfb-run ];
-            env = base.env // {
-              VSCODE_EXECUTABLE = "${vscode}/bin/code";
-              VSCODE_ELECTRON =
-                if pkgs.stdenv.hostPlatform.isDarwin then
-                  "${vscode}/Applications/Visual Studio Code.app/Contents/MacOS/Code"
-                else
-                  "${vscode}/lib/vscode/code";
-            };
+            env =
+              base.env
+              // {
+                VSCODE_EXECUTABLE = "${vscode}/bin/code";
+                VSCODE_ELECTRON =
+                  if pkgs.stdenv.hostPlatform.isDarwin then
+                    "${vscode}/Applications/Visual Studio Code.app/Contents/MacOS/Code"
+                  else
+                    "${vscode}/lib/vscode/code";
+              }
+              // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+                LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.openssl ];
+              };
           };
         }
       );

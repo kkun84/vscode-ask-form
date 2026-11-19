@@ -46,7 +46,7 @@ const prepareProfile = async (user: string, settings: Readonly<Record<string, un
 
 export const localHarness = { "chat.defaultToCopilotHarness": false, "chat.editor.preferCopilotHarness": false }
 
-const agentVariable = /^(CLAUDE|ANTHROPIC|OPENAI|CODEX)_|^CLAUDECODE$/
+const agentVariable = /^(CLAUDE|ANTHROPIC|OPENAI|CODEX|CCR)_|^CLAUDECODE$/
 
 export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): Promise<ElectronApplication> => {
   const user = join(options.profile, "user")

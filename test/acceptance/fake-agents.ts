@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { listenLocally } from "../support/listen.ts"
 
 export interface AgentToolCall {
-  readonly api: "messages" | "responses"
+  readonly api: "messages" | "responses" | "chat"
   readonly id: string
   readonly name: string
 }
@@ -60,7 +60,7 @@ const text = (value: unknown): string =>
         .map((part) => partText(part))
         .join("")
 
-const isAskForm = (name: string): boolean => /(^|[_.])ask_form$/.test(name) && !name.startsWith("forms_")
+const isAskForm = (name: string): boolean => /(^|[-_.])ask_form$/.test(name) && !name.startsWith("forms_")
 
 const isSearch = (name: string): boolean => /tool_?search/i.test(name)
 
@@ -252,6 +252,54 @@ const responses = (state: State, script: Script, body: Json, res: ServerResponse
   ])
 }
 
+const chatTurn = (state: State, script: Script, body: Json): Turn => {
+  const history = records(body["messages"])
+  const names = records(body["tools"]).flatMap((tool) => {
+    const fn = tool["function"]
+    return typeof fn === "object" && fn !== null && typeof (fn as Json)["name"] === "string" ? [String((fn as Json)["name"])] : []
+  })
+  state.toolNames.push(names)
+  for (const message of history.filter((entry) => entry["role"] === "tool")) {
+    remember(state, String(message["tool_call_id"]), message["content"])
+  }
+  const start = history.findLastIndex((message) => message["role"] === "user" && text(message["content"]).includes(script.trigger))
+  const called = history
+    .slice(start + 1)
+    .flatMap((message) => records(message["tool_calls"]))
+    .map((call) => String((call["function"] as Json | undefined)?.["name"]))
+  return { asked: start >= 0, answered: called.some((name) => isAskForm(name)), searched: true, names, search: undefined }
+}
+
+const chat = (state: State, script: Script, body: Json, res: ServerResponse): void => {
+  const reply = decide(script, chatTurn(state, script, body))
+  const call =
+    reply.kind === "tool"
+      ? { id: state.nextId("call"), type: "function", function: { name: reply.name, arguments: JSON.stringify(reply.input) } }
+      : undefined
+  if (call !== undefined && reply.kind === "tool" && isAskForm(reply.name)) {
+    state.toolCalls.push({ api: "chat", id: call.id, name: reply.name })
+  }
+  const message =
+    call === undefined
+      ? { role: "assistant", content: reply.kind === "text" ? reply.text : "" }
+      : { role: "assistant", content: null, tool_calls: [call] }
+  const finish = call === undefined ? "stop" : "tool_calls"
+  const base = { id: state.nextId("chatcmpl"), created: 0, model: body["model"] }
+  if (body["stream"] !== true) {
+    res.writeHead(200, { "content-type": "application/json" })
+    res.end(JSON.stringify({ ...base, object: "chat.completion", choices: [{ index: 0, message, finish_reason: finish }] }))
+    return
+  }
+  const delta = call === undefined ? message : { role: "assistant", tool_calls: [{ index: 0, ...call }] }
+  const chunk = (data: Json) => `data: ${JSON.stringify({ ...base, object: "chat.completion.chunk", ...data })}\n\n`
+  res.writeHead(200, { "content-type": "text/event-stream" })
+  res.end(
+    chunk({ choices: [{ index: 0, delta, finish_reason: null }] }) +
+      chunk({ choices: [{ index: 0, delta: {}, finish_reason: finish }] }) +
+      "data: [DONE]\n\n"
+  )
+}
+
 const handle = async (state: State, script: Script, req: IncomingMessage, res: ServerResponse): Promise<void> => {
   const path = (req.url ?? "").split("?")[0] ?? ""
   const body = await readBody(req)
@@ -261,6 +309,8 @@ const handle = async (state: State, script: Script, req: IncomingMessage, res: S
     messages(state, script, body, res)
   } else if (path.endsWith("/responses")) {
     responses(state, script, body, res)
+  } else if (path.endsWith("/chat/completions")) {
+    chat(state, script, body, res)
   } else {
     res.writeHead(404).end()
   }
