@@ -9,7 +9,6 @@ import {
   maxNoteLength,
   prepare,
   heldFields,
-  type Answered,
   type Comments,
   type CompiledForm,
   type Values
@@ -247,13 +246,4 @@ export const checkAnswer = (spec: FormSpec, input: Readonly<Record<string, unkno
     return Result.succeed({ values: values.success, comments: comments.success, note: note.success === "" ? undefined : note.success })
   }
   return Result.fail([...held, ...failures(comments, note)])
-}
-
-export const checkAnswered = (spec: FormSpec, input: unknown, comments?: unknown): Result.Result<Answered, ReadonlyArray<string>> => {
-  const values = checkValues(spec, input)
-  if (Result.isFailure(values)) {
-    return Result.fail(values.failure)
-  }
-  const checked = checkComments(spec, values.success, comments)
-  return Result.isSuccess(checked) ? Result.succeed({ values: values.success, comments: checked.success }) : Result.fail(checked.failure)
 }

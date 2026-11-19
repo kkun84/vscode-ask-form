@@ -52,7 +52,6 @@ export interface Recorder {
   readonly configListeners: () => number
   readonly run: (command: string) => void
   readonly commands: Array<{ readonly command: string; readonly args: ReadonlyArray<unknown> }>
-  readonly files: Map<string, string>
   readonly status: Array<StatusItem>
   readonly tools: Map<string, { readonly invoke: (options: { readonly input: unknown }, token: FakeToken) => Promise<unknown> }>
   readonly providers: Map<string, { readonly provideMcpServerDefinitions: () => ReadonlyArray<McpHttpServerDefinition> }>
@@ -178,7 +177,6 @@ const createRecorder = (): Omit<Recorder, "run" | "configListeners"> & { readonl
   const settings = new Map<string, unknown>()
   return {
     commands: [],
-    files: new Map(),
     status: [],
     tools: new Map(),
     providers: new Map(),
@@ -212,18 +210,6 @@ const commandsOf = (recorder: Omit<Recorder, "run" | "configListeners">) => {
     }
   }
 }
-
-const filesOf = (files: Map<string, string>) => ({
-  createDirectory: () => Promise.resolve(),
-  readFile: (target: FakeUri) => {
-    const text = files.get(target.path)
-    return text === undefined ? Promise.reject(new Error("file not found")) : Promise.resolve(new TextEncoder().encode(text))
-  },
-  writeFile: (target: FakeUri, content: Uint8Array) => {
-    files.set(target.path, new TextDecoder().decode(content))
-    return Promise.resolve()
-  }
-})
 
 export const createVscode = (language = "ja"): { readonly vscode: unknown; readonly recorder: Recorder } => {
   const recorder = createRecorder()
@@ -263,8 +249,7 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
       getConfiguration: (section: string) => ({
         get: <T>(key: string, fallback: T): T => (recorder.settings.get(`${section}.${key}`) as T | undefined) ?? fallback
       }),
-      onDidChangeConfiguration: configChanged.event,
-      fs: filesOf(recorder.files)
+      onDidChangeConfiguration: configChanged.event
     },
     commands: commandsOf(recorder),
     lm: {
@@ -312,7 +297,7 @@ export const loadBundle = (path: string, vscode: unknown, runtime: "node" | "web
 export const fakeContext = () => {
   const subscriptions: Array<{ readonly dispose: () => unknown }> = []
   return {
-    context: { subscriptions, globalStorageUri: uri("/storage") },
+    context: { subscriptions },
     dispose: () => Promise.all(subscriptions.map((item) => item.dispose()))
   }
 }

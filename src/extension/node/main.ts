@@ -16,7 +16,7 @@ const mcpEnabled = (): boolean =>
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {
   const waiting = createWaitingStatus()
   context.subscriptions.push(waiting)
-  const services = formServices(context.globalStorageUri, waiting)
+  const services = formServices(waiting)
   const token = randomUUID()
   const scope = await Effect.runPromise(Scope.make())
   context.subscriptions.push({ dispose: () => void Effect.runPromise(Scope.close(scope, Exit.void)) })

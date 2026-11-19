@@ -1,18 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Result } from "effect"
-import {
-  appendPreset,
-  changedFields,
-  commentPresetsFrom,
-  computeValues,
-  initialValues,
-  outcomeFor,
-  resendMessage
-} from "../../src/core/form.ts"
+import { appendPreset, changedFields, commentPresetsFrom, computeValues, initialValues, outcomeFor } from "../../src/core/form.ts"
 import { checkAnswer, checkValues } from "../../src/core/validate.ts"
 import { canonicalJson, stableHash } from "../../src/core/hash.ts"
-import { messages } from "../../src/core/messages.ts"
 import { eventSpec } from "../fixtures/event.ts"
 import { compiled, problems } from "../support/compile.ts"
 
@@ -284,28 +275,6 @@ describe("DES-FORM-004 値の検査", () => {
   })
 })
 
-describe("DES-FORM-005 送り直しの文章", () => {
-  it("DES-FORM-005 差分を表示名で並べた文章を作る", () => {
-    const form = compiled(eventSpec)
-    const before = initialValues(form.spec)
-    const after = { ...before, price: 2500, stream: "no", format: "talk", extras: ["sticker", "tshirt"] }
-    assert.equal(
-      resendMessage(form.spec, { values: before }, { values: after }, messages("ja")),
-      "「交流会の条件」で形式を勉強会、参加費を¥2,500、ライブ配信をなし、配布物をステッカー、Tシャツに変えたので、反映して続けてください。"
-    )
-    assert.equal(
-      resendMessage(form.spec, { values: before }, { values: { ...before, price: 2500 } }, messages("en")),
-      'In "交流会の条件", I changed 参加費 to ¥2,500. Please apply it and continue.'
-    )
-  })
-
-  it("DES-FORM-005 差分がなければ文章を作らない", () => {
-    const form = compiled(eventSpec)
-    const values = initialValues(form.spec)
-    assert.equal(resendMessage(form.spec, { values }, { values }, messages("ja")), undefined)
-  })
-})
-
 describe("DES-FORM-008 補足", () => {
   const form = compiled(withFields([{ type: "text", id: "name", label: "名前", default: "a" }]))
   const answer = (note?: unknown) => checkAnswer(form.spec, { values: { name: "a" }, note })
@@ -380,18 +349,10 @@ describe("DES-FORM-007 値のない回答", () => {
     assert.match(failure({ values: {}, held: "size" }), /heldは項目のidの配列/)
   })
 
-  it("DES-FORM-007 値と値なしの間の変更を差分に数え、送り直しの文章に書く", () => {
+  it("DES-FORM-007 値と値なしの間の変更を差分に数える", () => {
     const form = compiled(spec)
-    const before = { values: { size: 20, due: "no", memo: "なし" } }
-    assert.deepEqual(changedFields(form.spec, before.values, { due: "no", memo: "" }), ["size", "memo"])
-    assert.equal(
-      resendMessage(form.spec, before, { values: { due: "no", memo: "なし" } }, messages("ja")),
-      "「t」で件数を回答なしに変えたので、反映して続けてください。"
-    )
-    assert.equal(
-      resendMessage(form.spec, { values: { due: "no" } }, { values: { size: 30, due: "no" } }, messages("en")),
-      'In "t", I changed 件数 to 30. Please apply it and continue.'
-    )
+    const before = { size: 20, due: "no", memo: "なし" }
+    assert.deepEqual(changedFields(form.spec, before, { due: "no", memo: "" }), ["size", "memo"])
   })
 })
 
@@ -432,32 +393,6 @@ describe("DES-FORM-009 項目ごとのコメント", () => {
     assert.deepEqual(commentPresetsFrom([]), [])
     assert.deepEqual(commentPresetsFrom([" あとで ", 1, "", "x".repeat(501), "任せる"]), ["あとで", "任せる"])
     assert.equal(commentPresetsFrom(Array.from({ length: 10 }, (_, index) => String(index)))?.length, 8)
-  })
-
-  it("DES-FORM-009 コメントだけの変更も差分に数え、送り直しの文章に書く", () => {
-    const form = compiled(spec)
-    const values = { size: 20, memo: "なし" }
-    assert.equal(
-      resendMessage(form.spec, { values }, { values, comments: { size: "多めに" } }, messages("ja")),
-      "「t」で件数のコメントを「多めに」に変えたので、反映して続けてください。"
-    )
-    assert.equal(
-      resendMessage(
-        form.spec,
-        { values, comments: { size: "多めに" } },
-        { values: { ...values, size: 30 }, comments: { size: "多めに" } },
-        messages("ja")
-      ),
-      "「t」で件数を30(コメント: 多めに)に変えたので、反映して続けてください。"
-    )
-    assert.equal(
-      resendMessage(form.spec, { values, comments: { size: "多めに" } }, { values }, messages("ja")),
-      "「t」で件数のコメントをなしに変えたので、反映して続けてください。"
-    )
-    assert.equal(
-      resendMessage(form.spec, { values, comments: { size: "a" } }, { values, comments: { size: " a " } }, messages("ja")),
-      undefined
-    )
   })
 
   it("DES-SPEC-001 defaultのない項目のreasonとreasonDetailsを指摘する", () => {

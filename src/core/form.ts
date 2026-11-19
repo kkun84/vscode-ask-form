@@ -120,19 +120,9 @@ export interface Answered {
   readonly comments?: Comments
 }
 
-const sameAnswer = (id: string, before: Answered, after: Answered): boolean => sameValue(before.values[id], after.values[id])
-
 export const changedFields = (spec: FormSpec, before: Values, after: Values): ReadonlyArray<string> =>
   activeFields(spec, after)
     .filter((field) => !sameValue(before[field.id], after[field.id]))
-    .map((field) => field.id)
-
-export const changedAnswers = (spec: FormSpec, before: Answered, after: Answered): ReadonlyArray<string> =>
-  activeFields(spec, after.values)
-    .filter(
-      (field) =>
-        !sameAnswer(field.id, before, after) || (before.comments?.[field.id]?.trim() ?? "") !== (after.comments?.[field.id]?.trim() ?? "")
-    )
     .map((field) => field.id)
 
 const affixed = (text: string, prefix: string | undefined, suffix: string | undefined): string => `${prefix ?? ""}${text}${suffix ?? ""}`
@@ -176,27 +166,6 @@ export const describeComputed = (item: Computed, value: Value | null | undefined
     return value ? m.yes : m.no
   }
   return affixed(value, item.prefix, item.suffix)
-}
-
-const changePart = (field: Field, before: Answered, after: Answered, m: Messages): string => {
-  const comment = after.comments?.[field.id]?.trim() || undefined
-  if (sameAnswer(field.id, before, after)) {
-    return m.commentTo(field.label, comment)
-  }
-  const value = after.values[field.id]
-  const text = value === undefined ? m.onHold : describeValue(field, value, m)
-  return m.changeTo(field.label, `${text}${comment === undefined ? "" : m.withComment(comment)}`)
-}
-
-export const resendMessage = (spec: FormSpec, before: Answered, after: Answered, m: Messages): string | undefined => {
-  const changed = changedAnswers(spec, before, after)
-  if (changed.length === 0) {
-    return undefined
-  }
-  const parts = activeFields(spec, after.values)
-    .filter((field) => changed.includes(field.id))
-    .map((field) => changePart(field, before, after, m))
-  return m.resendSentence(parts, spec.title)
 }
 
 export interface HeldForm {
@@ -286,10 +255,4 @@ export const outcomeText = (outcome: Outcome): string => {
     case "unavailable":
       return `The form was not shown, or was withdrawn while it waited: the user turned on the chat.autoReply setting, so they are not available to answer and will review your work later. Do not ask these questions again in this turn. Continue with the values you recommended as defaults; where you gave no default, use your best judgment and tell the user which assumptions you made.\n${json}`
   }
-}
-
-export const attachmentName = (title: string): string => {
-  const normalized = title.replaceAll(/[^\p{L}\p{N}]+/gu, "-").replaceAll(/^-|-$/g, "")
-  const slug = [...normalized].slice(0, 40).join("")
-  return `${slug === "" ? "form" : slug}.json`
 }

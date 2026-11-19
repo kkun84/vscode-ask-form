@@ -27,17 +27,6 @@ const setPrice = async (frame: Frame, value: string) => {
   await input.press("Tab")
 }
 
-const startEditing = async (frame: Frame) => {
-  await frame.getByRole("button", { name: "送信", exact: true }).click()
-  await frame.getByRole("button", { name: "変更して送り直す" }).click()
-}
-
-const openResend = async (page: Page, options: Partial<PageOptions>) => {
-  const frame = await open(page, options)
-  await startEditing(frame)
-  return frame
-}
-
 interface OutcomeLike {
   readonly status: string
   readonly values?: Record<string, unknown>
@@ -238,7 +227,6 @@ test.describe("SPEC-UI-004 回答後の要約", () => {
     await frame.getByRole("button", { name: "キャンセル" }).click()
     await expect(frame.getByText("回答せずに閉じました")).toBeVisible()
     await expect(frame.locator(".summary-row")).toHaveCount(0)
-    await expect(frame.getByRole("button", { name: "変更して送り直す" })).toHaveCount(0)
   })
 })
 
@@ -280,116 +268,6 @@ test("SPEC-UI-004 質問せずに進めた旨を示した後に、遅れた返�
   )
   await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
   await expect(frame.getByText("この質問は終了しています")).toHaveCount(0)
-})
-
-test.describe("SPEC-UI-005 送り直し", () => {
-  test("SPEC-UI-005 変えた項目の数を示し、変更がなければ送れない", async ({ page }) => {
-    const frame = await open(page)
-    await startEditing(frame)
-    const send = frame.getByRole("button", { name: "変更を送信" })
-    await expect(send).toBeDisabled()
-    await expect(frame.getByText("変更はまだありません")).toBeVisible()
-    await setPrice(frame, "2500")
-    await expect(frame.getByText("1項目を変更")).toBeVisible()
-    await expect(frame.getByText("前回: ¥2,000")).toBeVisible()
-    await send.click()
-    await expect.poll(() => recorded<{ readonly text: string }>(page, "resends")).toHaveLength(1)
-    const [resend] = await recorded<{ readonly text: string }>(page, "resends")
-    expect(resend?.text).toBe("「交流会の条件」で参加費を¥2,500に変えたので、反映して続けてください。")
-    await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText("¥2,500")
-    await frame.getByRole("button", { name: "変更して送り直す" }).click()
-    await expect(send).toBeEnabled()
-    await setPrice(frame, "2000")
-    await expect(send).toBeDisabled()
-  })
-
-  test("SPEC-UI-005 送れなかったときは理由を示して編集を続けられる", async ({ page }) => {
-    const frame = await openResend(page, { failResend: true })
-    await frame.getByRole("radio", { name: "なし" }).check()
-    await frame.getByRole("button", { name: "変更を送信" }).click()
-    await expect(frame.getByText(/送信できませんでした/)).toBeVisible()
-    await expect(frame.getByRole("button", { name: "変更を送信" })).toBeEnabled()
-  })
-})
-
-const sendChange = async (frame: Frame) => {
-  await frame.getByRole("radio", { name: "なし" }).check()
-  await frame.getByRole("button", { name: "変更を送信" }).click()
-}
-
-test.describe("SPEC-UI-005 フォームの会話への送り直し", () => {
-  test("SPEC-UI-005 文章と添付をフォームの会話の入力欄に置き、利用者による送信を案内する", async ({ page }) => {
-    const frame = await openResend(page, { placeMessage: "placed" })
-    await sendChange(frame)
-    await expect(frame.locator(".summary-row", { hasText: "ライブ配信" })).toBeVisible()
-    const messages = await recorded<{ readonly method?: string; readonly params?: { readonly name?: string; readonly content?: unknown } }>(
-      page,
-      "messages"
-    )
-    const order = messages.flatMap((message) =>
-      message.method === "ui/message"
-        ? ["ui/message"]
-        : message.params?.name === "form_resend" || message.params?.name === "form_send"
-          ? [message.params.name]
-          : []
-    )
-    expect(order).toEqual(["form_resend", "ui/message"])
-    await expect(frame.locator(".summary .notice")).toHaveText("チャットの入力欄に入れました。内容を確かめて送信してください")
-    expect(messages.find((message) => message.method === "ui/message")?.params?.content).toEqual([
-      { type: "text", text: "「交流会の条件」でライブ配信をなしに変えたので、反映して続けてください。" },
-      { type: "resource_link", uri: "ask-form://answers/1/form.json", name: "form.json", mimeType: "application/json" }
-    ])
-  })
-
-  test("SPEC-UI-005 下書き後も回答を基準にし、最新の編集値を要約に保つ", async ({ page }) => {
-    const baseline = { ...defaults(), price: 3000 }
-    const frame = await open(page, {
-      restore: { status: "submitted", values: baseline, computed: {} }
-    })
-    const edit = frame.getByRole("button", { name: "変更して送り直す" })
-    const send = frame.getByRole("button", { name: "変更を送信" })
-    await edit.click()
-    for (const price of ["2500", "4000"]) {
-      await setPrice(frame, price)
-      await send.click()
-      await expect(frame.locator(".summary .notice")).toHaveText("チャットの入力欄に入れました。内容を確かめて送信してください")
-      await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText(`¥${Number(price).toLocaleString("en-US")}`)
-      await edit.click()
-      await expect(send).toBeEnabled()
-    }
-    const calls = await recorded<{ readonly params?: { readonly name?: string; readonly arguments?: { readonly before?: unknown } } }>(
-      page,
-      "messages"
-    )
-    expect(calls.filter((call) => call.params?.name === "form_resend").map((call) => call.params?.arguments?.before)).toEqual([
-      baseline,
-      baseline
-    ])
-    await setPrice(frame, "3000")
-    await expect(send).toBeDisabled()
-    await frame.getByRole("button", { name: "キャンセル", exact: true }).click()
-    await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText("¥4,000")
-  })
-
-  test("SPEC-UI-005 入力欄に置けなければ送信させず、会話を開くよう示す", async ({ page }) => {
-    const frame = await openResend(page, { placeMessage: "refused" })
-    await sendChange(frame)
-    await expect(frame.getByText("このフォームのある会話を開き、入力欄を空にしてから、もう一度送ってください")).toBeVisible()
-    await expect(frame.getByRole("button", { name: "変更を送信" })).toBeEnabled()
-    const messages = await recorded<{ readonly params?: { readonly name?: string } }>(page, "messages")
-    expect(messages.some((message) => message.params?.name === "form_send")).toBe(false)
-  })
-})
-
-test.describe("SPEC-UI-005 送信中", () => {
-  test("SPEC-UI-005 送り直しの送信中は編集できず、送った値が要約に残る", async ({ page }) => {
-    const frame = await openResend(page, { holdResend: true })
-    await setPrice(frame, "2500")
-    await frame.getByRole("button", { name: "変更を送信" }).click()
-    await expect(frame.locator("form.card")).toHaveJSProperty("inert", true)
-    await page.evaluate(() => (window as unknown as { harness: { release: () => void } }).harness.release())
-    await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText("¥2,500")
-  })
 })
 
 const statusRequests = async (page: Page) =>
@@ -566,25 +444,6 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
       "ログイン不要"
     ])
   })
-
-  test("SPEC-UI-011 送り直しでは、切り替えて現れた枝の項目も回答からの変更に数える", async ({ page }) => {
-    const frame = await openStorage(page)
-    await startEditing(frame)
-    await frame.getByRole("radio", { name: "サーバー" }).check()
-    await expect(frame.locator(".status")).toHaveText("3項目を変更")
-  })
-
-  test("SPEC-UI-011 回答した後も、選ばれていない枝で直した値を覚えておく", async ({ page }) => {
-    const frame = await openStorage(page)
-    await selectStorage(frame, "サーバー")
-    const port = frame.getByRole("spinbutton", { name: "ポート" })
-    await port.fill("3000")
-    await selectStorage(frame, "ブラウザ")
-    await expect(port).toBeHidden()
-    await startEditing(frame)
-    await selectStorage(frame, "サーバー")
-    await expect(port).toHaveValue("3000")
-  })
 })
 
 test.describe("SPEC-UI-009 表示の言語", () => {
@@ -622,48 +481,6 @@ const defaults = () => ({
   stream: "yes",
   extras: ["sticker"],
   venue: 140000
-})
-
-const followUpSpec = {
-  title: "t",
-  fields: [
-    {
-      type: "choice",
-      id: "where",
-      label: "保存先",
-      default: "local",
-      options: [
-        { value: "local", label: "手元" },
-        {
-          value: "cloud",
-          label: "クラウド",
-          fields: [
-            {
-              type: "choice",
-              id: "region",
-              label: "地域",
-              options: [
-                { value: "jp", label: "日本" },
-                { value: "us", label: "米国" }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-
-test.describe("SPEC-UI-011 送り直しの続きの質問", () => {
-  test("SPEC-UI-011 送り直しで現れた続きの質問が未回答なら送らず、その質問を示す", async ({ page }) => {
-    const frame = await open(page, { args: followUpSpec })
-    await startEditing(frame)
-    await frame.getByRole("radio", { name: "クラウド" }).check()
-    await frame.getByRole("button", { name: "変更を送信" }).click()
-    await expect(frame.getByText("答えるか、コメントを書いてください: 地域")).toBeVisible()
-    await expect(frame.getByRole("radio", { name: "日本" })).toBeFocused()
-    expect(await recorded(page, "resends")).toHaveLength(0)
-  })
 })
 
 const holdSpec = {
@@ -724,20 +541,6 @@ const submitChecked = async (page: Page, frame: Frame): Promise<Answered> => {
   expect(await axeViolations(frame)).toEqual([])
   await send(frame)
   return (await singleOutcome(page)) as Answered
-}
-
-interface Resent {
-  readonly text: string
-  readonly values: unknown
-  readonly held: unknown
-  readonly comments: unknown
-}
-
-const sendResend = async (page: Page, frame: Frame): Promise<Resent | undefined> => {
-  await frame.getByRole("button", { name: "変更を送信" }).click()
-  await expect.poll(() => recorded(page, "resends")).toHaveLength(1)
-  const [resent] = await recorded<Resent>(page, "resends")
-  return resent
 }
 
 interface Answered extends OutcomeLike {
@@ -820,23 +623,6 @@ test.describe("SPEC-UI-013 補足", () => {
     await send(frame)
     const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly note?: string }
     expect("note" in outcome).toBe(false)
-    await expect(frame.locator(".summary dt", { hasText: "補足" })).toHaveCount(0)
-  })
-
-  test("SPEC-UI-013 送り直しの編集には補足を出さない", async ({ page }) => {
-    const frame = await openWithNote(page)
-    await startEditing(frame)
-    await expect(frame.locator("details.note")).toHaveCount(0)
-    await frame.getByRole("button", { name: "キャンセル" }).click()
-    await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です")
-  })
-
-  test("SPEC-UI-013 送り直しの下書きを置いた後の要約には補足を出さない", async ({ page }) => {
-    const frame = await openWithNote(page)
-    await startEditing(frame)
-    await setPrice(frame, "2500")
-    await frame.getByRole("button", { name: "変更を送信" }).click()
-    await expect(frame.locator(".summary .notice")).toBeVisible()
     await expect(frame.locator(".summary dt", { hasText: "補足" })).toHaveCount(0)
   })
 
@@ -998,38 +784,8 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
   })
 })
 
-test.describe("SPEC-UI-012 値のない回答と送り直し", () => {
-  test("SPEC-UI-012 値なしで送信した質問に、送り直しで答えられる", async ({ page }) => {
-    const frame = await open(page, { args: holdSpec })
-    await openComment(frame, "締め切り")
-    await comment(frame, "締め切り").fill("あとで")
-    await send(frame)
-    await frame.getByRole("button", { name: "変更して送り直す" }).click()
-    await expect(comment(frame, "締め切り")).toBeHidden()
-    await openComment(frame, "締め切り")
-    await expect(comment(frame, "締め切り")).toHaveValue("あとで")
-    await expect(frame.locator(".status")).toHaveText("変更はまだありません")
-    await frame.getByRole("radio", { name: "付けられる" }).check()
-    await expect(frame.getByText("前回: 回答なし")).toBeVisible()
-    const resent = await sendResend(page, frame)
-    expect(resent?.text).toBe("「保留の確認」で締め切りを付けられる(コメント: あとで)に変えたので、反映して続けてください。")
-    expect(resent?.values).toEqual({ due: "yes", size: 20, tags: ["work"], memo: "なし" })
-    expect(resent?.held).toEqual([])
-  })
-
-  test("SPEC-UI-014 コメントだけを変えても送り直せる", async ({ page }) => {
-    const frame = await openAnswered(page)
-    await send(frame)
-    await frame.getByRole("button", { name: "変更して送り直す" }).click()
-    await openComment(frame, "件数")
-    await comment(frame, "件数").fill("多めに")
-    await expect(frame.locator(".status")).toHaveText("1項目を変更")
-    const resent = await sendResend(page, frame)
-    expect(resent?.text).toBe("「保留の確認」で件数のコメントを「多めに」に変えたので、反映して続けてください。")
-    expect(resent?.comments).toEqual({ size: "多めに" })
-  })
-
-  test("SPEC-UI-012 ツールの結果から復元した要約でも、値のない質問とコメントを保って編集に戻す", async ({ page }) => {
+test.describe("SPEC-UI-012 値のない回答の要約", () => {
+  test("SPEC-UI-012 ツールの結果から復元した要約でも、値のない質問とコメントを示す", async ({ page }) => {
     const frame = await open(page, {
       args: holdSpec,
       restore: {
@@ -1047,11 +803,5 @@ test.describe("SPEC-UI-012 値のない回答と送り直し", () => {
       "分類仕事",
       "補足回答なし推奨: なし未定"
     ])
-    await frame.getByRole("button", { name: "変更して送り直す" }).click()
-    await expect(frame.getByRole("spinbutton", { name: "件数" })).toHaveValue("")
-    await expect(frame.getByRole("textbox", { name: "補足", exact: true })).toHaveValue("")
-    await openComment(frame, "締め切り")
-    await expect(comment(frame, "締め切り")).toHaveValue("来月から")
-    await expect(frame.locator(".status")).toHaveText("変更はまだありません")
   })
 })
