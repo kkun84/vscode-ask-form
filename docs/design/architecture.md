@@ -71,7 +71,7 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 - 数値リテラルの有限性、NUL文字を含む複数選択の差分、`__proto__`を含む計算結果の保持は、この純粋な処理にまとめる。画面と回答を作る側で同じ処理を使い、依存を増やさない。
 
-派生元: SPEC-EXT-005, SPEC-UI-002, SPEC-EXPR-001, SPEC-MCP-003, SPEC-UI-005
+派生元: SPEC-EXT-005, SPEC-UI-002, SPEC-EXPR-001, SPEC-MCP-003
 
 ## Effectの層
 
@@ -79,7 +79,7 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 `src/mcp/ports.ts`は`effect`と、ARCH-LAYER-006 の中核だけに依存する。
 
-派生元: SPEC-EXT-002, SPEC-MCP-008
+派生元: SPEC-EXT-002, SPEC-EXT-007
 
 ### ARCH-EFFECT-002 ツールの処理は通信手段を知らない
 
@@ -109,12 +109,9 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 ### ARCH-PORT-001 MCPサーバーへの差し込み口
 
-MCPサーバーはVS Codeに依存せずに添付の保存・読込と待機の表示を行うため、`AttachmentStore`と`WaitingIndicator`をEffectのサービスとして要求する。利用者が不在かどうかも、VS Codeの設定を読まずに知るため、`UserPresence`をサービスとして要求する。`UserPresence`は、今不在かどうかの問い合わせと、不在になったら完了する待ち合わせを持つ。MCPサーバーは、回答の待機とこの待ち合わせを競わせる。
+MCPサーバーはVS Codeに依存せずに待機の表示を行うため、`WaitingIndicator`をEffectのサービスとして要求する。利用者が不在かどうかも、VS Codeの設定を読まずに知るため、`UserPresence`をサービスとして要求する。`UserPresence`は、今不在かどうかの問い合わせと、不在になったら完了する待ち合わせを持つ。MCPサーバーは、回答の待機とこの待ち合わせを競わせる。
 
-- デスクトップ版の入口が永続ファイルを使う保存実装を与え、テストはメモリ内の保存実装を与える。MCPサーバーは保存先を所有せず、別のサーバーインスタンスにも同じ保存先を渡せる。
-- 自動送信のポートは持たない。デスクトップの画面が`ui/message`で自分の会話に下書きを置き、利用者が送信する。
-
-派生元: SPEC-EXT-002, SPEC-EXT-007, SPEC-MCP-008, SPEC-UI-005
+派生元: SPEC-EXT-002, SPEC-EXT-007
 
 ### ARCH-UI-001 画面の通信は1種類
 
@@ -123,15 +120,14 @@ MCPサーバーはVS Codeに依存せずに添付の保存・読込と待機の�
 - 画面の共通ブリッジが送り主とoriginを検証する。VS Code固有の送り主の橋渡しはweb版の入口に閉じ込める。
 - 中断の保持と初期化後の再通知は中核のホスト役が担当する。拡張機能はチャットの停止でパネルを閉じるので、本番のパネルにこの再通知は届かない。届くのは、MCP Appsのホストの中断を再現する画面テストのホストである。
 
-- 画面が持つ回答の基準と要約用の編集値は分け、下書きの配置によって回答の基準を変えない。
 - web受け入れテストは拡張機能とブラウザの完了をテスト側で合流させ、片方の成功だけで終了しない。
 
-派生元: SPEC-EXT-004, SPEC-UI-001, SPEC-UI-005, SPEC-UI-006, SPEC-UI-010
+派生元: SPEC-EXT-004, SPEC-UI-001, SPEC-UI-006, SPEC-UI-010
 
 ## リリース
 
 ### ARCH-REL-001 検出と公開の権限を分ける
 
-- ワークフローの先頭のdetectジョブはcontents:readで版数とoriginのタグを確認する。書き込み権限を持つreleaseジョブはdetectに依存し、release出力がtrueの場合だけ公開する。ワークフロー全体をconcurrencyグループreleaseで直列化し、cancel-in-progressはfalseとする。
+- ワークフローの先頭のdetectジョブはcontents:readで版数、mainの先頭、originのタグを確認し、actionにrelease、bump、noneのいずれかを出力する。bumpジョブはactionがbumpの場合だけ動き、`GITHUB_TOKEN`はcontents:readに留め、ContentsとPull requestsだけを書けるGitHub Appのトークンで版数を上げるリリースPRを作る。書き込み権限を持つreleaseジョブはdetectに依存し、actionがreleaseの場合だけ公開する。ワークフロー全体をconcurrencyグループreleaseで直列化し、cancel-in-progressはfalseとする。
 
 派生元: SPEC-REL-001

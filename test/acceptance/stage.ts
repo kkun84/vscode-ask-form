@@ -462,7 +462,7 @@ export const captureStage = async (work: string): Promise<Take> => {
   const browser = await chromium.launch({ args: ["--no-sandbox"] })
   try {
     const page = await browser.newPage({ viewport, deviceScaleFactor: scale })
-    await openForm(page, server, { args: todoSpec, context: themeContext("dark"), placeMessage: "placed" })
+    await openForm(page, server, { args: todoSpec, context: themeContext("dark") })
     await build(page)
     await sleep(800)
     const frame = page.frame({ url: /form\.html$/ })

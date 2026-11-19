@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process"
 import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import type { CDPSession, Frame, Locator, Page } from "@playwright/test"
+import type { CDPSession, Locator, Page } from "@playwright/test"
 import { sleep } from "./frames.ts"
 
 export const run = (command: string, args: ReadonlyArray<string>): void => {
@@ -245,16 +245,4 @@ export class Pointer {
     await sleep(150)
     await this.page.mouse.click(point.x, point.y)
   }
-}
-
-export const typeNumber = async (pointer: Pointer, recorder: Recorder, frame: Frame, label: string, value: string): Promise<void> => {
-  const input = frame.getByRole("spinbutton", { name: label })
-  await pointer.click(input)
-  await input.fill(value)
-  recorder.sound("key")
-  await sleep(300)
-  await input.evaluate((element) => {
-    element.dispatchEvent(new Event("change", { bubbles: true }))
-    ;(element as HTMLElement).blur()
-  })
 }

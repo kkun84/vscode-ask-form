@@ -3,14 +3,13 @@ import { Server } from "node:http"
 import { it, onTestFinished, vi } from "vitest"
 import { Effect, Layer, Result } from "effect"
 import { FormsListenFailed, serveForms } from "../../src/mcp/http.ts"
-import { AttachmentStore, UserPresence, WaitingIndicator } from "../../src/mcp/ports.ts"
+import { UserPresence, UserSettings, WaitingIndicator } from "../../src/mcp/ports.ts"
 import { FormHtml } from "../../src/mcp/server.ts"
-import { memoryAttachments } from "../support/attachments.ts"
 
 const services = Layer.mergeAll(
-  Layer.succeed(AttachmentStore, memoryAttachments().store),
   Layer.succeed(WaitingIndicator, WaitingIndicator.of({ update: () => Effect.void })),
   Layer.succeed(UserPresence, UserPresence.of({ unavailable: Effect.succeed(false), away: Effect.never })),
+  Layer.succeed(UserSettings, UserSettings.of({ commentPresets: Effect.undefined })),
   Layer.succeed(FormHtml, "")
 )
 

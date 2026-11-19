@@ -20,7 +20,6 @@ const monitor = () => {
           requests.push({ resolve, reject })
         })
       },
-      placeMessage: () => Promise.resolve(false),
       notifySize: () => {}
     },
     "test-form",

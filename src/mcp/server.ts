@@ -1,11 +1,10 @@
 import { Context, Effect, Layer, Result, Schema } from "effect"
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai"
-import { attachmentName, heldFields, outcomeFor, outcomeText, resendMessage, type Action, type Outcome } from "../core/form.ts"
-import { checkAnswer, checkValues, compile, type Answer } from "../core/validate.ts"
-import { languageOf, messages } from "../core/messages.ts"
+import { outcomeFor, outcomeText, type Action, type Outcome } from "../core/form.ts"
+import { checkAnswer, compile, type Answer } from "../core/validate.ts"
 import { PendingForms } from "./pending.ts"
 import { formSpecJsonSchema } from "./schema.ts"
-import { AttachmentStore, UserPresence } from "./ports.ts"
+import { UserPresence, UserSettings } from "./ports.ts"
 
 export const resourceUri = "ui://ask-form/form.html"
 export const resourceMimeType = "text/html;profile=mcp-app"
@@ -27,6 +26,8 @@ const OutcomeResult = Schema.Union([
     held: Schema.Array(Schema.String),
     changedByUser: Schema.Array(Schema.String),
     computed: ComputedValues,
+    comments: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+    heldForm: Schema.optionalKey(Schema.Struct({ title: Schema.String, fields: Schema.Array(Schema.Unknown) })),
     note: Schema.optionalKey(Schema.String),
     next: Schema.String
   }),
@@ -46,7 +47,8 @@ export const askFormDescription = [
   "When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields.",
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",
-  "The user can put any question on hold instead of answering it; those ids come back in held without a value, and you ask again when you need one.",
+  "The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again.",
+  "The user can comment on each question; comments come back in comments, keyed by field id.",
   "The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note.",
   "The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn."
 ].join(" ")
@@ -69,21 +71,10 @@ const FormAnswer = Tool.make("form_answer", {
     action: Schema.Literals(["submit", "chat"]),
     values: Schema.optionalKey(Schema.Unknown),
     held: Schema.optionalKey(Schema.Unknown),
+    comments: Schema.optionalKey(Schema.Unknown),
     note: Schema.optionalKey(Schema.Unknown)
   }),
   success: Schema.Struct({ accepted: Schema.Boolean }),
-  failure: FormRejected
-}).annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
-
-const FormResend = Tool.make("form_resend", {
-  description: "Prepare the changes the user made after answering for a chat draft. Only the form view calls this tool.",
-  parameters: Schema.Struct({
-    spec: Schema.Unknown,
-    before: Schema.Unknown,
-    after: Schema.Unknown,
-    locale: Schema.optionalKey(Schema.String)
-  }),
-  success: Schema.Struct({ text: Schema.String, attachment: Schema.Struct({ uri: Schema.String, name: Schema.String }) }),
   failure: FormRejected
 }).annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
@@ -95,16 +86,25 @@ const FormStatus = Tool.make("form_status", {
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
-const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend, FormStatus)
+const FormSettings = Tool.make("form_settings", {
+  description: "Read the user's settings for the form view. Only the form view calls this tool.",
+  parameters: Tool.EmptyParams,
+  success: Schema.Struct({ commentPresets: Schema.NullOr(Schema.Array(Schema.String)) })
+})
+  .annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
+  .annotate(Tool.Readonly, true)
+
+const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormStatus, FormSettings)
 
 const reject = (problems: ReadonlyArray<string>) => Effect.fail(new FormRejected({ message: problems.join("\n") }))
 
 const FormsHandlers = FormsToolkit.toLayer(
   Effect.gen(function* () {
     const pending = yield* PendingForms
-    const attachments = yield* AttachmentStore
     const presence = yield* UserPresence
+    const settings = yield* UserSettings
     return FormsToolkit.of({
+      form_settings: () => settings.commentPresets.pipe(Effect.map((presets) => ({ commentPresets: presets ?? null }))),
       form_status: ({ formKey }) => pending.status(formKey).pipe(Effect.map((status) => ({ status }))),
       ask_form: (params) =>
         Effect.gen(function* () {
@@ -118,52 +118,25 @@ const FormsHandlers = FormsToolkit.toLayer(
           const left = presence.away.pipe(Effect.as<Outcome>({ status: "unavailable" }))
           return withNext(yield* Effect.raceFirst(pending.wait(compiled.success), left))
         }),
-      form_answer: ({ formKey, action, values, held, note }) =>
+      form_answer: ({ formKey, action, values, held, comments, note }) =>
         Effect.gen(function* () {
           const form = yield* pending.peek(formKey)
           if (form === undefined) {
             return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
           }
-          let answer: Answer = { values: {}, note: undefined }
+          let answer: Answer = { values: {}, comments: {}, note: undefined }
           if (action === "submit") {
-            const result = checkAnswer(form.spec, { values, held, note })
+            const result = checkAnswer(form.spec, { values, held, comments, note })
             if (Result.isFailure(result)) {
               return yield* reject(result.failure)
             }
             answer = result.success
           }
-          const accepted = yield* pending.resolve(formKey, (latest) => outcomeFor(latest, action as Action, answer.values, answer.note))
+          const accepted = yield* pending.resolve(formKey, (latest) => outcomeFor(latest, action as Action, answer))
           if (!accepted) {
             return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
           }
           return { accepted }
-        }),
-      form_resend: ({ spec, before, after, locale }) =>
-        Effect.gen(function* () {
-          const compiled = compile(spec)
-          if (Result.isFailure(compiled)) {
-            return yield* reject(compiled.failure)
-          }
-          const form = compiled.success
-          const previous = checkValues(form.spec, before)
-          const next = checkValues(form.spec, after)
-          if (Result.isFailure(previous) || Result.isFailure(next)) {
-            return yield* reject([...(Result.isFailure(previous) ? previous.failure : []), ...(Result.isFailure(next) ? next.failure : [])])
-          }
-          const text = resendMessage(form.spec, previous.success, next.success, messages(languageOf(locale)))
-          if (text === undefined) {
-            return yield* reject(["no changes: 回答から変更がありません"])
-          }
-          const id = crypto.randomUUID()
-          const name = attachmentName(form.spec.title)
-          yield* attachments
-            .write(
-              id,
-              name,
-              JSON.stringify({ title: form.spec.title, values: next.success, held: heldFields(form.spec, next.success) }, undefined, 2)
-            )
-            .pipe(Effect.mapError((error) => new FormRejected({ message: error.message })))
-          return { text, attachment: { uri: `ask-form://answers/${id}/${encodeURIComponent(name)}`, name } }
         })
     })
   })
@@ -184,25 +157,4 @@ const FormResource = Layer.unwrap(
   })
 )
 
-const AttachmentResource = Layer.unwrap(
-  Effect.gen(function* () {
-    const attachments = yield* AttachmentStore
-    return McpServer.resource`ask-form://answers/${Schema.String}/${Schema.String}`({
-      name: "Resent answer",
-      description: "All values of a resent form answer",
-      mimeType: "application/json",
-      content: (uri, id) =>
-        Effect.gen(function* () {
-          const name = decodeURIComponent(new URL(uri).pathname.split("/").at(-1) ?? "")
-          if (!/^[0-9a-f-]{36}$/.test(id) || !/^[\p{L}\p{N}-]+\.json$/u.test(name)) {
-            return yield* new FormRejected({ message: "invalid attachment path" })
-          }
-          return yield* attachments.read(id, name)
-        })
-    })
-  })
-)
-
-export const FormsServer = Layer.mergeAll(McpServer.toolkit(FormsToolkit), FormResource, AttachmentResource).pipe(
-  Layer.provide(FormsHandlers)
-)
+export const FormsServer = Layer.mergeAll(McpServer.toolkit(FormsToolkit), FormResource).pipe(Layer.provide(FormsHandlers))

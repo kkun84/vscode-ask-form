@@ -58,11 +58,9 @@
 
 2組の値を項目ごとに比べ、異なる項目を設計図の順で返す。複数選択は並び順を無視して比べる。
 
-- 複数選択は入力を変更せずに並べ替え、長さと各要素の一致を調べる。区切り文字でつながず、NUL文字を含む値でも衝突しないようにする。この差分を`changedByUser`と画面の変更表示、送り直しの判定に使う。
+- 複数選択は入力を変更せずに並べ替え、長さと各要素の一致を調べる。区切り文字でつながず、NUL文字を含む値でも衝突しないようにする。この差分を`changedByUser`と画面の変更表示に使う。
 
-- 送り直しの基準はツールの結果として渡した回答に固定し、下書きを置いても更新しない。画面はこの基準とは別に要約用の値を保持し、下書き後の要約と再編集のキャンセルでは最後に置いた値を使う。
-
-派生元: SPEC-MCP-003, SPEC-UI-001, SPEC-UI-005, ARCH-LAYER-006
+派生元: SPEC-MCP-003, SPEC-UI-001, ARCH-LAYER-006
 
 ### DES-FORM-004 値の検査
 
@@ -72,43 +70,48 @@
 
 派生元: SPEC-MCP-005, ARCH-LAYER-001
 
-### DES-FORM-005 送り直しの文章
-
-差分を「項目名を新しい値」の形で並べ、「「フォーム名」で…に変えたので、反映して続けてください。」の文章を作る。英語のロケールでは同じ内容を英語で作る。値は選択肢の表示名、`prefix`と`suffix`、オンとオフで表す。
-
-派生元: SPEC-MCP-008
-
 ### DES-FORM-006 選択肢ごとの項目
 
 - `allFields`は、最上位の項目のそれぞれの後に、その選択肢の`fields`の項目を選択肢の順に並べる。`id`の重複、項目の検査、計算式が参照できる`id`、初期値はこの並びで扱う。
 - `activeFields`は、最上位の項目と、単一選択で選ばれている選択肢の`fields`の項目を返す。差分、計算式に渡す値の表、要約、値の検査はこの並びで扱う。値の検査は、届いた値の選択項目から有効な項目を決め、それ以外のキーを捨てる。
-- `answerValues`は値の表を`activeFields`の項目に絞る。画面は全項目の値を持ち続け、回答と送り直しのときだけ絞る。
-- 差分は`after`の有効な項目について比べる。`before`にない項目は変更とする。`changedByUser`は全項目の初期値と比べるため、切り替えただけの項目を含めない。送り直しは絞った回答と比べるため、現れた項目を含める。
+- `answerValues`は値の表を`activeFields`の項目に絞る。画面は全項目の値を持ち続け、回答のときだけ絞る。
+- 差分は`after`の有効な項目について比べる。`before`にない項目は変更とする。`changedByUser`は全項目の初期値と比べるため、切り替えただけの項目を含めない。
 - 入れ子が2段以上ある設計図は、読み取りで捨てられる前のJSONを調べて拒否する。Schemaの型を再帰させず、JSON Schemaを平らに保つため。
 
 派生元: SPEC-FORM-001, SPEC-FORM-002, SPEC-MCP-003, SPEC-UI-011
 
-### DES-FORM-007 保留
+### DES-FORM-007 値のない回答
 
-保留は、回答の値の表に項目の値がないことで表す。保留の一覧は値の表から導く。
+値のない回答は、回答の値の表に項目の値がないことで表す。`held`の一覧は値の表から導く(`src/core/form.ts`)。
 
-- `answerValues`は、値のない項目と空欄の文字列を値の表から除く。`heldFields`は、有効な項目のうち値の表にない項目の`id`を設計図の順に返す。親の選択項目に値がなければ、その選択肢の`fields`の項目は有効にならず、保留にも入らない。
-- 画面は、保留にした項目の`id`の集合を値とは別に持つ。`withoutHeld`でその項目の値を除いた表を作り、選択肢ごとの項目の表示、計算、差分、未回答の判定に使う。保留を外したときに元の値へ戻せるよう、値そのものは消さない。
-- 未回答は、文字列以外の有効な項目のうち、値がなく、保留の集合にもない項目とする。
-- `checkValues`は、保留の`id`の一覧を受け取ったときは、文字列以外の有効な項目に値も保留もなければ誤りを返し、値のある項目や有効でない項目の保留も誤りとする。一覧を受け取らない送り直しの検査では、値のない項目を保留として受け付ける。
-- 差分は、空欄の文字列と値のない項目を同じとみなす。保留と値の間の変更は差分に数える。`changedByUser`は差分から値のない項目を除く。
-- 送り直しの文章では、保留にした項目を「項目名を保留」と書く。
+- `answerValues`は、値のない項目を値の表から除く。空欄の文字列は値として残す。`heldFields`は、有効な項目のうち値の表にない項目の`id`を設計図の順に返す。親の選択項目に値がなければ、その選択肢の`fields`の項目は有効にならず、`heldFields`にも入らない。
+- 画面は、単一選択の「選択を解除」と、数値の入力欄を空にする操作で、値の表からその項目を消す。
+- 未回答は、有効な項目のうち、値もコメントもない項目とする。
+- `checkAnswer`は、`held`の一覧が値のない有効な項目とちょうど一致しなければ誤りを返し、値のない項目にコメントがなければ誤りを返す。
+- `outcomeFor`は、`held`の項目の設計図を`heldForm`に入れる。
+- 差分は値の違いを数え、値と値なしの間の変更も含める。`changedByUser`は差分から値のない項目を除く。
 
-派生元: SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-008, SPEC-UI-012, ARCH-LAYER-006
+派生元: SPEC-MCP-003, SPEC-MCP-005, SPEC-UI-012, ARCH-LAYER-006
 
 ### DES-FORM-008 補足
 
-`checkAnswer`は、画面から届いた値、保留の一覧、補足をまとめて検査し、値の誤りと補足の誤りを1つの一覧で返す(`src/core/validate.ts`)。MCPサーバーとパネルのホストは、どちらもこの関数で回答を検査する。
+`checkAnswer`は、画面から届いた値、`held`の一覧、コメント、補足をまとめて検査し、すべての誤りを1つの一覧で返す(`src/core/validate.ts`)。MCPサーバーとパネルのホストは、どちらもこの関数で回答を検査する。
 
 - 補足は前後の空白を除く。除いた結果が空なら補足なしとして扱い、`outcomeFor`は結果に`note`のキーを入れない。
 - 補足が文字列でないか、空白を除く前の長さが2000文字を超えていれば誤りとする。
 
 派生元: SPEC-MCP-003, SPEC-MCP-005, ARCH-LAYER-001
+
+### DES-FORM-009 項目ごとのコメント
+
+コメントは、項目の`id`から文章への対応(`Comments`)で表し、値の表とは別に持つ。
+
+- `commentsFor`は、有効な項目のコメントだけを残し、前後の空白を除き、空のコメントを捨てる。`outcomeFor`はこれを`comments`に入れ、空なら`comments`のキーを入れない。
+- `checkAnswer`は、コメントが文字列でないか、空白を除く前の長さが500文字を超えるか、有効でない項目へのコメントなら誤りとする。
+- `appendPreset`は、定型文を書きかけのコメントの後ろに足す。末尾が日本語の文字なら空白を挟まず、それ以外なら空白を挟む。
+- `commentPresetsFrom`は、設定の値が配列でなければ`undefined`を返して既定の定型文に任せ、配列なら文字列だけを空白を除いて残し、空の文と500文字を超える文を捨て、8個までにする。拡張機能と画面の両方がこの関数で設定を読む。
+
+派生元: SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-010, SPEC-UI-014
 
 ## 待機
 
@@ -154,17 +157,6 @@
 
 派生元: SPEC-EXT-001, SPEC-MCP-009, ARCH-EFFECT-003
 
-## 投稿
-
-### DES-CHAT-001 投稿ごとの添付
-
-- 投稿ごとにWeb Cryptoの`randomUUID()`でディレクトリ名を作り、`<storage>/answers/<uuid>/<slug>.json`にJSONを保存する。`slug`は題名を整形して40コードポイントまでに切り詰め、空なら`form`とする。添付の表示名は`<slug>.json`とし、UUIDを含めない。
-- 同じ題名、同じ整形結果、空になる題名でも投稿ごとのディレクトリで以前の添付を再利用しない。`src/extension/node/attachments.ts`の保存処理でディレクトリ作成と書込の完了を待つ。
-- デスクトップ版は`AttachmentStore`の実装から、`context.globalStorageUri/answers/<uuid>/<slug>.json`に保存する。読込もVS CodeのファイルAPIを使い、保存先の再作成後も同じ内容を返す。件数による削除は行わず、ファイル操作の失敗は`AttachmentStoreFailed`に変換する。
-- 題名の整形後にコードポイントの配列へ変えて40個までを結合する。39個の`a`に続く`𠮷`も分断せず、`encodeURIComponent`が成功する。
-
-派生元: SPEC-MCP-008, ARCH-PORT-001
-
 ## 検査の実行
 
 ### DES-TOOLS-001 時間の予算による終了
@@ -198,6 +190,17 @@
 - `scripts/release.ts`の純粋な関数で版数、タグ、対象版の箇条書きを検査し、minorの奇偶と次の第2階層見出しまでの本文を返す。CRLFも受け付け、他の版の本文は混ぜない。
 - `scripts/release-check.ts`がNode.jsのファイル操作と環境変数を扱い、検査結果をワークフローへ渡す。パッケージ用スクリプト末尾のvsceに`--pre-release`を渡し、GitHub Releasesには`--prerelease`、MarketplaceとOpen VSXには`--pre-release`を渡す。
 
-- detectはpackage.jsonからversionと`v<version>`のtagを出力し、`git ls-remote --exit-code --tags origin "refs/tags/$TAG"`の終了コード0ならrelease=false、2ならrelease=trueを出力する。それ以外は失敗とする。releaseはdetectのtagを検査CLIの第1引数と公開に使い、`gh release create`の`--target "$GITHUB_SHA"`でタグを作る。
+- detectはpackage.jsonからversionと`v<version>`のtag、対象のshaを出力する。`git ls-remote --exit-code origin refs/heads/main`のコミットがshaと違えばaction=noneとする。`git ls-remote --exit-code --tags origin "refs/tags/$TAG"`の終了コード0ならaction=bump、2ならaction=releaseを出力する。それ以外は失敗とする。
+- `scripts/release.ts`の`prepareRelease`は、`## 未リリース`に箇条書きがなければ`undefined`を返し、あれば次の版数と書き換えたCHANGELOGを返す。`scripts/release-prepare.ts`がpackage.jsonの`"version"`の値とCHANGELOG.mdを書き換え、versionをGITHUB_OUTPUTに出す。
+- bumpは`actions/create-github-app-token`でContentsとPull requestsに書き込めるトークンを作り、checkoutと`gh`に使う。versionがあれば、Appのbotユーザーとしてコミットして`release/next`にforce pushし、検査CLIで書き出した対象版の本文をPRの説明にする。`release/next`から開いたPRが無ければ作り、あれば更新し、`gh pr merge --auto --squash`でauto-mergeを設定する。
+- releaseはdetectのtagを検査CLIの第1引数と公開に使い、detectのshaをcheckoutし、`gh release create`の`--target "$SHA"`でタグを作る。
 
 派生元: SPEC-REL-001, ARCH-REL-001
+
+### DES-REL-002 変更履歴の項目の検査
+
+- `scripts/release.ts`の`checkChangelog`は、`## 未リリース`の本文を行ごとに読み、`###`の見出しが種別の6つ以外のとき、または最初の種別の見出しより前に箇条書きがあるときに問題を返す。基点のCHANGELOGを渡されたときは、前後の空白を除いた箇条書きの行を比べ、基点に無い行が1つも無ければ問題を返す。
+- `scripts/changelog-check.ts`は、引数のrefがあれば`git show <ref>:CHANGELOG.md`を基点とし、問題を標準エラー出力に出して終了コード1にする。
+- Changelogワークフローは`no-changelog`ラベルがあればジョブを飛ばし、`git diff --quiet "$BASE" HEAD -- src`で`src/`の変更を確かめたうえで、PRの基点のshaを検査CLIに渡す。
+
+派生元: SPEC-REL-002

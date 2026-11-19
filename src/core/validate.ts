@@ -4,10 +4,12 @@ import {
   activeFields,
   allFields,
   answerValues,
-  heldFields,
   isMultiple,
+  maxCommentLength,
   maxNoteLength,
   prepare,
+  heldFields,
+  type Comments,
   type CompiledForm,
   type Values
 } from "./form.ts"
@@ -156,23 +158,41 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
   }
 }
 
-const heldProblems = (spec: FormSpec, values: Values, held: unknown): ReadonlyArray<string> => {
-  if (held === undefined) {
-    return []
-  }
-  if (!Array.isArray(held) || held.some((id) => typeof id !== "string")) {
+const checkHeld = (spec: FormSpec, values: Values, input: unknown): ReadonlyArray<string> => {
+  if (!Array.isArray(input) || input.some((id) => typeof id !== "string")) {
     return ["heldは項目のidの配列が必要です"]
   }
-  const declared = new Set(held as ReadonlyArray<string>)
+  const declared = new Set(input as ReadonlyArray<string>)
   const actual = new Set(heldFields(spec, values))
   return [
-    ...activeFields(spec, values)
-      .filter((field) => field.type !== "text" && actual.has(field.id) && !declared.has(field.id))
-      .map((field) => `項目「${field.id}」は値か保留が必要です`),
+    ...[...actual].filter((id) => !declared.has(id)).map((id) => `項目「${id}」は値か、heldが必要です`),
     ...[...declared]
       .filter((id) => !actual.has(id))
-      .map((id) => `項目「${id}」は保留にできません。値があるか、選ばれていない選択肢の項目です`)
+      .map((id) => `項目「${id}」はheldにできません。値があるか、選ばれていない選択肢の項目です`)
   ]
+}
+
+const checkComments = (spec: FormSpec, values: Values, input: unknown): Result.Result<Comments, ReadonlyArray<string>> => {
+  if (input === undefined) {
+    return Result.succeed({})
+  }
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    return Result.fail(["commentsは項目のidから文字列への対応が必要です"])
+  }
+  const active = new Set(activeFields(spec, values).map((field) => field.id))
+  const entries = Object.entries(input as Record<string, unknown>)
+  const problems = entries.flatMap(([id, comment]) => [
+    ...(active.has(id) ? [] : [`項目「${id}」にはコメントを付けられません。有効な項目ではありません`]),
+    ...(typeof comment === "string" && comment.length <= maxCommentLength
+      ? []
+      : [`項目「${id}」のコメントは${maxCommentLength}文字以下の文字列が必要です`])
+  ])
+  if (problems.length > 0) {
+    return Result.fail(problems)
+  }
+  return Result.succeed(
+    Object.fromEntries(entries.map(([id, comment]) => [id, String(comment).trim()]).filter(([, comment]) => comment !== ""))
+  )
 }
 
 const checkNote = (input: unknown): Result.Result<string, ReadonlyArray<string>> => {
@@ -183,7 +203,7 @@ const checkNote = (input: unknown): Result.Result<string, ReadonlyArray<string>>
   return Result.succeed(note.trim())
 }
 
-export const checkValues = (spec: FormSpec, input: unknown, held?: unknown): Result.Result<Values, ReadonlyArray<string>> => {
+export const checkValues = (spec: FormSpec, input: unknown): Result.Result<Values, ReadonlyArray<string>> => {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
     return Result.fail(["valuesはオブジェクトが必要です"])
   }
@@ -195,21 +215,35 @@ export const checkValues = (spec: FormSpec, input: unknown, held?: unknown): Res
   if (problems.length > 0) {
     return Result.fail(problems)
   }
-  const values = answerValues(spec, record as Values)
-  const unheld = heldProblems(spec, values, held)
-  return unheld.length > 0 ? Result.fail(unheld) : Result.succeed(values)
+  return Result.succeed(answerValues(spec, record as Values))
 }
 
 export interface Answer {
   readonly values: Values
+  readonly comments: Comments
   readonly note: string | undefined
 }
 
+const failures = (...results: ReadonlyArray<Result.Result<unknown, ReadonlyArray<string>>>): ReadonlyArray<string> =>
+  results.flatMap((result) => (Result.isFailure(result) ? result.failure : []))
+
 export const checkAnswer = (spec: FormSpec, input: Readonly<Record<string, unknown>>): Result.Result<Answer, ReadonlyArray<string>> => {
-  const values = checkValues(spec, input["values"], input["held"] ?? [])
+  const values = checkValues(spec, input["values"])
   const note = checkNote(input["note"])
-  if (Result.isSuccess(values) && Result.isSuccess(note)) {
-    return Result.succeed({ values: values.success, note: note.success === "" ? undefined : note.success })
+  if (Result.isFailure(values)) {
+    return Result.fail(failures(values, note))
   }
-  return Result.fail([...(Result.isFailure(values) ? values.failure : []), ...(Result.isFailure(note) ? note.failure : [])])
+  const comments = checkComments(spec, values.success, input["comments"])
+  const held = [
+    ...checkHeld(spec, values.success, input["held"] ?? []),
+    ...(Result.isSuccess(comments)
+      ? heldFields(spec, values.success)
+          .filter((id) => comments.success[id] === undefined)
+          .map((id) => `項目「${id}」は値がないので、コメントが必要です`)
+      : [])
+  ]
+  if (held.length === 0 && Result.isSuccess(comments) && Result.isSuccess(note)) {
+    return Result.succeed({ values: values.success, comments: comments.success, note: note.success === "" ? undefined : note.success })
+  }
+  return Result.fail([...held, ...failures(comments, note)])
 }

@@ -2,9 +2,8 @@ import { Effect, Layer, Ref, Schedule, type Scope } from "effect"
 import { McpClient, McpProtocol, type McpSchema } from "effect/ai"
 import { FetchHttpClient } from "effect/http"
 import { serveForms } from "../../src/mcp/http.ts"
-import { AttachmentStore, UserPresence, WaitingIndicator } from "../../src/mcp/ports.ts"
+import { UserPresence, UserSettings, WaitingIndicator } from "../../src/mcp/ports.ts"
 import { FormHtml } from "../../src/mcp/server.ts"
-import { memoryAttachments } from "./attachments.ts"
 
 export interface Harness {
   readonly url: string
@@ -53,10 +52,10 @@ export const connect = (url: string, token: string): Effect.Effect<Connection, u
 export const testHtml = "<!doctype html><html><head></head><body>form</body></html>"
 
 interface HarnessOptions {
-  readonly attachments?: typeof AttachmentStore.Service
   readonly onWaiting?: (count: number) => Effect.Effect<void>
   readonly unavailable?: boolean
   readonly away?: Effect.Effect<void>
+  readonly commentPresets?: ReadonlyArray<string>
 }
 
 const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, Scope.Scope> =>
@@ -64,7 +63,6 @@ const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, 
     const waiting = yield* Ref.make<ReadonlyArray<number>>([])
     const token = "test-token"
     const services = Layer.mergeAll(
-      Layer.succeed(AttachmentStore, options.attachments ?? memoryAttachments().store),
       Layer.succeed(
         WaitingIndicator,
         WaitingIndicator.of({
@@ -75,6 +73,7 @@ const harness = (options: HarnessOptions = {}): Effect.Effect<Harness, unknown, 
         UserPresence,
         UserPresence.of({ unavailable: Effect.succeed(options.unavailable ?? false), away: options.away ?? Effect.never })
       ),
+      Layer.succeed(UserSettings, UserSettings.of({ commentPresets: Effect.succeed(options.commentPresets) })),
       Layer.succeed(FormHtml, testHtml)
     )
     const { url } = yield* serveForms({ token, version: "0.0.0-test", services })
