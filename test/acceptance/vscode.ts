@@ -12,11 +12,13 @@ export interface VscodePaths {
 }
 
 export interface LaunchOptions {
-  readonly llm: FakeLlm
+  readonly llm?: FakeLlm
   readonly log: string
   readonly profile: string
   readonly locale: string
-  readonly query: string
+  readonly query?: string
+  readonly env?: Readonly<Record<string, string>>
+  readonly folder?: string
   readonly settings?: Readonly<Record<string, unknown>>
   readonly draft?: boolean
   readonly scale?: number
@@ -44,12 +46,14 @@ const prepareProfile = async (user: string, settings: Readonly<Record<string, un
 
 export const localHarness = { "chat.defaultToCopilotHarness": false, "chat.editor.preferCopilotHarness": false }
 
+const agentVariable = /^(CLAUDE|ANTHROPIC|OPENAI|CODEX)_|^CLAUDECODE$/
+
 export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): Promise<ElectronApplication> => {
   const user = join(options.profile, "user")
   await prepareProfile(user, options.settings ?? {})
   const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && key !== "ELECTRON_RUN_AS_NODE") {
+    if (value !== undefined && key !== "ELECTRON_RUN_AS_NODE" && !agentVariable.test(key)) {
       env[key] = value
     }
   }
@@ -67,14 +71,17 @@ export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): 
       "--skip-release-notes",
       `--locale=${options.locale}`,
       "--password-store=basic",
-      ...(options.scale === undefined ? [] : [`--force-device-scale-factor=${options.scale}`])
+      ...(options.scale === undefined ? [] : [`--force-device-scale-factor=${options.scale}`]),
+      ...(options.folder === undefined ? [] : [options.folder])
     ],
     env: {
       ...env,
-      ASK_FORM_E2E_LLM_URL: options.llm.url,
-      ASK_FORM_E2E_QUERY: options.query,
+      ...(options.llm === undefined || options.query === undefined
+        ? {}
+        : { ASK_FORM_E2E_LLM_URL: options.llm.url, ASK_FORM_E2E_QUERY: options.query }),
       ASK_FORM_E2E_LOG: options.log,
-      ASK_FORM_E2E_DRAFT: options.draft === true ? "1" : "0"
+      ASK_FORM_E2E_DRAFT: options.draft === true ? "1" : "0",
+      ...options.env
     },
     ...(options.video === undefined ? {} : { recordVideo: options.video })
   })
@@ -103,7 +110,11 @@ export const closeApp = async (app: ElectronApplication): Promise<void> => {
   }
 }
 
-export const cleanUp = async (app: ElectronApplication | undefined, llm: FakeLlm, profile: string): Promise<void> => {
+export const cleanUp = async (
+  app: ElectronApplication | undefined,
+  llm: { readonly close: () => Promise<void> },
+  profile: string
+): Promise<void> => {
   if (app !== undefined) {
     await closeApp(app)
   }

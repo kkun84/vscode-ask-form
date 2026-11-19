@@ -18,7 +18,9 @@ export const buildDriver = async (root: string, driver: string): Promise<void> =
       contributes: {
         commands: [
           { command: "ask-form-e2e.newChat", title: "Ask Form: New acceptance chat" },
-          { command: "ask-form-e2e.autoReply", title: "Ask Form: Toggle acceptance auto reply" }
+          { command: "ask-form-e2e.autoReply", title: "Ask Form: Toggle acceptance auto reply" },
+          { command: "ask-form-e2e.claude", title: "Ask Form: New acceptance Claude session" },
+          { command: "ask-form-e2e.codex", title: "Ask Form: New acceptance Codex session" }
         ]
       }
     })

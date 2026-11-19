@@ -97,7 +97,16 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
   await openChat()
 }
 
+const harnesses = ["claude", "codex"] as const
+
 export const activate = (context: vscode.ExtensionContext): void => {
+  for (const harness of harnesses) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(`ask-form-e2e.${harness}`, () =>
+        vscode.commands.executeCommand(`workbench.action.chat.openNewChatSessionInPlace.agent-host-${harness}`, "sidebar")
+      )
+    )
+  }
   const url = process.env["ASK_FORM_E2E_LLM_URL"]
   const query = process.env["ASK_FORM_E2E_QUERY"]
   if (url === undefined || query === undefined) {
