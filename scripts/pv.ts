@@ -93,7 +93,7 @@ const featureCard = `<div class="center">
   <div class="grid">
     <div class="tile"><b>推奨と理由が入っている</b><span>違う所だけ直せばいい</span></div>
     <div class="tile"><b>あとから直せる</b><span>変えた所だけをCopilotに伝える</span></div>
-    <div class="tile"><b>決めきれない質問は保留</b><span>保留した質問は、必要になったら聞き直す</span></div>
+    <div class="tile"><b>質問ごとにコメント</b><span>「あとで決める。」なら、必要になったら聞き直す</span></div>
     <div class="tile"><b>デスクトップ版とweb版</b><span>チャットの中、またはvscode.devのパネルに</span></div>
   </div>
 </div>`
