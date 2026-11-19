@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
-import { test } from "node:test"
+import { test } from "vitest"
 
 test("DES-REL-001 mainのCIの成功と手動実行で検出し、版数を上げるPRを自動でマージさせるか対象のコミットに公開する", async () => {
   const workflow = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8")

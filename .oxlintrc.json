@@ -26,7 +26,7 @@
       }
     ]
   },
-  "ignorePatterns": ["dist", "test/system/__screenshots__"],
+  "ignorePatterns": ["dist", ".mutator", "test/system/__screenshots__"],
   "overrides": [
     {
       "files": ["test/**", "scripts/**"],

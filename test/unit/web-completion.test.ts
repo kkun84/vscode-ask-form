@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { it } from "node:test"
+import { it } from "vitest"
 import { setImmediate } from "node:timers/promises"
 import { completeWebRun } from "../acceptance/web-completion.ts"
 

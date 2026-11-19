@@ -1,10 +1,10 @@
 import assert from "node:assert/strict"
-import { it } from "node:test"
+import { it } from "vitest"
 import { installPanelBridge } from "../../src/extension/shared/bridge.ts"
 import { connect } from "../../src/ui/bridge.ts"
 import { useWindow } from "../support/window.ts"
 
-it("DES-UI-002 パネルは同じoriginの実際の親だけを橋渡しして初期化と中断を受け取る", async (context) => {
+it("DES-UI-002 パネルは同じoriginの実際の親だけを橋渡しして初期化と中断を受け取る", async () => {
   const listeners = new Set<EventListener>()
   const sent: Array<Record<string, unknown>> = []
   const receiver = {
@@ -13,7 +13,7 @@ it("DES-UI-002 パネルは同じoriginの実際の親だけを橋渡しして�
     addEventListener: (_type: string, listener: EventListener) => listeners.add(listener),
     removeEventListener: (_type: string, listener: EventListener) => listeners.delete(listener)
   }
-  useWindow(context, receiver)
+  useWindow(receiver)
   const install = new Function(`(${installPanelBridge.toString()})()`)
   install()
   const parent = { 0: receiver, length: 1 }

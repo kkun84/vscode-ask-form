@@ -1,10 +1,13 @@
 import assert from "node:assert/strict"
-import { describe, it, type TestContext } from "node:test"
+import { describe, it, onTestFinished, vi } from "vitest"
 import { watchStatus } from "../../src/ui/status.ts"
 import type { ToolResult } from "../../src/ui/bridge.ts"
 
-const monitor = (context: TestContext) => {
-  context.mock.timers.enable({ apis: ["setTimeout"] })
+const monitor = () => {
+  onTestFinished(() => {
+    vi.useRealTimers()
+  })
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
   Object.defineProperty(globalThis, "window", { configurable: true, value: globalThis })
   const requests: Array<{ readonly resolve: (value: ToolResult) => void; readonly reject: (error: Error) => void }> = []
   let cancelled = 0
@@ -22,7 +25,7 @@ const monitor = (context: TestContext) => {
     "test-form",
     () => cancelled++
   )
-  context.after(() => {
+  onTestFinished(() => {
     stop()
     Reflect.deleteProperty(globalThis, "window")
   })
@@ -42,8 +45,8 @@ const monitor = (context: TestContext) => {
 }
 
 describe("DES-UI-001 中断状態の確認", () => {
-  it("DES-UI-001 未登録や失敗では再確認し、中断を一度知らせると確認を止める", async (context) => {
-    const state = monitor(context)
+  it("DES-UI-001 未登録や失敗では再確認し、中断を一度知らせると確認を止める", async () => {
+    const state = monitor()
     for (const result of [
       { structuredContent: { status: "unknown" } },
       new Error("offline"),
@@ -54,22 +57,22 @@ describe("DES-UI-001 中断状態の確認", () => {
       await state.reply(result)
       assert.equal(state.cancelled(), 0)
       const count = state.requests.length
-      context.mock.timers.tick(1000)
+      vi.advanceTimersByTime(1000)
       assert.equal(state.requests.length, count + 1)
     }
     await state.reply({ structuredContent: { status: "cancelled" } })
     assert.equal(state.cancelled(), 1)
-    context.mock.timers.tick(5000)
+    vi.advanceTimersByTime(5000)
     assert.equal(state.requests.length, 6)
   })
 
-  it("DES-UI-001 返答を待つ間は重ねて確認せず、終了後の遅い返答を無視する", async (context) => {
-    const state = monitor(context)
-    context.mock.timers.tick(5000)
+  it("DES-UI-001 返答を待つ間は重ねて確認せず、終了後の遅い返答を無視する", async () => {
+    const state = monitor()
+    vi.advanceTimersByTime(5000)
     assert.equal(state.requests.length, 1)
     state.stop()
     await state.reply({ structuredContent: { status: "cancelled" } })
-    context.mock.timers.tick(5000)
+    vi.advanceTimersByTime(5000)
     assert.equal(state.cancelled(), 0)
     assert.equal(state.requests.length, 1)
   })

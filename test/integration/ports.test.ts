@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { describe, it } from "node:test"
+import { describe, it } from "vitest"
 import { Effect, Fiber, Ref } from "effect"
 import { eventForm, eventSpec } from "../fixtures/event.ts"
 import { withHarness } from "../support/server.ts"

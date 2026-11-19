@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
-import { describe, it } from "node:test"
+import { describe, it } from "vitest"
 import { Effect, Fiber, Schedule } from "effect"
 import { initialValues } from "../../src/core/form.ts"
 import { eventForm, eventSpec } from "../fixtures/event.ts"

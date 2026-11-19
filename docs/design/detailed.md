@@ -173,6 +173,16 @@
 
 派生元: SPEC-EXT-004, ARCH-UI-001
 
+### DES-TOOLS-003 ミューテーションテストの結果の判定
+
+- `scripts/mutation-report.ts`の純粋な関数で、mutatorのJSONの結果の`findings`を判定する。`detectionRegression`はGitHub Actionsの`::error`の注釈にし、ミュータントのファイルと開始行を`files`の`mutants`からidで引いて付ける。引けなければファイルを付けない。`newTestNoKills`は`::warning`の注釈にする。他の種類は扱わない。`comparison`が`unavailable`なら、前回の結果と比べていないことを`::notice`の注釈で知らせ、失敗にはしない。
+- `detectionRegression`が1件でもあれば終了コードを1、それ以外は0とする。結果のファイルが無ければ、検査を飛ばさず`::error`の注釈を出して1とする。
+- 注釈の値の`%`と改行を符号化し、ファイルと題名ではさらに`:`と`,`を符号化する。
+- 変更したファイルの一覧に、検査の範囲を決める`mutator.config.json`、`mutator.accepted.json`、`vitest.mutation.config.ts`があれば、ファイルごとに`::warning`の注釈を出す。終了コードは変えない。
+- `scripts/mutation-findings.ts`が`.mutator/report/mutation.json`を読み、判定の結果を標準出力に書く。引数に比べる基準のrefを渡すと、そのrefとの差分で変わったファイルの一覧を`git diff --name-only`で得て、設定の変更も判定する。
+
+派生元: SPEC-EXT-005, ARCH-DEPS-001
+
 ## リリース
 
 ### DES-REL-001 版数と変更履歴の検査

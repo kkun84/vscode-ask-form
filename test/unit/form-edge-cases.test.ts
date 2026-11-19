@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { it } from "node:test"
+import { it } from "vitest"
 import { Result } from "effect"
 import { changedFields, computeValues, initialValues, outcomeFor } from "../../src/core/form.ts"
 import { checkValues, compile } from "../../src/core/validate.ts"

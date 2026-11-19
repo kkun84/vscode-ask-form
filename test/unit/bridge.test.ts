@@ -1,9 +1,9 @@
 import assert from "node:assert/strict"
-import { it, type TestContext } from "node:test"
+import { it } from "vitest"
 import { connect } from "../../src/ui/bridge.ts"
 import { useWindow } from "../support/window.ts"
 
-const setup = (context: TestContext, crossOrigin = false) => {
+const setup = (crossOrigin = false) => {
   const sent: Array<Record<string, unknown>> = []
   const events: Array<unknown> = []
   let receive: ((event: MessageEvent) => void) | undefined
@@ -22,7 +22,7 @@ const setup = (context: TestContext, crossOrigin = false) => {
       receive = listener
     }
   }
-  useWindow(context, receiver)
+  useWindow(receiver)
   const connecting = connect({
     onToolInput: (args) => events.push(args),
     onToolResult: (result) => events.push(result),
@@ -36,8 +36,8 @@ const setup = (context: TestContext, crossOrigin = false) => {
   return { connecting, deliver, events, sent, target, receiver }
 }
 
-it("DES-UI-002 別の送り主や異なるoriginからの初期化と通知を無視する", async (context) => {
-  const state = setup(context)
+it("DES-UI-002 別の送り主や異なるoriginからの初期化と通知を無視する", async () => {
+  const state = setup()
   for (const source of [null, {}, state.receiver]) {
     state.deliver({ id: 1, result: { hostContext: { locale: "forged" } } }, source)
     for (const method of ["tool-cancelled", "tool-result", "tool-input", "host-context-changed"]) {
@@ -54,8 +54,8 @@ it("DES-UI-002 別の送り主や異なるoriginからの初期化と通知を�
   assert.deepEqual(state.events, [{ locale: "ja" }, "cancelled"])
 })
 
-it("DES-UI-002 呼び出しの成功も失敗も検証したホストからだけ受け付ける", async (context) => {
-  const state = setup(context, true)
+it("DES-UI-002 呼び出しの成功も失敗も検証したホストからだけ受け付ける", async () => {
+  const state = setup(true)
   state.deliver({ id: 1, result: {} })
   const bridge = await state.connecting
   const result = bridge.callTool("form_answer", {})

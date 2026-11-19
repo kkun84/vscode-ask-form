@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { test } from "node:test"
+import { test } from "vitest"
 import { checkChangelog, checkRelease, prepareRelease } from "../../scripts/release.ts"
 
 test("DES-REL-001 minorの奇偶で配布種別を決め対象の変更履歴だけを返す", () => {

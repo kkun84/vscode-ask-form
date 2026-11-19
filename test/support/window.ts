@@ -1,9 +1,9 @@
-import type { TestContext } from "node:test"
+import { onTestFinished } from "vitest"
 
-export const useWindow = (context: TestContext, value: unknown): void => {
+export const useWindow = (value: unknown): void => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, "window")
   Object.defineProperty(globalThis, "window", { configurable: true, value })
-  context.after(() => {
+  onTestFinished(() => {
     if (previous === undefined) {
       Reflect.deleteProperty(globalThis, "window")
     } else {
