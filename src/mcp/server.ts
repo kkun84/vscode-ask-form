@@ -1,11 +1,11 @@
 import { Context, Effect, Layer, Result, Schema } from "effect"
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai"
-import { attachmentName, outcomeFor, outcomeText, resendMessage, type Action, type Outcome, type Skip } from "../core/form.ts"
+import { attachmentName, heldFields, outcomeFor, outcomeText, resendMessage, type Action, type Outcome } from "../core/form.ts"
 import { checkAnswer, checkAnswered, compile, type Answer } from "../core/validate.ts"
 import { languageOf, messages } from "../core/messages.ts"
 import { PendingForms } from "./pending.ts"
 import { formSpecJsonSchema } from "./schema.ts"
-import { AttachmentStore, UserPresence } from "./ports.ts"
+import { AttachmentStore, UserPresence, UserSettings } from "./ports.ts"
 
 export const resourceUri = "ui://ask-form/form.html"
 export const resourceMimeType = "text/html;profile=mcp-app"
@@ -25,7 +25,6 @@ const OutcomeResult = Schema.Union([
     status: Schema.Literal("submitted"),
     values: Values,
     held: Schema.Array(Schema.String),
-    delegated: Schema.Array(Schema.String),
     changedByUser: Schema.Array(Schema.String),
     computed: ComputedValues,
     comments: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
@@ -49,7 +48,7 @@ export const askFormDescription = [
   "When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields.",
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",
-  "Instead of answering a question, the user can ask you to ask it later (its id comes back in held, and heldForm holds those fields for asking again) or leave the decision to you (its id comes back in delegated).",
+  "The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again.",
   "The user can comment on each question; comments come back in comments, keyed by field id.",
   "The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note.",
   "The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn."
@@ -73,7 +72,6 @@ const FormAnswer = Tool.make("form_answer", {
     action: Schema.Literals(["submit", "chat"]),
     values: Schema.optionalKey(Schema.Unknown),
     held: Schema.optionalKey(Schema.Unknown),
-    delegated: Schema.optionalKey(Schema.Unknown),
     comments: Schema.optionalKey(Schema.Unknown),
     note: Schema.optionalKey(Schema.Unknown)
   }),
@@ -87,8 +85,6 @@ const FormResend = Tool.make("form_resend", {
     spec: Schema.Unknown,
     before: Schema.Unknown,
     after: Schema.Unknown,
-    beforeDelegated: Schema.optionalKey(Schema.Unknown),
-    afterDelegated: Schema.optionalKey(Schema.Unknown),
     beforeComments: Schema.optionalKey(Schema.Unknown),
     afterComments: Schema.optionalKey(Schema.Unknown),
     locale: Schema.optionalKey(Schema.String)
@@ -105,7 +101,15 @@ const FormStatus = Tool.make("form_status", {
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
 
-const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend, FormStatus)
+const FormSettings = Tool.make("form_settings", {
+  description: "Read the user's settings for the form view. Only the form view calls this tool.",
+  parameters: Tool.EmptyParams,
+  success: Schema.Struct({ commentPresets: Schema.NullOr(Schema.Array(Schema.String)) })
+})
+  .annotate(Tool.Meta, { ui: { resourceUri, visibility: ["app"] } })
+  .annotate(Tool.Readonly, true)
+
+const FormsToolkit = Toolkit.make(AskForm, FormAnswer, FormResend, FormStatus, FormSettings)
 
 const reject = (problems: ReadonlyArray<string>) => Effect.fail(new FormRejected({ message: problems.join("\n") }))
 
@@ -114,7 +118,9 @@ const FormsHandlers = FormsToolkit.toLayer(
     const pending = yield* PendingForms
     const attachments = yield* AttachmentStore
     const presence = yield* UserPresence
+    const settings = yield* UserSettings
     return FormsToolkit.of({
+      form_settings: () => settings.commentPresets.pipe(Effect.map((presets) => ({ commentPresets: presets ?? null }))),
       form_status: ({ formKey }) => pending.status(formKey).pipe(Effect.map((status) => ({ status }))),
       ask_form: (params) =>
         Effect.gen(function* () {
@@ -128,15 +134,15 @@ const FormsHandlers = FormsToolkit.toLayer(
           const left = presence.away.pipe(Effect.as<Outcome>({ status: "unavailable" }))
           return withNext(yield* Effect.raceFirst(pending.wait(compiled.success), left))
         }),
-      form_answer: ({ formKey, action, values, held, delegated, comments, note }) =>
+      form_answer: ({ formKey, action, values, held, comments, note }) =>
         Effect.gen(function* () {
           const form = yield* pending.peek(formKey)
           if (form === undefined) {
             return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
           }
-          let answer: Answer = { values: {}, skips: {}, comments: {}, note: undefined }
+          let answer: Answer = { values: {}, comments: {}, note: undefined }
           if (action === "submit") {
-            const result = checkAnswer(form.spec, { values, held, delegated, comments, note })
+            const result = checkAnswer(form.spec, { values, held, comments, note })
             if (Result.isFailure(result)) {
               return yield* reject(result.failure)
             }
@@ -155,8 +161,8 @@ const FormsHandlers = FormsToolkit.toLayer(
             return yield* reject(compiled.failure)
           }
           const form = compiled.success
-          const previous = checkAnswered(form.spec, params.before, params.beforeDelegated, params.beforeComments)
-          const next = checkAnswered(form.spec, params.after, params.afterDelegated, params.afterComments)
+          const previous = checkAnswered(form.spec, params.before, params.beforeComments)
+          const next = checkAnswered(form.spec, params.after, params.afterComments)
           if (Result.isFailure(previous) || Result.isFailure(next)) {
             return yield* reject([...(Result.isFailure(previous) ? previous.failure : []), ...(Result.isFailure(next) ? next.failure : [])])
           }
@@ -166,13 +172,10 @@ const FormsHandlers = FormsToolkit.toLayer(
           }
           const id = crypto.randomUUID()
           const name = attachmentName(form.spec.title)
-          const skips = Object.entries(next.success.skips ?? {})
-          const ids = (skip: Skip) => skips.filter(([, value]) => value === skip).map(([key]) => key)
           const attachment = {
             title: form.spec.title,
             values: next.success.values,
-            held: ids("later"),
-            delegated: ids("delegate"),
+            held: heldFields(form.spec, next.success.values),
             ...(Object.keys(next.success.comments ?? {}).length === 0 ? {} : { comments: next.success.comments })
           }
           yield* attachments

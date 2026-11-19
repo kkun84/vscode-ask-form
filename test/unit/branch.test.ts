@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Result } from "effect"
 import {
-  unsetFields,
+  heldFields,
   activeFields,
   answerValues,
   changedFields,
@@ -100,12 +100,23 @@ describe("DES-FORM-006 差分と検査", () => {
     assert.deepEqual(Result.getOrThrow(checked), { name: "a", storage: "server", port: 80, auth: "yes" })
     const missing = checkAnswer(storageForm.spec, { values: { name: "a", storage: "server", engine: "local" } })
     assert.ok(Result.isFailure(missing))
-    assert.deepEqual(missing.failure, ["項目「port」は値か、heldかdelegatedが必要です", "項目「auth」は値か、heldかdelegatedが必要です"])
-    const held = checkAnswer(storageForm.spec, { values: { storage: "server", auth: "yes" }, held: ["port"], delegated: ["name"] })
+    assert.deepEqual(missing.failure, [
+      "項目「port」は値か、heldが必要です",
+      "項目「auth」は値か、heldが必要です",
+      "項目「port」は値がないので、コメントが必要です",
+      "項目「auth」は値がないので、コメントが必要です"
+    ])
+    const held = checkAnswer(storageForm.spec, {
+      values: { storage: "server", auth: "yes" },
+      held: ["name", "port"],
+      comments: { name: "あとで", port: "任せる" }
+    })
     assert.deepEqual(Result.getOrThrow(held).values, { storage: "server", auth: "yes" })
-    assert.deepEqual(Result.getOrThrow(held).skips, { port: "later", name: "delegate" })
-    assert.deepEqual(unsetFields(storageForm.spec, Result.getOrThrow(held).values), ["name", "port"])
-    const wrong = checkAnswer(storageForm.spec, { values: { name: "a", storage: "browser", engine: "local" }, held: ["engine", "port"] })
+    assert.deepEqual(heldFields(storageForm.spec, Result.getOrThrow(held).values), ["name", "port"])
+    const wrong = checkAnswer(storageForm.spec, {
+      values: { name: "a", storage: "browser", engine: "local" },
+      held: ["engine", "port"]
+    })
     assert.ok(Result.isFailure(wrong))
     assert.equal(wrong.failure.length, 2)
     assert.deepEqual(Result.getOrThrow(checkValues(storageForm.spec, { name: "a" })), { name: "a" })

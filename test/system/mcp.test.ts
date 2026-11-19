@@ -52,7 +52,13 @@ describe("SPEC-MCP-001 質問のツール", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const tools = yield* h.client.listTools()
-        assert.deepEqual(tools.map((tool) => tool.name).toSorted(), ["ask_form", "form_answer", "form_resend", "form_status"])
+        assert.deepEqual(tools.map((tool) => tool.name).toSorted(), [
+          "ask_form",
+          "form_answer",
+          "form_resend",
+          "form_settings",
+          "form_status"
+        ])
         const tool = yield* h.tool("ask_form")
         assert.equal(tool.annotations?.readOnlyHint, true)
         assert.equal(tool.annotations?.openWorldHint, false)
@@ -136,7 +142,7 @@ describe("SPEC-MCP-003 回答を待つ", () => {
       })
     ))
 
-  it("SPEC-MCP-003 あとで決める項目はheldとheldFormで、おまかせの項目はdelegatedで返し、コメントを添える", () =>
+  it("SPEC-MCP-003 値のない項目はheldとheldFormで返し、値のある項目のコメントも添える", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const fiber = yield* ask(h)
@@ -145,29 +151,30 @@ describe("SPEC-MCP-003 回答を待つ", () => {
           formKey: form.key,
           action: "submit",
           values,
-          held: ["price"],
-          delegated: ["format"],
-          comments: { price: " 予算が決まったら " }
+          held: ["format", "price"],
+          comments: { price: " 予算が決まったら ", format: "任せる", name: "仮の名前" }
         })
         const result = yield* Fiber.join(fiber)
         const outcome = structured(result)
         assert.deepEqual(outcome["values"], values)
-        assert.deepEqual(outcome["held"], ["price"])
-        assert.deepEqual(outcome["delegated"], ["format"])
-        assert.deepEqual(outcome["comments"], { price: "予算が決まったら" })
-        assert.deepEqual(outcome["heldForm"], { title: eventSpec.title, fields: form.spec.fields.filter((field) => field.id === "price") })
+        assert.deepEqual(outcome["held"], ["format", "price"])
+        assert.deepEqual(outcome["comments"], { name: "仮の名前", format: "任せる", price: "予算が決まったら" })
+        assert.deepEqual(outcome["heldForm"], {
+          title: eventSpec.title,
+          fields: form.spec.fields.filter((field) => field.id === "format" || field.id === "price")
+        })
         assert.deepEqual(outcome["changedByUser"], [])
         assert.deepEqual(outcome["computed"], { cost: 170000, profit: null, breakEven: null })
-        assert.match(text(result), /Do not assume a value.*heldForm.*delegated.*Choose a value yourself.*comments/)
+        assert.match(text(result), /follow each for its field.*let you decide.*does not matter.*heldForm/)
       })
     ))
 
-  it("SPEC-MCP-005 値も保留もない項目、値のある項目の保留、文字列でない補足、長すぎる補足を拒否する", () =>
+  it("SPEC-MCP-005 値もコメントもない項目、値のある項目のheld、文字列でないコメントと補足、長すぎる補足を拒否する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         yield* ask(h)
         const { price: _price, ...values } = initialValues(form.spec)
-        yield* expectError(h.call("form_answer", { formKey: form.key, action: "submit", values }), /price.*heldかdelegated/)
+        yield* expectError(h.call("form_answer", { formKey: form.key, action: "submit", values, held: ["price"] }), /price.*コメントが必要/)
         yield* expectError(
           h.call("form_answer", { formKey: form.key, action: "submit", values: initialValues(form.spec), held: ["price"] }),
           /price.*できません/
@@ -235,7 +242,7 @@ describe("SPEC-MCP-005 回答を受け取るツール", () => {
   it("SPEC-MCP-005 画面専用でAIからは見えない印を持つ", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        for (const name of ["form_answer", "form_resend", "form_status"]) {
+        for (const name of ["form_answer", "form_resend", "form_settings", "form_status"]) {
           const tool = yield* h.tool(name)
           assert.deepEqual((tool._meta as Record<string, unknown>)["ui"], { resourceUri, visibility: ["app"] })
         }
@@ -374,6 +381,23 @@ const readAttachment = (h: Harness, uri: string) =>
     })
   )
 
+describe("SPEC-MCP-010 画面の設定のツール", () => {
+  it("SPEC-MCP-010 利用者の設定したコメントの定型文を返し、設定がなければnullを返す", async () => {
+    await withHarness((h) =>
+      Effect.gen(function* () {
+        assert.deepEqual(structured(yield* h.call("form_settings", {})), { commentPresets: null })
+      })
+    )
+    await withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          assert.deepEqual(structured(yield* h.call("form_settings", {})), { commentPresets: ["保留", "任せる"] })
+        }),
+      { commentPresets: ["保留", "任せる"] }
+    )
+  })
+})
+
 describe("SPEC-MCP-008 送り直しのツール", () => {
   it("SPEC-MCP-008 差分の文章と、全項目の値を読める添付を返す", () =>
     withHarness((h) =>
@@ -392,36 +416,30 @@ describe("SPEC-MCP-008 送り直しのツール", () => {
         assert.deepEqual(yield* readAttachment(h, message.attachment.uri), {
           title: "交流会の条件",
           values: after,
-          held: [],
-          delegated: []
+          held: []
         })
       })
     ))
 
-  it("SPEC-MCP-008 推奨のない質問をおまかせにした回答も送り直せ、おまかせとコメントの変更を文章と添付に書く", () =>
+  it("SPEC-MCP-008 値のない回答も送り直せ、値とコメントの変更を文章と添付に書く", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const { format: _format, ...before } = initialValues(form.spec)
         const result = yield* h.call("form_resend", {
           spec: eventSpec,
           before,
-          after: before,
-          beforeDelegated: ["format"],
-          afterDelegated: [],
+          after: { ...before, format: "talk" },
+          beforeComments: { format: "任せる" },
           afterComments: { price: "学生は半額" },
           locale: "ja"
         })
         assert.equal(result.isError, false)
         const message = result.structuredContent as { readonly text: string; readonly attachment: { readonly uri: string } }
-        assert.equal(
-          message.text,
-          "「交流会の条件」で形式をあとで決める、参加費のコメントを「学生は半額」に変えたので、反映して続けてください。"
-        )
+        assert.equal(message.text, "「交流会の条件」で形式を勉強会、参加費のコメントを「学生は半額」に変えたので、反映して続けてください。")
         assert.deepEqual(yield* readAttachment(h, message.attachment.uri), {
           title: "交流会の条件",
-          values: before,
-          held: ["format"],
-          delegated: [],
+          values: { ...before, format: "talk" },
+          held: [],
           comments: { price: "学生は半額" }
         })
       })
@@ -467,7 +485,7 @@ describe("SPEC-MCP-008 添付の永続化", () => {
       (h) =>
         Effect.gen(function* () {
           yield* Effect.forEach(Array.from({ length: 65 }), () => h.call("form_resend", { spec: eventSpec, before, after }))
-          assert.deepEqual(yield* readAttachment(h, uri), { title: eventSpec.title, values: after, held: [], delegated: [] })
+          assert.deepEqual(yield* readAttachment(h, uri), { title: eventSpec.title, values: after, held: [] })
           yield* Effect.forEach([uri.replace(/[^/]+$/, "missing.json"), uri.replace(/[^/]+$/, "%2e%2e%2fsecret.json")], (invalid) =>
             h.client.readResource({ uri: invalid }).pipe(
               Effect.result,

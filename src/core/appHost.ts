@@ -14,6 +14,7 @@ export interface AppHostOptions {
   readonly context: HostContext
   readonly post: (message: Record<string, unknown>) => void
   readonly onOutcome: (outcome: Outcome) => void
+  readonly commentPresets?: ReadonlyArray<string> | undefined
 }
 
 export interface AppHost {
@@ -47,7 +48,7 @@ const answerWith = (options: AppHostOptions, state: HostState, params: Record<st
     return textResult("expired: このフォームはもう回答を受け付けていません", true)
   }
   const action = params["action"]
-  let answer: Answer = { values: {}, skips: {}, comments: {}, note: undefined }
+  let answer: Answer = { values: {}, comments: {}, note: undefined }
   if (action === "submit") {
     const checked = checkAnswer(options.form.spec, params)
     if (Result.isFailure(checked)) {
@@ -86,6 +87,10 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
     switch (params["name"]) {
       case "form_answer":
         return respond(id, answerWith(options, state, args))
+      case "form_settings": {
+        const settings = { commentPresets: options.commentPresets ?? null }
+        return respond(id, textResult(JSON.stringify(settings), false, settings))
+      }
       case "form_status": {
         const status = { status: args["formKey"] === options.form.key ? state.status : "unknown" }
         return respond(id, textResult(JSON.stringify(status), false, status))

@@ -31,7 +31,6 @@ it("DES-FORM-003 NULを含む複数選択の変更を検出し、並び順だけ
     status: "submitted",
     values: after,
     held: [],
-    delegated: [],
     changedByUser: ["selection"],
     computed: { count: 2 }
   })

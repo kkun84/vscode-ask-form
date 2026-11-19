@@ -23,6 +23,13 @@ export class UserPresence extends Context.Service<
   }
 >()("ask-form/UserPresence") {}
 
+export class UserSettings extends Context.Service<
+  UserSettings,
+  {
+    readonly commentPresets: Effect.Effect<ReadonlyArray<string> | undefined>
+  }
+>()("ask-form/UserSettings") {}
+
 export class WaitingIndicator extends Context.Service<
   WaitingIndicator,
   {

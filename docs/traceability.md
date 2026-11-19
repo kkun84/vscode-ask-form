@@ -12,9 +12,9 @@
 | REQ-ASK-004 | 選んだ選択肢に応じて続きを聞ける | - | SPEC-FORM-002, SPEC-MCP-003, SPEC-UI-011 | MAT-ASK-002 |
 | REQ-ANS-001 | 1回の操作で回答が届く | - | SPEC-MCP-001, SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-006, SPEC-UI-003 | `test/acceptance/chat.ts`, MAT-ANS-001 |
 | REQ-ANS-003 | キャンセルしてチャットで答えられる | - | SPEC-MCP-003, SPEC-UI-003 | `test/acceptance/chat.ts`, MAT-ANS-002 |
-| REQ-ANS-005 | 質問ごとに、あとで決めるかおまかせにできる | - | SPEC-MCP-003, SPEC-MCP-005, SPEC-UI-012 | `test/acceptance/chat.ts`, MAT-ANS-002 |
+| REQ-ANS-005 | 質問ごとに、値を答えずにコメントだけで返せる | - | SPEC-MCP-003, SPEC-MCP-005, SPEC-UI-012 | `test/acceptance/chat.ts`, MAT-ANS-002 |
 | REQ-ANS-006 | 補足を添えられる | - | SPEC-MCP-003, SPEC-MCP-005, SPEC-UI-004, SPEC-UI-013 | `test/acceptance/chat.ts`, MAT-ANS-002 |
-| REQ-ANS-007 | 質問ごとにコメントを添えられる | - | SPEC-MCP-005, SPEC-UI-004, SPEC-UI-014 | `test/acceptance/chat.ts`, MAT-ANS-002 |
+| REQ-ANS-007 | 質問ごとにコメントを添えられる | - | SPEC-MCP-005, SPEC-MCP-010, SPEC-UI-004, SPEC-UI-014 | `test/acceptance/chat.ts`, MAT-ANS-002 |
 | REQ-ANS-004 | キーボードだけで回答できる | - | SPEC-UI-003, SPEC-UI-008 | MAT-ANS-001 |
 | REQ-RES-001 | 回答の要約が残る | - | SPEC-UI-004 | `test/acceptance/chat.ts`, MAT-RES-001 |
 | REQ-RES-002 | 変更して送り直せる | - | SPEC-MCP-008, SPEC-UI-005 | `test/acceptance/chat.ts`, MAT-RES-001 |
@@ -45,6 +45,7 @@
 | SPEC-MCP-006 | フォームの鍵 | REQ-ANS-001 | ARCH-LAYER-001, DES-SPEC-002 | `test/system/mcp.test.ts` |
 | SPEC-MCP-007 | 中断 | REQ-CANCEL-001 | DES-PEND-001 | `test/system/mcp.test.ts` |
 | SPEC-MCP-008 | 送り直しのツール | REQ-RES-002, REQ-RES-003 | ARCH-EFFECT-001, ARCH-PORT-001, DES-FORM-005, DES-FORM-007, DES-FORM-009, DES-CHAT-001 | `test/system/mcp.test.ts` |
+| SPEC-MCP-010 | 画面の設定のツール | REQ-ANS-007 | DES-FORM-009 | `test/system/mcp.test.ts` |
 | SPEC-MCP-009 | 接続の保護 | REQ-SEC-001 | ARCH-EFFECT-002, DES-HTTP-001 | `test/system/mcp.test.ts` |
 | SPEC-UI-001 | 初期表示 | REQ-ASK-002 | ARCH-LAYER-002, ARCH-UI-001, DES-FORM-001, DES-FORM-003 | `test/system/ui.spec.ts` |
 | SPEC-UI-002 | 計算結果 | REQ-ASK-003 | ARCH-LAYER-006, DES-FORM-002 | `test/system/ui.spec.ts` |
@@ -56,7 +57,7 @@
 | SPEC-UI-008 | アクセシビリティ | REQ-A11Y-001, REQ-ANS-004 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-009 | 表示の言語 | REQ-LOOK-001 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-011 | 選択肢ごとの項目 | REQ-ASK-004 | DES-FORM-006 | `test/system/ui.spec.ts` |
-| SPEC-UI-012 | あとで決める、おまかせ | REQ-ANS-005 | DES-FORM-007 | `test/system/ui.spec.ts` |
+| SPEC-UI-012 | 値のない回答 | REQ-ANS-005 | DES-FORM-007 | `test/system/ui.spec.ts` |
 | SPEC-UI-013 | 補足 | REQ-ANS-006 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-014 | 項目ごとのコメント | REQ-ANS-007 | DES-FORM-009 | `test/system/ui.spec.ts` |
 | SPEC-UI-010 | 画面への通知の送り主 | REQ-SEC-001, REQ-CANCEL-001 | ARCH-UI-001, DES-UI-002 | `test/system/ui.spec.ts` |
@@ -101,9 +102,9 @@
 | DES-FORM-004 | 値の検査 | SPEC-MCP-005, ARCH-LAYER-001 | - | `test/unit/form-edge-cases.test.ts`, `test/unit/form.test.ts` |
 | DES-FORM-005 | 送り直しの文章 | SPEC-MCP-008 | - | `test/unit/form.test.ts` |
 | DES-FORM-006 | 選択肢ごとの項目 | SPEC-FORM-001, SPEC-FORM-002, SPEC-MCP-003, SPEC-UI-011 | - | `test/unit/branch.test.ts` |
-| DES-FORM-007 | あとで決める、おまかせ | SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-008, SPEC-UI-012, ARCH-LAYER-006 | - | `test/unit/form.test.ts` |
+| DES-FORM-007 | 値のない回答 | SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-008, SPEC-UI-012, ARCH-LAYER-006 | - | `test/unit/form.test.ts` |
 | DES-FORM-008 | 補足 | SPEC-MCP-003, SPEC-MCP-005, ARCH-LAYER-001 | - | `test/unit/form.test.ts` |
-| DES-FORM-009 | 項目ごとのコメント | SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-008, SPEC-UI-014 | - | `test/unit/form.test.ts` |
+| DES-FORM-009 | 項目ごとのコメント | SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-008, SPEC-MCP-010, SPEC-UI-014 | - | `test/unit/form.test.ts` |
 | DES-PEND-001 | 待機の台帳 | SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-007, SPEC-EXT-002 | - | `test/unit/pending.test.ts` |
 | DES-UI-001 | 中断状態の確認 | SPEC-UI-006, ARCH-UI-001 | - | `test/unit/status.test.ts` |
 | DES-UI-002 | メッセージの送り主の検査 | SPEC-UI-010, SPEC-EXT-004, ARCH-UI-001 | - | `test/unit/bridge.test.ts`, `test/unit/panel-bridge.test.ts` |

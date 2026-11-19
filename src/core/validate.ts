@@ -8,11 +8,10 @@ import {
   maxCommentLength,
   maxNoteLength,
   prepare,
-  unsetFields,
+  heldFields,
   type Answered,
   type Comments,
   type CompiledForm,
-  type Skips,
   type Values
 } from "./form.ts"
 import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
@@ -160,32 +159,18 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
   }
 }
 
-const idList = (name: string, input: unknown): Result.Result<ReadonlyArray<string>, ReadonlyArray<string>> =>
-  Array.isArray(input) && input.every((id) => typeof id === "string")
-    ? Result.succeed(input as ReadonlyArray<string>)
-    : Result.fail([`${name}は項目のidの配列が必要です`])
-
-const checkSkips = (spec: FormSpec, values: Values, held: unknown, delegated: unknown): Result.Result<Skips, ReadonlyArray<string>> => {
-  const later = idList("held", held ?? [])
-  const decide = idList("delegated", delegated ?? [])
-  if (Result.isFailure(later) || Result.isFailure(decide)) {
-    return Result.fail([...(Result.isFailure(later) ? later.failure : []), ...(Result.isFailure(decide) ? decide.failure : [])])
+const checkHeld = (spec: FormSpec, values: Values, input: unknown): ReadonlyArray<string> => {
+  if (!Array.isArray(input) || input.some((id) => typeof id !== "string")) {
+    return ["heldは項目のidの配列が必要です"]
   }
-  const unset = new Set(unsetFields(spec, values))
-  const declared = [...later.success, ...decide.success]
-  const problems = [
-    ...[...unset].filter((id) => !declared.includes(id)).map((id) => `項目「${id}」は値か、heldかdelegatedが必要です`),
-    ...declared.filter((id, index) => declared.indexOf(id) !== index).map((id) => `項目「${id}」がheldとdelegatedに重ねて入っています`),
-    ...declared
-      .filter((id) => !unset.has(id))
-      .map((id) => `項目「${id}」はheldにもdelegatedにもできません。値があるか、選ばれていない選択肢の項目です`)
+  const declared = new Set(input as ReadonlyArray<string>)
+  const actual = new Set(heldFields(spec, values))
+  return [
+    ...[...actual].filter((id) => !declared.has(id)).map((id) => `項目「${id}」は値か、heldが必要です`),
+    ...[...declared]
+      .filter((id) => !actual.has(id))
+      .map((id) => `項目「${id}」はheldにできません。値があるか、選ばれていない選択肢の項目です`)
   ]
-  if (problems.length > 0) {
-    return Result.fail(problems)
-  }
-  return Result.succeed(
-    Object.fromEntries([...later.success.map((id) => [id, "later"] as const), ...decide.success.map((id) => [id, "delegate"] as const)])
-  )
 }
 
 const checkComments = (spec: FormSpec, values: Values, input: unknown): Result.Result<Comments, ReadonlyArray<string>> => {
@@ -236,7 +221,6 @@ export const checkValues = (spec: FormSpec, input: unknown): Result.Result<Value
 
 export interface Answer {
   readonly values: Values
-  readonly skips: Skips
   readonly comments: Comments
   readonly note: string | undefined
 }
@@ -250,35 +234,26 @@ export const checkAnswer = (spec: FormSpec, input: Readonly<Record<string, unkno
   if (Result.isFailure(values)) {
     return Result.fail(failures(values, note))
   }
-  const skips = checkSkips(spec, values.success, input["held"], input["delegated"])
   const comments = checkComments(spec, values.success, input["comments"])
-  if (Result.isSuccess(skips) && Result.isSuccess(comments) && Result.isSuccess(note)) {
-    return Result.succeed({
-      values: values.success,
-      skips: skips.success,
-      comments: comments.success,
-      note: note.success === "" ? undefined : note.success
-    })
+  const held = [
+    ...checkHeld(spec, values.success, input["held"] ?? []),
+    ...(Result.isSuccess(comments)
+      ? heldFields(spec, values.success)
+          .filter((id) => comments.success[id] === undefined)
+          .map((id) => `項目「${id}」は値がないので、コメントが必要です`)
+      : [])
+  ]
+  if (held.length === 0 && Result.isSuccess(comments) && Result.isSuccess(note)) {
+    return Result.succeed({ values: values.success, comments: comments.success, note: note.success === "" ? undefined : note.success })
   }
-  return Result.fail(failures(skips, comments, note))
+  return Result.fail([...held, ...failures(comments, note)])
 }
 
-export const checkAnswered = (
-  spec: FormSpec,
-  input: unknown,
-  delegated?: unknown,
-  comments?: unknown
-): Result.Result<Answered, ReadonlyArray<string>> => {
+export const checkAnswered = (spec: FormSpec, input: unknown, comments?: unknown): Result.Result<Answered, ReadonlyArray<string>> => {
   const values = checkValues(spec, input)
   if (Result.isFailure(values)) {
     return Result.fail(values.failure)
   }
-  const ids = new Set(Array.isArray(delegated) ? delegated : [])
-  const held = unsetFields(spec, values.success).filter((id) => !ids.has(id))
-  const skips = checkSkips(spec, values.success, held, delegated)
   const checked = checkComments(spec, values.success, comments)
-  if (Result.isSuccess(skips) && Result.isSuccess(checked)) {
-    return Result.succeed({ values: values.success, skips: skips.success, comments: checked.success })
-  }
-  return Result.fail(failures(skips, checked))
+  return Result.isSuccess(checked) ? Result.succeed({ values: values.success, comments: checked.success }) : Result.fail(checked.failure)
 }

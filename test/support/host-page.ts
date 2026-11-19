@@ -1,6 +1,6 @@
 import { Result } from "effect"
 import { createAppHost, type HostContext } from "../../src/core/appHost.ts"
-import { resendMessage, type Outcome, type Values } from "../../src/core/form.ts"
+import { heldFields, resendMessage, type Outcome, type Values } from "../../src/core/form.ts"
 import { languageOf, messages } from "../../src/core/messages.ts"
 import { checkAnswered, compile } from "../../src/core/validate.ts"
 
@@ -8,7 +8,6 @@ interface ResendRequest {
   readonly text: string
   readonly values: Values
   readonly held: ReadonlyArray<string>
-  readonly delegated: ReadonlyArray<string>
   readonly comments: Readonly<Record<string, string>>
 }
 
@@ -24,6 +23,7 @@ interface Setup {
   readonly placeMessage: "placed" | "refused" | undefined
   readonly restore: Readonly<Record<string, unknown>> | undefined
   readonly background: string
+  readonly commentPresets?: ReadonlyArray<string>
 }
 
 interface Recorder {
@@ -58,6 +58,7 @@ const host = createAppHost({
   form: compiled.success,
   args: setup.args,
   context: setup.context,
+  commentPresets: setup.commentPresets,
   post,
   onOutcome: (outcome) => recorder.outcomes.push(outcome)
 })
@@ -91,8 +92,8 @@ const failed = (text: string) => ({ isError: true, content: [{ type: "text", tex
 
 const prepareResend = (args: Record<string, unknown>): Record<string, unknown> => {
   const { spec } = compiled.success
-  const before = checkAnswered(spec, args["before"], args["beforeDelegated"], args["beforeComments"])
-  const after = checkAnswered(spec, args["after"], args["afterDelegated"], args["afterComments"])
+  const before = checkAnswered(spec, args["before"], args["beforeComments"])
+  const after = checkAnswered(spec, args["after"], args["afterComments"])
   if (setup.failResend || Result.isFailure(before) || Result.isFailure(after)) {
     return failed("chat unavailable")
   }
@@ -100,12 +101,10 @@ const prepareResend = (args: Record<string, unknown>): Record<string, unknown> =
   if (text === undefined) {
     return failed("no changes")
   }
-  const skips = Object.entries(after.success.skips ?? {})
   recorder.resends.push({
     text,
     values: after.success.values,
-    held: skips.filter(([, skip]) => skip === "later").map(([id]) => id),
-    delegated: skips.filter(([, skip]) => skip === "delegate").map(([id]) => id),
+    held: heldFields(spec, after.success.values),
     comments: after.success.comments ?? {}
   })
   return {

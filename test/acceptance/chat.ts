@@ -131,22 +131,27 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
   await theFrame(session).locator(".summary").waitFor({ timeout: 30_000 })
 })
 
-test("REQ-ANS-005 あとで決めるにした質問は、値なしでheldとheldFormとしてモデルに届く", async (session) => {
+const settledForm = async (session: Session) => {
   await newForm(session)
-  const skip = theFrame(session).getByRole("combobox", { name: "How to answer 参加費" })
-  await skip.selectOption("Decide later")
-  await expect(skip).toHaveValue("later")
+  const frame = theFrame(session)
+  await settled(frame)
+  return frame
+}
+
+test("REQ-ANS-005 値を外してコメントを書いた質問は、値なしでheldとheldFormとしてモデルに届く", async (session) => {
+  const frame = await settledForm(session)
+  await frame.getByRole("button", { name: "Clear 参加費" }).click()
+  await frame.getByRole("group", { name: "Preset comments for 参加費" }).getByRole("button", { name: "Decide later." }).click()
   const result = await answer(session)
   expect(result).toContain('"status":"submitted"')
   expect(result).toContain('"held":["price"]')
   expect(result).toContain('"heldForm":{')
-  expect(result).not.toContain('"price":')
+  expect(result).toContain('"comments":{"price":"Decide later."}')
+  expect(result).not.toContain('"price":2')
 })
 
 test("REQ-ANS-007 質問へのコメントは、commentsとしてモデルに届く", async (session) => {
-  await newForm(session)
-  const frame = theFrame(session)
-  await settled(frame)
+  const frame = await settledForm(session)
   await frame.getByRole("button", { name: "Comment on 参加費" }).click()
   await frame.getByRole("textbox", { name: "Comment on 参加費" }).fill("Keep it under 3000.")
   const result = await answer(session)
@@ -154,9 +159,7 @@ test("REQ-ANS-007 質問へのコメントは、commentsとしてモデルに届
 })
 
 test("REQ-ANS-006 補足を書いて送信すると、noteとしてモデルに届く", async (session) => {
-  await newForm(session)
-  const frame = theFrame(session)
-  await settled(frame)
+  const frame = await settledForm(session)
   await frame.locator("details.note summary").click()
   await frame.getByRole("textbox", { name: "Add a note" }).fill("The venue is not decided yet.")
   const result = await answer(session)
@@ -196,15 +199,12 @@ test("REQ-RES-002 変更を入力欄に置き、利用者が送信すると差�
     60_000
   )
   expect(received).toContain(`${eventSpec.title}.json`)
-  const attachment = received.match(
-    /\{\s*"title":\s*"[^"]+",\s*"values":\s*\{[^}]+\},\s*"held":\s*\[[^\]]*\],\s*"delegated":\s*\[[^\]]*\]\s*\}/
-  )?.[0]
+  const attachment = received.match(/\{\s*"title":\s*"[^"]+",\s*"values":\s*\{[^}]+\},\s*"held":\s*\[[^\]]*\]\s*\}/)?.[0]
   check(attachment !== undefined, `the model receives the JSON attachment contents: ${received}`)
   expect(JSON.parse(attachment ?? "null")).toEqual({
     title: eventSpec.title,
     values: { ...guesses, attendees: 150, price: 2500 },
-    held: [],
-    delegated: []
+    held: []
   })
   await expect(frame.locator(".summary")).toBeVisible()
   await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })

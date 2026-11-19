@@ -126,7 +126,7 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await expect(frame.getByRole("radio", { name: "赤" })).not.toBeChecked()
     await expect(frame.getByRole("radio", { name: "青" })).not.toBeChecked()
     await frame.getByRole("button", { name: "送信", exact: true }).click()
-    await expect(frame.getByText("答えるか、あとで決める・おまかせにしてください: 色")).toBeVisible()
+    await expect(frame.getByText("答えるか、コメントを書いてください: 色")).toBeVisible()
     await expect(frame.getByRole("radio", { name: "赤" })).toBeFocused()
     await expect(frame.getByRole("radio", { name: "赤" })).toHaveAttribute("aria-invalid", "true")
     expect(await recorded(page, "outcomes")).toHaveLength(0)
@@ -591,11 +591,7 @@ test.describe("SPEC-UI-009 表示の言語", () => {
   test("SPEC-UI-009 英語のロケールでは英語で表示する", async ({ page }) => {
     const frame = await open(page, { context: { locale: "en-US" } })
     await expect(frame.locator("footer").getByRole("button")).toHaveText(["Cancel", "Send"])
-    await expect(frame.getByRole("combobox", { name: "How to answer 参加費" }).locator("option")).toHaveText([
-      "Answer",
-      "Decide later",
-      "Your call"
-    ])
+    await expect(frame.getByRole("button", { name: "Clear 参加費", exact: true })).toBeVisible()
     await expect(frame.getByRole("button", { name: "Comment on 参加費", exact: true })).toBeVisible()
     await expect(frame.getByRole("button", { name: "Details for イベント名" })).toBeVisible()
   })
@@ -664,7 +660,7 @@ test.describe("SPEC-UI-011 送り直しの続きの質問", () => {
     await startEditing(frame)
     await frame.getByRole("radio", { name: "クラウド" }).check()
     await frame.getByRole("button", { name: "変更を送信" }).click()
-    await expect(frame.getByText("答えるか、あとで決める・おまかせにしてください: 地域")).toBeVisible()
+    await expect(frame.getByText("答えるか、コメントを書いてください: 地域")).toBeVisible()
     await expect(frame.getByRole("radio", { name: "日本" })).toBeFocused()
     expect(await recorded(page, "resends")).toHaveLength(0)
   })
@@ -699,20 +695,22 @@ const holdSpec = {
   computed: [{ id: "pages", label: "ページ数", expression: "ceil(100 / size)" }]
 }
 
-const skip = (frame: Frame, question: string) => frame.getByRole("combobox", { name: `${question}の答え方`, exact: true })
-
-const openSkipped = async (page: Page): Promise<Frame> => {
-  const frame = await open(page, { args: holdSpec })
-  await skip(frame, "締め切り").selectOption("あとで決める")
-  await skip(frame, "件数").selectOption("あとで決める")
-  await skip(frame, "分類").selectOption("おまかせ")
-  await skip(frame, "補足").selectOption("あとで決める")
-  return frame
-}
+const clear = (frame: Frame, question: string) => frame.getByRole("button", { name: `${question}の値を外す`, exact: true })
 
 const comment = (frame: Frame, question: string) => frame.getByRole("textbox", { name: `${question}へのコメント` })
 
 const openComment = (frame: Frame, question: string) => frame.getByRole("button", { name: `${question}へのコメント`, exact: true }).click()
+
+const commentOnly = async (frame: Frame, question: string, text: string) => {
+  await clear(frame, question).click()
+  await comment(frame, question).fill(text)
+}
+
+const openAnswered = async (page: Page): Promise<Frame> => {
+  const frame = await open(page, { args: holdSpec })
+  await frame.getByRole("radio", { name: "付けない" }).check()
+  return frame
+}
 
 const submitChecked = async (page: Page, frame: Frame): Promise<Answered> => {
   expect(await axeViolations(frame)).toEqual([])
@@ -734,15 +732,8 @@ const sendResend = async (page: Page, frame: Frame): Promise<Resent | undefined>
   return resent
 }
 
-const openDueLater = async (page: Page): Promise<Frame> => {
-  const frame = await open(page, { args: holdSpec })
-  await skip(frame, "締め切り").selectOption("あとで決める")
-  return frame
-}
-
 interface Answered extends OutcomeLike {
   readonly held?: ReadonlyArray<string>
-  readonly delegated?: ReadonlyArray<string>
   readonly comments?: Readonly<Record<string, string>>
   readonly heldForm?: { readonly title: string; readonly fields: ReadonlyArray<{ readonly id: string }> }
 }
@@ -811,7 +802,7 @@ test.describe("SPEC-UI-013 補足", () => {
     await frame.locator("details.note summary").click()
     await note(frame).fill("どちらでもない方式にしたい")
     await send(frame)
-    await expect(frame.locator(".status")).toHaveText("答えるか、あとで決める・おまかせにしてください: 方式")
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 方式")
     await expect(note(frame)).toHaveValue("どちらでもない方式にしたい")
     expect(await recorded(page, "outcomes")).toHaveLength(0)
   })
@@ -856,63 +847,57 @@ test.describe("SPEC-UI-013 補足", () => {
   })
 })
 
-test.describe("SPEC-UI-012 あとで決める、おまかせ", () => {
-  test("SPEC-UI-012 どの質問もあとで決めるかおまかせにでき、値を届けずに要約に示す", async ({ page }) => {
-    const frame = await openSkipped(page)
+test.describe("SPEC-UI-012 値のない回答", () => {
+  test("SPEC-UI-012 値を外してコメントを書いた質問は、値を届けずにheldとコメントで伝わる", async ({ page }) => {
+    const frame = await open(page, { args: holdSpec })
+    await expect(clear(frame, "締め切り")).toBeHidden()
+    await openComment(frame, "締め切り")
+    await comment(frame, "締め切り").fill("あとで決める。")
+    await commentOnly(frame, "件数", "どれでもよい。")
+    await commentOnly(frame, "分類", "要らない")
+    await commentOnly(frame, "補足", "あとで")
     await expect(frame.getByRole("checkbox", { name: "仕事" })).not.toBeChecked()
     await expect(frame.getByRole("textbox", { name: "補足", exact: true })).toHaveValue("")
     await expect(frame.locator(".metric-value")).toHaveText("—")
-    await expect(frame.locator(".q.skipped")).toHaveCount(4)
     const outcome = await submitChecked(page, frame)
     expect(outcome.values).toEqual({})
-    expect(outcome.held).toEqual(["due", "size", "memo"])
-    expect(outcome.delegated).toEqual(["tags"])
-    expect(outcome.heldForm?.fields.map((field) => field.id)).toEqual(["due", "size", "memo"])
+    expect(outcome.held).toEqual(["due", "size", "tags", "memo"])
+    expect(outcome.heldForm?.fields.map((field) => field.id)).toEqual(["due", "size", "tags", "memo"])
+    expect(outcome.comments).toEqual({ due: "あとで決める。", size: "どれでもよい。", tags: "要らない", memo: "あとで" })
     expect(outcome.changedByUser).toEqual([])
     await expect(frame.locator(".summary-row")).toHaveText([
-      "締め切りあとで決める",
-      "件数あとで決める推奨: 20件",
-      "分類おまかせ推奨: 仕事",
-      "補足あとで決める推奨: なし"
+      "締め切り回答なしあとで決める。",
+      "件数回答なし推奨: 20件どれでもよい。",
+      "分類回答なし推奨: 仕事要らない",
+      "補足回答なし推奨: なしあとで"
     ])
   })
 
-  test("SPEC-UI-012 値を入れるか選ぶと、あとで決める・おまかせが外れる", async ({ page }) => {
-    const frame = await openSkipped(page)
-    await frame.getByRole("radio", { name: "付けない" }).check()
+  test("SPEC-UI-012 値を外してもコメントがなければ未回答として送らない", async ({ page }) => {
+    const frame = await openAnswered(page)
+    await clear(frame, "件数").click()
+    await expect(comment(frame, "件数")).toBeFocused()
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 件数")
+    expect(await recorded(page, "outcomes")).toHaveLength(0)
+  })
+
+  test("SPEC-UI-012 値を外した後に値を入れると、値のある回答に戻る", async ({ page }) => {
+    const frame = await openAnswered(page)
+    await commentOnly(frame, "件数", "未定")
+    await commentOnly(frame, "補足", "未定")
     await frame.getByRole("spinbutton", { name: "件数" }).fill("50")
-    await frame.getByRole("checkbox", { name: "家" }).check()
     await frame.getByRole("textbox", { name: "補足", exact: true }).fill("急ぎ")
-    for (const question of ["締め切り", "件数", "分類", "補足"]) {
-      await expect(skip(frame, question)).toHaveValue("answer")
-    }
+    await expect(clear(frame, "件数")).toBeVisible()
     await send(frame)
     const outcome = (await singleOutcome(page)) as Answered
-    expect(outcome.values).toEqual({ due: "no", size: 50, tags: ["home"], memo: "急ぎ" })
+    expect(outcome.values).toEqual({ due: "no", size: 50, tags: ["work"], memo: "急ぎ" })
     expect(outcome.held).toEqual([])
-    expect(outcome.delegated).toEqual([])
+    expect(outcome.comments).toEqual({ size: "未定", memo: "未定" })
   })
 
-  test("SPEC-UI-012 答えるに戻すと、数値と文字列は前の値に戻る", async ({ page }) => {
-    const frame = await open(page, { args: holdSpec })
-    const size = frame.getByRole("spinbutton", { name: "件数" })
-    const memo = frame.getByRole("textbox", { name: "補足", exact: true })
-    await size.fill("35")
-    await memo.fill("急ぎ")
-    await skip(frame, "件数").selectOption("あとで決める")
-    await skip(frame, "補足").selectOption("おまかせ")
-    await expect(size).toHaveValue("")
-    await expect(memo).toHaveValue("")
-    await skip(frame, "件数").selectOption("答える")
-    await skip(frame, "補足").selectOption("答える")
-    await expect(size).toHaveValue("35")
-    await expect(memo).toHaveValue("急ぎ")
-    await expect(frame.locator(".metric-value")).toHaveText("3")
-  })
-
-  test("SPEC-UI-012 空欄の文字列は、空欄という答えとして届く", async ({ page }) => {
-    const frame = await open(page, { args: holdSpec })
-    await skip(frame, "締め切り").selectOption("おまかせ")
+  test("SPEC-UI-012 手で空欄にした文字列は、空欄という答えとして届く", async ({ page }) => {
+    const frame = await openAnswered(page)
     await frame.getByRole("textbox", { name: "補足", exact: true }).fill("")
     await send(frame)
     const outcome = (await singleOutcome(page)) as Answered
@@ -921,9 +906,9 @@ test.describe("SPEC-UI-012 あとで決める、おまかせ", () => {
     await expect(frame.locator(".summary-row").last()).toHaveText("補足(空欄)推奨: なし")
   })
 
-  test("SPEC-UI-012 親の選択項目をあとで決めるにすると、選択肢ごとの項目を隠して回答にも含めない", async ({ page }) => {
+  test("SPEC-UI-012 親の選択項目の値を外すと、選択肢ごとの項目を隠して回答にも含めない", async ({ page }) => {
     const frame = await openStorage(page)
-    await skip(frame, "保存先").selectOption("あとで決める")
+    await commentOnly(frame, "保存先", "チームで決める")
     await expect(frame.getByRole("group", { name: "保存方式" })).toBeHidden()
     await send(frame)
     const outcome = (await singleOutcome(page)) as Answered
@@ -933,47 +918,79 @@ test.describe("SPEC-UI-012 あとで決める、おまかせ", () => {
 })
 
 test.describe("SPEC-UI-014 項目ごとのコメント", () => {
-  test("SPEC-UI-014 コメントを開いて書くと回答と一緒に届き、要約の値の下に示す", async ({ page }) => {
-    const frame = await open(page, { args: holdSpec })
+  test("SPEC-UI-014 値のある質問にもコメントを書け、値と一緒に届き、要約の値の下に示す", async ({ page }) => {
+    const frame = await openAnswered(page)
     await expect(comment(frame, "件数")).toBeHidden()
     await openComment(frame, "件数")
     await expect(comment(frame, "件数")).toBeFocused()
     await expect(comment(frame, "件数")).toHaveAttribute("maxlength", "500")
     await comment(frame, "件数").fill(" 多めに ")
-    await skip(frame, "締め切り").selectOption("あとで決める")
     const outcome = await submitChecked(page, frame)
+    expect(outcome.values?.["size"]).toBe(20)
     expect(outcome.comments).toEqual({ size: "多めに" })
     await expect(frame.locator(".summary-row").nth(1)).toHaveText("件数20件多めに")
   })
 
-  test("SPEC-UI-014 あとで決める・おまかせの質問では、コメント欄に決めるための手がかりを促す", async ({ page }) => {
-    const frame = await openDueLater(page)
-    await expect(comment(frame, "締め切り")).toBeHidden()
-    await openComment(frame, "締め切り")
-    await expect(comment(frame, "締め切り")).toHaveAttribute("placeholder", /何が分かれば決められるか/)
-    await skip(frame, "締め切り").selectOption("おまかせ")
-    await expect(comment(frame, "締め切り")).toHaveAttribute("placeholder", /重視してほしいこと/)
+  test("SPEC-UI-014 値のない質問では、コメント欄に答えない理由を促す", async ({ page }) => {
+    const frame = await open(page, { args: holdSpec })
+    await openComment(frame, "件数")
+    await expect(comment(frame, "件数")).toHaveAttribute("placeholder", /この質問について/)
+    await clear(frame, "件数").click()
+    await expect(comment(frame, "件数")).toHaveAttribute("placeholder", /答えないときは/)
   })
 })
 
-test.describe("SPEC-UI-012 あとで決める、おまかせと送り直し", () => {
-  test("SPEC-UI-012 あとで決めるで送信した質問に、送り直しで答えられる", async ({ page }) => {
-    const frame = await openDueLater(page)
+const presets = (frame: Frame, question: string) =>
+  frame.getByRole("group", { name: `${question}へのコメントの定型文` }).getByRole("button")
+
+test.describe("SPEC-UI-014 コメントの定型文", () => {
+  test("SPEC-UI-014 値を外して定型文を押すだけで、値なしの回答を作れる", async ({ page }) => {
+    const frame = await openAnswered(page)
+    await clear(frame, "件数").click()
+    await expect(presets(frame, "件数")).toHaveText(["あとで決める。", "どれでもよい。", "答えない。"])
+    await presets(frame, "件数").filter({ hasText: "どれでもよい。" }).click()
+    await expect(comment(frame, "件数")).toHaveValue("どれでもよい。")
+    await expect(comment(frame, "件数")).toBeFocused()
+    await presets(frame, "件数").filter({ hasText: "あとで決める。" }).click()
+    await expect(comment(frame, "件数")).toHaveValue("どれでもよい。 あとで決める。")
+    const outcome = await submitChecked(page, frame)
+    expect(outcome.held).toEqual(["size"])
+    expect(outcome.comments).toEqual({ size: "どれでもよい。 あとで決める。" })
+  })
+
+  test("SPEC-UI-014 設定した定型文に置き換える", async ({ page }) => {
+    const custom = await open(page, { args: holdSpec, commentPresets: ["予算次第", "任せる"] })
+    await openComment(custom, "件数")
+    await expect(presets(custom, "件数")).toHaveText(["予算次第", "任せる"])
+  })
+
+  test("SPEC-UI-014 定型文を空にする設定なら定型文を出さない", async ({ page }) => {
+    const none = await open(page, { args: holdSpec, commentPresets: [] })
+    await openComment(none, "件数")
+    await expect(comment(none, "件数")).toBeVisible()
+    await expect(none.getByRole("group", { name: "件数へのコメントの定型文" })).toHaveCount(0)
+  })
+})
+
+test.describe("SPEC-UI-012 値のない回答と送り直し", () => {
+  test("SPEC-UI-012 値なしで送信した質問に、送り直しで答えられる", async ({ page }) => {
+    const frame = await open(page, { args: holdSpec })
+    await openComment(frame, "締め切り")
+    await comment(frame, "締め切り").fill("あとで")
     await send(frame)
     await frame.getByRole("button", { name: "変更して送り直す" }).click()
-    await expect(skip(frame, "締め切り")).toHaveValue("later")
+    await expect(comment(frame, "締め切り")).toHaveValue("あとで")
     await expect(frame.locator(".status")).toHaveText("変更はまだありません")
     await frame.getByRole("radio", { name: "付けられる" }).check()
-    await expect(frame.getByText("前回: あとで決める")).toBeVisible()
+    await expect(frame.getByText("前回: 回答なし")).toBeVisible()
     const resent = await sendResend(page, frame)
-    expect(resent?.text).toBe("「保留の確認」で締め切りを付けられるに変えたので、反映して続けてください。")
+    expect(resent?.text).toBe("「保留の確認」で締め切りを付けられる(コメント: あとで)に変えたので、反映して続けてください。")
     expect(resent?.values).toEqual({ due: "yes", size: 20, tags: ["work"], memo: "なし" })
     expect(resent?.held).toEqual([])
   })
 
   test("SPEC-UI-014 コメントだけを変えても送り直せる", async ({ page }) => {
-    const frame = await open(page, { args: holdSpec })
-    await frame.getByRole("radio", { name: "付けない" }).check()
+    const frame = await openAnswered(page)
     await send(frame)
     await frame.getByRole("button", { name: "変更して送り直す" }).click()
     await openComment(frame, "件数")
@@ -984,30 +1001,28 @@ test.describe("SPEC-UI-012 あとで決める、おまかせと送り直し", ()
     expect(resent?.comments).toEqual({ size: "多めに" })
   })
 
-  test("SPEC-UI-012 ツールの結果から復元した要約でも、あとで決める・おまかせとコメントを保って編集に戻す", async ({ page }) => {
+  test("SPEC-UI-012 ツールの結果から復元した要約でも、値のない質問とコメントを保って編集に戻す", async ({ page }) => {
     const frame = await open(page, {
       args: holdSpec,
       restore: {
         status: "submitted",
         values: { due: "no", tags: ["work"] },
-        held: ["size"],
-        delegated: ["memo"],
-        comments: { due: "来月から" },
+        held: ["size", "memo"],
+        comments: { due: "来月から", size: "未定", memo: "未定" },
         changedByUser: ["due"],
         computed: {}
       }
     })
     await expect(frame.locator(".summary-row")).toHaveText([
       "締め切り付けない来月から",
-      "件数あとで決める推奨: 20件",
+      "件数回答なし推奨: 20件未定",
       "分類仕事",
-      "補足おまかせ推奨: なし"
+      "補足回答なし推奨: なし未定"
     ])
     await frame.getByRole("button", { name: "変更して送り直す" }).click()
-    await expect(skip(frame, "件数")).toHaveValue("later")
-    await expect(skip(frame, "補足")).toHaveValue("delegate")
-    await expect(comment(frame, "締め切り")).toHaveValue("来月から")
+    await expect(frame.getByRole("spinbutton", { name: "件数" })).toHaveValue("")
     await expect(frame.getByRole("textbox", { name: "補足", exact: true })).toHaveValue("")
+    await expect(comment(frame, "締め切り")).toHaveValue("来月から")
     await expect(frame.locator(".status")).toHaveText("変更はまだありません")
   })
 })

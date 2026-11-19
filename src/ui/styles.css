@@ -639,30 +639,7 @@ summary:focus-visible {
   outline: none;
 }
 
-.q-head .skip {
-  flex: none;
-  padding: 1px 2px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.q-head .skip:hover,
-.q-head .skip:focus-visible {
-  border-color: var(--input-border);
-}
-
-.q.skipped > .q-head .skip {
-  border-color: var(--accent);
-  background: var(--input-bg);
-  color: var(--fg);
-}
-
-.q-head .comment-open {
+.q-head .head-action {
   flex: none;
   padding: 1px 4px;
   border: 1px solid transparent;
@@ -672,7 +649,7 @@ summary:focus-visible {
   font-size: 12px;
 }
 
-.q-head .comment-open:hover {
+.q-head .head-action:hover {
   border-color: var(--input-border);
 }
 
@@ -684,6 +661,26 @@ summary:focus-visible {
   width: 100%;
   min-height: 0;
   font-size: 12px;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.presets .preset {
+  padding: 1px 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.presets .preset:hover {
+  border-color: var(--focus);
 }
 
 .commented {

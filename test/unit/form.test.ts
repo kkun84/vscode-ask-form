@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Result } from "effect"
-import { changedFields, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
+import { changedFields, commentPresetsFrom, computeValues, initialValues, outcomeFor, resendMessage } from "../../src/core/form.ts"
 import { checkAnswer, checkValues } from "../../src/core/validate.ts"
 import { canonicalJson, stableHash } from "../../src/core/hash.ts"
 import { messages } from "../../src/core/messages.ts"
@@ -310,7 +310,6 @@ describe("DES-FORM-008 補足", () => {
       status: "submitted",
       values: { name: "a" },
       held: [],
-      delegated: [],
       changedByUser: [],
       computed: {},
       note: "SQLiteにしたい"
@@ -334,62 +333,52 @@ describe("DES-FORM-008 補足", () => {
 const choice = { type: "choice", id: "due", label: "締め切り", options: ["yes", "no"].map((value) => ({ value, label: value })) }
 const sizeField = { type: "number", id: "size", label: "件数", default: 20, min: 5, max: 100 }
 
-describe("DES-FORM-007 あとで決める、おまかせ", () => {
+describe("DES-FORM-007 値のない回答", () => {
   const spec = withFields([sizeField, choice, { type: "text", id: "memo", label: "補足", default: "なし" }])
 
-  it("DES-FORM-007 heldとdelegatedを分けて返し、heldの項目の設計図をheldFormに入れる", () => {
+  it("DES-FORM-007 値がなくコメントのある項目をheldに入れ、その設計図をheldFormに入れる", () => {
     const form = compiled(spec)
-    const answer = Result.getOrThrow(checkAnswer(form.spec, { values: { due: "no" }, held: ["size"], delegated: ["memo"] }))
+    const answer = Result.getOrThrow(
+      checkAnswer(form.spec, { values: { due: "no", memo: "なし" }, held: ["size"], comments: { size: "予算次第" } })
+    )
     assert.deepEqual(outcomeFor(form, "submit", answer), {
       status: "submitted",
-      values: { due: "no" },
+      values: { due: "no", memo: "なし" },
       held: ["size"],
-      delegated: ["memo"],
       changedByUser: ["due"],
       computed: {},
+      comments: { size: "予算次第" },
       heldForm: { title: "t", fields: [form.spec.fields[0]] }
     })
   })
 
-  it("DES-FORM-007 空欄の文字列は答えとして扱い、heldにもdelegatedにも入れない", () => {
+  it("DES-FORM-007 値とコメントの両方を受け付け、空欄の文字列は答えとして扱う", () => {
     const form = compiled(spec)
-    const answer = Result.getOrThrow(checkAnswer(form.spec, { values: { size: 20, due: "no", memo: "" } }))
+    const answer = Result.getOrThrow(checkAnswer(form.spec, { values: { size: 20, due: "no", memo: "" }, comments: { due: "来月から" } }))
     const outcome = outcomeFor(form, "submit", answer)
-    assert.equal(outcome.status === "submitted" ? outcome.values["memo"] : undefined, "")
-    assert.deepEqual(outcome.status === "submitted" ? [outcome.held, outcome.delegated] : undefined, [[], []])
+    assert.deepEqual(outcome.status === "submitted" ? [outcome.values, outcome.held, outcome.comments] : undefined, [
+      { size: 20, due: "no", memo: "" },
+      [],
+      { due: "来月から" }
+    ])
   })
 
-  it("DES-FORM-007 値のない項目の申告漏れ、重複、値のある項目の申告を拒否する", () => {
+  it("DES-FORM-007 値のない項目の申告漏れ、コメントのない値なし、値のある項目の申告を拒否する", () => {
     const form = compiled(spec)
-    const check = (input: Record<string, unknown>) => checkAnswer(form.spec, input)
-    assert.match(String(check({ values: { size: 20, due: "no" } }).pipe(Result.flip, Result.getOrThrow)), /memo.*heldかdelegated/)
-    assert.match(
-      String(check({ values: { size: 20, due: "no" }, held: ["memo"], delegated: ["memo"] }).pipe(Result.flip, Result.getOrThrow)),
-      /memo.*重ねて/
-    )
-    assert.match(
-      String(check({ values: { size: 20, due: "no", memo: "" }, delegated: ["size"] }).pipe(Result.flip, Result.getOrThrow)),
-      /size.*できません/
-    )
-    assert.match(String(check({ values: {}, held: "size" }).pipe(Result.flip, Result.getOrThrow)), /heldは項目のidの配列/)
+    const failure = (input: Record<string, unknown>) => String(checkAnswer(form.spec, input).pipe(Result.flip, Result.getOrThrow))
+    assert.match(failure({ values: { size: 20, due: "no" }, comments: { memo: "x" } }), /memo.*heldが必要/)
+    assert.match(failure({ values: { size: 20, due: "no" }, held: ["memo"] }), /memo.*コメントが必要/)
+    assert.match(failure({ values: { size: 20, due: "no", memo: "" }, held: ["size"] }), /size.*できません/)
+    assert.match(failure({ values: {}, held: "size" }), /heldは項目のidの配列/)
   })
 
-  it("DES-FORM-007 あとで決める、おまかせ、値の間の変更を差分に数え、送り直しの文章に書く", () => {
+  it("DES-FORM-007 値と値なしの間の変更を差分に数え、送り直しの文章に書く", () => {
     const form = compiled(spec)
     const before = { values: { size: 20, due: "no", memo: "なし" } }
     assert.deepEqual(changedFields(form.spec, before.values, { due: "no", memo: "" }), ["size", "memo"])
     assert.equal(
-      resendMessage(form.spec, before, { values: { due: "no", memo: "なし" }, skips: { size: "later" } }, messages("ja")),
-      "「t」で件数をあとで決めるに変えたので、反映して続けてください。"
-    )
-    assert.equal(
-      resendMessage(
-        form.spec,
-        { values: { due: "no", memo: "なし" }, skips: { size: "later" } },
-        { values: { due: "no", memo: "なし" }, skips: { size: "delegate" } },
-        messages("ja")
-      ),
-      "「t」で件数をおまかせに変えたので、反映して続けてください。"
+      resendMessage(form.spec, before, { values: { due: "no", memo: "なし" } }, messages("ja")),
+      "「t」で件数を回答なしに変えたので、反映して続けてください。"
     )
     assert.equal(
       resendMessage(form.spec, { values: { due: "no" } }, { values: { size: 30, due: "no" } }, messages("en")),
@@ -420,6 +409,14 @@ describe("DES-FORM-009 項目ごとのコメント", () => {
     assert.ok(Result.isFailure(check({ size: 1 })))
     assert.ok(Result.isFailure(check({ other: "x" })))
     assert.ok(Result.isFailure(check(["x"])))
+  })
+
+  it("DES-FORM-009 設定の定型文は、文字列だけを空白を除いて8個まで使い、配列でなければ既定に任せる", () => {
+    assert.equal(commentPresetsFrom(null), undefined)
+    assert.equal(commentPresetsFrom("あとで"), undefined)
+    assert.deepEqual(commentPresetsFrom([]), [])
+    assert.deepEqual(commentPresetsFrom([" あとで ", 1, "", "x".repeat(501), "任せる"]), ["あとで", "任せる"])
+    assert.equal(commentPresetsFrom(Array.from({ length: 10 }, (_, index) => String(index)))?.length, 8)
   })
 
   it("DES-FORM-009 コメントだけの変更も差分に数え、送り直しの文章に書く", () => {
