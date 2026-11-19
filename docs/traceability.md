@@ -21,7 +21,7 @@
 | REQ-WAIT-002 | 利用者が不在の設定では待たない | - | SPEC-MCP-003, SPEC-MCP-010, SPEC-UI-004, SPEC-EXT-007 | `test/acceptance/chat.ts`, MAT-WAIT-001 |
 | REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/web.ts`, MAT-WEB-001 |
 | REQ-ENV-001 | MCPを使わない環境でも回答できる | - | SPEC-EXT-006 | MAT-ENV-001 |
-| REQ-ENV-002 | ClaudeとCodexのハーネスでも回答できる | - | SPEC-MCP-010, SPEC-EXT-008 | MAT-ENV-002 |
+| REQ-ENV-002 | ClaudeとCodexのハーネスでも回答できる | - | SPEC-MCP-010, SPEC-EXT-008 | `test/acceptance/agents.ts`, MAT-ENV-002 |
 | REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/desktop.ts`, MAT-PERF-001 |
 | REQ-SEC-001 | 回答を偽装されない | - | SPEC-MCP-009, SPEC-UI-010, SPEC-EXT-001 | MAT-SEC-001 |
 | REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | MAT-LOOK-001 |

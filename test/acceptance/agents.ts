@@ -4,7 +4,8 @@ import { join } from "node:path"
 import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeAgents, type FakeAgents } from "./fake-agents.ts"
-import { formFrame, settled, until } from "./frames.ts"
+import { formFrame, settled, sleep, until } from "./frames.ts"
+import { createSteps, waitingStatus } from "./steps.ts"
 import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
 
 interface Paths extends VscodePaths {
@@ -21,40 +22,62 @@ interface Session {
 
 type Harness = "Claude" | "Codex"
 
-const steps: Array<{ readonly name: string; readonly body: (session: Session) => Promise<void> }> = []
+const { test, run } = createSteps<Session>()
 
-const test = (name: string, body: (session: Session) => Promise<void>): void => {
-  steps.push({ name, body })
-}
-
-const waiting = (session: Session) => session.window.locator(".statusbar-item", { hasText: "Copilot is waiting for your answer" })
+const waiting = (session: Session) => waitingStatus(session.window)
 
 const runCommand = async (session: Session, title: string): Promise<void> => {
-  await session.window.keyboard.press("F1")
-  await session.window.locator(".quick-input-widget input").fill(`>${title}`)
+  const input = session.window.locator(".quick-input-widget input")
+  await until(
+    async () => {
+      await session.window.locator(".monaco-workbench").click({ position: { x: 600, y: 400 } })
+      await session.window.keyboard.press("F1")
+      return (await input.isVisible().catch(() => false)) ? true : undefined
+    },
+    "the command palette opens",
+    60_000
+  )
+  await input.fill(`>${title}`)
   await session.window.locator(".quick-input-list .monaco-list-row", { hasText: title }).click()
 }
 
 const openSession = async (session: Session, harness: Harness): Promise<void> => {
   await runCommand(session, `Ask Form: New acceptance ${harness} session`)
-  const input = session.window.locator(".interactive-input-part .monaco-editor")
-  const download = session.window.locator(".monaco-button", { hasText: /^Download$/ })
-  await Promise.race([input.waitFor({ timeout: 60_000 }), download.waitFor({ timeout: 60_000 })])
-  if (await download.isVisible()) {
-    await download.click()
-    await download.waitFor({ state: "hidden", timeout: 300_000 })
-  }
+  const download = session.window.locator(".monaco-button:visible", { hasText: /^Download$/ })
+  const noModel = session.window.locator(".interactive-input-part").getByText("Models", { exact: true })
+  let ready = 0
+  await until(
+    async () => {
+      if (await download.isVisible().catch(() => false)) {
+        await download.click()
+        await download.waitFor({ state: "hidden", timeout: 300_000 })
+      }
+      ready = (await noModel.isVisible().catch(() => true)) ? 0 : ready + 1
+      return ready >= 3 ? true : undefined
+    },
+    `the ${harness} harness offers a model`,
+    360_000
+  )
 }
 
 const ask = async (session: Session, harness: Harness): Promise<{ readonly frame: Frame; readonly callId: string }> => {
   const previous = session.window.frames()
   const callIndex = session.agents.toolCalls.length
   await openSession(session, harness)
-  await session.window.locator(".interactive-input-part .monaco-editor").click()
-  await session.window.keyboard.type(`${trigger} Please ask me with a form.`)
-  await session.window.keyboard.press("Enter")
-  const allow = session.window.locator(".monaco-button", { hasText: "Allow in this Session" })
-  await allow.waitFor({ timeout: 120_000 })
+  const allow = session.window.locator(".monaco-button:visible", { hasText: "Allow in this Session" })
+  const missing = session.window.getByText(/^NO_ASK_FORM/)
+  for (let attempt = 0; attempt < 5 && !(await allow.isVisible()); attempt++) {
+    const before = await missing.count()
+    await sleep(attempt * 5000)
+    await session.window.locator(".interactive-input-part .monaco-editor").click()
+    await session.window.keyboard.type(`${trigger} Please ask me with a form.`)
+    await session.window.keyboard.press("Enter")
+    await until(
+      async () => ((await allow.isVisible()) || (await missing.count()) > before ? true : undefined),
+      `${harness} asks for permission or answers without ask_form`,
+      120_000
+    )
+  }
   await allow.click()
   const call = await until(() => Promise.resolve(session.agents.toolCalls[callIndex]), `${harness} calls ask_form`, 120_000)
   const frame = await formFrame(session.window, previous)
@@ -140,20 +163,13 @@ export const runAgents = async (paths: Paths): Promise<void> => {
     const window = await fitWindow(app, { width: 1600, height: 1000 })
     window.context().setDefaultTimeout(30_000)
     const session: Session = { window, agents }
-    for (const { name, body } of steps) {
-      try {
-        await body(session)
-        console.log(`ok ${name}`)
-      } catch (error) {
-        console.error(`not ok ${name}`)
-        await window.screenshot({ path: join(paths.results, "agents-failure.png"), timeout: 10_000 }).catch(() => null)
-        await writeFile(
-          join(paths.results, "agents-llm.json"),
-          JSON.stringify({ toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames }, undefined, 2)
-        )
-        throw error
-      }
-    }
+    await run(session, async () => {
+      await window.screenshot({ path: join(paths.results, "agents-failure.png"), timeout: 10_000 }).catch(() => null)
+      await writeFile(
+        join(paths.results, "agents-llm.json"),
+        JSON.stringify({ toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames }, undefined, 2)
+      )
+    })
   } finally {
     await cleanUp(app, agents, profile)
   }

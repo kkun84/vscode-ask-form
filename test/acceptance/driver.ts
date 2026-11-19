@@ -102,9 +102,10 @@ const harnesses = ["claude", "codex"] as const
 export const activate = (context: vscode.ExtensionContext): void => {
   for (const harness of harnesses) {
     context.subscriptions.push(
-      vscode.commands.registerCommand(`ask-form-e2e.${harness}`, () =>
-        vscode.commands.executeCommand(`workbench.action.chat.openNewChatSessionInPlace.agent-host-${harness}`, "sidebar")
-      )
+      vscode.commands.registerCommand(`ask-form-e2e.${harness}`, async () => {
+        await vscode.commands.executeCommand("workbench.action.chat.agentHost.downloadAgentSdk", harness)
+        await vscode.commands.executeCommand(`workbench.action.chat.openNewChatSessionInPlace.agent-host-${harness}`, "sidebar")
+      })
     )
   }
   const url = process.env["ASK_FORM_E2E_LLM_URL"]

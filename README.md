@@ -344,6 +344,8 @@ pnpm build
 
 受け入れテストは、実際のVS CodeとビルトインのCopilot Chatを動かします。チャットのモデルには、決まった応答を返す偽のLLM APIをBYOK(Custom Endpoint)としてつなぎ、フォームの表示、回答、中断までを通して確かめます。READMEの画像と動画も、同じしくみで撮っています。
 
+ClaudeとCodexのハーネスも、同じように偽のLLM APIで確かめます(対象`agents`)。偽のAPIはAnthropic MessagesとOpenAI Responsesに答え、環境変数`ANTHROPIC_BASE_URL`と`CODEX_HOME`の設定で各ハーネスを向けます。各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。
+
 ### 文書とテストの対応
 
 V字モデルに沿って、要求から設計までを段階ごとの文書に書き、各段階に対応するテストで検証します。
