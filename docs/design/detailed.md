@@ -168,6 +168,16 @@
 - `scripts/release.ts`の純粋な関数で版数、タグ、対象版の箇条書きを検査し、minorの奇偶と次の第2階層見出しまでの本文を返す。CRLFも受け付け、他の版の本文は混ぜない。
 - `scripts/release-check.ts`がNode.jsのファイル操作と環境変数を扱い、検査結果をワークフローへ渡す。パッケージ用スクリプト末尾のvsceに`--pre-release`を渡し、GitHub Releasesには`--prerelease`、MarketplaceとOpen VSXには`--pre-release`を渡す。
 
-- detectはpackage.jsonからversionと`v<version>`のtagを出力し、`git ls-remote --exit-code --tags origin "refs/tags/$TAG"`の終了コード0ならrelease=false、2ならrelease=trueを出力する。それ以外は失敗とする。releaseはdetectのtagを検査CLIの第1引数と公開に使い、`gh release create`の`--target "$GITHUB_SHA"`でタグを作る。
+- detectはpackage.jsonからversionと`v<version>`のtag、対象のshaを出力する。`git ls-remote --exit-code origin refs/heads/main`のコミットがshaと違えばaction=noneとする。`git ls-remote --exit-code --tags origin "refs/tags/$TAG"`の終了コード0ならaction=bump、2ならaction=releaseを出力する。それ以外は失敗とする。
+- `scripts/release.ts`の`prepareRelease`は、`## 未リリース`に箇条書きがなければ`undefined`を返し、あれば次の版数と書き換えたCHANGELOGを返す。`scripts/release-prepare.ts`がpackage.jsonの`"version"`の値とCHANGELOG.mdを書き換え、versionをGITHUB_OUTPUTに出す。bumpはversionがあればコミットして`HEAD:refs/heads/main`にpushし、tagとshaを出力する。
+- releaseはbumpかdetectのtagを検査CLIの第1引数と公開に使い、同じくshaをcheckoutし、`gh release create`の`--target "$SHA"`でタグを作る。
 
 派生元: SPEC-REL-001, ARCH-REL-001
+
+### DES-REL-002 変更履歴の項目の検査
+
+- `scripts/release.ts`の`checkChangelog`は、`## 未リリース`の本文を行ごとに読み、`###`の見出しが種別の6つ以外のとき、または最初の種別の見出しより前に箇条書きがあるときに問題を返す。基点のCHANGELOGを渡されたときは、前後の空白を除いた箇条書きの行を比べ、基点に無い行が1つも無ければ問題を返す。
+- `scripts/changelog-check.ts`は、引数のrefがあれば`git show <ref>:CHANGELOG.md`を基点とし、問題を標準エラー出力に出して終了コード1にする。
+- Changelogワークフローは`no-changelog`ラベルがあればジョブを飛ばし、`git diff --quiet "$BASE" HEAD -- src`で`src/`の変更を確かめたうえで、PRの基点のshaを検査CLIに渡す。
+
+派生元: SPEC-REL-002

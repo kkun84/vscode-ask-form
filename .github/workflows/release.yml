@@ -1,9 +1,10 @@
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths: [package.json, CHANGELOG.md]
   workflow_dispatch:
 
 concurrency:
@@ -19,17 +20,23 @@ defaults:
 
 jobs:
   detect:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     outputs:
       version: ${{ steps.detect.outputs.version }}
       tag: ${{ steps.detect.outputs.tag }}
-      release: ${{ steps.detect.outputs.release }}
+      sha: ${{ steps.detect.outputs.sha }}
+      action: ${{ steps.detect.outputs.action }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Detect a new version
+        with:
+          ref: ${{ env.SHA }}
+      - name: Detect what to publish
         id: detect
         shell: bash -euo pipefail {0}
         run: |
@@ -37,18 +44,54 @@ jobs:
           TAG="v$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG"; then
-            echo "release=false" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          MAIN=$(git ls-remote --exit-code origin refs/heads/main)
+          if [[ "${MAIN%%[[:space:]]*}" != "$SHA" ]]; then
+            echo "action=none" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --tags origin "refs/tags/$TAG"; then
+            echo "action=bump" >> "$GITHUB_OUTPUT"
           else
             status=$?
             if [[ "$status" -ne 2 ]]; then exit "$status"; fi
-            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "action=release" >> "$GITHUB_OUTPUT"
           fi
-  release:
+  bump:
     needs: detect
-    if: needs.detect.outputs.release == 'true'
+    if: needs.detect.outputs.action == 'bump'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+      sha: ${{ steps.bump.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.detect.outputs.sha }}
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      - name: Bump the prerelease version
+        id: prepare
+        run: node scripts/release-prepare.ts
+      - name: Commit the version to main
+        id: bump
+        if: steps.prepare.outputs.version != ''
+        env:
+          VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "${VERSION}をプレリリースとして配布する"
+          git push origin HEAD:refs/heads/main
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  release:
+    needs: [detect, bump]
+    if: ${{ !cancelled() && (needs.detect.outputs.action == 'release' || needs.bump.outputs.tag != '') }}
     env:
-      TAG: ${{ needs.detect.outputs.tag }}
+      TAG: ${{ needs.bump.outputs.tag || needs.detect.outputs.tag }}
+      SHA: ${{ needs.bump.outputs.sha || needs.detect.outputs.sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -57,6 +100,8 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SHA }}
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
       - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
       - name: Check the release
@@ -94,7 +139,7 @@ jobs:
         run: |
           args=()
           if [[ "$PRERELEASE" == true ]]; then args+=(--prerelease); fi
-          gh release create "$TAG" ./*.vsix SHA256SUMS.txt --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --target "$GITHUB_SHA" "${args[@]}"
+          gh release create "$TAG" ./*.vsix SHA256SUMS.txt --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --target "$SHA" "${args[@]}"
       - name: Find publishing tokens
         id: tokens
         env:
