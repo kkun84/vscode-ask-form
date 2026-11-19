@@ -81,3 +81,36 @@ jobs:
           name: test-results
           path: test-results
           if-no-files-found: ignore
+
+  mutation:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      - name: Install
+        run: |
+          pnpm check-env
+          pnpm install --frozen-lockfile
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: .mutator
+          key: mutator-${{ github.sha }}
+          restore-keys: mutator-
+      - name: Mutation testing of the change
+        if: github.event_name == 'pull_request'
+        run: |
+          pnpm exec mutator --since "origin/${GITHUB_BASE_REF}" --include-test-changes --kill-matrix --time-budget 1200 --reporter text --reporter json
+          pnpm mutation:findings "origin/${GITHUB_BASE_REF}"
+      - name: Mutation testing of everything
+        if: github.event_name == 'push'
+        run: pnpm exec mutator --time-budget 1200 --reporter text --reporter json
+      - uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        if: github.event_name == 'push'
+        with:
+          path: .mutator
+          key: mutator-${{ github.sha }}

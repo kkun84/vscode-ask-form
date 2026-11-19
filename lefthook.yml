@@ -11,3 +11,10 @@ pre-commit:
       run: pnpm -s typecheck
     - name: unit
       run: pnpm -s test:unit
+
+pre-push:
+  jobs:
+    - name: mutation
+      only:
+        - run: git rev-parse --verify --quiet origin/main
+      run: pnpm -s mutation:diff && pnpm -s mutation:findings origin/main
