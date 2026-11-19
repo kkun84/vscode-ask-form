@@ -47,7 +47,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
       onDidChangeMcpServerDefinitions: changed.event,
       provideMcpServerDefinitions: () =>
         mcpEnabled()
-          ? [new vscode.McpHttpServerDefinition("Ask Form", vscode.Uri.parse(server.url), { authorization: `Bearer ${token}` }, version)]
+          ? [new vscode.McpHttpServerDefinition("ask-form", vscode.Uri.parse(server.url), { authorization: `Bearer ${token}` }, version)]
           : []
     })
   )

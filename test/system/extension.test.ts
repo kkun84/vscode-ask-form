@@ -69,10 +69,11 @@ const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands
 }
 
 describe("SPEC-EXT-001 MCPサーバーの登録", () => {
-  it("SPEC-EXT-001 起動するとトークンつきのHTTPのMCPサーバーを登録し、ask_formを呼べる", () =>
+  it("SPEC-EXT-001 起動すると空白のない名前とトークンつきのHTTPのMCPサーバーを登録し、ask_formを呼べる", () =>
     runScoped(
       Effect.gen(function* () {
         const { definition } = yield* desktop
+        assert.equal(definition.label, "ask-form")
         assert.match(definition.uri.toString(), /^http:\/\/127\.0\.0\.1:\d+\/mcp$/)
         assert.match(definition.headers["authorization"] ?? "", /^Bearer [0-9a-f-]{36}$/)
         const { connection } = yield* desktopConnection
