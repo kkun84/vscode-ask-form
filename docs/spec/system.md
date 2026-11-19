@@ -102,8 +102,12 @@ AIに示すJSON Schemaには、これらのキーの`maxLength`として受け�
 - ツールの説明は、利用者に何かを聞くときは、組み込みの質問ツール(`askQuestions`、`ask_user`、`AskUserQuestion`、`request_user_input`)やチャットの文章での質問より、このツールを使うよう求める。1つの選択だけでもこのツールを使う。
 - 呼ばれると、フォームをチャットの横のパネルに表示して回答を待つ(SPEC-EXT-004)。
 - 拡張機能はMCPサーバーを提供しない。VS Codeのハーネスは、MCPのツール呼び出しを1分から5分の上限で打ち切り、それより長く考えた利用者の回答を捨てるためである。言語モデルのツールの呼び出しは、CopilotとCodexのハーネスでは打ち切られない。
+- VS Code 1.146と1.147では、ハーネスとウィンドウによってツールの扱いが違う。
+  - メインウィンドウのCopilotとCodex、AgentsウィンドウのCopilotは、ツールを呼び、フォームはそのウィンドウのパネルに出る。
+  - Claudeは、ツールを呼んでも、VS Codeが拡張機能の`prepareInvocation`の後に`invoke`を呼ばずに止まるので、フォームが出ない。
+  - AgentsウィンドウのCodexには、拡張機能のツールが渡らない。
 
-派生元: REQ-ASK-001, REQ-ANS-001
+派生元: REQ-ASK-001, REQ-ANS-001, REQ-ENV-002, REQ-ENV-003
 
 ### SPEC-TOOL-003 回答を待つ
 

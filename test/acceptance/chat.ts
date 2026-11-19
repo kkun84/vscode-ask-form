@@ -5,6 +5,7 @@ import { expect, type ElectronApplication, type Frame, type Locator, type Page }
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
 import { formFrame, settled, until } from "./frames.ts"
+import { createSteps, printChat, waitingStatus } from "./steps.ts"
 import { cleanUp, fitWindow, launchVscode, localHarness, type VscodePaths } from "./vscode.ts"
 
 interface Paths extends VscodePaths {
@@ -19,8 +20,6 @@ const check = (condition: boolean, message: string): void => {
   }
 }
 
-type Step = (session: Session) => Promise<void>
-
 interface Session {
   readonly window: Page
   readonly llm: FakeLlm
@@ -28,13 +27,9 @@ interface Session {
   callId: string | undefined
 }
 
-const steps: Array<{ readonly name: string; readonly body: Step }> = []
+const { test, run } = createSteps<Session>()
 
-const test = (name: string, body: Step): void => {
-  steps.push({ name, body })
-}
-
-const waiting = (session: Session) => session.window.locator(".statusbar-item", { hasText: "Copilot is waiting for your answer" })
+const waiting = (session: Session) => waitingStatus(session.window)
 
 const stopButton = (session: Session) => session.window.locator(".interactive-input-part .codicon-stop-circle")
 
@@ -222,12 +217,7 @@ test("REQ-WAIT-002 フォームが待っている間に設定を有効にする�
 const report = async (paths: Paths, session: Session, log: string): Promise<void> => {
   await session.window.screenshot({ path: join(paths.results, "chat-failure.png"), timeout: 10_000 }).catch(() => null)
   console.error(await readFile(log, "utf8").catch(() => "(no driver log)"))
-  const chat = await session.window
-    .locator(".interactive-session")
-    .first()
-    .innerText({ timeout: 5000 })
-    .catch(() => "(no chat text)")
-  console.error(`chat panel: ${chat.replaceAll(/\s+/g, " ").slice(0, 1500)}`)
+  await printChat(session.window)
   const form = await session.frame
     ?.locator("body")
     .innerText({ timeout: 5000 })
@@ -276,16 +266,7 @@ export const runChat = async (paths: Paths): Promise<void> => {
     const window = await fitWindow(app, { width: 1600, height: 1000 })
     window.context().setDefaultTimeout(30_000)
     const session: Session = { window, llm, frame: undefined, callId: undefined }
-    for (const { name, body } of steps) {
-      try {
-        await body(session)
-        console.log(`ok ${name}`)
-      } catch (error) {
-        console.error(`not ok ${name}`)
-        await report(paths, session, log)
-        throw error
-      }
-    }
+    await run(session, () => report(paths, session, log))
     await window.screenshot({ path: join(paths.results, "chat-cancelled.png"), timeout: 10_000 })
   } finally {
     await cleanUp(app, llm, profile)
