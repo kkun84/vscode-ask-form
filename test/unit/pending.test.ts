@@ -31,6 +31,7 @@ const submittedWithKey = (form: CompiledForm): Outcome => ({
   status: "submitted",
   values: {},
   held: [],
+  delegated: [],
   changedByUser: [],
   computed: { key: form.key }
 })

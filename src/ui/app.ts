@@ -2,19 +2,27 @@ import {
   activeFields,
   allFields,
   answerValues,
+  changedAnswers,
   changedFields,
+  commentsFor,
   computeValues,
   describeComputed,
   describeValue,
   formatNumber,
-  heldFields,
   initialValues,
+  maxCommentLength,
   maxNoteLength,
   prepare,
+  skipOf,
+  skipsFor,
   unansweredFields,
-  withoutHeld,
+  withoutSkipped,
+  type Answered,
   type CompiledForm,
+  type Comments,
   type FieldValue,
+  type Skip,
+  type Skips,
   type Values
 } from "../core/form.ts"
 import { languageOf, messages, type Messages } from "../core/messages.ts"
@@ -110,7 +118,21 @@ const optionRow = (
     )
   )
 
+const idsOf = (skips: Skips, skip: Skip): ReadonlyArray<string> =>
+  Object.entries(skips)
+    .filter(([, value]) => value === skip)
+    .map(([id]) => id)
+
+const recordOf = (value: unknown): Readonly<Record<string, unknown>> =>
+  value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Readonly<Record<string, unknown>>) : {}
+
+const stringsOf = (value: unknown): ReadonlyArray<string> =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
+
 const affix = (content: string | undefined): HTMLElement | null => (content === undefined ? null : h("span", { class: "muted" }, content))
+
+const skipValue = (select: HTMLSelectElement): Skip | undefined =>
+  select.value === "later" || select.value === "delegate" ? select.value : undefined
 
 export class FormApp {
   private phase: Phase = { kind: "loading" }
@@ -119,11 +141,13 @@ export class FormApp {
   private form: CompiledForm | undefined
   private rawSpec: Readonly<Record<string, unknown>> = {}
   private values: Record<string, FieldValue> = {}
-  private readonly held = new Set<string>()
+  private readonly skips = new Map<string, Skip>()
+  private comments: Record<string, string> = {}
+  private readonly commenting = new Set<string>()
   private initial: Values = {}
   private remembered: Values = {}
-  private baseline: Values = {}
-  private summaryValues: Values = {}
+  private baseline: Answered = { values: {} }
+  private summaryAnswer: Answered = { values: {} }
   private note = ""
   private noteOpen = false
   private placed = false
@@ -138,6 +162,9 @@ export class FormApp {
       readonly toggle: HTMLElement | null
       readonly answer: HTMLElement
       readonly back: HTMLElement | null
+      readonly skip: HTMLSelectElement
+      readonly comment: HTMLElement
+      readonly open: HTMLElement
     }>,
     branches: [] as Array<{ readonly id: string; readonly value: string; readonly element: HTMLElement }>,
     computed: undefined as HTMLElement | undefined,
@@ -190,12 +217,14 @@ export class FormApp {
     this.initial = initialValues(form.spec)
     this.remembered = this.initial
     this.values = { ...this.initial }
-    this.baseline = this.initial
-    this.summaryValues = this.initial
+    this.baseline = { values: this.initial }
+    this.summaryAnswer = this.baseline
     this.note = ""
     this.noteOpen = false
     this.placed = false
-    this.held.clear()
+    this.skips.clear()
+    this.comments = {}
+    this.commenting.clear()
     this.folded.clear()
     this.showMissing = false
     if (this.phase.kind === "loading") {
@@ -223,8 +252,15 @@ export class FormApp {
     const values = content["values"]
     if (values !== undefined && typeof values === "object" && values !== null && this.form !== undefined) {
       this.remembered = { ...this.values }
-      this.baseline = values as Values
-      this.summaryValues = this.baseline
+      const delegated = stringsOf(content["delegated"])
+      this.baseline = {
+        values: values as Values,
+        skips: Object.fromEntries(delegated.map((id) => [id, "delegate"] as const)),
+        comments: Object.fromEntries(
+          Object.entries(recordOf(content["comments"])).filter(([, text]) => typeof text === "string")
+        ) as Comments
+      }
+      this.summaryAnswer = this.baseline
       this.placed = false
       this.restore(this.baseline)
       this.note = typeof content["note"] === "string" ? content["note"] : ""
@@ -258,7 +294,7 @@ export class FormApp {
     }
   }
 
-  private applyAnswer(action: Action, result: ToolResult, values: Values): void {
+  private applyAnswer(action: Action, result: ToolResult, answered: Answered): void {
     if (this.phase.kind !== "answering") {
       return
     }
@@ -271,15 +307,15 @@ export class FormApp {
       return
     }
     this.remembered = { ...this.values }
-    this.baseline = values
-    this.summaryValues = this.baseline
-    this.values = this.editable(this.baseline)
+    this.baseline = answered
+    this.summaryAnswer = this.baseline
+    this.restore(this.baseline)
     this.note = this.note.trim()
     this.phase = { kind: "summary", status: statusOf[action] }
   }
 
   private blockUnanswered(form: CompiledForm): boolean {
-    const unanswered = unansweredFields(form.spec, this.current(), this.held)
+    const unanswered = unansweredFields(form.spec, this.current(), this.skipped())
     if (unanswered.length === 0) {
       return false
     }
@@ -300,17 +336,26 @@ export class FormApp {
     if (form === undefined) {
       return Promise.resolve()
     }
-    const values = this.answered(this.current())
+    const answered = this.answeredNow()
     if (action === "submit" && this.blockUnanswered(form)) {
       return Promise.resolve()
     }
+    const skips = answered.skips ?? {}
     return this.whileBusy(async (bridge) => {
       const result = await bridge.callTool("form_answer", {
         formKey: form.key,
         action,
-        ...(action === "submit" ? { values, held: heldFields(form.spec, values), note: this.note } : {})
+        ...(action === "submit"
+          ? {
+              values: answered.values,
+              held: idsOf(skips, "later"),
+              delegated: idsOf(skips, "delegate"),
+              comments: answered.comments,
+              note: this.note
+            }
+          : {})
       })
-      this.applyAnswer(action, result, values)
+      this.applyAnswer(action, result, answered)
     })
   }
 
@@ -318,12 +363,16 @@ export class FormApp {
     if (this.changedSinceAnswer().length === 0 || (this.form !== undefined && this.blockUnanswered(this.form))) {
       return Promise.resolve()
     }
-    const after = this.answered(this.current())
+    const after = this.answeredNow()
     return this.whileBusy(async (bridge) => {
       const result = await bridge.callTool("form_resend", {
         spec: this.rawSpec,
-        before: this.baseline,
-        after,
+        before: this.baseline.values,
+        after: after.values,
+        beforeDelegated: idsOf(this.baseline.skips ?? {}, "delegate"),
+        afterDelegated: idsOf(after.skips ?? {}, "delegate"),
+        beforeComments: this.baseline.comments ?? {},
+        afterComments: after.comments ?? {},
         ...(this.locale === undefined ? {} : { locale: this.locale })
       })
       if (result.isError === true) {
@@ -333,9 +382,9 @@ export class FormApp {
       const failure = await this.deliver(bridge, result)
       if (failure === undefined) {
         this.remembered = { ...this.values }
-        this.summaryValues = after
+        this.summaryAnswer = after
         this.placed = true
-        this.values = this.editable(after)
+        this.restore(after)
         this.phase = { kind: "summary", status: "submitted" }
       } else {
         this.error = failure
@@ -360,8 +409,21 @@ export class FormApp {
     return undefined
   }
 
-  private answered(values: Values): Values {
-    return this.form === undefined ? values : answerValues(this.form.spec, values)
+  private answeredNow(): Answered {
+    const form = this.form
+    if (form === undefined) {
+      return { values: this.values }
+    }
+    const values = answerValues(form.spec, this.current())
+    return {
+      values,
+      skips: skipsFor(form.spec, values, Object.fromEntries(this.skips)),
+      comments: commentsFor(form.spec, values, this.comments)
+    }
+  }
+
+  private skipped(): ReadonlySet<string> {
+    return new Set(this.skips.keys())
   }
 
   private editable(values: Values): Record<string, FieldValue> {
@@ -369,51 +431,84 @@ export class FormApp {
   }
 
   private current(): Values {
-    return this.form === undefined ? this.values : withoutHeld(this.form.spec, this.values, this.held)
+    return this.form === undefined ? this.values : withoutSkipped(this.form.spec, this.values, this.skipped())
   }
 
-  private restore(answer: Values): void {
+  private restore(answer: Answered): void {
     const form = this.form
     if (form === undefined) {
       return
     }
-    this.values = this.editable(answer)
-    for (const field of activeFields(form.spec, answer)) {
-      this.held.delete(field.id)
-      if (answer[field.id] !== undefined) {
-        continue
-      }
-      if (field.type === "text") {
-        this.values[field.id] = ""
-      } else {
-        this.held.add(field.id)
+    this.values = this.editable(answer.values)
+    this.skips.clear()
+    for (const field of activeFields(form.spec, answer.values)) {
+      if (answer.values[field.id] === undefined) {
+        this.skips.set(field.id, skipOf(answer.skips ?? {}, field.id))
       }
     }
+    this.comments = { ...answer.comments }
+    this.commenting.clear()
   }
 
   private changedSinceAnswer(): ReadonlyArray<string> {
-    return this.form === undefined ? [] : changedFields(this.form.spec, this.baseline, this.current())
+    return this.form === undefined ? [] : changedAnswers(this.form.spec, this.baseline, this.answeredNow())
   }
 
   private setValue(id: string, value: FieldValue): void {
     this.values[id] = value
-    this.held.delete(id)
+    this.skips.delete(id)
     this.error = undefined
     this.refresh()
   }
 
-  private setHeld(id: string, held: boolean): void {
-    if (held) {
-      this.held.add(id)
+  private setSkip(id: string, skip: Skip | undefined): void {
+    if (skip === undefined) {
+      this.skips.delete(id)
     } else {
-      this.held.delete(id)
+      this.skips.set(id, skip)
     }
     this.error = undefined
     this.refresh()
   }
 
-  private holdInput(field: Field): HTMLInputElement | null {
-    return field.type === "text" ? null : h("input", { type: "checkbox", checked: this.held.has(field.id), title: this.m.holdHint })
+  private skipMenu(field: Field): HTMLSelectElement {
+    const current = this.skips.get(field.id)
+    const option = (value: string, label: string) => h("option", { value, selected: (current ?? "answer") === value }, label)
+    return h(
+      "select",
+      { class: "skip", "aria-label": this.m.skipMenu(field.label), title: this.m.skipHint },
+      option("answer", this.m.answerNow),
+      option("later", this.m.askLater),
+      option("delegate", this.m.delegate)
+    )
+  }
+
+  private commentView(field: Field): { readonly open: HTMLElement; readonly box: HTMLElement } {
+    const input = h("textarea", {
+      rows: 2,
+      maxlength: maxCommentLength,
+      class: "comment-input",
+      "aria-label": this.m.commentOf(field.label)
+    })
+    input.value = this.comments[field.id] ?? ""
+    on(input, "input", () => {
+      this.comments[field.id] = input.value
+      this.refresh()
+    })
+    const open = on(
+      h(
+        "button",
+        { type: "button", class: "comment-open", title: this.m.commentHint, "aria-label": this.m.commentOf(field.label) },
+        this.m.comment
+      ),
+      "click",
+      () => {
+        this.commenting.add(field.id)
+        this.refresh()
+        input.focus()
+      }
+    )
+    return { open, box: h("div", { class: "q-comment" }, input) }
   }
 
   private syncStatus(): void {
@@ -523,7 +618,7 @@ export class FormApp {
   }
 
   private cancelResend(): void {
-    this.restore(this.summaryValues)
+    this.restore(this.summaryAnswer)
     this.error = undefined
     this.phase = { kind: "summary", status: "submitted" }
     this.render()
@@ -547,7 +642,8 @@ export class FormApp {
     const descId = field.description === undefined ? undefined : uid("desc")
     const groupId = uid("group")
     const answer = h("span", { class: "q-answer", id: uid("answer") })
-    const hold = this.holdInput(field)
+    const skip = this.skipMenu(field)
+    const comment = this.commentView(field)
     const toggle = hasDetails(field)
       ? h("button", {
           type: "button",
@@ -570,17 +666,19 @@ export class FormApp {
         toggle ?? h("span", { class: "fold-space" }),
         h("span", { class: "q-label", id: labelId }, field.label),
         answer,
-        hold === null ? null : h("label", { class: "hold", title: this.m.holdHint }, hold, this.m.hold)
+        comment.open,
+        skip
       ),
       field.description === undefined ? null : h("p", { class: "q-desc", id: descId }, field.description),
       h(
         "div",
         { class: field.type === "choice" ? "q-group choices" : "q-group", id: groupId },
-        this.control(field, labelId, [answer.id, rec?.id].filter((id) => id !== undefined && id !== "").join(" "), hold),
+        this.control(field, labelId, [answer.id, rec?.id].filter((id) => id !== undefined && id !== "").join(" "), skip),
         rec
-      )
+      ),
+      comment.box
     )
-    this.live.cards.push({ field, element, toggle, answer, back })
+    this.live.cards.push({ field, element, toggle, answer, back, skip, comment: comment.box, open: comment.open })
     if (back !== null) {
       on(back, "click", () => {
         this.live.setters.get(field.id)?.(this.initial[field.id] as FieldValue)
@@ -592,7 +690,7 @@ export class FormApp {
       const head = element.querySelector<HTMLElement>(".q-head")
       if (head !== null) {
         on(head, "click", (event) => {
-          if (event.target !== toggle && (event.target as HTMLElement).closest(".hold") === null) {
+          if (event.target !== toggle && (event.target as HTMLElement).closest(".skip, .comment-open") === null) {
             this.setFolded(field.id, !this.folded.has(field.id))
           }
         })
@@ -610,14 +708,14 @@ export class FormApp {
     return element
   }
 
-  private control(field: Field, labelId: string, describedBy: string, hold: HTMLInputElement | null): HTMLElement {
+  private control(field: Field, labelId: string, describedBy: string, skip: HTMLSelectElement): HTMLElement {
     switch (field.type) {
       case "text":
-        return this.textView(field, labelId, describedBy)
+        return this.textView(field, labelId, describedBy, skip)
       case "number":
-        return this.numberView(field, labelId, describedBy, hold ?? h("input"))
+        return this.numberView(field, labelId, describedBy, skip)
       case "choice":
-        return this.choiceView(field, describedBy, hold ?? h("input"))
+        return this.choiceView(field, describedBy, skip)
     }
   }
 
@@ -639,20 +737,29 @@ export class FormApp {
     }
   }
 
-  private textView(field: TextField, labelId: string, describedBy: string): HTMLElement {
-    const value = String(this.values[field.id] ?? "")
+  private textView(field: TextField, labelId: string, describedBy: string, skip: HTMLSelectElement): HTMLElement {
+    const value = this.skips.has(field.id) ? "" : String(this.values[field.id] ?? "")
     const common = { name: field.id, "aria-labelledby": labelId, "aria-describedby": describedBy, placeholder: field.placeholder }
     const input = field.multiline === true ? h("textarea", { ...common, rows: 3 }, value) : h("input", { ...common, type: "text", value })
-    on(input, "input", () => this.setValue(field.id, input.value))
+    const typed = () => {
+      skip.value = "answer"
+      this.setValue(field.id, input.value)
+    }
+    on(input, "input", typed)
     this.live.setters.set(field.id, (next) => {
       input.value = String(next)
-      this.setValue(field.id, input.value)
+      typed()
+    })
+    on(skip, "change", () => {
+      const next = skipValue(skip)
+      input.value = next === undefined ? String(this.values[field.id] ?? "") : ""
+      this.setSkip(field.id, next)
     })
     return input
   }
 
-  private numberView(field: NumberField, labelId: string, describedBy: string, hold: HTMLInputElement): HTMLElement {
-    const unset = this.values[field.id] === undefined || this.held.has(field.id)
+  private numberView(field: NumberField, labelId: string, describedBy: string, skip: HTMLSelectElement): HTMLElement {
+    const unset = this.values[field.id] === undefined || this.skips.has(field.id)
     const value = Number(this.values[field.id] ?? field.min)
     const step = field.step ?? "any"
     const text = (next: number) => `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`
@@ -679,7 +786,7 @@ export class FormApp {
     })
     const show = (next: number) => {
       slider.classList.remove("unset")
-      hold.checked = false
+      skip.value = "answer"
       slider.value = String(next)
       slider.setAttribute("aria-valuetext", text(next))
       this.setValue(field.id, next)
@@ -701,16 +808,17 @@ export class FormApp {
       if (exact.value !== "" && Number.isFinite(Number(exact.value))) {
         update(Number(exact.value))
       } else {
-        exact.value = typeof this.values[field.id] === "number" && !this.held.has(field.id) ? slider.value : ""
+        exact.value = typeof this.values[field.id] === "number" && !this.skips.has(field.id) ? slider.value : ""
       }
     })
-    on(hold, "change", () => {
+    on(skip, "change", () => {
       const stored = this.values[field.id]
-      if (hold.checked || typeof stored !== "number") {
+      const next = skipValue(skip)
+      if (next !== undefined || typeof stored !== "number") {
         slider.classList.add("unset")
-        slider.setAttribute("aria-valuetext", hold.checked ? this.m.held : this.m.notAnswered)
+        slider.setAttribute("aria-valuetext", next === undefined ? this.m.notAnswered : describeValue(field, undefined, this.m, next))
         exact.value = ""
-        this.setHeld(field.id, hold.checked)
+        this.setSkip(field.id, next)
       } else {
         update(stored)
       }
@@ -718,11 +826,11 @@ export class FormApp {
     return h("div", { class: "row" }, slider, affix(field.prefix), exact, affix(field.suffix))
   }
 
-  private choiceView(field: ChoiceField, describedBy: string, hold: HTMLInputElement): HTMLElement {
+  private choiceView(field: ChoiceField, describedBy: string, skip: HTMLSelectElement): HTMLElement {
     const multiple = field.multiple === true
     const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
     const name = uid(field.id)
-    const current = this.held.has(field.id) ? undefined : this.values[field.id]
+    const current = this.skips.has(field.id) ? undefined : this.values[field.id]
     let pointing = false
     const options = field.options.flatMap((option) => {
       const checked = multiple ? Array.isArray(current) && current.includes(option.value) : current === option.value
@@ -749,7 +857,7 @@ export class FormApp {
           .join(" ")
       })
       on(input, "change", () => {
-        hold.checked = false
+        skip.value = "answer"
         if (multiple) {
           const selected = Array.isArray(this.values[field.id]) ? [...(this.values[field.id] as ReadonlyArray<string>)] : []
           this.setValue(field.id, input.checked ? [...selected, option.value] : selected.filter((item) => item !== option.value))
@@ -765,8 +873,9 @@ export class FormApp {
       const revealed = this.reveal(field, option)
       return revealed === null ? [row] : [row, revealed]
     })
-    on(hold, "change", () => {
-      if (hold.checked) {
+    on(skip, "change", () => {
+      const next = skipValue(skip)
+      if (next !== undefined) {
         if (multiple) {
           this.values[field.id] = []
         }
@@ -781,7 +890,7 @@ export class FormApp {
           previous.checked = true
         }
       }
-      this.setHeld(field.id, hold.checked)
+      this.setSkip(field.id, next)
     })
     const group = h("div", { class: "options" }, options)
     on(group, "pointerdown", (event) => {
@@ -868,8 +977,9 @@ export class FormApp {
     if (form === undefined || status !== "submitted") {
       return h("section", { class: "card summary", role: "status" }, head)
     }
-    const changedByUser = changedFields(form.spec, this.initial, this.summaryValues)
-    const rows = activeFields(form.spec, this.summaryValues).map((field) =>
+    const shown = this.summaryAnswer
+    const changedByUser = changedFields(form.spec, this.initial, shown.values)
+    const rows = activeFields(form.spec, shown.values).map((field) =>
       h(
         "div",
         { class: "summary-row" },
@@ -877,10 +987,11 @@ export class FormApp {
         h(
           "dd",
           {},
-          describeValue(field, this.summaryValues[field.id], this.m),
+          describeValue(field, shown.values[field.id], this.m, skipOf(shown.skips ?? {}, field.id)),
           changedByUser.includes(field.id) && field.default !== undefined
             ? h("span", { class: "mark" }, this.m.recommendedWas(describeValue(field, this.initial[field.id], this.m)))
-            : null
+            : null,
+          shown.comments?.[field.id] === undefined || this.placed ? null : h("span", { class: "commented" }, shown.comments[field.id])
         )
       )
     )
@@ -898,7 +1009,7 @@ export class FormApp {
     )
   }
 
-  private refreshCards(sinceAnswer: ReadonlyArray<string>): void {
+  private refreshCards(): void {
     if (this.form === undefined) {
       return
     }
@@ -906,22 +1017,32 @@ export class FormApp {
     const sinceRecommended = changedFields(this.form.spec, this.initial, current)
     const missing =
       this.phase.kind === "answering" || this.phase.kind === "resending"
-        ? unansweredFields(this.form.spec, current, this.held).map((field) => field.id)
+        ? unansweredFields(this.form.spec, current, this.skipped()).map((field) => field.id)
         : []
-    const held = heldFields(this.form.spec, current)
+    const now = this.answeredNow()
+    const answerChanged = new Set(changedAnswers(this.form.spec, { ...this.baseline, comments: {} }, { ...now, comments: {} }))
     for (const card of this.live.cards) {
       const unanswered = missing.includes(card.field.id)
+      const skip = this.skips.get(card.field.id)
       markInvalid(card.element, unanswered && this.showMissing)
-      card.answer.replaceChildren(
-        unanswered
-          ? this.missingTag()
-          : (this.resendTag(card.field, sinceAnswer.includes(card.field.id)) ??
-              (held.includes(card.field.id) && card.field.type === "text" ? h("span", { class: "held-tag" }, this.m.held) : ""))
-      )
+      card.element.classList.toggle("skipped", skip !== undefined)
+      card.answer.replaceChildren(unanswered ? this.missingTag() : (this.resendTag(card.field, answerChanged.has(card.field.id)) ?? ""))
+      this.refreshComment(card.field, card.comment, card.open, skip)
       if (card.back !== null) {
         card.back.hidden = !sinceRecommended.includes(card.field.id)
       }
     }
+  }
+
+  private refreshComment(field: Field, element: HTMLElement, button: HTMLElement, skip: Skip | undefined): void {
+    const open = this.commenting.has(field.id) || (this.comments[field.id] ?? "") !== ""
+    const input = element.querySelector("textarea")
+    if (input === null) {
+      return
+    }
+    button.hidden = open
+    element.hidden = !open
+    input.placeholder = skip === "later" ? this.m.laterHint : skip === "delegate" ? this.m.delegateHint : this.m.commentHint
   }
 
   private missingTag(): HTMLElement {
@@ -934,7 +1055,11 @@ export class FormApp {
 
   private resendTag(field: Field, changedSinceAnswer: boolean): HTMLElement | null {
     return this.phase.kind === "resending" && changedSinceAnswer
-      ? h("span", { class: "muted" }, this.m.previously(describeValue(field, this.baseline[field.id], this.m)))
+      ? h(
+          "span",
+          { class: "muted" },
+          this.m.previously(describeValue(field, this.baseline.values[field.id], this.m, skipOf(this.baseline.skips ?? {}, field.id)))
+        )
       : null
   }
 
@@ -979,9 +1104,9 @@ export class FormApp {
     }
     const sinceAnswer = this.changedSinceAnswer()
     for (const branch of this.live.branches) {
-      branch.element.hidden = this.held.has(branch.id) || this.values[branch.id] !== branch.value
+      branch.element.hidden = this.skips.has(branch.id) || this.values[branch.id] !== branch.value
     }
-    this.refreshCards(sinceAnswer)
+    this.refreshCards()
     this.refreshComputed(form)
     if (this.live.status !== undefined) {
       this.live.status.textContent = this.statusText(sinceAnswer)

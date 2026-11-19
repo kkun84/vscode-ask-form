@@ -1,13 +1,15 @@
 import { Result } from "effect"
 import { createAppHost, type HostContext } from "../../src/core/appHost.ts"
-import { heldFields, resendMessage, type Outcome, type Values } from "../../src/core/form.ts"
+import { resendMessage, type Outcome, type Values } from "../../src/core/form.ts"
 import { languageOf, messages } from "../../src/core/messages.ts"
-import { checkValues, compile } from "../../src/core/validate.ts"
+import { checkAnswered, compile } from "../../src/core/validate.ts"
 
 interface ResendRequest {
   readonly text: string
   readonly values: Values
   readonly held: ReadonlyArray<string>
+  readonly delegated: ReadonlyArray<string>
+  readonly comments: Readonly<Record<string, string>>
 }
 
 interface Setup {
@@ -89,8 +91,8 @@ const failed = (text: string) => ({ isError: true, content: [{ type: "text", tex
 
 const prepareResend = (args: Record<string, unknown>): Record<string, unknown> => {
   const { spec } = compiled.success
-  const before = checkValues(spec, args["before"])
-  const after = checkValues(spec, args["after"])
+  const before = checkAnswered(spec, args["before"], args["beforeDelegated"], args["beforeComments"])
+  const after = checkAnswered(spec, args["after"], args["afterDelegated"], args["afterComments"])
   if (setup.failResend || Result.isFailure(before) || Result.isFailure(after)) {
     return failed("chat unavailable")
   }
@@ -98,7 +100,14 @@ const prepareResend = (args: Record<string, unknown>): Record<string, unknown> =
   if (text === undefined) {
     return failed("no changes")
   }
-  recorder.resends.push({ text, values: after.success, held: heldFields(spec, after.success) })
+  const skips = Object.entries(after.success.skips ?? {})
+  recorder.resends.push({
+    text,
+    values: after.success.values,
+    held: skips.filter(([, skip]) => skip === "later").map(([id]) => id),
+    delegated: skips.filter(([, skip]) => skip === "delegate").map(([id]) => id),
+    comments: after.success.comments ?? {}
+  })
   return {
     isError: false,
     content: [{ type: "text", text: "" }],

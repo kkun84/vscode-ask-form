@@ -25,7 +25,8 @@ describe("ARCH-PORT-001 MCPサーバーへの差し込み口", () => {
           assert.deepEqual(JSON.parse([...files.values()][0] ?? "null"), {
             title: eventSpec.title,
             values: { ...before, stream: "no" },
-            held: []
+            held: [],
+            delegated: []
           })
         }),
       { attachments: store }

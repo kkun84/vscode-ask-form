@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Result, Schema } from "effect"
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai"
-import { attachmentName, heldFields, outcomeFor, outcomeText, resendMessage, type Action, type Outcome } from "../core/form.ts"
-import { checkAnswer, checkValues, compile, type Answer } from "../core/validate.ts"
+import { attachmentName, outcomeFor, outcomeText, resendMessage, type Action, type Outcome, type Skip } from "../core/form.ts"
+import { checkAnswer, checkAnswered, compile, type Answer } from "../core/validate.ts"
 import { languageOf, messages } from "../core/messages.ts"
 import { PendingForms } from "./pending.ts"
 import { formSpecJsonSchema } from "./schema.ts"
@@ -25,8 +25,11 @@ const OutcomeResult = Schema.Union([
     status: Schema.Literal("submitted"),
     values: Values,
     held: Schema.Array(Schema.String),
+    delegated: Schema.Array(Schema.String),
     changedByUser: Schema.Array(Schema.String),
     computed: ComputedValues,
+    comments: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+    heldForm: Schema.optionalKey(Schema.Struct({ title: Schema.String, fields: Schema.Array(Schema.Unknown) })),
     note: Schema.optionalKey(Schema.String),
     next: Schema.String
   }),
@@ -46,7 +49,8 @@ export const askFormDescription = [
   "When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields.",
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",
-  "The user can put any question on hold instead of answering it; those ids come back in held without a value, and you ask again when you need one.",
+  "Instead of answering a question, the user can ask you to ask it later (its id comes back in held, and heldForm holds those fields for asking again) or leave the decision to you (its id comes back in delegated).",
+  "The user can comment on each question; comments come back in comments, keyed by field id.",
   "The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note.",
   "The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn."
 ].join(" ")
@@ -69,6 +73,8 @@ const FormAnswer = Tool.make("form_answer", {
     action: Schema.Literals(["submit", "chat"]),
     values: Schema.optionalKey(Schema.Unknown),
     held: Schema.optionalKey(Schema.Unknown),
+    delegated: Schema.optionalKey(Schema.Unknown),
+    comments: Schema.optionalKey(Schema.Unknown),
     note: Schema.optionalKey(Schema.Unknown)
   }),
   success: Schema.Struct({ accepted: Schema.Boolean }),
@@ -81,6 +87,10 @@ const FormResend = Tool.make("form_resend", {
     spec: Schema.Unknown,
     before: Schema.Unknown,
     after: Schema.Unknown,
+    beforeDelegated: Schema.optionalKey(Schema.Unknown),
+    afterDelegated: Schema.optionalKey(Schema.Unknown),
+    beforeComments: Schema.optionalKey(Schema.Unknown),
+    afterComments: Schema.optionalKey(Schema.Unknown),
     locale: Schema.optionalKey(Schema.String)
   }),
   success: Schema.Struct({ text: Schema.String, attachment: Schema.Struct({ uri: Schema.String, name: Schema.String }) }),
@@ -118,50 +128,55 @@ const FormsHandlers = FormsToolkit.toLayer(
           const left = presence.away.pipe(Effect.as<Outcome>({ status: "unavailable" }))
           return withNext(yield* Effect.raceFirst(pending.wait(compiled.success), left))
         }),
-      form_answer: ({ formKey, action, values, held, note }) =>
+      form_answer: ({ formKey, action, values, held, delegated, comments, note }) =>
         Effect.gen(function* () {
           const form = yield* pending.peek(formKey)
           if (form === undefined) {
             return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
           }
-          let answer: Answer = { values: {}, note: undefined }
+          let answer: Answer = { values: {}, skips: {}, comments: {}, note: undefined }
           if (action === "submit") {
-            const result = checkAnswer(form.spec, { values, held, note })
+            const result = checkAnswer(form.spec, { values, held, delegated, comments, note })
             if (Result.isFailure(result)) {
               return yield* reject(result.failure)
             }
             answer = result.success
           }
-          const accepted = yield* pending.resolve(formKey, (latest) => outcomeFor(latest, action as Action, answer.values, answer.note))
+          const accepted = yield* pending.resolve(formKey, (latest) => outcomeFor(latest, action as Action, answer))
           if (!accepted) {
             return yield* reject(["expired: このフォームはもう回答を受け付けていません"])
           }
           return { accepted }
         }),
-      form_resend: ({ spec, before, after, locale }) =>
+      form_resend: (params) =>
         Effect.gen(function* () {
-          const compiled = compile(spec)
+          const compiled = compile(params.spec)
           if (Result.isFailure(compiled)) {
             return yield* reject(compiled.failure)
           }
           const form = compiled.success
-          const previous = checkValues(form.spec, before)
-          const next = checkValues(form.spec, after)
+          const previous = checkAnswered(form.spec, params.before, params.beforeDelegated, params.beforeComments)
+          const next = checkAnswered(form.spec, params.after, params.afterDelegated, params.afterComments)
           if (Result.isFailure(previous) || Result.isFailure(next)) {
             return yield* reject([...(Result.isFailure(previous) ? previous.failure : []), ...(Result.isFailure(next) ? next.failure : [])])
           }
-          const text = resendMessage(form.spec, previous.success, next.success, messages(languageOf(locale)))
+          const text = resendMessage(form.spec, previous.success, next.success, messages(languageOf(params.locale)))
           if (text === undefined) {
             return yield* reject(["no changes: 回答から変更がありません"])
           }
           const id = crypto.randomUUID()
           const name = attachmentName(form.spec.title)
+          const skips = Object.entries(next.success.skips ?? {})
+          const ids = (skip: Skip) => skips.filter(([, value]) => value === skip).map(([key]) => key)
+          const attachment = {
+            title: form.spec.title,
+            values: next.success.values,
+            held: ids("later"),
+            delegated: ids("delegate"),
+            ...(Object.keys(next.success.comments ?? {}).length === 0 ? {} : { comments: next.success.comments })
+          }
           yield* attachments
-            .write(
-              id,
-              name,
-              JSON.stringify({ title: form.spec.title, values: next.success, held: heldFields(form.spec, next.success) }, undefined, 2)
-            )
+            .write(id, name, JSON.stringify(attachment, undefined, 2))
             .pipe(Effect.mapError((error) => new FormRejected({ message: error.message })))
           return { text, attachment: { uri: `ask-form://answers/${id}/${encodeURIComponent(name)}`, name } }
         })

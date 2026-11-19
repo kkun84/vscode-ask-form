@@ -27,15 +27,16 @@ it("DES-FORM-003 NULを含む複数選択の変更を検出し、並び順だけ
   const after = { selection: Object.freeze(["c", "a\u0000b"]) }
   assert.deepEqual(changedFields(form.spec, before, after), ["selection"])
   assert.deepEqual(changedFields(form.spec, after, { selection: ["a\u0000b", "c"] }), [])
-  assert.deepEqual(outcomeFor(form, "submit", after), {
+  assert.deepEqual(outcomeFor(form, "submit", { values: after }), {
     status: "submitted",
     values: after,
     held: [],
+    delegated: [],
     changedByUser: ["selection"],
     computed: { count: 2 }
   })
   assert.equal(
-    resendMessage(form.spec, before, after, messages("ja")),
+    resendMessage(form.spec, { values: before }, { values: after }, messages("ja")),
     "「選択」で選択肢をc、a\u0000bに変えたので、反映して続けてください。"
   )
 })

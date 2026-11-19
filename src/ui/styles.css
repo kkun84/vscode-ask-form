@@ -639,25 +639,58 @@ summary:focus-visible {
   outline: none;
 }
 
-.q-head .hold {
-  display: flex;
+.q-head .skip {
   flex: none;
-  align-items: center;
-  gap: 4px;
-  margin-left: 8px;
+  padding: 1px 2px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 
-.q-head .hold input {
-  width: 14px;
-  height: 14px;
-  margin: 0;
+.q-head .skip:hover,
+.q-head .skip:focus-visible {
+  border-color: var(--input-border);
 }
 
-.held-tag {
+.q.skipped > .q-head .skip {
+  border-color: var(--accent);
+  background: var(--input-bg);
+  color: var(--fg);
+}
+
+.q-head .comment-open {
+  flex: none;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
   color: var(--muted);
+  font-size: 12px;
+}
+
+.q-head .comment-open:hover {
+  border-color: var(--input-border);
+}
+
+.q-comment {
+  margin-top: 6px;
+}
+
+.q-comment .comment-input {
+  width: 100%;
+  min-height: 0;
+  font-size: 12px;
+}
+
+.commented {
+  display: block;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .note .q-desc {

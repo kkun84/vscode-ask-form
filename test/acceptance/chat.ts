@@ -131,16 +131,26 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
   await theFrame(session).locator(".summary").waitFor({ timeout: 30_000 })
 })
 
-test("REQ-ANS-005 保留にした質問は、値なしでheldとしてモデルに届く", async (session) => {
+test("REQ-ANS-005 あとで決めるにした質問は、値なしでheldとheldFormとしてモデルに届く", async (session) => {
   await newForm(session)
-  const hold = theFrame(session).getByRole("group", { name: "参加費" }).getByRole("checkbox", { name: "Decide later" })
-  await hold.focus()
-  await hold.press("Space")
-  await expect(hold).toBeChecked()
+  const skip = theFrame(session).getByRole("combobox", { name: "How to answer 参加費" })
+  await skip.selectOption("Decide later")
+  await expect(skip).toHaveValue("later")
   const result = await answer(session)
   expect(result).toContain('"status":"submitted"')
   expect(result).toContain('"held":["price"]')
+  expect(result).toContain('"heldForm":{')
   expect(result).not.toContain('"price":')
+})
+
+test("REQ-ANS-007 質問へのコメントは、commentsとしてモデルに届く", async (session) => {
+  await newForm(session)
+  const frame = theFrame(session)
+  await settled(frame)
+  await frame.getByRole("button", { name: "Comment on 参加費" }).click()
+  await frame.getByRole("textbox", { name: "Comment on 参加費" }).fill("Keep it under 3000.")
+  const result = await answer(session)
+  expect(result).toContain('"comments":{"price":"Keep it under 3000."}')
 })
 
 test("REQ-ANS-006 補足を書いて送信すると、noteとしてモデルに届く", async (session) => {
@@ -186,12 +196,15 @@ test("REQ-RES-002 変更を入力欄に置き、利用者が送信すると差�
     60_000
   )
   expect(received).toContain(`${eventSpec.title}.json`)
-  const attachment = received.match(/\{\s*"title":\s*"[^"]+",\s*"values":\s*\{[^}]+\},\s*"held":\s*\[[^\]]*\]\s*\}/)?.[0]
+  const attachment = received.match(
+    /\{\s*"title":\s*"[^"]+",\s*"values":\s*\{[^}]+\},\s*"held":\s*\[[^\]]*\],\s*"delegated":\s*\[[^\]]*\]\s*\}/
+  )?.[0]
   check(attachment !== undefined, `the model receives the JSON attachment contents: ${received}`)
   expect(JSON.parse(attachment ?? "null")).toEqual({
     title: eventSpec.title,
     values: { ...guesses, attendees: 150, price: 2500 },
-    held: []
+    held: [],
+    delegated: []
   })
   await expect(frame.locator(".summary")).toBeVisible()
   await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })

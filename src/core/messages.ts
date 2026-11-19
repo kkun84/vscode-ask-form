@@ -5,10 +5,21 @@ export const languageOf = (locale: string | undefined): Language => (locale?.toL
 const ja = {
   submit: "送信",
   dismiss: "キャンセル",
-  hold: "保留",
-  holdHint: "今は決めません。Copilotは値を決めつけずに進め、必要になったら聞き直します。",
-  held: "保留",
-  onHold: "保留",
+  skipMenu: (label: string) => `${label}の答え方`,
+  answerNow: "答える",
+  askLater: "あとで決める",
+  delegate: "おまかせ",
+  skipHint: "あとで決める: Copilotは値を決めつけずに進め、必要になったら聞き直します。おまかせ: Copilotが決めて、何を選んだかを伝えます。",
+  held: "あとで決める",
+  delegated: "おまかせ",
+  onHold: "あとで決める",
+  toDelegated: "おまかせ",
+  comment: "コメント",
+  withComment: (comment: string) => `(コメント: ${comment})`,
+  commentOf: (label: string) => `${label}へのコメント`,
+  commentHint: "この質問について、Copilotに伝えたいことを書けます。",
+  laterHint: "何が分かれば決められるかを書くと、Copilotが聞き直すときの手がかりになります。",
+  delegateHint: "決めるときに重視してほしいことがあれば書けます。",
   details: "詳細",
   note: "補足を書く",
   noted: "補足",
@@ -31,7 +42,7 @@ const ja = {
   resend: "変更を送信",
   cancel: "キャンセル",
   noChanges: "変更はまだありません",
-  unanswered: (labels: ReadonlyArray<string>) => `答えるか保留にしてください: ${labels.join("、")}`,
+  unanswered: (labels: ReadonlyArray<string>) => `答えるか、あとで決める・おまかせにしてください: ${labels.join("、")}`,
   changedCount: (n: number) => `${n}項目を変更`,
   waiting: "回答を待っています",
   sending: "送信中…",
@@ -44,16 +55,30 @@ const ja = {
   openConversation: "このフォームのある会話を開き、入力欄を空にしてから、もう一度送ってください",
   resendSentence: (changes: ReadonlyArray<string>, title: string) =>
     `「${title}」で${changes.join("、")}に変えたので、反映して続けてください。`,
-  changeTo: (label: string, value: string) => `${label}を${value}`
+  changeTo: (label: string, value: string) => `${label}を${value}`,
+  commentTo: (label: string, comment: string | undefined) =>
+    comment === undefined ? `${label}のコメントをなし` : `${label}のコメントを「${comment}」`
 }
 
 const en: typeof ja = {
   submit: "Send",
   dismiss: "Cancel",
-  hold: "Decide later",
-  holdHint: "Leave this undecided for now. Copilot will not assume a value and will ask again when it needs one.",
-  held: "On hold",
-  onHold: "on hold",
+  skipMenu: (label: string) => `How to answer ${label}`,
+  answerNow: "Answer",
+  askLater: "Decide later",
+  delegate: "Your call",
+  skipHint:
+    "Decide later: Copilot will not assume a value and will ask again when it needs one. Your call: Copilot decides and tells you what it chose.",
+  held: "Decide later",
+  delegated: "Your call",
+  onHold: "decide later",
+  toDelegated: "your call",
+  comment: "Comment",
+  withComment: (comment: string) => ` (comment: ${comment})`,
+  commentOf: (label: string) => `Comment on ${label}`,
+  commentHint: "Write anything Copilot should know about this question.",
+  laterHint: "Say what you need to know to decide, so Copilot can ask again at the right time.",
+  delegateHint: "Say what matters to you when Copilot decides.",
   details: "Details",
   note: "Add a note",
   noted: "Note",
@@ -76,7 +101,7 @@ const en: typeof ja = {
   resend: "Send changes",
   cancel: "Cancel",
   noChanges: "No changes yet",
-  unanswered: (labels: ReadonlyArray<string>) => `Answer these or choose to decide later: ${labels.join(", ")}`,
+  unanswered: (labels: ReadonlyArray<string>) => `Answer these, or choose Decide later or Your call: ${labels.join(", ")}`,
   changedCount: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
   waiting: "Waiting for your answer",
   sending: "Sending…",
@@ -89,7 +114,8 @@ const en: typeof ja = {
   openConversation: "Open the conversation with this form and clear its input, then send again",
   resendSentence: (changes: ReadonlyArray<string>, title: string) =>
     `In "${title}", I changed ${changes.join(", ")}. Please apply it and continue.`,
-  changeTo: (label: string, value: string) => `${label} to ${value}`
+  changeTo: (label: string, value: string) => `${label} to ${value}`,
+  commentTo: (label: string, comment: string | undefined) => `the comment on ${label} to ${comment === undefined ? "none" : `"${comment}"`}`
 }
 
 export type Messages = typeof ja

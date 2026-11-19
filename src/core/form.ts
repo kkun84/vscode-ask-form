@@ -5,6 +5,9 @@ import type { ChoiceField, Computed, Field, FormSpec } from "./spec.ts"
 
 export type FieldValue = string | number | ReadonlyArray<string>
 export type Values = Readonly<Record<string, FieldValue>>
+export type Skip = "later" | "delegate"
+export type Skips = Readonly<Record<string, Skip>>
+export type Comments = Readonly<Record<string, string>>
 export type ComputedValues = Readonly<Record<string, Value | null>>
 
 export interface CompiledForm {
@@ -24,23 +27,37 @@ export const allFields = (spec: FormSpec): ReadonlyArray<Field> =>
 export const activeFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> =>
   spec.fields.flatMap((field) => [field, ...branchFields(field, values[field.id])])
 
-const isBlank = (field: Field, value: FieldValue | undefined): boolean => value === undefined || (field.type === "text" && value === "")
-
 const filled = (fields: ReadonlyArray<Field>, values: Values): Values =>
-  Object.fromEntries(fields.flatMap((field) => (isBlank(field, values[field.id]) ? [] : [[field.id, values[field.id] as FieldValue]])))
+  Object.fromEntries(fields.flatMap((field) => (values[field.id] === undefined ? [] : [[field.id, values[field.id] as FieldValue]])))
 
-export const withoutHeld = (spec: FormSpec, values: Values, held: ReadonlySet<string>): Values =>
+export const withoutSkipped = (spec: FormSpec, values: Values, skipped: ReadonlySet<string>): Values =>
   filled(
-    allFields(spec).filter((field) => !held.has(field.id)),
+    allFields(spec).filter((field) => !skipped.has(field.id)),
     values
   )
 
 export const answerValues = (spec: FormSpec, values: Values): Values => filled(activeFields(spec, values), values)
 
-export const heldFields = (spec: FormSpec, values: Values): ReadonlyArray<string> =>
+export const unsetFields = (spec: FormSpec, values: Values): ReadonlyArray<string> =>
   activeFields(spec, values)
-    .filter((field) => isBlank(field, values[field.id]))
+    .filter((field) => values[field.id] === undefined)
     .map((field) => field.id)
+
+export const skipOf = (skips: Skips, id: string): Skip => skips[id] ?? "later"
+
+export const skipsFor = (spec: FormSpec, values: Values, skips: Skips): Skips =>
+  Object.fromEntries(unsetFields(spec, values).map((id) => [id, skipOf(skips, id)]))
+
+const skippedAs = (spec: FormSpec, values: Values, skips: Skips, skip: Skip): ReadonlyArray<string> =>
+  unsetFields(spec, values).filter((id) => skipOf(skips, id) === skip)
+
+export const commentsFor = (spec: FormSpec, values: Values, comments: Comments): Comments =>
+  Object.fromEntries(
+    activeFields(spec, values).flatMap((field) => {
+      const comment = comments[field.id]?.trim() ?? ""
+      return comment === "" ? [] : [[field.id, comment]]
+    })
+  )
 
 const parseExpressions = (spec: FormSpec): ReadonlyMap<string, Expr> => {
   const expressions = new Map<string, Expr>()
@@ -78,8 +95,8 @@ export const initialValues = (spec: FormSpec): Values =>
     })
   )
 
-export const unansweredFields = (spec: FormSpec, values: Values, held: ReadonlySet<string> = new Set()): ReadonlyArray<Field> =>
-  activeFields(spec, values).filter((field) => field.type !== "text" && values[field.id] === undefined && !held.has(field.id))
+export const unansweredFields = (spec: FormSpec, values: Values, skipped: ReadonlySet<string> = new Set()): ReadonlyArray<Field> =>
+  activeFields(spec, values).filter((field) => values[field.id] === undefined && !skipped.has(field.id))
 
 const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefined => {
   if (value === undefined) {
@@ -107,9 +124,6 @@ export const computeValues = (form: CompiledForm, values: Values): ComputedValue
 }
 
 const sameValue = (a: FieldValue | undefined, b: FieldValue | undefined): boolean => {
-  if ((a === undefined || a === "") && (b === undefined || b === "")) {
-    return true
-  }
   if (Array.isArray(a) && Array.isArray(b)) {
     const sortedB = b.toSorted()
     return a.length === b.length && a.toSorted().every((value, index) => value === sortedB[index])
@@ -117,9 +131,27 @@ const sameValue = (a: FieldValue | undefined, b: FieldValue | undefined): boolea
   return a === b
 }
 
+export interface Answered {
+  readonly values: Values
+  readonly skips?: Skips
+  readonly comments?: Comments
+}
+
+const sameAnswer = (id: string, before: Answered, after: Answered): boolean =>
+  sameValue(before.values[id], after.values[id]) &&
+  (after.values[id] !== undefined || skipOf(before.skips ?? {}, id) === skipOf(after.skips ?? {}, id))
+
 export const changedFields = (spec: FormSpec, before: Values, after: Values): ReadonlyArray<string> =>
   activeFields(spec, after)
     .filter((field) => !sameValue(before[field.id], after[field.id]))
+    .map((field) => field.id)
+
+export const changedAnswers = (spec: FormSpec, before: Answered, after: Answered): ReadonlyArray<string> =>
+  activeFields(spec, after.values)
+    .filter(
+      (field) =>
+        !sameAnswer(field.id, before, after) || (before.comments?.[field.id]?.trim() ?? "") !== (after.comments?.[field.id]?.trim() ?? "")
+    )
     .map((field) => field.id)
 
 const affixed = (text: string, prefix: string | undefined, suffix: string | undefined): string => `${prefix ?? ""}${text}${suffix ?? ""}`
@@ -135,9 +167,11 @@ export const formatNumber = (value: number, decimals?: number): string =>
         }
   )
 
-export const describeValue = (field: Field, value: FieldValue | undefined, m: Messages): string => {
+const describeSkip = (skip: Skip, m: Messages): string => (skip === "delegate" ? m.delegated : m.held)
+
+export const describeValue = (field: Field, value: FieldValue | undefined, m: Messages, skip: Skip = "later"): string => {
   if (value === undefined) {
-    return m.held
+    return describeSkip(skip, m)
   }
   switch (field.type) {
     case "text":
@@ -165,24 +199,48 @@ export const describeComputed = (item: Computed, value: Value | null | undefined
   return affixed(value, item.prefix, item.suffix)
 }
 
-export const resendMessage = (spec: FormSpec, before: Values, after: Values, m: Messages): string | undefined => {
-  const changed = changedFields(spec, before, after)
+const changePart = (field: Field, before: Answered, after: Answered, m: Messages): string => {
+  const comment = after.comments?.[field.id]?.trim() || undefined
+  if (sameAnswer(field.id, before, after)) {
+    return m.commentTo(field.label, comment)
+  }
+  const value = after.values[field.id]
+  const skip = skipOf(after.skips ?? {}, field.id)
+  const text = value === undefined ? (skip === "delegate" ? m.toDelegated : m.onHold) : describeValue(field, value, m)
+  return m.changeTo(field.label, `${text}${comment === undefined ? "" : m.withComment(comment)}`)
+}
+
+export const resendMessage = (spec: FormSpec, before: Answered, after: Answered, m: Messages): string | undefined => {
+  const changed = changedAnswers(spec, before, after)
   if (changed.length === 0) {
     return undefined
   }
-  const parts = activeFields(spec, after)
+  const parts = activeFields(spec, after.values)
     .filter((field) => changed.includes(field.id))
-    .map((field) => m.changeTo(field.label, isBlank(field, after[field.id]) ? m.onHold : describeValue(field, after[field.id], m)))
+    .map((field) => changePart(field, before, after, m))
   return m.resendSentence(parts, spec.title)
 }
+
+export interface HeldForm {
+  readonly title: string
+  readonly fields: ReadonlyArray<Field>
+}
+
+const heldForm = (spec: FormSpec, held: ReadonlyArray<string>): HeldForm => ({
+  title: spec.title,
+  fields: allFields(spec).filter((field) => held.includes(field.id))
+})
 
 export type Outcome =
   | {
       readonly status: "submitted"
       readonly values: Values
       readonly held: ReadonlyArray<string>
+      readonly delegated: ReadonlyArray<string>
       readonly changedByUser: ReadonlyArray<string>
       readonly computed: ComputedValues
+      readonly comments?: Comments
+      readonly heldForm?: HeldForm
       readonly note?: string
     }
   | { readonly status: "answer_in_chat" }
@@ -190,19 +248,36 @@ export type Outcome =
 
 export const maxNoteLength = 2000
 
+export const maxCommentLength = 500
+
 export type Action = "submit" | "chat"
 
-export const outcomeFor = (form: CompiledForm, action: Action, values: Values, note?: string): Outcome => {
+export interface AnswerInput {
+  readonly values: Values
+  readonly skips?: Skips
+  readonly comments?: Comments
+  readonly note?: string | undefined
+}
+
+export const outcomeFor = (form: CompiledForm, action: Action, answer: AnswerInput): Outcome => {
   switch (action) {
-    case "submit":
+    case "submit": {
+      const { values, note } = answer
+      const skips = answer.skips ?? {}
+      const held = skippedAs(form.spec, values, skips, "later")
+      const comments = commentsFor(form.spec, values, answer.comments ?? {})
       return {
         status: "submitted",
         values,
-        held: heldFields(form.spec, values),
+        held,
+        delegated: skippedAs(form.spec, values, skips, "delegate"),
         changedByUser: changedFields(form.spec, initialValues(form.spec), values).filter((id) => values[id] !== undefined),
         computed: computeValues(form, values),
+        ...(Object.keys(comments).length === 0 ? {} : { comments }),
+        ...(held.length === 0 ? {} : { heldForm: heldForm(form.spec, held) }),
         ...(note === undefined ? {} : { note })
       }
+    }
     case "chat":
       return { status: "answer_in_chat" }
   }
@@ -212,7 +287,7 @@ export const outcomeText = (outcome: Outcome): string => {
   const json = JSON.stringify(outcome)
   switch (outcome.status) {
     case "submitted":
-      return `The user submitted the form. Treat fields listed in changedByUser as explicit decisions and the rest of values as accepted recommendations. Fields listed in held have no value: the user put them on hold. Do not assume a value for them; continue with the work that does not depend on them, and ask again when you need one. If note is present, it is a message the user wrote to go with the answers: follow it over any value it contradicts, and use it when it answers a held field. Continue the task.\n${json}`
+      return `The user submitted the form. Treat fields listed in changedByUser as explicit decisions and the rest of values as accepted recommendations. An empty string in values means the user deliberately left that field blank. Fields listed in held have no value: the user asked you to ask them later. Do not assume a value for them; continue with the work that does not depend on them, and when you need one, ask again with ask_form, starting from heldForm (the original definitions of the held fields) and updating it with what you have learned. Fields listed in delegated have no value either: the user left the decision to you. Choose a value yourself without asking again, and tell the user what you chose and why. If comments is present, it maps field ids to comments the user wrote on those questions, such as a condition on the answer or why they held or delegated it: take each into account for its field. If note is present, it is a message the user wrote to go with the answers: follow it over any value it contradicts, and use it when it answers a held field. Continue the task.\n${json}`
     case "answer_in_chat":
       return `The user cancelled the form without answering and will respond in the chat instead. End your turn now and wait for the user's next message.\n${json}`
     case "unavailable":

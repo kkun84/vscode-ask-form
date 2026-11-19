@@ -47,7 +47,7 @@ const answerWith = (options: AppHostOptions, state: HostState, params: Record<st
     return textResult("expired: このフォームはもう回答を受け付けていません", true)
   }
   const action = params["action"]
-  let answer: Answer = { values: {}, note: undefined }
+  let answer: Answer = { values: {}, skips: {}, comments: {}, note: undefined }
   if (action === "submit") {
     const checked = checkAnswer(options.form.spec, params)
     if (Result.isFailure(checked)) {
@@ -55,7 +55,7 @@ const answerWith = (options: AppHostOptions, state: HostState, params: Record<st
     }
     answer = checked.success
   }
-  const outcome = outcomeFor(options.form, action, answer.values, answer.note)
+  const outcome = outcomeFor(options.form, action, answer)
   state.status = "answered"
   const structured = { ...outcome, next: outcomeText(outcome) }
   options.onOutcome(outcome)
