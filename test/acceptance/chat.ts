@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
+import { expect, type ElectronApplication, type Frame, type Locator, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
 import { formFrame, settled, until } from "./frames.ts"
@@ -131,6 +131,11 @@ test("REQ-RES-001 回答後のフォームは要約になる", async (session) =
   await theFrame(session).locator(".summary").waitFor({ timeout: 30_000 })
 })
 
+const pressKey = async (button: Locator): Promise<void> => {
+  await button.focus()
+  await button.press("Enter")
+}
+
 const settledForm = async (session: Session) => {
   await newForm(session)
   const frame = theFrame(session)
@@ -143,8 +148,8 @@ test("REQ-ANS-005 値を外してコメントを書いた質問は、値なし�
   const price = frame.getByRole("spinbutton", { name: "参加費" })
   await price.fill("")
   await price.press("Tab")
-  await frame.getByRole("button", { name: "Comment on 参加費" }).click()
-  await frame.getByRole("group", { name: "Preset comments for 参加費" }).getByRole("button", { name: "Decide later." }).click()
+  await pressKey(frame.getByRole("button", { name: "Comment on 参加費" }))
+  await pressKey(frame.getByRole("group", { name: "Preset comments for 参加費" }).getByRole("button", { name: "Decide later." }))
   const result = await answer(session)
   expect(result).toContain('"status":"submitted"')
   expect(result).toContain('"held":["price"]')
@@ -155,7 +160,7 @@ test("REQ-ANS-005 値を外してコメントを書いた質問は、値なし�
 
 test("REQ-ANS-007 質問へのコメントは、commentsとしてモデルに届く", async (session) => {
   const frame = await settledForm(session)
-  await frame.getByRole("button", { name: "Comment on 参加費" }).click()
+  await pressKey(frame.getByRole("button", { name: "Comment on 参加費" }))
   await frame.getByRole("textbox", { name: "Comment on 参加費" }).fill("Keep it under 3000.")
   const result = await answer(session)
   expect(result).toContain('"comments":{"price":"Keep it under 3000."}')
