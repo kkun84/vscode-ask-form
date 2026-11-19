@@ -71,6 +71,20 @@ const noKills = (finding: Finding): Annotation => ({
   message: finding.test ?? ""
 })
 
+const settings: ReadonlyArray<string> = ["mutator.config.json", "mutator.accepted.json", "vitest.mutation.config.ts"]
+
+export const reviewSettingChanges = (changedFiles: ReadonlyArray<string>): ReadonlyArray<string> =>
+  settings
+    .filter((file) => changedFiles.includes(file))
+    .map((file) =>
+      formatAnnotation({
+        level: "warning",
+        title: "ミューテーションテストの設定が変わった",
+        file,
+        message: `${file}が変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。`
+      })
+    )
+
 const guide = "node_modules/@mizchi/mutator/skills/mutation-test-loop/SKILL.md"
 
 export const reviewFindings = (report: MutationReport | undefined, path: string): Review => {

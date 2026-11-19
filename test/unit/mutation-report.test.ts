@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "vitest"
-import { formatAnnotation, reviewFindings } from "../../scripts/mutation-report.ts"
+import { formatAnnotation, reviewFindings, reviewSettingChanges } from "../../scripts/mutation-report.ts"
 
 const files = {
   "src/core/form.ts": {
@@ -101,4 +101,16 @@ test("DES-TOOLS-003 前回の結果と比べられなかったことを失敗に
     exitCode: 0
   })
   assert.equal(reviewFindings({ comparison: "available", findings: [] }, "mutation.json").lines.length, 1)
+})
+
+test("DES-TOOLS-003 検査の範囲を決める設定が変わったら警告する", () => {
+  assert.deepEqual(
+    reviewSettingChanges(["src/core/form.ts", "mutator.accepted.json", "vitest.mutation.config.ts", "mutator.config.json"]),
+    [
+      "::warning file=mutator.config.json,title=ミューテーションテストの設定が変わった::mutator.config.jsonが変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。",
+      "::warning file=mutator.accepted.json,title=ミューテーションテストの設定が変わった::mutator.accepted.jsonが変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。",
+      "::warning file=vitest.mutation.config.ts,title=ミューテーションテストの設定が変わった::vitest.mutation.config.tsが変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。"
+    ]
+  )
+  assert.deepEqual(reviewSettingChanges(["src/core/form.ts", "", "docs/mutator.config.json"]), [])
 })
