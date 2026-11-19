@@ -1,8 +1,9 @@
 import * as vscode from "vscode"
-import { registerFormTool } from "../shared/formTool.ts"
+import { createFormPanels, registerFormTool } from "../shared/formTool.ts"
 
 export const activate = (context: vscode.ExtensionContext): void => {
-  context.subscriptions.push(registerFormTool())
+  const panels = createFormPanels()
+  context.subscriptions.push(panels, registerFormTool(panels))
 }
 
 export const deactivate = (): void => undefined

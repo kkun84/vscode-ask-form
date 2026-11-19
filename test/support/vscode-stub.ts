@@ -83,6 +83,15 @@ export const cancellation = (): { readonly token: FakeToken; readonly cancel: ()
   }
 }
 
+class CancellationTokenSource {
+  readonly #source = cancellation()
+  readonly token = this.#source.token
+  cancel(): void {
+    this.#source.cancel()
+  }
+  dispose(): void {}
+}
+
 class McpHttpServerDefinition {
   readonly label: string
   readonly uri: FakeUri
@@ -216,6 +225,7 @@ export const createVscode = (language = "ja"): { readonly vscode: unknown; reado
   const configChanged = recorder.configChanged
   const vscode = {
     EventEmitter: Emitter,
+    CancellationTokenSource,
     McpHttpServerDefinition,
     LanguageModelTextPart,
     LanguageModelToolResult,

@@ -4,10 +4,21 @@ import { outcomeFor, outcomeText, type Action, type Outcome } from "../core/form
 import { checkAnswer, compile, type Answer } from "../core/validate.ts"
 import { PendingForms } from "./pending.ts"
 import { formSpecJsonSchema } from "./schema.ts"
-import { UserPresence } from "./ports.ts"
+import { FormPanel, UserPresence } from "./ports.ts"
 
 export const resourceUri = "ui://ask-form/form.html"
 export const resourceMimeType = "text/html;profile=mcp-app"
+
+const appsExtension = "io.modelcontextprotocol/ui"
+
+const showsApps = (capabilities: McpSchema.ClientCapabilities): boolean => {
+  const settings = capabilities.extensions?.[appsExtension]
+  if (typeof settings !== "object" || settings === null) {
+    return false
+  }
+  const mimeTypes = (settings as { readonly mimeTypes?: unknown }).mimeTypes
+  return Array.isArray(mimeTypes) && mimeTypes.includes(resourceMimeType)
+}
 
 export class FormHtml extends Context.Service<FormHtml, string>()("ask-form/FormHtml") {}
 
@@ -56,6 +67,7 @@ const AskForm = Tool.dynamic("ask_form", {
   success: OutcomeResult,
   failure: FormRejected
 })
+  .addDependency(McpSchema.McpRequestContext)
   .annotate(Tool.Title, "Ask with a form")
   .annotate(Tool.Readonly, true)
   .annotate(Tool.OpenWorld, false)
@@ -90,6 +102,7 @@ const FormsHandlers = FormsToolkit.toLayer(
   Effect.gen(function* () {
     const pending = yield* PendingForms
     const presence = yield* UserPresence
+    const panel = yield* FormPanel
     return FormsToolkit.of({
       form_status: ({ formKey }) => pending.status(formKey).pipe(Effect.map((status) => ({ status }))),
       ask_form: (params) =>
@@ -102,7 +115,11 @@ const FormsHandlers = FormsToolkit.toLayer(
             return withNext({ status: "unavailable" })
           }
           const left = presence.away.pipe(Effect.as<Outcome>({ status: "unavailable" }))
-          return withNext(yield* Effect.raceFirst(pending.wait(compiled.success), left))
+          const client = yield* McpSchema.McpRequestContext
+          const asked = showsApps(client.clientCapabilities)
+            ? pending.wait(compiled.success)
+            : panel.ask(compiled.success, params as Readonly<Record<string, unknown>>)
+          return withNext(yield* Effect.raceFirst(asked, left))
         }),
       form_answer: ({ formKey, action, values, held, note }) =>
         Effect.gen(function* () {

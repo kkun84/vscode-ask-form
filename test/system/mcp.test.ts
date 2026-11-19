@@ -46,6 +46,16 @@ const answered = (h: Harness, action: "submit" | "chat") =>
     return yield* Fiber.join(fiber)
   })
 
+const unavailableThen = (check: (h: Harness) => Effect.Effect<void>, options: Parameters<typeof withHarness>[1]) =>
+  withHarness(
+    (h) =>
+      Effect.gen(function* () {
+        assert.equal(structured(yield* h.call("ask_form", eventSpec))["status"], "unavailable")
+        yield* check(h)
+      }),
+    options
+  )
+
 describe("SPEC-MCP-001 質問のツール", () => {
   it("SPEC-MCP-001 ask_formを読み取り専用で画面つきとして公開する", () =>
     withHarness((h) =>
@@ -90,10 +100,9 @@ describe("SPEC-MCP-003 補足と不在", () => {
     ))
 
   it("SPEC-MCP-003 待っている間に利用者が不在になったら、待つのをやめてunavailableを返し、以後の回答は受け付けない", () =>
-    withHarness(
+    unavailableThen(
       (h) =>
         Effect.gen(function* () {
-          assert.equal(structured(yield* h.call("ask_form", eventSpec))["status"], "unavailable")
           assert.deepEqual(yield* Ref.get(h.waiting), [1, 0])
           yield* expectExpired(h, form.key)
         }),
@@ -341,7 +350,11 @@ const rawSession = (h: Harness) =>
     const initialized = yield* rpc({
       id: 0,
       method: "initialize",
-      params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "stop-test", version: "1" } }
+      params: {
+        protocolVersion: "2025-11-25",
+        capabilities: { extensions: { "io.modelcontextprotocol/ui": { mimeTypes: [resourceMimeType] } } },
+        clientInfo: { name: "stop-test", version: "1" }
+      }
     })
     const sessionId = initialized.headers.get("mcp-session-id")
     assert.ok(sessionId)
@@ -359,6 +372,67 @@ const post = (url: string, headers: Record<string, string>) =>
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" })
     }).then((response) => response.status)
   )
+
+describe("SPEC-MCP-010 フォームを描けない相手", () => {
+  it("SPEC-MCP-010 MCP Appsへの対応を宣言しない相手には、パネルで聞いた結果を返し、チャットの待機を作らない", () =>
+    withHarness(
+      (h) =>
+        Effect.gen(function* () {
+          const result = yield* h.call("ask_form", eventSpec)
+          assert.equal(structured(result)["status"], "answer_in_chat")
+          assert.match(String(structured(result)["next"]), /\S/)
+          assert.deepEqual(
+            (yield* Ref.get(h.panels)).map((asked) => asked.key),
+            [form.key]
+          )
+          assert.deepEqual(yield* Ref.get(h.waiting), [])
+          yield* expectExpired(h, form.key)
+        }),
+      { apps: false, panel: Effect.succeed({ status: "answer_in_chat" }) }
+    ))
+
+  it("SPEC-MCP-010 MCP Appsへの対応を宣言する相手には、パネルを使わずチャットのフォームで待つ", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const waiting = yield* Effect.forkChild(h.call("ask_form", eventSpec))
+        yield* h.waitUntil(1)
+        assert.deepEqual(yield* Ref.get(h.panels), [])
+        yield* h.call("form_answer", { formKey: form.key, action: "chat" })
+        assert.equal(structured(yield* Fiber.join(waiting))["status"], "answer_in_chat")
+      })
+    ))
+
+  it("SPEC-MCP-010 利用者が不在の設定なら、パネルも開かずにunavailableを返す", () =>
+    unavailableThen(
+      (h) =>
+        Effect.gen(function* () {
+          assert.deepEqual(yield* Ref.get(h.panels), [])
+        }),
+      { apps: false, unavailable: true }
+    ))
+
+  it("SPEC-MCP-010 パネルで待っている間に利用者が不在になったら、パネルの待機を止めてunavailableを返す", () => {
+    let stopped = false
+    return unavailableThen(
+      (h) =>
+        Effect.gen(function* () {
+          assert.equal((yield* Ref.get(h.panels)).length, 1)
+          assert.equal(stopped, true)
+        }),
+      {
+        apps: false,
+        away: Effect.sleep("50 millis"),
+        panel: Effect.never.pipe(
+          Effect.onInterrupt(() =>
+            Effect.sync(() => {
+              stopped = true
+            })
+          )
+        )
+      }
+    )
+  })
+})
 
 describe("SPEC-MCP-009 接続の保護", () => {
   it("SPEC-MCP-009 127.0.0.1の空いているポートだけで待ち受ける", () =>

@@ -3,12 +3,13 @@ import { Server } from "node:http"
 import { it } from "node:test"
 import { Effect, Layer, Result } from "effect"
 import { FormsListenFailed, serveForms } from "../../src/mcp/http.ts"
-import { UserPresence, WaitingIndicator } from "../../src/mcp/ports.ts"
+import { FormPanel, UserPresence, WaitingIndicator } from "../../src/mcp/ports.ts"
 import { FormHtml } from "../../src/mcp/server.ts"
 
 const services = Layer.mergeAll(
   Layer.succeed(WaitingIndicator, WaitingIndicator.of({ update: () => Effect.void })),
   Layer.succeed(UserPresence, UserPresence.of({ unavailable: Effect.succeed(false), away: Effect.never })),
+  Layer.succeed(FormPanel, FormPanel.of({ ask: () => Effect.never })),
   Layer.succeed(FormHtml, "")
 )
 

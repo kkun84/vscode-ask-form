@@ -18,9 +18,10 @@
 | REQ-RES-001 | 回答の要約が残る | - | SPEC-UI-004 | `test/acceptance/chat.ts`, MAT-RES-001 |
 | REQ-CANCEL-001 | 中断が分かる | - | SPEC-MCP-005, SPEC-MCP-007, SPEC-UI-006, SPEC-UI-010, SPEC-EXT-004 | `test/acceptance/chat.ts`, MAT-CANCEL-001 |
 | REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.ts`, `test/acceptance/web.ts`, MAT-CANCEL-001, MAT-ENV-001 |
-| REQ-WAIT-002 | 利用者が不在の設定では待たない | - | SPEC-MCP-003, SPEC-UI-004, SPEC-EXT-007 | `test/acceptance/chat.ts`, MAT-WAIT-001 |
+| REQ-WAIT-002 | 利用者が不在の設定では待たない | - | SPEC-MCP-003, SPEC-MCP-010, SPEC-UI-004, SPEC-EXT-007 | `test/acceptance/chat.ts`, MAT-WAIT-001 |
 | REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/web.ts`, MAT-WEB-001 |
 | REQ-ENV-001 | MCPを使わない環境でも回答できる | - | SPEC-EXT-006 | MAT-ENV-001 |
+| REQ-ENV-002 | ClaudeとCodexのハーネスでも回答できる | - | SPEC-MCP-010, SPEC-EXT-008 | MAT-ENV-002 |
 | REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/desktop.ts`, MAT-PERF-001 |
 | REQ-SEC-001 | 回答を偽装されない | - | SPEC-MCP-009, SPEC-UI-010, SPEC-EXT-001 | MAT-SEC-001 |
 | REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | MAT-LOOK-001 |
@@ -42,6 +43,7 @@
 | SPEC-MCP-006 | フォームの鍵 | REQ-ANS-001 | ARCH-LAYER-001, DES-SPEC-002 | `test/system/mcp.test.ts` |
 | SPEC-MCP-007 | 中断 | REQ-CANCEL-001 | DES-PEND-001 | `test/system/mcp.test.ts` |
 | SPEC-MCP-009 | 接続の保護 | REQ-SEC-001 | ARCH-EFFECT-002, DES-HTTP-001 | `test/system/mcp.test.ts` |
+| SPEC-MCP-010 | フォームを描けない相手 | REQ-ENV-002, REQ-WAIT-002 | ARCH-PORT-001 | `test/system/mcp.test.ts` |
 | SPEC-UI-001 | 初期表示 | REQ-ASK-002 | ARCH-LAYER-002, ARCH-UI-001, DES-FORM-001, DES-FORM-003 | `test/system/ui.spec.ts` |
 | SPEC-UI-002 | 計算結果 | REQ-ASK-003 | ARCH-LAYER-006, DES-FORM-002 | `test/system/ui.spec.ts` |
 | SPEC-UI-003 | 回答の操作 | REQ-ANS-001, REQ-ANS-003, REQ-ANS-004 | - | `test/system/ui.spec.ts` |
@@ -59,6 +61,7 @@
 | SPEC-EXT-004 | web版 | REQ-WEB-001, REQ-CANCEL-001 | ARCH-LAYER-002, ARCH-LAYER-004, ARCH-LAYER-005, ARCH-UI-001, DES-UI-002, DES-HOST-001, DES-TOOLS-002 | `test/system/extension.test.ts` |
 | SPEC-EXT-006 | MCPを使わない環境 | REQ-ENV-001 | - | `test/system/extension.test.ts` |
 | SPEC-EXT-007 | 利用者が不在の設定 | REQ-WAIT-002 | ARCH-EFFECT-001, ARCH-PORT-001 | `test/system/extension.test.ts` |
+| SPEC-EXT-008 | フォームを描けないハーネス | REQ-ENV-002 | ARCH-PORT-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-005 | 起動・サイズ・検査の予算 | REQ-PERF-001 | ARCH-LAYER-002, ARCH-LAYER-006, ARCH-DEPS-001, DES-TOOLS-001 | `test/system/extension.test.ts`, `test/system/process.test.ts` |
 | SPEC-REL-001 | 配布前の検査と公開 | REQ-DIST-001 | ARCH-REL-001, DES-REL-001 | `test/system/release-check.test.ts`, `test/system/release-workflow.test.ts` |
 
@@ -77,7 +80,7 @@
 | ARCH-EFFECT-002 | ツールの処理は通信手段を知らない | SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-009 | - | `test/integration/architecture.test.ts` |
 | ARCH-EFFECT-003 | 層を組み立てるのは入口だけ | SPEC-EXT-001 | DES-HTTP-001 | `test/integration/architecture.test.ts` |
 | ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | DES-TOOLS-001 | `test/integration/architecture.test.ts` |
-| ARCH-PORT-001 | MCPサーバーへの差し込み口 | SPEC-EXT-002, SPEC-EXT-007 | - | `test/integration/ports.test.ts` |
+| ARCH-PORT-001 | MCPサーバーへの差し込み口 | SPEC-EXT-002, SPEC-EXT-007, SPEC-MCP-010, SPEC-EXT-008 | - | `test/integration/ports.test.ts` |
 | ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001, SPEC-UI-006, SPEC-UI-010 | DES-UI-001, DES-UI-002, DES-HOST-001, DES-TOOLS-002 | `test/system/ui.spec.ts` |
 | ARCH-REL-001 | 検出と公開の権限を分ける | SPEC-REL-001 | DES-REL-001 | `test/system/release-workflow.test.ts` |
 

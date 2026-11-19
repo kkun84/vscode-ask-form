@@ -109,9 +109,9 @@ extension/web  ──▶ extension/shared ──▶ core ◀── ui
 
 ### ARCH-PORT-001 MCPサーバーへの差し込み口
 
-MCPサーバーはVS Codeに依存せずに待機の表示を行うため、`WaitingIndicator`をEffectのサービスとして要求する。利用者が不在かどうかも、VS Codeの設定を読まずに知るため、`UserPresence`をサービスとして要求する。`UserPresence`は、今不在かどうかの問い合わせと、不在になったら完了する待ち合わせを持つ。MCPサーバーは、回答の待機とこの待ち合わせを競わせる。
+MCPサーバーはVS Codeに依存せずに待機の表示を行うため、`WaitingIndicator`をEffectのサービスとして要求する。フォームを描けない相手(SPEC-MCP-010)にパネルで聞くためにも、VS Codeを知らずに済むよう、`FormPanel`をサービスとして要求する。`FormPanel`は、検査済みのフォームを受け取って結果を返し、中断されたらパネルの待機を止める。利用者が不在かどうかも、VS Codeの設定を読まずに知るため、`UserPresence`をサービスとして要求する。`UserPresence`は、今不在かどうかの問い合わせと、不在になったら完了する待ち合わせを持つ。MCPサーバーは、回答の待機とこの待ち合わせを競わせる。
 
-派生元: SPEC-EXT-002, SPEC-EXT-007
+派生元: SPEC-EXT-002, SPEC-EXT-007, SPEC-MCP-010, SPEC-EXT-008
 
 ### ARCH-UI-001 画面の通信は1種類
 

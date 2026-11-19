@@ -178,6 +178,19 @@ MCPサーバーは`127.0.0.1`の空いているポートでだけ待ち受け、
 
 派生元: REQ-SEC-001
 
+### SPEC-MCP-010 フォームを描けない相手
+
+`ask_form`は、呼び出し元のMCPクライアントが初期化のときにMCP Appsへの対応を宣言したかで、聞き方を変える。宣言とは、`capabilities.extensions["io.modelcontextprotocol/ui"].mimeTypes`に SPEC-MCP-002 の`text/html;profile=mcp-app`を含めることを言う。
+
+- 宣言した相手には、これまでどおり画面(SPEC-MCP-002)の回答を待つ(SPEC-MCP-003)。
+- 宣言しない相手には、待機の台帳を使わず、差し込み口`FormPanel`にフォームを渡して、拡張機能のパネルで聞く。返す結果と`next`は SPEC-MCP-003 と同じにする。このとき`form_answer`と`form_status`は、そのフォームの鍵を知らない。
+- 利用者が不在の設定なら、どちらの相手にもパネルを開かずに`unavailable`を返す。パネルで待っている間に不在になったら、パネルの待機を止めて`unavailable`を返す。
+- 呼び出しが取り消されたら、パネルの待機を止める。
+
+VS Code 1.147では、Copilotハーネス(`vscode-agent-host`)とLocalハーネス(`Visual Studio Code`)は宣言し、Claudeハーネス(`claude-code`)とCodexハーネス(`codex-mcp-client`)は宣言しない。宣言しない相手に画面を返しても描かれず、ツールの呼び出しが回答待ちのまま止まる。
+
+派生元: REQ-ENV-002, REQ-WAIT-002
+
 ## フォームの画面
 
 ### SPEC-UI-001 初期表示
@@ -334,6 +347,14 @@ MCPサーバーは`127.0.0.1`の空いているポートでだけ待ち受け、
 - VS Code 1.144は、待たずに結果を返した`ask_form`のフォームをチャットに表示しない。SPEC-UI-004の`unavailable`の表示は、結果とともに画面を表示するホストのためにある。
 
 派生元: REQ-WAIT-002
+
+### SPEC-EXT-008 フォームを描けないハーネス
+
+デスクトップ版の拡張機能は、SPEC-MCP-010 の`FormPanel`として、SPEC-EXT-004 のパネルを開く処理を差し込む。パネルの振る舞い(回答、キャンセル、閉じたとき、待機の表示、利用者が不在の設定)は SPEC-EXT-004、SPEC-EXT-002、SPEC-EXT-007 と同じにする。MCPの呼び出しが取り消されたら、パネルを閉じる。
+
+- VS Code 1.147のCodexハーネスは、チャットを停止してもMCPのツール呼び出しを取り消さない(`notifications/cancelled`も接続の切断も届かない)。そのためパネルは残る。利用者がパネルを閉じれば、`answer_in_chat`を返して待機の表示を消す。Claudeハーネスは取り消しを送るので、パネルを閉じる。
+
+派生元: REQ-ENV-002
 
 ### SPEC-EXT-005 起動・サイズ・検査の予算
 

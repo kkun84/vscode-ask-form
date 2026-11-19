@@ -43,12 +43,15 @@ const desktop = Effect.acquireRelease(
   ({ dispose }) => Effect.promise(dispose)
 )
 
-const desktopConnection = Effect.gen(function* () {
-  const { recorder, definition } = yield* desktop
-  const token = (definition.headers["authorization"] ?? "").replace("Bearer ", "")
-  const connection = yield* connect(definition.uri.toString(), token)
-  return { recorder, connection }
-})
+const connectTo = (apps: boolean) =>
+  Effect.gen(function* () {
+    const { recorder, definition } = yield* desktop
+    const token = (definition.headers["authorization"] ?? "").replace("Bearer ", "")
+    const connection = yield* connect(definition.uri.toString(), token, apps)
+    return { recorder, connection }
+  })
+
+const desktopConnection = connectTo(true)
 
 const submitRecommended = (panel: FakePanel | undefined): void =>
   panel?.receive({
@@ -79,6 +82,39 @@ describe("SPEC-EXT-001 MCPサーバーの登録", () => {
         const { connection } = yield* desktopConnection
         const tool = yield* connection.tool("ask_form")
         assert.equal(tool.annotations?.readOnlyHint, true)
+      })
+    ))
+})
+
+const askThroughPanel = Effect.gen(function* () {
+  const { recorder, connection } = yield* connectTo(false)
+  const call = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
+  yield* until(() => recorder.panels.length === 1)
+  return { recorder, call }
+})
+
+describe("SPEC-EXT-008 フォームを描けないハーネス", () => {
+  it("SPEC-EXT-008 MCP Appsを宣言しない相手からのask_formはパネルに表示し、パネルの回答をMCPの結果として返す", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, call } = yield* askThroughPanel
+        const panel = recorder.panels[0]
+        assert.equal(visible(recorder), true)
+        submitRecommended(panel)
+        const result = yield* Fiber.join(call)
+        assert.equal((result.structuredContent as Record<string, unknown> | undefined)?.["status"], "submitted")
+        assert.equal(panel?.state.disposed, true)
+        assert.equal(visible(recorder), false)
+      })
+    ))
+
+  it("SPEC-EXT-008 ask_formの呼び出しが取り消されたら、パネルを閉じる", () =>
+    runScoped(
+      Effect.gen(function* () {
+        const { recorder, call } = yield* askThroughPanel
+        yield* Fiber.interrupt(call)
+        yield* until(() => recorder.panels[0]?.state.disposed === true)
+        assert.equal(visible(recorder), false)
       })
     ))
 })

@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { Result } from "effect"
 import { createAppHost } from "../../core/appHost.ts"
-import { outcomeText, type Outcome } from "../../core/form.ts"
+import { outcomeText, type CompiledForm, type Outcome } from "../../core/form.ts"
 import { compile } from "../../core/validate.ts"
 import type { FormSpec } from "../../core/spec.ts"
 import { autoReplies, createWaitingStatus, onAutoReply, type WaitingStatus } from "./waiting.ts"
@@ -17,15 +17,15 @@ interface Waiting {
   readonly panels: Set<vscode.WebviewPanel>
 }
 
-const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, token: vscode.CancellationToken): Promise<Outcome> => {
-  const compiled = compile(args)
-  if (Result.isFailure(compiled)) {
-    return Promise.reject(new Error(compiled.failure.join("\n")))
-  }
+const askInPanel = (
+  waiting: Waiting,
+  form: CompiledForm,
+  args: Readonly<Record<string, unknown>>,
+  token: vscode.CancellationToken
+): Promise<Outcome> => {
   if (autoReplies()) {
     return Promise.resolve({ status: "unavailable" })
   }
-  const form = compiled.success
   const panel = vscode.window.createWebviewPanel(
     "ask-form.form",
     form.spec.title,
@@ -83,20 +83,29 @@ const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, t
   })
 }
 
-export const registerFormTool = (): vscode.Disposable => {
+export interface FormPanels extends vscode.Disposable {
+  readonly ask: (form: CompiledForm, args: Readonly<Record<string, unknown>>, token: vscode.CancellationToken) => Promise<Outcome>
+}
+
+export const createFormPanels = (): FormPanels => {
   const panels = new Set<vscode.WebviewPanel>()
   const waiting: Waiting = { panels, status: createWaitingStatus(() => [...panels][0]?.reveal()) }
-  const registration = vscode.lm.registerTool<FormSpec>(toolName, {
+  return {
+    ask: (form, args, token) => askInPanel(waiting, form, args, token),
+    dispose: () => waiting.status.dispose()
+  }
+}
+
+export const registerFormTool = (panels: FormPanels): vscode.Disposable =>
+  vscode.lm.registerTool<FormSpec>(toolName, {
     prepareInvocation: (options) => ({ invocationMessage: options.input.title }),
     invoke: async (options, token) => {
-      const outcome = await askInPanel(waiting, options.input as Readonly<Record<string, unknown>>, token)
+      const args = options.input as Readonly<Record<string, unknown>>
+      const compiled = compile(args)
+      if (Result.isFailure(compiled)) {
+        throw new Error(compiled.failure.join("\n"))
+      }
+      const outcome = await panels.ask(compiled.success, args, token)
       return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(outcomeText(outcome))])
     }
   })
-  return {
-    dispose: () => {
-      registration.dispose()
-      waiting.status.dispose()
-    }
-  }
-}
