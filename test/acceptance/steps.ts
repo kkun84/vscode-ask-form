@@ -29,3 +29,12 @@ export const createSteps = <S>(): Steps<S> => {
 }
 
 export const waitingStatus = (window: Page) => window.locator(".statusbar-item", { hasText: "Copilot is waiting for your answer" })
+
+export const printChat = async (window: Page): Promise<void> => {
+  const chat = await window
+    .locator(".interactive-session")
+    .first()
+    .innerText({ timeout: 5000 })
+    .catch(() => "(no chat text)")
+  console.error(`chat panel: ${chat.replaceAll(/\s+/g, " ").slice(0, 1500)}`)
+}

@@ -1,11 +1,11 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeAgents, type FakeAgents } from "./fake-agents.ts"
 import { formFrame, settled, sleep, until } from "./frames.ts"
-import { createSteps, waitingStatus } from "./steps.ts"
+import { createSteps, printChat, waitingStatus } from "./steps.ts"
 import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
 
 interface Paths extends VscodePaths {
@@ -119,6 +119,33 @@ test("REQ-ENV-002 Claudeのハーネスでチャットを停止すると、パ�
 
 test("REQ-ENV-002 Codexのハーネスでは、フォームがチャットの横のパネルに出て、回答がモデルに届く", answeredInPanel("Codex"))
 
+const agentHostLog = async (profile: string): Promise<string> => {
+  const logs = join(profile, "user", "logs")
+  const sessions = await readdir(logs).catch(() => [])
+  const latest = sessions.toSorted().at(-1)
+  const text = latest === undefined ? "" : await readFile(join(logs, latest, "agenthost.log"), "utf8").catch(() => "")
+  return text
+    .split("\n")
+    .filter((line) => /\[(Codex|Claude)\]|error/i.test(line))
+    .slice(-40)
+    .join("\n")
+}
+
+const report = async (paths: Paths, session: Session, profile: string): Promise<void> => {
+  const { window, agents } = session
+  await window.screenshot({ path: join(paths.results, "agents-failure.png"), timeout: 10_000 }).catch(() => null)
+  await writeFile(
+    join(paths.results, "agents-llm.json"),
+    JSON.stringify({ toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames }, undefined, 2)
+  )
+  await printChat(window)
+  console.error(`fake agents: ${agents.toolNames.length} request(s), ask_form calls ${JSON.stringify(agents.toolCalls)}`)
+  for (const names of agents.toolNames) {
+    console.error(`  tools(${names.length}): ${names.filter((name) => /ask|search|user_input/i.test(name)).join(",")}`)
+  }
+  console.error(`agent host log:\n${await agentHostLog(profile)}`)
+}
+
 const prepareCodex = async (home: string, origin: string): Promise<void> => {
   await mkdir(home, { recursive: true })
   await writeFile(join(home, "config.toml"), `openai_base_url = "${origin}/v1"\n`)
@@ -163,13 +190,7 @@ export const runAgents = async (paths: Paths): Promise<void> => {
     const window = await fitWindow(app, { width: 1600, height: 1000 })
     window.context().setDefaultTimeout(30_000)
     const session: Session = { window, agents }
-    await run(session, async () => {
-      await window.screenshot({ path: join(paths.results, "agents-failure.png"), timeout: 10_000 }).catch(() => null)
-      await writeFile(
-        join(paths.results, "agents-llm.json"),
-        JSON.stringify({ toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames }, undefined, 2)
-      )
-    })
+    await run(session, () => report(paths, session, profile))
   } finally {
     await cleanUp(app, agents, profile)
   }

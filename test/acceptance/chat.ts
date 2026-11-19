@@ -5,7 +5,7 @@ import { expect, type ElectronApplication, type Frame, type Page } from "@playwr
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
 import { formFrame, settled, until } from "./frames.ts"
-import { createSteps, waitingStatus } from "./steps.ts"
+import { createSteps, printChat, waitingStatus } from "./steps.ts"
 import { cleanUp, fitWindow, launchVscode, localHarness, type VscodePaths } from "./vscode.ts"
 
 interface Paths extends VscodePaths {
@@ -196,12 +196,7 @@ test("REQ-WAIT-002 フォームが待っている間に設定を有効にする�
 const report = async (paths: Paths, session: Session, log: string): Promise<void> => {
   await session.window.screenshot({ path: join(paths.results, "chat-failure.png"), timeout: 10_000 }).catch(() => null)
   console.error(await readFile(log, "utf8").catch(() => "(no driver log)"))
-  const chat = await session.window
-    .locator(".interactive-session")
-    .first()
-    .innerText({ timeout: 5000 })
-    .catch(() => "(no chat text)")
-  console.error(`chat panel: ${chat.replaceAll(/\s+/g, " ").slice(0, 1500)}`)
+  await printChat(session.window)
   const form = await session.frame
     ?.locator("body")
     .innerText({ timeout: 5000 })
