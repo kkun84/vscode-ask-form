@@ -36,8 +36,8 @@ const withNext = (outcome: Outcome): typeof OutcomeResult.Type => ({ ...outcome,
 
 export const askFormDescription = [
   "Ask the user a question through an interactive form shown in the chat, and wait for the answer.",
-  "Use it only when the answer materially changes the work and the question has several interdependent values, many fields, or values whose consequences the user should see (use computed for those).",
-  "For a single simple choice, prefer the built-in askQuestions tool instead.",
+  "Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice.",
+  "Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see.",
   "Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose.",
   "Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description.",
   "Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious.",
