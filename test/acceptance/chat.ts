@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect, type ElectronApplication, type Frame, type Locator, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
-import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
+import { startFakeModel, type FakeModel } from "./fake-model.ts"
 import { closedDuringClick, formFrame, settled, until } from "./frames.ts"
 import { createSteps, printChat, waitingStatus } from "./steps.ts"
 import { cleanUp, fitWindow, launchVscode, localHarness, type VscodePaths } from "./vscode.ts"
@@ -22,7 +22,7 @@ const check = (condition: boolean, message: string): void => {
 
 interface Session {
   readonly window: Page
-  readonly llm: FakeLlm
+  readonly llm: FakeModel
   frame: Frame | undefined
   callId: string | undefined
 }
@@ -73,13 +73,13 @@ const answer = async (session: Session, button = "Send"): Promise<string> => {
   await settled(frame)
   await frame.getByRole("button", { name: button, exact: true }).dispatchEvent("click").catch(closedDuringClick)
   const result = await until(
-    () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === session.callId)),
+    () => Promise.resolve(session.llm.toolResults.find((item) => item.id === session.callId)),
     `the model receives the answer for ${session.callId}`,
     60_000
   )
   await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
   await closed(frame)
-  await session.window.getByText("FAKE_LLM_DONE", { exact: true }).waitFor({ timeout: 30_000 })
+  await session.window.getByText("FAKE_MODEL_DONE", { exact: true }).waitFor({ timeout: 30_000 })
   await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
   return result.text
 }
@@ -181,13 +181,13 @@ test("REQ-WAIT-002 質問に自動で応じる設定では、フォームは待�
     await runCommand(session, "Ask Form: New acceptance chat")
     const call = await until(() => Promise.resolve(session.llm.toolCalls[callIndex]), "the model asks with a form", 120_000)
     const result = await until(
-      () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === call.id)),
+      () => Promise.resolve(session.llm.toolResults.find((item) => item.id === call.id)),
       "the model receives the result without an answer",
       60_000
     )
     expect(result.text).toContain('"status":"unavailable"')
     expect(result.text).toContain("Do not ask these questions again")
-    await session.window.getByText("FAKE_LLM_DONE", { exact: true }).waitFor({ timeout: 30_000 })
+    await session.window.getByText("FAKE_MODEL_DONE", { exact: true }).waitFor({ timeout: 30_000 })
     await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
     await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
   } finally {
@@ -201,7 +201,7 @@ test("REQ-WAIT-002 フォームが待っている間に設定を有効にする�
   await runCommand(session, "Ask Form: Toggle acceptance auto reply")
   try {
     const result = await until(
-      () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === session.callId)),
+      () => Promise.resolve(session.llm.toolResults.find((item) => item.id === session.callId)),
       "the model receives the result without an answer",
       60_000
     )
@@ -223,35 +223,22 @@ const report = async (paths: Paths, session: Session, log: string): Promise<void
     .innerText({ timeout: 5000 })
     .catch(() => "(no form text)")
   console.error(`form: ${(form ?? "(no frame)").replaceAll(/\s+/g, " ").slice(0, 800)}`)
-  console.error(`fake LLM received ${session.llm.requests.length} request(s)`)
+  console.error(`fake model received ${session.llm.toolNames.length} request(s)`)
   await writeFile(
     join(paths.results, "chat-llm.json"),
     JSON.stringify(
-      {
-        requests: session.llm.requests,
-        toolCalls: session.llm.toolCalls,
-        toolResults: session.llm.toolResults,
-        userMessages: session.llm.userMessages
-      },
+      { toolCalls: session.llm.toolCalls, toolResults: session.llm.toolResults, toolNames: session.llm.toolNames },
       undefined,
       2
     )
   )
-  for (const request of session.llm.requests) {
-    console.error(
-      JSON.stringify({
-        tools: (request.tools ?? []).map((tool) => tool.function?.name),
-        messages: (request.messages ?? []).map((message) => message.role)
-      })
-    )
-  }
 }
 
 export const runChat = async (paths: Paths): Promise<void> => {
   await mkdir(paths.results, { recursive: true })
   const log = join(paths.results, "driver.log")
   await rm(log, { force: true })
-  const llm = await startFakeLlm(trigger, askedSpec)
+  const llm = await startFakeModel(trigger, askedSpec)
   const profile = await mkdtemp(join(tmpdir(), "ask-form-chat-"))
   let app: ElectronApplication | undefined
   try {

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { ElectronApplication, Frame, Locator, Page } from "@playwright/test"
 import { todoSpec } from "../fixtures/todo.ts"
-import { startFakeLlm } from "./fake-llm.ts"
+import { startFakeModel } from "./fake-model.ts"
 import { formFrame, sleep, until } from "./frames.ts"
 import { Pointer, Recorder, run } from "./recording.ts"
 import { query, reply } from "./stage-content.ts"
@@ -186,7 +186,7 @@ export const captureMedia = async (paths: MediaPaths): Promise<Capture> => {
   await rm(frames, { recursive: true, force: true })
   await mkdir(frames, { recursive: true })
   const profile = await mkdtemp(join(tmpdir(), "ask-form-media-"))
-  const llm = await startFakeLlm(trigger, todoSpec, reply)
+  const llm = await startFakeModel(trigger, todoSpec, reply)
   const options = { llm, log: join(profile, "driver.log"), profile, locale: "ja", query, settings, draft: true, scale: density }
   let app: ElectronApplication | undefined
   try {
@@ -214,7 +214,7 @@ export const captureMedia = async (paths: MediaPaths): Promise<Capture> => {
   } finally {
     await writeFile(
       join(paths.work, "llm.json"),
-      JSON.stringify({ toolCalls: llm.toolCalls, toolResults: llm.toolResults, requests: llm.requests.length }, undefined, 2)
+      JSON.stringify({ toolCalls: llm.toolCalls, toolResults: llm.toolResults, requests: llm.toolNames.length }, undefined, 2)
     )
     await cleanUp(app, llm, profile)
   }

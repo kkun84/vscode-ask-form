@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises"
 import { DatabaseSync } from "node:sqlite"
 import { join } from "node:path"
 import { _electron as electron, type ElectronApplication, type Page } from "@playwright/test"
-import type { FakeLlm } from "./fake-llm.ts"
+import type { FakeModel } from "./fake-model.ts"
 import { sleep } from "./frames.ts"
 
 export interface VscodePaths {
@@ -12,7 +12,7 @@ export interface VscodePaths {
 }
 
 export interface LaunchOptions {
-  readonly llm?: FakeLlm
+  readonly llm?: FakeModel
   readonly log: string
   readonly profile: string
   readonly locale: string
