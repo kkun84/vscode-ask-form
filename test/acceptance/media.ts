@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { ElectronApplication, Frame, Locator, Page } from "@playwright/test"
 import { todoSpec } from "../fixtures/todo.ts"
-import { startFakeModel } from "./fake-model.ts"
+import { startStubModel } from "./stub-model.ts"
 import { formFrame, sleep, until } from "./frames.ts"
 import { Pointer, Recorder, run } from "./recording.ts"
 import { query, reply } from "./stage-content.ts"
@@ -86,7 +86,7 @@ const regionOf = async (...targets: ReadonlyArray<Locator>): Promise<Rect> => {
 
 const ask = async (page: Page, pointer: Pointer, recorder: Recorder): Promise<Frame> => {
   const input = page.locator(".interactive-input-part .monaco-editor .view-lines").last()
-  await page.locator(".interactive-input-part").last().getByText("Fake Model").first().waitFor({ timeout: 60_000 })
+  await page.locator(".interactive-input-part").last().getByText("Stub Model").first().waitFor({ timeout: 60_000 })
   await sleep(1200)
   await pointer.click(input)
   recorder.mark("typing")
@@ -186,7 +186,7 @@ export const captureMedia = async (paths: MediaPaths): Promise<Capture> => {
   await rm(frames, { recursive: true, force: true })
   await mkdir(frames, { recursive: true })
   const profile = await mkdtemp(join(tmpdir(), "ask-form-media-"))
-  const llm = await startFakeModel(trigger, todoSpec, reply)
+  const llm = await startStubModel(trigger, todoSpec, reply)
   const options = { llm, log: join(profile, "driver.log"), profile, locale: "ja", query, settings, draft: true, scale: density }
   let app: ElectronApplication | undefined
   try {

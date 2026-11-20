@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
-import { startFakeModel, type FakeModel } from "./fake-model.ts"
+import { startStubModel, type StubModel } from "./stub-model.ts"
 import { closedDuringClick, formFrame, settled, sleep, until } from "./frames.ts"
 import { createSteps, printChat, waitingStatus } from "./steps.ts"
 import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
@@ -18,7 +18,7 @@ const trigger = "ASK_FORM_E2E"
 interface Session {
   readonly app: ElectronApplication
   readonly window: Page
-  readonly agents: FakeModel
+  readonly agents: StubModel
 }
 
 type Harness = "Codex" | "Copilot"
@@ -154,7 +154,7 @@ const answer = async (session: Session, page: Page, frame: Frame, callId: string
   const result = await resultOf(session, callId)
   expect(result.text).toContain('"status":"submitted"')
   expect(result.text).toContain('"changedByUser":["attendees"]')
-  await page.getByText("FAKE_MODEL_DONE", { exact: true }).waitFor({ timeout: 60_000 })
+  await page.getByText("STUB_MODEL_DONE", { exact: true }).waitFor({ timeout: 60_000 })
 }
 
 const answerDelay = Number(process.env["ASK_FORM_E2E_ANSWER_DELAY_MS"] ?? "0")
@@ -251,7 +251,7 @@ const report = async (paths: Paths, session: Session, profile: string): Promise<
   for (const page of app.windows()) {
     await printChat(page)
   }
-  console.error(`fake agents: ${agents.toolNames.length} request(s), ask_form calls ${JSON.stringify(agents.toolCalls)}`)
+  console.error(`stub agents: ${agents.toolNames.length} request(s), ask_form calls ${JSON.stringify(agents.toolCalls)}`)
   for (const names of agents.toolNames) {
     console.error(`  tools(${names.length}): ${names.filter((name) => /ask|search|user_input/i.test(name)).join(",")}`)
   }
@@ -261,7 +261,7 @@ const report = async (paths: Paths, session: Session, profile: string): Promise<
 const prepareCodex = async (home: string, origin: string): Promise<void> => {
   await mkdir(home, { recursive: true })
   await writeFile(join(home, "config.toml"), `openai_base_url = "${origin}/v1"\n`)
-  await writeFile(join(home, "auth.json"), JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "sk-fake" }))
+  await writeFile(join(home, "auth.json"), JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "sk-stub" }))
 }
 
 export const runAgents = async (paths: Paths): Promise<void> => {
@@ -269,7 +269,7 @@ export const runAgents = async (paths: Paths): Promise<void> => {
   await mkdir(paths.sdkCache, { recursive: true })
   const log = join(paths.results, "driver.log")
   await rm(log, { force: true })
-  const agents = await startFakeModel(trigger, eventSpec)
+  const agents = await startStubModel(trigger, eventSpec)
   const profile = await mkdtemp(join(tmpdir(), "ask-form-agents-"))
   let app: ElectronApplication | undefined
   try {

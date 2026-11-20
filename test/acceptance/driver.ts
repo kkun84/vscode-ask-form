@@ -49,14 +49,14 @@ const registerModel = async (url: string): Promise<vscode.LanguageModelChat> => 
     .map((item) => `${item.id}@${String(item.packageJSON?.version)} active=${String(item.isActive)}`)
   log(`copilot extensions: ${copilot.join(", ") || "none"}`)
   await addGroup({
-    name: "Fake",
+    name: "Stub",
     vendor: "customendpoint",
-    apiKey: "fake-key",
+    apiKey: "stub-key",
     apiType: "chat-completions",
     models: [
       {
-        id: process.env["ASK_FORM_E2E_MODEL_ID"] ?? "fake-model",
-        name: "Fake Model",
+        id: process.env["ASK_FORM_E2E_MODEL_ID"] ?? "stub-model",
+        name: "Stub Model",
         url,
         toolCalling: true,
         vision: false,
@@ -70,7 +70,7 @@ const registerModel = async (url: string): Promise<vscode.LanguageModelChat> => 
   const model = await waitForModel()
   log(`model ${model === undefined ? "missing" : `${model.vendor}/${model.id}`}`)
   if (model === undefined) {
-    throw new Error("the fake model is unavailable")
+    throw new Error("the stub model is unavailable")
   }
   return model
 }

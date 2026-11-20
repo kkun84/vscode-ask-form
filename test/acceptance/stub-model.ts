@@ -7,7 +7,7 @@ export interface ModelToolCall {
   readonly name: string
 }
 
-export interface FakeModel {
+export interface StubModel {
   readonly origin: string
   readonly url: string
   readonly toolCalls: Array<ModelToolCall>
@@ -30,9 +30,9 @@ interface Script {
 }
 
 interface State {
-  readonly toolCalls: FakeModel["toolCalls"]
-  readonly toolResults: FakeModel["toolResults"]
-  readonly toolNames: FakeModel["toolNames"]
+  readonly toolCalls: StubModel["toolCalls"]
+  readonly toolResults: StubModel["toolResults"]
+  readonly toolNames: StubModel["toolNames"]
   readonly nextId: (prefix: string) => string
   readonly cells: Map<string, string>
   readonly waits: Map<string, string>
@@ -325,7 +325,7 @@ const handle = async (state: State, script: Script, req: IncomingMessage, res: S
   }
 }
 
-export const startFakeModel = async (trigger: string, args: Json, done = "FAKE_MODEL_DONE", other = "ok"): Promise<FakeModel> => {
+export const startStubModel = async (trigger: string, args: Json, done = "STUB_MODEL_DONE", other = "ok"): Promise<StubModel> => {
   let sequence = 0
   const state: State = {
     toolCalls: [],
