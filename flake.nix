@@ -28,6 +28,28 @@
       devShells = forAll (
         pkgs:
         let
+          vscode = pkgs.vscode.overrideAttrs (_: rec {
+            version = "1.146.0";
+            src = pkgs.fetchurl {
+              name = "VSCode_${version}_${platform}.${archive}";
+              url = "https://update.code.visualstudio.com/${version}/${platform}/stable";
+              hash =
+                {
+                  x86_64-linux = "sha256-y9t73j01jHKXzx2datwW37HQF5UB+ywVLfSFk+OeNgA=";
+                  aarch64-linux = "sha256-meUDMH/JVpoJ5G3TmgtByNE696BwHu48bsglV2O/I/w=";
+                  aarch64-darwin = "sha256-bo0n7gxajyqjxD43NAfuzRHCcMP+f0YQDvaCqsFLtkg=";
+                }
+                .${pkgs.stdenv.hostPlatform.system};
+            };
+            platform =
+              {
+                x86_64-linux = "linux-x64";
+                aarch64-linux = "linux-arm64";
+                aarch64-darwin = "darwin-arm64";
+              }
+              .${pkgs.stdenv.hostPlatform.system};
+            archive = if pkgs.stdenv.hostPlatform.isDarwin then "zip" else "tar.gz";
+          });
           fonts = pkgs.makeFontsConf {
             fontDirectories = [
               pkgs.noto-fonts
@@ -55,17 +77,17 @@
             packages =
               base.packages
               ++ [
-                pkgs.vscode
+                vscode
                 pkgs.ffmpeg-headless
               ]
               ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.xvfb-run ];
             env = base.env // {
-              VSCODE_EXECUTABLE = "${pkgs.vscode}/bin/code";
+              VSCODE_EXECUTABLE = "${vscode}/bin/code";
               VSCODE_ELECTRON =
                 if pkgs.stdenv.hostPlatform.isDarwin then
-                  "${pkgs.vscode}/Applications/Visual Studio Code.app/Contents/MacOS/Code"
+                  "${vscode}/Applications/Visual Studio Code.app/Contents/MacOS/Code"
                 else
-                  "${pkgs.vscode}/lib/vscode/code";
+                  "${vscode}/lib/vscode/code";
             };
           };
         }

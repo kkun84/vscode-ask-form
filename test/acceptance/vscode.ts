@@ -42,6 +42,8 @@ const prepareProfile = async (user: string, settings: Readonly<Record<string, un
   )
 }
 
+export const localHarness = { "chat.defaultToCopilotHarness": false, "chat.editor.preferCopilotHarness": false }
+
 export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): Promise<ElectronApplication> => {
   const user = join(options.profile, "user")
   await prepareProfile(user, options.settings ?? {})
