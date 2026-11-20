@@ -25,8 +25,6 @@ const setup = (crossOrigin = false) => {
   useWindow(receiver)
   const connecting = connect({
     onToolInput: (args) => events.push(args),
-    onToolResult: (result) => events.push(result),
-    onToolCancelled: () => events.push("cancelled"),
     onHostContext: (value) => events.push(value)
   })
   const deliver = (data: Record<string, unknown>, source: unknown = target, origin = "https://host.test") => {
@@ -40,8 +38,8 @@ it("DES-UI-002 別の送り主や異なるoriginからの初期化と通知を�
   const state = setup()
   for (const source of [null, {}, state.receiver]) {
     state.deliver({ id: 1, result: { hostContext: { locale: "forged" } } }, source)
-    for (const method of ["tool-cancelled", "tool-result", "tool-input", "host-context-changed"]) {
-      state.deliver({ method: `ui/notifications/${method}` }, source)
+    for (const method of ["tool-input", "host-context-changed"]) {
+      state.deliver({ method: `ui/notifications/${method}`, params: { arguments: { forged: true } } }, source)
     }
   }
   state.deliver({ id: 1, result: { hostContext: { locale: "forged" } } }, state.target, "https://other.test")
@@ -50,8 +48,8 @@ it("DES-UI-002 別の送り主や異なるoriginからの初期化と通知を�
   assert.equal(state.sent.length, 1)
   state.deliver({ id: 1, result: { hostContext: { locale: "ja" } } })
   await state.connecting
-  state.deliver({ method: "ui/notifications/tool-cancelled" })
-  assert.deepEqual(state.events, [{ locale: "ja" }, "cancelled"])
+  state.deliver({ method: "ui/notifications/tool-input", params: { arguments: { title: "t" } } })
+  assert.deepEqual(state.events, [{ locale: "ja" }, { title: "t" }])
 })
 
 it("DES-UI-002 呼び出しの成功も失敗も検証したホストからだけ受け付ける", async () => {

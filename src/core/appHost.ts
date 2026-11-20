@@ -1,5 +1,5 @@
 import { Result } from "effect"
-import { outcomeFor, outcomeText, type Action, type CompiledForm, type Outcome } from "./form.ts"
+import { outcomeFor, type Action, type CompiledForm, type Outcome } from "./form.ts"
 import { checkAnswer, type Answer } from "./validate.ts"
 
 export interface HostContext {
@@ -20,7 +20,6 @@ export interface AppHostOptions {
 export interface AppHost {
   readonly receive: (message: unknown) => void
   readonly cancel: () => void
-  readonly settled: () => boolean
 }
 
 interface Incoming {
@@ -58,9 +57,7 @@ const answerWith = (options: AppHostOptions, state: HostState, params: Record<st
   }
   const outcome = outcomeFor(options.form, action, answer)
   state.status = "answered"
-  const structured = { ...outcome, next: outcomeText(outcome) }
   options.onOutcome(outcome)
-  options.post({ jsonrpc: "2.0", method: "ui/notifications/tool-result", params: textResult(structured.next, false, structured) })
   return textResult(JSON.stringify({ accepted: true }), false, { accepted: true })
 }
 
@@ -77,9 +74,6 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
       hostContext: { ...options.context, displayMode: "inline" }
     })
     notify("ui/notifications/tool-input", { arguments: options.args })
-    if (state.status === "cancelled") {
-      notify("ui/notifications/tool-cancelled", { reason: "cancelled" })
-    }
   }
 
   const callTool = (id: number | string, params: Record<string, unknown>) => {
@@ -90,10 +84,6 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
       case "form_settings": {
         const settings = { commentPresets: options.commentPresets ?? null }
         return respond(id, textResult(JSON.stringify(settings), false, settings))
-      }
-      case "form_status": {
-        const status = { status: args["formKey"] === options.form.key ? state.status : "unknown" }
-        return respond(id, textResult(JSON.stringify(status), false, status))
       }
       default:
         return options.post({ jsonrpc: "2.0", id, error: { code: -32601, message: "unknown tool" } })
@@ -122,9 +112,7 @@ export const createAppHost = (options: AppHostOptions): AppHost => {
     cancel: () => {
       if (state.status === "pending") {
         state.status = "cancelled"
-        notify("ui/notifications/tool-cancelled", { reason: "cancelled" })
       }
-    },
-    settled: () => state.status !== "pending"
+    }
   }
 }

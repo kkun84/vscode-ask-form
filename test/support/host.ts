@@ -11,7 +11,7 @@ export interface ToolResult {
 }
 
 export interface Harness {
-  readonly call: (name: "ask_form" | "form_answer" | "form_status", args: Record<string, unknown>) => Effect.Effect<ToolResult>
+  readonly call: (name: "ask_form" | "form_answer", args: Record<string, unknown>) => Effect.Effect<ToolResult>
   readonly tool: (name: "ask_form") => Effect.Effect<{ readonly inputSchema: unknown }>
   readonly waitUntil: (count: number) => Effect.Effect<void>
 }
@@ -67,20 +67,18 @@ const harness = (): Harness => {
         }
       })
     })
-  const panelCall = (name: "form_answer" | "form_status", args: Record<string, unknown>) =>
+  const answer = (args: Record<string, unknown>) =>
     Effect.sync(() => {
       const entry = waiting.find((item) => item.form.key === args["formKey"]) ?? asked.findLast((item) => item.form.key === args["formKey"])
       if (entry === undefined) {
-        return name === "form_status"
-          ? textOf(JSON.stringify({ status: "unknown" }), false, { status: "unknown" })
-          : textOf("expired: このフォームはもう回答を受け付けていません", true)
+        return textOf("expired: このフォームはもう回答を受け付けていません", true)
       }
       const id = nextId++
-      entry.host.receive({ jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args } })
+      entry.host.receive({ jsonrpc: "2.0", id, method: "tools/call", params: { name: "form_answer", arguments: args } })
       return entry.replies.get(id) as ToolResult
     })
   return {
-    call: (name, args) => (name === "ask_form" ? ask(args) : panelCall(name, args)),
+    call: (name, args) => (name === "ask_form" ? ask(args) : answer(args)),
     tool: () => Effect.succeed({ inputSchema: formSpecJsonSchema }),
     waitUntil: (count) =>
       Effect.suspend(() => (waiting.length === count ? Effect.void : Effect.fail("not yet"))).pipe(

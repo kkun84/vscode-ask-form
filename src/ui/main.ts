@@ -7,8 +7,6 @@ if (root !== null) {
   const app = new FormApp(root)
   const bridge = await connect({
     onToolInput: (args) => app.setInput(args),
-    onToolResult: (result) => app.setResult(result),
-    onToolCancelled: () => app.setCancelled(),
     onHostContext: (context) => app.setContext(context)
   })
   app.attach(bridge)

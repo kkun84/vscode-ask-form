@@ -37,8 +37,6 @@ const expectError = (call: Effect.Effect<ToolResult>, pattern: RegExp) =>
 
 const expectExpired = (h: Harness, formKey: string) => expectError(h.call("form_answer", { formKey, action: "chat" }), /expired/)
 
-const statusOf = (h: Harness) => Effect.map(h.call("form_status", { formKey: form.key }), (result) => structured(result)["status"])
-
 const answered = (h: Harness, action: "submit" | "chat") =>
   Effect.gen(function* () {
     const fiber = yield* ask(h)
@@ -156,7 +154,7 @@ describe("SPEC-TOOL-005 画面からの回答", () => {
         const noted = { formKey: form.key, action: "submit", values: initialValues(form.spec) }
         yield* expectError(h.call("form_answer", { ...noted, note: 1 }), /note/)
         yield* expectError(h.call("form_answer", { ...noted, note: "x".repeat(2001) }), /note/)
-        assert.equal(yield* statusOf(h), "pending")
+        assert.equal((yield* h.call("form_answer", noted)).isError, false)
       })
     ))
 
@@ -209,7 +207,6 @@ describe("SPEC-TOOL-007 中断", () => {
         const fiber = yield* ask(h)
         yield* Fiber.interrupt(fiber)
         yield* h.waitUntil(0)
-        assert.equal(yield* statusOf(h), "cancelled")
         yield* expectExpired(h, form.key)
       })
     ))
@@ -224,15 +221,6 @@ describe("SPEC-TOOL-007 中断", () => {
         yield* h.waitUntil(1)
         yield* h.call("form_answer", { formKey: stableHash(otherSpec), action: "chat" })
         assert.equal(structured(yield* Fiber.join(other))["status"], "answer_in_chat")
-      })
-    ))
-
-  it("SPEC-TOOL-007 未知の鍵と回答済みの鍵は中断と区別する", () =>
-    withHarness((h) =>
-      Effect.gen(function* () {
-        assert.equal(yield* statusOf(h), "unknown")
-        yield* answered(h, "submit")
-        assert.equal(yield* statusOf(h), "answered")
       })
     ))
 })

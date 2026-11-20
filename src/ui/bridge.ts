@@ -12,8 +12,6 @@ export interface ToolResult {
 
 export interface BridgeHandlers {
   readonly onToolInput: (args: Readonly<Record<string, unknown>>) => void
-  readonly onToolResult: (result: ToolResult) => void
-  readonly onToolCancelled: () => void
   readonly onHostContext: (context: HostContext) => void
 }
 
@@ -95,8 +93,6 @@ export const connect = (handlers: BridgeHandlers, target: Window = window.parent
 
   const notifications: Readonly<Record<string, (params: Record<string, unknown>) => void>> = {
     "ui/notifications/tool-input": (params) => handlers.onToolInput((params["arguments"] ?? {}) as Readonly<Record<string, unknown>>),
-    "ui/notifications/tool-result": (params) => handlers.onToolResult(params as ToolResult),
-    "ui/notifications/tool-cancelled": () => handlers.onToolCancelled(),
     "ui/notifications/host-context-changed": (params) => handlers.onHostContext(params as HostContext)
   }
 

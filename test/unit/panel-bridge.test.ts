@@ -4,7 +4,7 @@ import { installPanelBridge } from "../../src/extension/shared/bridge.ts"
 import { connect } from "../../src/ui/bridge.ts"
 import { useWindow } from "../support/window.ts"
 
-it("DES-UI-002 パネルは同じoriginの実際の親だけを橋渡しして初期化と中断を受け取る", async () => {
+it("DES-UI-002 パネルは同じoriginの実際の親だけを橋渡しして初期化と設計図を受け取る", async () => {
   const listeners = new Set<EventListener>()
   const sent: Array<Record<string, unknown>> = []
   const receiver = {
@@ -20,8 +20,6 @@ it("DES-UI-002 パネルは同じoriginの実際の親だけを橋渡しして�
   const events: Array<string> = []
   const connected = connect({
     onToolInput: () => events.push("input"),
-    onToolResult: () => events.push("result"),
-    onToolCancelled: () => events.push("cancelled"),
     onHostContext: () => events.push("context")
   })
   const deliver = (source: unknown, origin: string, message: Record<string, unknown>) => {
@@ -38,8 +36,8 @@ it("DES-UI-002 パネルは同じoriginの実際の親だけを橋渡しして�
   deliver(parent, receiver.location.origin, { id: 1, result: { hostContext: {} } })
   const bridge = await connected
   bridge.notifySize(100)
-  deliver(parent, receiver.location.origin, { method: "ui/notifications/tool-cancelled" })
-  assert.deepEqual(events, ["context", "cancelled"])
+  deliver(parent, receiver.location.origin, { method: "ui/notifications/tool-input", params: { arguments: {} } })
+  assert.deepEqual(events, ["context", "input"])
   assert.equal(sent.at(-1)?.["method"], "ui/notifications/size-changed")
   const listener = () => assert.fail(events.join())
   window.addEventListener("message", listener)

@@ -13,7 +13,6 @@
   --link: var(--color-text-info, var(--vscode-textLink-foreground, light-dark(#005fb8, #4daafc)));
   --danger: var(--color-text-danger, var(--vscode-errorForeground, #f48771));
   --danger-text: color-mix(in srgb, var(--danger) 70%, var(--fg));
-  --success: var(--color-text-success, var(--vscode-testing-iconPassed, #73c991));
   --focus: var(--color-ring-primary, var(--vscode-focusBorder, light-dark(#005fb8, #0078d4)));
   --radius: var(--border-radius-lg, 6px);
   --font: var(--font-sans, var(--vscode-font-family, system-ui, sans-serif));
@@ -566,54 +565,11 @@ summary:focus-visible {
   outline-offset: 1px;
 }
 
-.summary-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.check {
-  color: var(--success);
-}
-
-.summary dl {
-  display: grid;
-  grid-template-columns: fit-content(40%) minmax(0, 1fr);
-  gap: 6px 16px;
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--fg) 5%, transparent);
-  font-size: 13px;
-}
-
-.summary-row {
-  display: contents;
-}
-
-.summary dt {
-  color: var(--muted);
-}
-
-.summary dd {
-  margin: 0;
-}
-
-.mark {
-  margin-left: 8px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
 .error {
   margin: 0;
   color: var(--danger-text);
   white-space: pre-wrap;
   font-family: var(--font);
-}
-
-.closed {
-  color: var(--muted);
 }
 
 @media (forced-colors: active) {
@@ -726,25 +682,6 @@ summary:focus-visible {
   text-decoration: underline;
 }
 
-.commented {
-  display: flex;
-  gap: 4px;
-  align-items: baseline;
-  color: var(--muted);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.commented .comment-icon {
-  color: var(--link);
-  transform: translateY(2px);
-}
-
 .note .q-desc {
   margin: 8px 0 6px;
-}
-
-.noted {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }

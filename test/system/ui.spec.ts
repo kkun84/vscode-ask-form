@@ -199,160 +199,24 @@ test.describe("SPEC-UI-003 入力の確定", () => {
     await frame.getByRole("spinbutton", { name: "参加者数" }).fill("900")
     await frame.getByRole("spinbutton", { name: "参加者数" }).press("Control+Enter")
     await expect.poll(async () => (await recorded<OutcomeLike>(page, "outcomes"))[0]?.values?.["attendees"]).toBe(300)
-    await expect(frame.locator(".summary-row", { hasText: "参加者数" })).toContainText("300人")
   })
 })
 
-test.describe("SPEC-UI-004 回答後の要約", () => {
-  test("SPEC-UI-004 回答後は要約になり、推奨から変えた項目に元の推奨を添える", async ({ page }) => {
-    const frame = await openWithTalk(page)
-    await frame.getByRole("spinbutton", { name: "参加者数" }).fill("150")
-    await frame.getByRole("button", { name: "送信", exact: true }).click()
-    const summary = frame.locator(".summary")
-    await expect(summary.getByText("送信しました")).toBeFocused()
-    await expect(summary.locator(".summary-row", { hasText: "形式" })).toHaveText("形式勉強会推奨: 交流会")
-    await expect(summary.locator(".summary-row", { hasText: "参加者数" })).toHaveText("参加者数150人推奨: 120人")
-  })
-
-  test("SPEC-UI-004 ツールの結果を受け取ったときも要約を表示する", async ({ page }) => {
-    const frame = await open(page, {
-      restore: { status: "submitted", values: { ...defaults(), price: 3000 }, held: [], changedByUser: ["price"], computed: {} }
-    })
-    await expect(frame.locator(".summary").getByText("送信しました")).toBeVisible()
-    await expect(frame.locator(".summary-row", { hasText: "参加費" })).toContainText("¥3,000")
-  })
-
-  test("SPEC-UI-004 キャンセルした場合は値を示さない", async ({ page }) => {
+test.describe("SPEC-UI-006 受け付けられない回答", () => {
+  test("SPEC-UI-006 回答が受け付けられないと、ホストが返した誤りを示し、回答の操作を残す", async ({ page }) => {
     const frame = await open(page)
-    await frame.getByRole("button", { name: "キャンセル" }).click()
-    await expect(frame.getByText("回答せずに閉じました")).toBeVisible()
-    await expect(frame.locator(".summary-row")).toHaveCount(0)
+    await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
+    await send(frame)
+    const status = frame.locator(".status")
+    await expect(status).toHaveText(/^expired: /)
+    await expect(status).toHaveClass(/error/)
+    await expect(frame.locator("footer").getByRole("button")).toHaveText(["キャンセル", "送信"])
+    await expect(frame.getByRole("button", { name: "送信", exact: true })).toBeEnabled()
+    expect(await recorded(page, "outcomes")).toHaveLength(0)
   })
 })
 
-test("SPEC-UI-004 質問せずに進めた結果を受け取ると、その旨を示して回答を受け付けない", async ({ page }) => {
-  const frame = await open(page, { restore: { status: "unavailable", next: "" } })
-  await expect(frame.locator(".summary")).toHaveText("✓質問に自動で応じる設定(chat.autoReply)が有効なため、質問せずに進めました")
-  await expect(frame.getByRole("button")).toHaveCount(0)
-})
-
-const cancelThenResult = async (page: Page, frame: Frame, status: string) => {
-  await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
-  await expect(frame.locator(".closed")).toBeVisible()
-  await page.evaluate((delivered) => {
-    document
-      .querySelector<HTMLIFrameElement>("#form")
-      ?.contentWindow?.postMessage(
-        { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: delivered } } },
-        window.location.origin
-      )
-  }, status)
-}
-
-test("SPEC-UI-004 中断を示した後に質問せずに進めた結果が届いたら、その旨に表示を改める", async ({ page }) => {
-  const frame = await open(page)
-  await cancelThenResult(page, frame, "unavailable")
-  await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
-  await expect(frame.getByRole("button")).toHaveCount(0)
-})
-
-test("SPEC-UI-004 質問せずに進めた旨を示した後に、遅れた返答が届いても表示を変えない", async ({ page }) => {
-  const frame = await open(page, { expireOnAnswer: true, unavailableBeforeExpiry: true })
-  await frame.getByRole("button", { name: "送信", exact: true }).click()
-  await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
-  await frame.evaluate(
-    () =>
-      new Promise((resolve) => {
-        setTimeout(resolve, 100)
-      })
-  )
-  await expect(frame.locator(".summary")).toContainText("質問せずに進めました")
-  await expect(frame.getByText("この質問は終了しています")).toHaveCount(0)
-})
-
-const statusRequests = async (page: Page) =>
-  (await recorded<{ readonly method?: string; readonly params?: { readonly name?: string } }>(page, "messages")).filter(
-    (message) => message.method === "tools/call" && message.params?.name === "form_status"
-  ).length
-
-const releaseStatus = (page: Page, result: Record<string, unknown>) =>
-  page.evaluate(
-    (value) => (window as unknown as { harness: { releaseStatus: (reply: Record<string, unknown>) => void } }).harness.releaseStatus(value),
-    result
-  )
-
-const openWithStatus = async (page: Page) => {
-  const frame = await open(page, { holdStatus: true })
-  await expect.poll(() => statusRequests(page)).toBe(1)
-  return frame
-}
-
-const expectCancelled = async (frame: Frame) => {
-  await expect(frame.locator(".closed")).toHaveText("キャンセルされました")
-  await expect(frame.getByRole("button")).toHaveCount(0)
-}
-
-test.describe("SPEC-UI-006 中断と期限切れ", () => {
-  test("SPEC-UI-006 読み込み前の中断は初期化後すぐ表示し、状態の確認を待たない", async ({ page }) => {
-    await page.route("**/form.html", async (route) => {
-      await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
-      await route.continue()
-    })
-    const frame = await open(page, { holdStatus: true })
-    await expectCancelled(frame)
-  })
-
-  for (const omitCancellation of [false, true]) {
-    test(`SPEC-UI-006 中断通知${omitCancellation ? "なしでもサーバーの状態から" : "で"}回答できなくなる`, async ({ page }) => {
-      const frame = await open(page, { omitCancellation, context: { locale: "en" } })
-      await expect.poll(() => statusRequests(page)).toBeGreaterThan(0)
-      await page.evaluate(() => (window as unknown as { harness: { cancel: () => void } }).harness.cancel())
-      await expect(frame.locator("#app > .closed[role='status']")).toHaveText("Cancelled")
-      await expect(frame.getByRole("button")).toHaveCount(0)
-      const requests = await statusRequests(page)
-      await page.clock.install()
-      await page.clock.runFor(3000)
-      expect(await statusRequests(page)).toBe(requests)
-    })
-  }
-
-  test("SPEC-UI-006 未登録や通信の誤りを中断と扱わず、次の状態を確認する", async ({ page }) => {
-    const frame = await openWithStatus(page)
-    await releaseStatus(page, { structuredContent: { status: "unknown" } })
-    await expect.poll(() => statusRequests(page)).toBe(2)
-    await releaseStatus(page, { isError: true, structuredContent: { status: "cancelled" } })
-    await expect.poll(() => statusRequests(page)).toBe(3)
-    await expect(frame.locator("form.card")).toBeVisible()
-    await releaseStatus(page, { structuredContent: { status: "cancelled" } })
-    await expect(frame.locator(".closed")).toHaveText("キャンセルされました")
-  })
-
-  test("SPEC-UI-006 遅れて届いた中断の状態は回答済みの要約を閉じない", async ({ page }) => {
-    const frame = await openWithStatus(page)
-    await frame.getByRole("button", { name: "送信", exact: true }).click()
-    await expect(frame.locator(".summary")).toBeVisible()
-    await releaseStatus(page, { structuredContent: { status: "cancelled" } })
-    await page.clock.install()
-    await page.clock.runFor(3000)
-    await expect(frame.locator(".summary")).toBeVisible()
-    expect(await statusRequests(page)).toBe(1)
-  })
-
-  test("SPEC-UI-006 中断の後にツールの結果が届いてもフォームを再開しない", async ({ page }) => {
-    const frame = await open(page)
-    await cancelThenResult(page, frame, "answer_in_chat")
-    await expectCancelled(frame)
-  })
-
-  test("SPEC-UI-006 受け付けられないと返されると期限切れを示す", async ({ page }) => {
-    const frame = await open(page, { expireOnAnswer: true })
-    await frame.getByRole("button", { name: "送信", exact: true }).click()
-    await expect(frame.getByText("この質問は終了しています")).toBeVisible()
-    await expect(frame.getByRole("button")).toHaveCount(0)
-  })
-})
-
-test("SPEC-UI-010 別のフレームから偽の中断や結果が届いても回答を続けられる", async ({ page }) => {
+test("SPEC-UI-010 別のフレームから偽の設計図や表示設定が届いても、元のフォームで回答を続けられる", async ({ page }) => {
   const frame = await open(page)
   await page.evaluate(() => {
     const sibling = document.createElement("iframe")
@@ -361,14 +225,19 @@ test("SPEC-UI-010 別のフレームから偽の中断や結果が届いても�
   })
   const sibling = page.frame("untrusted")
   expect(sibling).not.toBeNull()
-  await sibling?.evaluate(() => {
+  await sibling?.evaluate((spec) => {
     const form = window.parent.document.querySelector<HTMLIFrameElement>("#form")?.contentWindow
-    form?.postMessage({ jsonrpc: "2.0", method: "ui/notifications/tool-cancelled" }, "*")
-    form?.postMessage(
-      { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent: { status: "answer_in_chat" } } },
-      "*"
-    )
-  })
+    form?.postMessage({ jsonrpc: "2.0", method: "ui/notifications/tool-input", params: { arguments: { ...spec, title: "偽の質問" } } }, "*")
+    form?.postMessage({ jsonrpc: "2.0", method: "ui/notifications/host-context-changed", params: { locale: "en" } }, "*")
+  }, eventSpec)
+  await frame.evaluate(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(resolve, 100)
+      })
+  )
+  await expect(frame.getByRole("heading", { level: 1 })).toHaveText(eventSpec.title)
+  await expect(frame.locator("footer").getByRole("button")).toHaveText(["キャンセル", "送信"])
   await frame.getByRole("button", { name: "送信", exact: true }).click()
   await expect.poll(() => recorded<OutcomeLike>(page, "outcomes")).toEqual([expect.objectContaining({ status: "submitted" })])
 })
@@ -428,7 +297,7 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     expect(await axeViolations(frame)).toEqual([])
   })
 
-  test("SPEC-UI-011 回答と要約には選んだ選択肢の項目だけを含める", async ({ page }) => {
+  test("SPEC-UI-011 回答には選んだ選択肢の項目だけを含める", async ({ page }) => {
     const frame = await openStorage(page)
     await frame.getByRole("radio", { name: "サーバー" }).check()
     await frame.getByRole("spinbutton", { name: "ポート" }).fill("3000")
@@ -436,13 +305,6 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     const outcome = await singleOutcome(page)
     expect(outcome?.values).toEqual({ name: "my-todo", storage: "server", port: 3000, auth: "no" })
     expect(outcome?.changedByUser).toEqual(["storage", "port"])
-    const summary = frame.locator(".summary")
-    await expect(summary.locator(".summary-row")).toHaveText([
-      "アプリ名my-todo",
-      "保存先サーバー推奨: ブラウザ",
-      "ポート3,000推奨: 8,080",
-      "ログイン不要"
-    ])
   })
 })
 
@@ -471,16 +333,6 @@ test.describe("ARCH-UI-001 画面の通信は1種類", () => {
         ])
       )
   })
-})
-
-const defaults = () => ({
-  name: "技術交流会 2026",
-  format: "meetup",
-  attendees: 120,
-  price: 2000,
-  stream: "yes",
-  extras: ["sticker"],
-  venue: 140000
 })
 
 const holdSpec = {
@@ -588,7 +440,7 @@ test.describe("SPEC-UI-013 補足の入力", () => {
 })
 
 test.describe("SPEC-UI-013 補足", () => {
-  test("SPEC-UI-013 閉じた補足を開いて書くと、回答と一緒に届き、要約に残る", async ({ page }) => {
+  test("SPEC-UI-013 閉じた補足を開いて書くと、前後の空白を除いて回答と一緒に届く", async ({ page }) => {
     const frame = await open(page)
     await expect(note(frame)).toBeHidden()
     await frame.locator("details.note summary").click()
@@ -599,8 +451,6 @@ test.describe("SPEC-UI-013 補足", () => {
     await note(frame).press("ControlOrMeta+Enter")
     const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly note?: string }
     expect(outcome.note).toBe("会場は未定です\n参加費は任せます")
-    await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です\n参加費は任せます")
-    expect(await frame.locator(".noted").evaluate((element) => element.textContent)).toBe("会場は未定です\n参加費は任せます")
   })
 
   test("SPEC-UI-013 補足を書いても、未回答の質問が残る間は送信できない", async ({ page }) => {
@@ -618,26 +468,11 @@ test.describe("SPEC-UI-013 補足", () => {
     expect(await recorded(page, "outcomes")).toHaveLength(0)
   })
 
-  test("SPEC-UI-013 補足を書かなければnoteを渡さず、要約にも出さない", async ({ page }) => {
+  test("SPEC-UI-013 補足を書かなければnoteを渡さない", async ({ page }) => {
     const frame = await open(page)
     await send(frame)
     const outcome = (await singleOutcome(page)) as OutcomeLike & { readonly note?: string }
     expect("note" in outcome).toBe(false)
-    await expect(frame.locator(".summary dt", { hasText: "補足" })).toHaveCount(0)
-  })
-
-  test("SPEC-UI-013 ツールの結果から復元した要約にも補足を示す", async ({ page }) => {
-    const frame = await open(page, {
-      restore: {
-        status: "submitted",
-        values: { name: "技術交流会 2026" },
-        held: [],
-        changedByUser: [],
-        computed: {},
-        note: "会場は未定です"
-      }
-    })
-    await expect(frame.locator(".summary-row").last()).toHaveText("補足会場は未定です")
   })
 })
 
@@ -655,12 +490,6 @@ test.describe("SPEC-UI-012 値のない回答", () => {
     expect(outcome.heldForm?.fields.map((field) => field.id)).toEqual(["due", "size"])
     expect(outcome.comments).toEqual({ due: "あとで決める。", size: "どれでもよい。" })
     expect(outcome.changedByUser).toEqual([])
-    await expect(frame.locator(".summary-row")).toHaveText([
-      "締め切り回答なしあとで決める。",
-      "件数回答なし推奨: 20件どれでもよい。",
-      "分類仕事",
-      "補足なし"
-    ])
   })
 
   test("SPEC-UI-012 単一選択は選択肢の下の「選択を解除」で選択を外し、コメント欄を開く", async ({ page }) => {
@@ -706,12 +535,11 @@ test.describe("SPEC-UI-012 値のない回答", () => {
     const outcome = (await singleOutcome(page)) as Answered
     expect(outcome.values?.["memo"]).toBe("")
     expect(outcome.held).toEqual([])
-    await expect(frame.locator(".summary-row").last()).toHaveText("補足(空欄)推奨: なし")
   })
 })
 
 test.describe("SPEC-UI-014 項目ごとのコメント", () => {
-  test("SPEC-UI-014 値のある質問にもコメントを書け、値と一緒に届き、要約の値の下に示す", async ({ page }) => {
+  test("SPEC-UI-014 値のある質問にもコメントを書け、前後の空白を除いて値と一緒に届く", async ({ page }) => {
     const frame = await openAnswered(page)
     await expect(comment(frame, "件数")).toBeHidden()
     await openComment(frame, "件数")
@@ -721,7 +549,6 @@ test.describe("SPEC-UI-014 項目ごとのコメント", () => {
     const outcome = await submitChecked(page, frame)
     expect(outcome.values?.["size"]).toBe(20)
     expect(outcome.comments).toEqual({ size: "多めに" })
-    await expect(frame.locator(".summary-row").nth(1)).toHaveText("件数20件多めに")
   })
 
   test("SPEC-UI-014 コメントは畳んで始め、文字のないアイコンのボタンで開閉し、書いたコメントは畳んでも残る", async ({ page }) => {
@@ -785,27 +612,5 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
     await openComment(none, "件数")
     await expect(comment(none, "件数")).toBeVisible()
     await expect(none.getByRole("group", { name: "件数へのコメントの定型文" })).toHaveCount(0)
-  })
-})
-
-test.describe("SPEC-UI-012 値のない回答の要約", () => {
-  test("SPEC-UI-012 ツールの結果から復元した要約でも、値のない質問とコメントを示す", async ({ page }) => {
-    const frame = await open(page, {
-      args: holdSpec,
-      restore: {
-        status: "submitted",
-        values: { due: "no", tags: ["work"] },
-        held: ["size", "memo"],
-        comments: { due: "来月から", size: "未定", memo: "未定" },
-        changedByUser: ["due"],
-        computed: {}
-      }
-    })
-    await expect(frame.locator(".summary-row")).toHaveText([
-      "締め切り付けない来月から",
-      "件数回答なし推奨: 20件未定",
-      "分類仕事",
-      "補足回答なし推奨: なし未定"
-    ])
   })
 })

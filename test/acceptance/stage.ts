@@ -429,10 +429,11 @@ const answer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Reco
   await focusOn(page, null)
   await pin(page, ".formbox", 1600)
   await pointer.click(proceed)
-  await frame.locator(".summary").waitFor()
+  await page.waitForFunction(() => (window as unknown as { harness: { outcomes: ReadonlyArray<unknown> } }).harness.outcomes.length > 0)
   await sleep(800)
   recorder.mark("answered")
   await page.evaluate(() => {
+    document.querySelector<HTMLElement>(".formbox")?.style.setProperty("display", "none")
     document.querySelector("#tool")?.classList.add("done")
     const label = document.querySelector("#tool-label")
     if (label !== null) {
@@ -440,7 +441,7 @@ const answer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Reco
     }
     document.querySelector("#waiting")?.classList.remove("on")
   })
-  await look(page, [frame.locator(".summary")], frame.locator(".summary"), "回答がCopilotに届いた", 1300)
+  await look(page, [page.locator("#tool")], page.locator("#tool"), "回答がCopilotに届いた", 1300)
   await focusOn(page, null)
   await stream(page, "reply", reply, 4)
   await sleep(300)
