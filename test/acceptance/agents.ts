@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeAgents, type FakeAgents } from "./fake-agents.ts"
-import { formFrame, settled, sleep, until } from "./frames.ts"
+import { closedDuringClick, formFrame, settled, sleep, until } from "./frames.ts"
 import { createSteps, printChat, waitingStatus } from "./steps.ts"
 import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
 
@@ -150,7 +150,7 @@ const answer = async (session: Session, page: Page, frame: Frame, callId: string
   const attendees = frame.getByRole("spinbutton", { name: "参加者数" })
   await attendees.fill("150")
   await attendees.press("Tab")
-  await frame.getByRole("button", { name: "Send", exact: true }).dispatchEvent("click")
+  await frame.getByRole("button", { name: "Send", exact: true }).dispatchEvent("click").catch(closedDuringClick)
   const result = await resultOf(session, callId)
   expect(result.text).toContain('"status":"submitted"')
   expect(result.text).toContain('"changedByUser":["attendees"]')

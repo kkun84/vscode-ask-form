@@ -18,3 +18,7 @@ pre-push:
       only:
         - run: git rev-parse --verify --quiet origin/main
       run: pnpm -s mutation:diff && pnpm -s mutation:findings origin/main
+    - name: media
+      only:
+        - run: git rev-parse --verify --quiet origin/main
+      run: node scripts/media-check.ts origin/main

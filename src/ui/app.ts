@@ -1,5 +1,4 @@
 import {
-  activeFields,
   answerValues,
   changedFields,
   commentsFor,
@@ -17,7 +16,6 @@ import {
   unansweredFields,
   type Answered,
   type CompiledForm,
-  type Comments,
   type FieldValue,
   type Values
 } from "../core/form.ts"
@@ -25,26 +23,10 @@ import { languageOf, messages, type Messages } from "../core/messages.ts"
 import type { ChoiceField, Field, FormSpec, NumberField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
-import { watchStatus } from "./status.ts"
-
-type Status = "submitted" | "answer_in_chat" | "unavailable"
-
-type Phase =
-  | { readonly kind: "loading" }
-  | { readonly kind: "invalid"; readonly message: string }
-  | { readonly kind: "answering" }
-  | { readonly kind: "summary"; readonly status: Status }
-  | { readonly kind: "closed"; readonly reason: "cancelled" | "expired" }
 
 type Action = "submit" | "chat"
 
-const statusOf: Readonly<Record<Action, Status>> = { submit: "submitted", chat: "answer_in_chat" }
-
-const isStatus = (value: unknown): value is Status => value === "submitted" || value === "answer_in_chat" || value === "unavailable"
-
 const resultText = (result: ToolResult): string => (result.content ?? []).map((item) => item.text ?? "").join("\n")
-
-const isExpired = (result: ToolResult): boolean => result.isError === true && /expired/.test(resultText(result))
 
 const recView = (field: Field, title: string, value: string | undefined, action: HTMLElement | null, id: string): HTMLElement =>
   h(
@@ -113,9 +95,6 @@ const optionRow = (
     )
   )
 
-const recordOf = (value: unknown): Readonly<Record<string, unknown>> =>
-  value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Readonly<Record<string, unknown>>) : {}
-
 const affix = (content: string | undefined): HTMLElement | null => (content === undefined ? null : h("span", { class: "muted" }, content))
 
 const commentIcon =
@@ -128,7 +107,6 @@ const icon = (): HTMLElement => {
 }
 
 export class FormApp {
-  private phase: Phase = { kind: "loading" }
   private m: Messages = messages("en")
   private form: CompiledForm | undefined
   private values: Record<string, FieldValue> = {}
@@ -136,13 +114,11 @@ export class FormApp {
   private readonly commenting = new Set<string>()
   private presets: ReadonlyArray<string> | undefined
   private initial: Values = {}
-  private summaryAnswer: Answered = { values: {} }
   private note = ""
   private noteOpen = false
   private busy = false
   private error: string | undefined
   private bridge: Bridge | undefined
-  private stopStatus: (() => void) | undefined
   private readonly live = {
     cards: [] as Array<{
       readonly field: Field
@@ -174,7 +150,6 @@ export class FormApp {
 
   attach(bridge: Bridge): void {
     this.bridge = bridge
-    this.syncStatus()
     void this.loadSettings(bridge)
   }
 
@@ -215,54 +190,13 @@ export class FormApp {
     this.form = form
     this.initial = initialValues(form.spec)
     this.values = { ...this.initial }
-    this.summaryAnswer = { values: this.initial }
     this.note = ""
     this.noteOpen = false
     this.comments = {}
     this.commenting.clear()
     this.folded.clear()
     this.showMissing = false
-    if (this.phase.kind === "loading") {
-      this.phase = { kind: "answering" }
-    }
     this.render()
-  }
-
-  setResult(result: ToolResult): void {
-    if (this.phase.kind === "closed" && result.structuredContent?.["status"] !== "unavailable") {
-      return
-    }
-    if (result.isError === true) {
-      if (this.phase.kind === "loading" || this.phase.kind === "answering") {
-        this.phase = { kind: "invalid", message: resultText(result) }
-        this.render()
-      }
-      return
-    }
-    const content = result.structuredContent ?? {}
-    const status = content["status"]
-    if (!isStatus(status)) {
-      return
-    }
-    const values = content["values"]
-    if (values !== undefined && typeof values === "object" && values !== null && this.form !== undefined) {
-      this.summaryAnswer = {
-        values: values as Values,
-        comments: Object.fromEntries(
-          Object.entries(recordOf(content["comments"])).filter(([, text]) => typeof text === "string")
-        ) as Comments
-      }
-      this.note = typeof content["note"] === "string" ? content["note"] : ""
-    }
-    this.phase = { kind: "summary", status }
-    this.render()
-  }
-
-  setCancelled(): void {
-    if (this.phase.kind === "loading" || this.phase.kind === "answering") {
-      this.phase = { kind: "closed", reason: "cancelled" }
-      this.render()
-    }
   }
 
   private async whileBusy(task: (bridge: Bridge) => Promise<void>): Promise<void> {
@@ -281,23 +215,6 @@ export class FormApp {
       this.busy = false
       this.render()
     }
-  }
-
-  private applyAnswer(action: Action, result: ToolResult, answered: Answered): void {
-    if (this.phase.kind !== "answering") {
-      return
-    }
-    if (isExpired(result)) {
-      this.phase = { kind: "closed", reason: "expired" }
-      return
-    }
-    if (result.isError === true) {
-      this.error = resultText(result)
-      return
-    }
-    this.summaryAnswer = answered
-    this.note = this.note.trim()
-    this.phase = { kind: "summary", status: statusOf[action] }
   }
 
   private blockUnanswered(form: CompiledForm): boolean {
@@ -339,7 +256,9 @@ export class FormApp {
             }
           : {})
       })
-      this.applyAnswer(action, result, answered)
+      if (result.isError === true) {
+        this.error = resultText(result)
+      }
     })
   }
 
@@ -421,17 +340,7 @@ export class FormApp {
     }
   }
 
-  private syncStatus(): void {
-    if (this.phase.kind === "answering" && this.form !== undefined && this.bridge !== undefined) {
-      this.stopStatus ??= watchStatus(this.bridge, this.form.key, () => this.setCancelled())
-    } else {
-      this.stopStatus?.()
-      this.stopStatus = undefined
-    }
-  }
-
   private render(): void {
-    this.syncStatus()
     this.live.cards.length = 0
     this.live.branches.length = 0
     this.live.setters.clear()
@@ -443,7 +352,7 @@ export class FormApp {
     const hadFocus = this.keepFocus || this.root.contains(document.activeElement)
     this.keepFocus = false
     this.root.classList.remove("motion")
-    this.root.replaceChildren(this.view())
+    this.root.replaceChildren(this.formView())
     if (hadFocus) {
       this.root.querySelector<HTMLElement>("[data-focus]")?.focus()
     }
@@ -452,26 +361,10 @@ export class FormApp {
     this.refresh()
   }
 
-  private view(): HTMLElement {
-    const phase = this.phase
-    switch (phase.kind) {
-      case "loading":
-        return h("p", { class: "notice", role: "status" }, this.m.waiting)
-      case "invalid":
-        return h("div", { class: "card", role: "alert" }, h("pre", { class: "error" }, phase.message))
-      case "closed":
-        return h("div", { class: "card closed", role: "status" }, phase.reason === "cancelled" ? this.m.cancelled : this.m.expired)
-      case "summary":
-        return this.summary(phase.status)
-      case "answering":
-        return this.formView()
-    }
-  }
-
   private formView(): HTMLElement {
     const form = this.form
     if (form === undefined) {
-      return h("p", { class: "notice" }, this.m.waiting)
+      return h("p", { class: "notice", role: "status" }, this.m.waiting)
     }
     const spec = form.spec
     const basic = spec.fields.filter((field) => field.advanced !== true)
@@ -828,43 +721,6 @@ export class FormApp {
       [this.ghost(this.m.dismiss, () => void this.answer("chat"))],
       [h("kbd", { class: "shortcut", "aria-hidden": "true" }, /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘⏎" : "Ctrl+⏎")]
     )
-  }
-
-  private summary(status: Status): HTMLElement {
-    const form = this.form
-    const title = { submitted: this.m.answered, answer_in_chat: this.m.answeredInChat, unavailable: this.m.unavailable }[status]
-    const head = h(
-      "div",
-      { class: "summary-head" },
-      h("span", { class: "check", "aria-hidden": "true" }, "✓"),
-      h("span", { tabindex: -1, "data-focus": true }, title)
-    )
-    if (form === undefined || status !== "submitted") {
-      return h("section", { class: "card summary", role: "status" }, head)
-    }
-    const shown = this.summaryAnswer
-    const changedByUser = changedFields(form.spec, this.initial, shown.values)
-    const rows = activeFields(form.spec, shown.values).map((field) =>
-      h(
-        "div",
-        { class: "summary-row" },
-        h("dt", {}, field.label),
-        h(
-          "dd",
-          {},
-          describeValue(field, shown.values[field.id], this.m),
-          changedByUser.includes(field.id) && field.default !== undefined
-            ? h("span", { class: "mark" }, this.m.recommendedWas(describeValue(field, this.initial[field.id], this.m)))
-            : null,
-          shown.comments?.[field.id] === undefined
-            ? null
-            : h("span", { class: "commented" }, icon(), h("span", {}, shown.comments[field.id]))
-        )
-      )
-    )
-    const noted =
-      this.note === "" ? null : h("div", { class: "summary-row" }, h("dt", {}, this.m.noted), h("dd", { class: "noted" }, this.note))
-    return h("section", { class: "card summary" }, head, h("dl", {}, rows, noted))
   }
 
   private refreshCards(): void {

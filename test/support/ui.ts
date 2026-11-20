@@ -9,11 +9,6 @@ import type { HostContext } from "../../src/core/appHost.ts"
 export interface PageOptions {
   readonly args: Readonly<Record<string, unknown>>
   readonly context?: Partial<HostContext>
-  readonly expireOnAnswer?: boolean
-  readonly unavailableBeforeExpiry?: boolean
-  readonly omitCancellation?: boolean
-  readonly holdStatus?: boolean
-  readonly restore?: Readonly<Record<string, unknown>>
   readonly commentPresets?: ReadonlyArray<string>
 }
 
@@ -69,18 +64,13 @@ export const openForm = async (page: Page, server: HarnessServer, options: PageO
     {
       args: options.args,
       context,
-      expireOnAnswer: options.expireOnAnswer ?? false,
-      unavailableBeforeExpiry: options.unavailableBeforeExpiry ?? false,
-      omitCancellation: options.omitCancellation ?? false,
-      holdStatus: options.holdStatus ?? false,
-      restore: options.restore,
       ...(options.commentPresets === undefined ? {} : { commentPresets: options.commentPresets }),
       background: backgrounds[context.theme]
     }
   )
   await page.goto(server.url)
   const frame = page.frameLocator("#form")
-  await frame.locator("form, .summary, .closed").first().waitFor()
+  await frame.locator("form").first().waitFor()
   const handle = page.frame({ url: /form\.html$/ })
   if (handle === null) {
     throw new Error("form frame not found")

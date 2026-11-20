@@ -30,25 +30,34 @@ body > iframe#form { position: absolute; left: -9999px; }
 #caption em { font-style: normal; color: #ffd23f; }
 #caption.swap { animation: swap 450ms ease-out; }
 @keyframes swap { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
-.window { width: 680px; min-height: 760px; display: grid; grid-template-rows: 34px 1fr 26px; background: #1f1f1f; border-radius: 14px; overflow: hidden;
+.window { width: 1360px; height: 760px; display: grid; grid-template-rows: 34px 1fr 26px; background: #1f1f1f; border-radius: 14px; overflow: hidden;
   box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); font-family: "Noto Sans CJK JP", sans-serif; }
 .titlebar { display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #181818; color: #9d9d9d; font-size: 13px; border-bottom: 1px solid #2b2b2b; }
 .titlebar i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
 .titlebar .name { margin-left: 14px; }
-.main { display: grid; grid-template-columns: 46px 1fr; }
+.main { display: grid; grid-template-columns: 46px 1fr 440px; min-height: 0; }
 .activity { background: #181818; border-right: 1px solid #2b2b2b; display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 14px; }
 .activity span { width: 20px; height: 20px; border-radius: 5px; border: 2px solid #6e6e6e; opacity: .7; }
-.chat { display: grid; grid-template-rows: 32px 1fr auto; }
+.editor { display: grid; grid-template-rows: 35px 1fr; min-height: 0; background: #1f1f1f; }
+.tabs { display: flex; background: #181818; border-bottom: 1px solid #2b2b2b; }
+.tab { display: flex; align-items: center; gap: 8px; padding: 0 14px; font-size: 13px; color: #ffffff; background: #1f1f1f; border-top: 2px solid #0078d4; border-right: 1px solid #2b2b2b; margin-bottom: -1px; animation: pop 300ms ease-out; }
+.tab .icon { width: 12px; height: 12px; border-radius: 3px; border: 2px solid #e8c07d; }
+.tab .close { color: #9d9d9d; margin-left: 6px; }
+#pane { position: relative; overflow-y: auto; scrollbar-width: none; min-height: 0; }
+#pane iframe { width: 100%; border: 0; display: block; background: transparent; }
+#pane.open iframe { animation: rise 500ms cubic-bezier(.2,.8,.2,1); }
+.empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-size: 13px; color: #6e6e6e; }
+.empty b { font-weight: 400; color: #8b8b8b; margin-left: 14px; }
+#pane.open .empty, #pane:not(.open) iframe { display: none; }
+.chat { display: grid; grid-template-rows: 32px 1fr auto; min-height: 0; border-left: 1px solid #2b2b2b; }
 .chat-header { display: flex; align-items: center; padding: 0 18px; font-size: 12px; letter-spacing: 1px; color: #bbbbbb; border-bottom: 1px solid #2b2b2b; }
-#messages { min-height: 520px; padding: 18px 26px 10px; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; }
+#messages { min-height: 0; overflow: hidden; padding: 18px 22px 10px; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; }
 .user { align-self: flex-end; max-width: 78%; background: #1b2834; border: 1px solid #2b3d50; border-radius: 12px; padding: 9px 14px; font-size: 14px; line-height: 1.6; animation: pop 300ms ease-out; }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #cccccc; background: #2b2b2b; border: 1px solid #3c3c3c; border-radius: 5px; padding: 2px 8px; margin-bottom: 6px; }
 .chip b { color: #e8c07d; font-weight: 400; }
 .tool { font-size: 13px; color: #9d9d9d; display: flex; align-items: center; gap: 8px; animation: pop 300ms ease-out; }
 .tool .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #4daafc; border-top-color: transparent; animation: spin 900ms linear infinite; }
 .tool.done .spin { animation: none; border-color: #73c991; }
-.formbox { order: 3; animation: rise 500ms cubic-bezier(.2,.8,.2,1); }
-.formbox iframe { width: 100%; border: 0; display: block; background: transparent; }
 .assistant { font-size: 14px; line-height: 1.7; color: #d4d4d4; }
 #input { margin: 6px 22px 14px; border: 1px solid #3c3c3c; border-radius: 10px; background: #252526; padding: 10px 12px 8px; transition: border-color 200ms; }
 #input.focus { border-color: #0078d4; }
@@ -76,6 +85,10 @@ const markup = `
     <div class="titlebar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span class="name">my-todo — Visual Studio Code</span></div>
     <div class="main">
       <div class="activity"><span></span><span></span><span></span><span></span></div>
+      <div class="editor">
+        <div class="tabs"></div>
+        <div id="pane"><div class="empty"><div>コマンドの表示<b>Ctrl+Shift+P</b></div><div>ファイルを開く<b>Ctrl+O</b></div><div>チャットを開く<b>Ctrl+Alt+I</b></div></div></div>
+      </div>
       <div class="chat">
         <div class="chat-header">チャット</div>
         <div id="messages"></div>
@@ -95,13 +108,9 @@ const build = (page: Page) =>
       document.head.append(sheet)
       document.body.insertAdjacentHTML("beforeend", html)
       const frame = document.querySelector<HTMLIFrameElement>("iframe#form")
-      const box = document.createElement("div")
-      box.className = "formbox"
-      box.style.display = "none"
       if (frame !== null) {
-        box.append(frame)
+        document.querySelector("#pane")?.append(frame)
       }
-      document.querySelector("#messages")?.append(box)
       setInterval(() => {
         const app = frame?.contentDocument?.querySelector("#app")
         const height = app === null || app === undefined ? undefined : Math.ceil(app.getBoundingClientRect().bottom) + 12
@@ -135,8 +144,8 @@ const append = (page: Page, html: string) =>
     document.querySelector("#messages")?.insertAdjacentHTML("beforeend", content)
   }, html)
 
-const stream = async (page: Page, id: string, text: string, order: number): Promise<void> => {
-  await append(page, `<div class="assistant" id="${id}" style="order:${order}"></div>`)
+const stream = async (page: Page, id: string, text: string): Promise<void> => {
+  await append(page, `<div class="assistant" id="${id}"></div>`)
   for (let index = 0; index < text.length; index += 3) {
     await page.evaluate(
       (part) => {
@@ -180,6 +189,13 @@ const focusOn = async (page: Page, target: Locator | null, label = ""): Promise<
       const below = view !== undefined && height + 10 <= view.bottom - frame.bottom
       focus.classList.toggle("below", !above && below)
       focus.classList.toggle("inside", !above && !below)
+      if (tag !== null && view !== undefined) {
+        tag.style.left = ""
+        const over = tag.getBoundingClientRect().right - view.right + 10
+        if (over > 0) {
+          tag.style.left = `${tag.offsetLeft - over}px`
+        }
+      }
       focus.classList.add("on")
     },
     { rect: box, text: label }
@@ -227,7 +243,7 @@ const readRig = (page: Page): Promise<Rig> =>
     return {
       view: { x: rect?.x ?? 0, y: rect?.y ?? 0, width: rect?.width ?? 0, height: rect?.height ?? 0 },
       state: (window as unknown as { lens?: Lens }).lens ?? { s: 1, x: 0, y: 0 },
-      room: { width: room?.offsetWidth ?? 680, height: room?.offsetHeight ?? 760 }
+      room: { width: room?.offsetWidth ?? 1360, height: room?.offsetHeight ?? 760 }
     }
   })
 
@@ -274,6 +290,8 @@ const goalOf = (rig: Rig, rect: Box | null, pad: number, top: number): Box => {
   return { x: local.x - pad, y: local.y - pad - top, width: local.width + pad * 2, height: local.height + pad * 2 + top }
 }
 
+const inside = (offset: number, view: number, room: number) => (room < view ? offset : Math.min(0, Math.max(view - room, offset)))
+
 const aim = async (page: Page, rect: Box | null, pad: number, most: number, still: boolean, top: number): Promise<boolean> => {
   const rig = await readRig(page)
   const goal = goalOf(rig, rect, pad, top)
@@ -282,11 +300,9 @@ const aim = async (page: Page, rect: Box | null, pad: number, most: number, stil
   const frame = far ? union(goal, seen) : goal
   const { view } = rig
   const s = Math.min(view.width / frame.width, view.height / frame.height, far ? rig.state.s : most)
-  await applyLens(
-    page,
-    { s, x: (view.width - frame.width * s) / 2 - frame.x * s, y: (view.height - frame.height * s) / 2 - frame.y * s },
-    still
-  )
+  const x = (view.width - frame.width * s) / 2 - frame.x * s
+  const y = (view.height - frame.height * s) / 2 - frame.y * s
+  await applyLens(page, { s, x: inside(x, view.width, rig.room.width * s), y: inside(y, view.height, rig.room.height * s) }, still)
   return far
 }
 
@@ -300,32 +316,26 @@ const camera = async (page: Page, targets: ReadonlyArray<Locator>, pad: number, 
   await sleep(still ? 50 : 800)
 }
 
-const pin = (page: Page, selector: string, ms: number) =>
-  page.evaluate(
-    ({ selector: pick, ms: span }) => {
-      const anchor = document.querySelector<HTMLElement>(pick)
-      const lens = document.querySelector<HTMLElement>("#camera")
-      const holder = window as unknown as { lens?: { s: number; x: number; y: number } }
-      if (anchor === null || lens === null || holder.lens === undefined) {
-        return
-      }
-      const state = holder.lens
-      const fixed = anchor.getBoundingClientRect().bottom
-      const end = performance.now() + span
-      lens.style.transition = "none"
-      const tick = () => {
-        state.y -= anchor.getBoundingClientRect().bottom - fixed
-        lens.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.s})`
-        if (performance.now() < end) {
-          requestAnimationFrame(tick)
-        } else {
-          lens.style.transition = ""
-        }
-      }
-      requestAnimationFrame(tick)
-    },
-    { selector, ms }
-  )
+const reveal = async (page: Page, targets: ReadonlyArray<Locator>): Promise<void> => {
+  const rect = await boxOf(...targets)
+  if (rect === null) {
+    return
+  }
+  await page.evaluate((target) => {
+    const pane = document.querySelector<HTMLElement>("#pane")
+    if (pane === null) {
+      return
+    }
+    const view = pane.getBoundingClientRect()
+    const k = view.width / pane.offsetWidth
+    const top = (target.y - view.top) / k
+    const bottom = (target.y + target.height - view.top) / k
+    if (top < 0 || bottom > pane.clientHeight) {
+      pane.scrollBy({ top: top < 0 ? top - 40 : Math.min(top - 40, bottom - pane.clientHeight + 40), behavior: "smooth" })
+    }
+  }, rect)
+  await sleep(700)
+}
 
 const typeInto = async (page: Page, recorder: Recorder, text: string, delay: number): Promise<void> => {
   for (const character of text) {
@@ -343,18 +353,7 @@ const typeInto = async (page: Page, recorder: Recorder, text: string, delay: num
 const send = async (page: Page, pointer: Pointer, html: string): Promise<void> => {
   await pointer.click(page.locator("#input .send"))
   await page.evaluate((content) => {
-    const input = document.querySelector<HTMLElement>("#input")
-    const before = input?.getBoundingClientRect().top ?? 0
     document.querySelector("#messages")?.insertAdjacentHTML("beforeend", content)
-    const holder = window as unknown as { lens?: { s: number; x: number; y: number } }
-    const lens = document.querySelector<HTMLElement>("#camera")
-    if (holder.lens !== undefined && lens !== null) {
-      holder.lens.y -= (input?.getBoundingClientRect().top ?? 0) - before
-      lens.style.transition = "none"
-      lens.style.transform = `translate(${holder.lens.x}px, ${holder.lens.y}px) scale(${holder.lens.s})`
-      void lens.offsetWidth
-      lens.style.transition = ""
-    }
     const text = document.querySelector("#input .text")
     const chips = document.querySelector("#input .chips")
     if (text !== null && chips !== null) {
@@ -375,7 +374,33 @@ const look = async (page: Page, targets: ReadonlyArray<Locator>, spot: Locator, 
   await sleep(hold)
 }
 
-const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
+const openPanel = (page: Page, title: string) =>
+  page.evaluate((name) => {
+    const tab = document.createElement("div")
+    tab.className = "tab"
+    tab.innerHTML = '<span class="icon"></span><span class="name"></span><span class="close">×</span>'
+    const label = tab.querySelector(".name")
+    if (label !== null) {
+      label.textContent = name
+    }
+    document.querySelector(".tabs")?.append(tab)
+    document.querySelector("#pane")?.classList.add("open")
+    document.querySelector("#waiting")?.classList.add("on")
+  }, title)
+
+const closePanel = (page: Page) =>
+  page.evaluate(() => {
+    document.querySelector(".tab")?.remove()
+    document.querySelector("#pane")?.classList.remove("open")
+    document.querySelector("#tool")?.classList.add("done")
+    const label = document.querySelector("#tool-label")
+    if (label !== null) {
+      label.textContent = "Ask with a form を実行しました"
+    }
+    document.querySelector("#waiting")?.classList.remove("on")
+  })
+
+const ask = async (page: Page, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await camera(page, [], 0, 1, true)
   await caption(page, 0)
   await sleep(500)
@@ -385,26 +410,23 @@ const ask = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorde
   recorder.mark("typing")
   await typeInto(page, recorder, query, 38)
   await focusOn(page, null)
-  await send(page, pointer, `<div class="user" style="order:1">${query}</div>`)
+  await send(page, pointer, `<div class="user">${query}</div>`)
   recorder.mark("send")
   await append(
     page,
-    '<div class="tool" id="tool" style="order:2"><span class="spin"></span><span id="tool-label">Ask with a form を実行しています</span></div>'
+    '<div class="tool" id="tool"><span class="spin"></span><span id="tool-label">Ask with a form を実行しています</span></div>'
   )
   await camera(page, [page.locator(".user").first(), page.locator("#tool")], 24, 1.8)
   await caption(page, 1)
-  await pin(page, "#tool", 900)
-  await page.evaluate(() => {
-    const box = document.querySelector<HTMLElement>(".formbox")
-    if (box !== null) {
-      box.style.display = "block"
-    }
-    document.querySelector("#waiting")?.classList.add("on")
-  })
+  await sleep(500)
+  await openPanel(page, todoSpec.title)
   recorder.mark("form")
-  await sleep(900)
-  const card = frame.locator("form.card")
-  await look(page, [card], card, "質問が1つのフォームに", 1800)
+  await camera(page, [page.locator(".window")], 8, 1, false, 56)
+  await sleep(300)
+  await focusOn(page, page.locator(".editor"), "チャットの横にフォームが開く")
+  await sleep(1400)
+  await focusOn(page, page.locator("#pane"), "質問が1つのフォームに")
+  await sleep(1500)
 }
 
 const choose = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
@@ -412,10 +434,13 @@ const choose = async (page: Page, frame: Frame, pointer: Pointer, recorder: Reco
   await caption(page, 2)
   const storage = frame.getByRole("group", { name: "保存先" })
   const branch = frame.locator(".reveal:not([hidden])")
+  await focusOn(page, null)
+  await reveal(page, [storage, branch])
   await look(page, [storage, branch], branch, "ブラウザなら、保存方式を聞く", 1200)
   await focusOn(page, null)
   await pointer.click(frame.locator("label.option", { hasText: "サーバー" }))
   await sleep(800)
+  await reveal(page, [storage, branch])
   await look(page, [storage, branch], branch, "サーバーなら、ポートとログインを聞く", 1500)
   await pointer.click(frame.getByRole("radio", { name: "必要", exact: true }))
   await sleep(500)
@@ -425,31 +450,27 @@ const choose = async (page: Page, frame: Frame, pointer: Pointer, recorder: Reco
 const answer = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
   await caption(page, 3)
   const proceed = frame.getByRole("button", { name: "送信" })
-  await look(page, [frame.locator("footer.actions")], proceed, "クリックで回答", 400)
+  const footer = frame.locator("footer.actions")
+  await reveal(page, [footer])
+  await look(page, [footer], proceed, "クリックで回答", 400)
   await focusOn(page, null)
-  await pin(page, ".formbox", 1600)
   await pointer.click(proceed)
-  await frame.locator(".summary").waitFor()
-  await sleep(800)
+  await page.waitForFunction(() => (window as unknown as { harness: { outcomes: ReadonlyArray<unknown> } }).harness.outcomes.length > 0)
+  await sleep(200)
   recorder.mark("answered")
-  await page.evaluate(() => {
-    document.querySelector("#tool")?.classList.add("done")
-    const label = document.querySelector("#tool-label")
-    if (label !== null) {
-      label.textContent = "Ask with a form を実行しました"
-    }
-    document.querySelector("#waiting")?.classList.remove("on")
-  })
-  await look(page, [frame.locator(".summary")], frame.locator(".summary"), "回答がCopilotに届いた", 1300)
+  await closePanel(page)
+  await camera(page, [], 0, 1)
+  await sleep(500)
+  await look(page, [page.locator("#tool")], page.locator("#tool"), "回答がCopilotに届いた", 1300)
   await focusOn(page, null)
-  await stream(page, "reply", reply, 4)
+  await stream(page, "reply", reply)
   await sleep(300)
   await look(page, [page.locator("#reply")], page.locator("#reply"), "この値で作り始める", 1500)
   recorder.mark("end")
 }
 
 const scene = async (page: Page, frame: Frame, pointer: Pointer, recorder: Recorder): Promise<void> => {
-  await ask(page, frame, pointer, recorder)
+  await ask(page, pointer, recorder)
   await choose(page, frame, pointer, recorder)
   await answer(page, frame, pointer, recorder)
 }
