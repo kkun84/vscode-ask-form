@@ -335,6 +335,8 @@ pnpm build
 | `pnpm traceability`      | `docs/traceability.md`の生成                                                                                                                                                                                                                             |
 | `pnpm package`           | `.vsix`の作成                                                                                                                                                                                                                                            |
 
+画面や拡張機能、画面の文言、撮影の台本を変えたPRでは、`pnpm media`でREADMEの画像と紹介動画を撮り直してください。撮り直していないと、CIのMediaとpushの前のフックが失敗します。見た目が変わらない変更なら、PRに`no-media`ラベルを付けます。
+
 コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。pushの前には`pnpm mutation:diff`と`pnpm mutation:findings origin/main`を実行し、検出できなかったミュータントの件数と、見直しの手順を表示します。テストが弱くなった箇所があればpushを止めます。それ以外では止めません。`origin/main`が無い環境では何もしません。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
 
 ### 実機での受け入れテスト

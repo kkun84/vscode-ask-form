@@ -176,3 +176,11 @@
 - Changelogワークフローは`no-changelog`ラベルがあればジョブを飛ばし、`git diff --quiet "$BASE" HEAD -- src`で`src/`の変更を確かめたうえで、PRの基点のshaを検査CLIに渡す。
 
 派生元: SPEC-REL-002
+
+### DES-REL-003 画像と紹介動画の撮り直しの検査
+
+- `scripts/media-rules.ts`の`checkMedia`は、変わったファイルの一覧を受け取り、見た目に関わるファイルが含まれ、`docs/images/`と`docs/media/`のファイルが1つも含まれないときに、変わったファイルの名前と`no-media`ラベルの案内を含む問題を返す。
+- `scripts/media-check.ts`は、引数のref(既定は`origin/main`)と`HEAD`の差のファイルを`git diff --name-only`で求め、問題を標準エラー出力に出して終了コード1にする。
+- Mediaワークフローは`no-media`ラベルがあればジョブを飛ばし、PRの基点のshaを検査CLIに渡す。lefthookのpre-pushは、`origin/main`があるときに同じCLIを実行する。
+
+派生元: SPEC-REL-003

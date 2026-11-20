@@ -350,3 +350,12 @@ VS Codeの設定`chat.autoReply`が有効な間、拡張機能は利用者が不
 - PRで`src/`が変わり、`no-changelog`ラベルが無く、`## 未リリース`にPRの基点に無い項目が無ければ、PRの検査を失敗にする。ラベルの付け外しで検査をやり直す。
 
 派生元: REQ-DIST-001
+
+### SPEC-REL-003 画像と紹介動画の撮り直しの検査
+
+READMEの画像(`docs/images`)と紹介動画(`docs/media`)は、利用者がMarketplaceやGitHubで最初に見るものなので、画面や振る舞いと食い違わないようにする。
+
+- PRで、フォームの画面、拡張機能、画面の文言、撮影の台本(`src/ui`、`src/extension`、`src/core/messages.ts`、`test/acceptance`の撮影と演出、撮影に使う設計図、`scripts/pv.ts`)のどれかが変わり、`docs/images`と`docs/media`のどちらも変わっておらず、`no-media`ラベルが無ければ、PRの検査を失敗にする。ラベルの付け外しで検査をやり直す。
+- pushの前のフックでも、`origin/main`との差で同じ検査をする。撮り直しは`pnpm media`で行う。
+
+派生元: REQ-DIST-001

@@ -27,7 +27,7 @@
 | REQ-SEC-001 | 回答を偽装されない | - | SPEC-UI-010 | MAT-SEC-001 |
 | REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | MAT-LOOK-001 |
 | REQ-A11Y-001 | 支援技術で使える | - | SPEC-UI-008 | MAT-LOOK-001 |
-| REQ-DIST-001 | リリースを配布する | - | SPEC-REL-001, SPEC-REL-002 | MAT-DIST-001 |
+| REQ-DIST-001 | リリースを配布する | - | SPEC-REL-001, SPEC-REL-002, SPEC-REL-003 | MAT-DIST-001 |
 
 ## システム仕様
 
@@ -61,6 +61,7 @@
 | SPEC-EXT-005 | 起動・サイズ・検査の予算 | REQ-PERF-001 | ARCH-LAYER-002, ARCH-LAYER-006, ARCH-DEPS-001, DES-TOOLS-001, DES-TOOLS-003 | `test/system/extension.test.ts`, `test/system/process.test.ts` |
 | SPEC-REL-001 | 配布前の検査と公開 | REQ-DIST-001 | ARCH-REL-001, DES-REL-001 | `test/system/release-check.test.ts`, `test/system/release-prepare.test.ts`, `test/system/release-workflow.test.ts` |
 | SPEC-REL-002 | 変更履歴の項目の検査 | REQ-DIST-001 | DES-REL-002 | `test/system/changelog-check.test.ts` |
+| SPEC-REL-003 | 画像と紹介動画の撮り直しの検査 | REQ-DIST-001 | DES-REL-003 | `test/system/media-check.test.ts` |
 
 ## アーキテクチャ設計
 
@@ -99,3 +100,4 @@
 | DES-TOOLS-003 | ミューテーションテストの結果の判定 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/mutation-report.test.ts` |
 | DES-REL-001 | 版数と変更履歴の検査 | SPEC-REL-001, ARCH-REL-001 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |
 | DES-REL-002 | 変更履歴の項目の検査 | SPEC-REL-002 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |
+| DES-REL-003 | 画像と紹介動画の撮り直しの検査 | SPEC-REL-003 | - | `test/unit/media-rules.test.ts` |

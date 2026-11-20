@@ -1,20 +1,15 @@
 import assert from "node:assert/strict"
-import { execFileSync, spawnSync } from "node:child_process"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { test } from "vitest"
+import { withGitRepo } from "../support/git-repo.ts"
 
 const entry = fileURLToPath(new URL("../../scripts/changelog-check.ts", import.meta.url))
 
-test("SPEC-REL-002 種別の無い項目と、基点から増えない未リリースを拒否する", async () => {
-  const cwd = await mkdtemp(join(tmpdir(), "changelog-check-"))
-  const git = (...args: ReadonlyArray<string>) =>
-    execFileSync("git", ["-c", "user.name=test", "-c", "user.email=test@example.com", ...args], { cwd })
-  const check = (...args: ReadonlyArray<string>) => spawnSync(process.execPath, [entry, ...args], { cwd, encoding: "utf8" })
-  try {
-    git("init", "-q")
+test("SPEC-REL-002 種別の無い項目と、基点から増えない未リリースを拒否する", () =>
+  withGitRepo("changelog-check-", async ({ cwd, git, run }) => {
+    const check = (...args: ReadonlyArray<string>) => run(entry, ...args)
     await writeFile(join(cwd, "CHANGELOG.md"), "## 未リリース\n\n### 追加\n\n- 既存\n")
     git("add", ".")
     git("commit", "-qm", "base")
@@ -28,7 +23,4 @@ test("SPEC-REL-002 種別の無い項目と、基点から増えない未リリ�
     const untyped = check()
     assert.equal(untyped.status, 1)
     assert.match(untyped.stderr, /kind heading/)
-  } finally {
-    await rm(cwd, { recursive: true, force: true })
-  }
-})
+  }))
