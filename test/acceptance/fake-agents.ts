@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { listenLocally } from "../support/listen.ts"
 
 export interface AgentToolCall {
-  readonly api: "messages" | "responses" | "chat"
+  readonly api: "responses" | "chat"
   readonly id: string
   readonly name: string
 }
@@ -33,6 +33,8 @@ interface State {
   readonly toolResults: FakeAgents["toolResults"]
   readonly toolNames: FakeAgents["toolNames"]
   readonly nextId: (prefix: string) => string
+  readonly cells: Map<string, string>
+  readonly waits: Map<string, string>
 }
 
 interface Turn {
@@ -41,6 +43,7 @@ interface Turn {
   readonly searched: boolean
   readonly names: ReadonlyArray<string>
   readonly search: string | undefined
+  readonly cell?: string | undefined
 }
 
 const records = (value: unknown): ReadonlyArray<Json> =>
@@ -61,8 +64,6 @@ const text = (value: unknown): string =>
         .join("")
 
 const isAskForm = (name: string): boolean => /(^|[-_.])askForm$/.test(name)
-
-const isSearch = (name: string): boolean => /tool_?search/i.test(name)
 
 const readBody = async (req: IncomingMessage): Promise<Json> => {
   const chunks: Array<Buffer> = []
@@ -101,76 +102,6 @@ const remember = (state: State, id: string, output: unknown): void => {
   }
 }
 
-const messageBlocks = (state: State, reply: Reply): Events => {
-  if (reply.kind === "text") {
-    return [
-      ["content_block_start", { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } }],
-      ["content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: reply.text } }]
-    ]
-  }
-  const id = state.nextId("toolu")
-  if (isAskForm(reply.name)) {
-    state.toolCalls.push({ api: "messages", id, name: reply.name })
-  }
-  return [
-    [
-      "content_block_start",
-      { type: "content_block_start", index: 0, content_block: { type: "tool_use", id, name: reply.name, input: {} } }
-    ],
-    [
-      "content_block_delta",
-      { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: JSON.stringify(reply.input) } }
-    ]
-  ]
-}
-
-const messagesTurn = (state: State, script: Script, body: Json): Turn => {
-  const history = records(body["messages"])
-  const names = records(body["tools"]).flatMap((tool) => (typeof tool["name"] === "string" ? [tool["name"]] : []))
-  state.toolNames.push(names)
-  const start = history.findLastIndex((message) => message["role"] === "user" && text(message["content"]).includes(script.trigger))
-  const uses = history
-    .slice(start + 1)
-    .filter((message) => message["role"] === "assistant")
-    .flatMap((message) => records(message["content"]))
-    .filter((part) => part["type"] === "tool_use")
-  for (const result of history.flatMap((message) => records(message["content"])).filter((part) => part["type"] === "tool_result")) {
-    remember(state, String(result["tool_use_id"]), result["content"])
-  }
-  return {
-    asked: start >= 0,
-    answered: uses.some((use) => isAskForm(String(use["name"]))),
-    searched: uses.some((use) => isSearch(String(use["name"]))),
-    names,
-    search: names.find((name) => isSearch(name))
-  }
-}
-
-const messages = (state: State, script: Script, body: Json, res: ServerResponse): void => {
-  const reply = decide(script, messagesTurn(state, script, body))
-  const message = {
-    id: state.nextId("msg"),
-    type: "message",
-    role: "assistant",
-    model: body["model"],
-    content: [],
-    usage: { input_tokens: 1, output_tokens: 1 }
-  }
-  const stop = reply.kind === "text" ? "end_turn" : "tool_use"
-  if (body["stream"] !== true) {
-    res.writeHead(200, { "content-type": "application/json" })
-    res.end(JSON.stringify({ ...message, content: [{ type: "text", text: reply.kind === "text" ? reply.text : "" }], stop_reason: stop }))
-    return
-  }
-  sse(res, [
-    ["message_start", { type: "message_start", message: { ...message, stop_reason: null } }],
-    ...messageBlocks(state, reply),
-    ["content_block_stop", { type: "content_block_stop", index: 0 }],
-    ["message_delta", { type: "message_delta", delta: { stop_reason: stop, stop_sequence: null }, usage: { output_tokens: 1 } }],
-    ["message_stop", { type: "message_stop" }]
-  ])
-}
-
 const qualified = (tool: Json): ReadonlyArray<string> =>
   tool["type"] === "namespace"
     ? records(tool["tools"]).map((inner) => `${String(tool["name"])}.${String(inner["name"])}`)
@@ -184,6 +115,39 @@ const codeModeNames = (input: ReadonlyArray<Json>): ReadonlyArray<string> =>
     .filter((tool) => tool["name"] === "exec")
     .flatMap((tool) => [...String(tool["description"]).matchAll(/^### `(\w+)`$/gm)].map((match) => `exec.${String(match[1])}`))
 
+const running = /Script running with cell ID (\S+)/
+
+const runningCell = (item: Json | undefined): string | undefined =>
+  item !== undefined && (item["type"] === "function_call_output" || item["type"] === "custom_tool_call_output")
+    ? running.exec(text(item["output"]))?.[1]
+    : undefined
+
+const settleCell = (state: State, callId: string, output: unknown): void => {
+  const cell = running.exec(text(output))?.[1]
+  const waited = state.waits.get(callId)
+  if (cell !== undefined) {
+    if (waited === undefined) {
+      state.cells.set(cell, callId)
+    }
+    return
+  }
+  remember(state, waited === undefined ? callId : (state.cells.get(waited) ?? callId), output)
+}
+
+const waitItem = (state: State, cell: string): Json => {
+  const id = state.nextId("call")
+  state.waits.set(id, cell)
+  return {
+    type: "function_call",
+    id: state.nextId("fc"),
+    call_id: id,
+    namespace: "functions",
+    name: "wait",
+    arguments: JSON.stringify({ cell_id: cell }),
+    status: "completed"
+  }
+}
+
 const responsesTurn = (state: State, script: Script, body: Json): Turn => {
   const input = records(body["input"])
   const tools = records(body["tools"])
@@ -193,8 +157,9 @@ const responsesTurn = (state: State, script: Script, body: Json): Turn => {
     ...codeModeNames(input)
   ]
   state.toolNames.push(names)
-  for (const item of input.filter((entry) => entry["type"] === "function_call_output" || entry["type"] === "custom_tool_call_output")) {
-    remember(state, String(item["call_id"]), item["output"])
+  const outputs = input.filter((entry) => entry["type"] === "function_call_output" || entry["type"] === "custom_tool_call_output")
+  for (const item of outputs) {
+    settleCell(state, String(item["call_id"]), item["output"])
   }
   const start = input.findLastIndex(
     (item) => item["type"] === "message" && item["role"] === "user" && text(item["content"]).includes(script.trigger)
@@ -209,7 +174,8 @@ const responsesTurn = (state: State, script: Script, body: Json): Turn => {
     ),
     searched: turn.some((item) => item["type"] === "tool_search_call"),
     names,
-    search: tools.some((tool) => tool["type"] === "tool_search") ? "tool_search" : undefined
+    search: tools.some((tool) => tool["type"] === "tool_search") ? "tool_search" : undefined,
+    cell: runningCell(input.at(-1))
   }
 }
 
@@ -245,7 +211,6 @@ const responseItem = (state: State, reply: Reply): Json => {
       namespace: "functions",
       name: "exec",
       input: [
-        '// @exec: {"yield_time_ms": 3600000}',
         `const result = await tools.${tool}(${JSON.stringify(reply.input)})`,
         'text(typeof result === "string" ? result : (result?.content ?? []).map((part) => part.text ?? "").join("\\n") || JSON.stringify(result))'
       ].join("\n"),
@@ -264,7 +229,8 @@ const responseItem = (state: State, reply: Reply): Json => {
 }
 
 const responses = (state: State, script: Script, body: Json, res: ServerResponse): void => {
-  const item = responseItem(state, decide(script, responsesTurn(state, script, body)))
+  const turn = responsesTurn(state, script, body)
+  const item = turn.cell === undefined ? responseItem(state, decide(script, turn)) : waitItem(state, turn.cell)
   const base = { id: state.nextId("resp"), object: "response", created_at: 0, model: body["model"], status: "in_progress", output: [] }
   const usage = {
     input_tokens: 1,
@@ -332,11 +298,7 @@ const chat = (state: State, script: Script, body: Json, res: ServerResponse): vo
 const handle = async (state: State, script: Script, req: IncomingMessage, res: ServerResponse): Promise<void> => {
   const path = (req.url ?? "").split("?")[0] ?? ""
   const body = await readBody(req)
-  if (path.endsWith("/messages/count_tokens")) {
-    res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ input_tokens: 1 }))
-  } else if (path.endsWith("/messages")) {
-    messages(state, script, body, res)
-  } else if (path.endsWith("/responses")) {
+  if (path.endsWith("/responses")) {
     responses(state, script, body, res)
   } else if (path.endsWith("/chat/completions")) {
     chat(state, script, body, res)
@@ -347,7 +309,14 @@ const handle = async (state: State, script: Script, req: IncomingMessage, res: S
 
 export const startFakeAgents = async (trigger: string, args: Json, done = "FAKE_AGENT_DONE", other = "ok"): Promise<FakeAgents> => {
   let sequence = 0
-  const state: State = { toolCalls: [], toolResults: [], toolNames: [], nextId: (prefix) => `${prefix}_${++sequence}` }
+  const state: State = {
+    toolCalls: [],
+    toolResults: [],
+    toolNames: [],
+    nextId: (prefix) => `${prefix}_${++sequence}`,
+    cells: new Map(),
+    waits: new Map()
+  }
   const script: Script = { trigger, args, done, other }
   const server = createServer((req, res) => {
     handle(state, script, req, res).catch(() => {

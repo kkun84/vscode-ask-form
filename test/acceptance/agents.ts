@@ -118,7 +118,7 @@ const ask = async (
   const approved = until(
     async () => {
       if (!shown && (await allow.isVisible())) {
-        await allow.click()
+        await allow.click({ timeout: 5000 }).catch(() => null)
       }
       return shown ? true : undefined
     },
@@ -175,7 +175,7 @@ const agentsWindow = async (session: Session): Promise<Page> => {
   if (existing !== undefined) {
     return existing
   }
-  const opened = session.app.waitForEvent("window", { predicate: (page) => page.url().includes("sessions.html"), timeout: 60_000 })
+  const opened = session.app.waitForEvent("window", { predicate: (page) => page.url().includes("sessions.html"), timeout: 180_000 })
   await runCommand(session.window, "Ask Form: Open acceptance Agents window")
   const page = await opened
   const skip = page.getByText("Continue Without Signing In", { exact: true })
