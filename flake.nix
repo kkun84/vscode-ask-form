@@ -92,7 +92,7 @@
                     "${vscode}/lib/vscode/code";
               }
               // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
-                LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.openssl ];
+                ASK_FORM_OPENSSL_LIB = pkgs.lib.makeLibraryPath [ pkgs.openssl ];
               };
           };
         }

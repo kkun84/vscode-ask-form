@@ -294,7 +294,8 @@ export const runAgents = async (paths: Paths): Promise<void> => {
         HOME: home,
         CODEX_HOME: join(profile, "codex"),
         ASK_FORM_E2E_BYOK_URL: `${agents.origin}/v1/chat/completions`,
-        ...(process.getuid?.() === 0 ? { IS_SANDBOX: "1" } : {})
+        ...(process.getuid?.() === 0 ? { IS_SANDBOX: "1" } : {}),
+        ...(process.env["ASK_FORM_OPENSSL_LIB"] === undefined ? {} : { LD_LIBRARY_PATH: process.env["ASK_FORM_OPENSSL_LIB"] })
       }
     })
     const window = await fitWindow(app, { width: 1600, height: 1000 })
