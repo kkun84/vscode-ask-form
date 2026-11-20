@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { expect, type ElectronApplication, type Frame, type Locator, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { startFakeLlm, type FakeLlm } from "./fake-llm.ts"
-import { formFrame, settled, until } from "./frames.ts"
+import { closedDuringClick, formFrame, settled, until } from "./frames.ts"
 import { createSteps, printChat, waitingStatus } from "./steps.ts"
 import { cleanUp, fitWindow, launchVscode, localHarness, type VscodePaths } from "./vscode.ts"
 
@@ -71,7 +71,7 @@ const closed = (frame: Frame) => until(() => Promise.resolve(frame.isDetached() 
 const answer = async (session: Session, button = "Send"): Promise<string> => {
   const frame = theFrame(session)
   await settled(frame)
-  await frame.getByRole("button", { name: button, exact: true }).dispatchEvent("click")
+  await frame.getByRole("button", { name: button, exact: true }).dispatchEvent("click").catch(closedDuringClick)
   const result = await until(
     () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === session.callId)),
     `the model receives the answer for ${session.callId}`,

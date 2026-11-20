@@ -52,3 +52,9 @@ export const settled = async (frame: Frame): Promise<void> => {
     10_000
   )
 }
+
+export const closedDuringClick = (error: unknown): void => {
+  if (!String(error).includes("detached")) {
+    throw error
+  }
+}
