@@ -98,17 +98,21 @@ const ask = async (
   open: () => Promise<Page>
 ): Promise<{ readonly page: Page; readonly frame: Frame; readonly callId: string }> => {
   const callIndex = session.agents.toolCalls.length
-  const page = await open()
-  const previous = page.frames()
-  const allow = page.locator(".monaco-button:visible", { hasText: "Allow in this Session" })
-  const missing = page.getByText(/^NO_ASK_FORM/)
+  let page = await open()
+  let previous = page.frames()
+  const allow = () => page.locator(".monaco-button:visible", { hasText: "Allow in this Session" })
+  const missing = () => page.getByText(/^NO_ASK_FORM/)
   const called = () => session.agents.toolCalls.length > callIndex
-  for (let attempt = 0; attempt < 5 && !(await allow.isVisible()) && !called(); attempt++) {
-    const before = await missing.count()
+  for (let attempt = 0; attempt < 5 && !(await allow().isVisible()) && !called(); attempt++) {
+    if (attempt > 0 && (await missing().count()) > 0) {
+      page = await open()
+      previous = page.frames()
+    }
+    const before = await missing().count()
     await sleep(attempt * 5000)
     await send(page)
     await until(
-      async () => ((await allow.isVisible()) || called() || (await missing.count()) > before ? true : undefined),
+      async () => ((await allow().isVisible()) || called() || (await missing().count()) > before ? true : undefined),
       `${harness} asks for permission, calls ask_form, or answers without ask_form`,
       120_000
     )
@@ -117,8 +121,10 @@ const ask = async (
   let shown = false
   const approved = until(
     async () => {
-      if (!shown && (await allow.isVisible())) {
-        await allow.click({ timeout: 5000 }).catch(() => null)
+      if (!shown && (await allow().isVisible())) {
+        await allow()
+          .click({ timeout: 5000 })
+          .catch(() => null)
       }
       return shown ? true : undefined
     },
