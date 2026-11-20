@@ -6,13 +6,14 @@ import { join } from "node:path"
 import { bundle } from "./bundle.ts"
 import { runChat } from "../test/acceptance/chat.ts"
 import { buildDriver } from "../test/acceptance/driver-build.ts"
+import { runAgents } from "../test/acceptance/agents.ts"
 import { runWeb } from "../test/acceptance/web-browser.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const extension = join(root, "out/extension")
 const out = join(extension, "acceptance")
 const driver = join(root, "out/e2e-driver")
-const targets = process.argv.slice(2).length === 0 ? ["desktop", "web", "chat"] : process.argv.slice(2)
+const targets = process.argv.slice(2).length === 0 ? ["desktop", "web", "chat", "agents"] : process.argv.slice(2)
 
 const emit = async (input: string, platform: "node" | "browser", file: string): Promise<void> => {
   const built = await bundle({ input: join(root, input), platform, format: "cjs" })
@@ -72,7 +73,16 @@ const electron = (): string => {
 
 const chat = (): Promise<void> => runChat({ executable: electron(), extension, driver, results: join(root, "test-results/chat") })
 
-const runners: Readonly<Record<string, () => Promise<void>>> = { desktop, web, chat }
+const agents = (): Promise<void> =>
+  runAgents({
+    executable: electron(),
+    extension,
+    driver,
+    results: join(root, "test-results/agents"),
+    sdkCache: join(root, "node_modules/.cache/ask-form-agent-sdk")
+  })
+
+const runners: Readonly<Record<string, () => Promise<void>>> = { desktop, web, chat, agents }
 
 for (const target of targets) {
   const runner = runners[target]

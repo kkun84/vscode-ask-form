@@ -43,7 +43,7 @@ const addGroup = async (group: Readonly<Record<string, unknown>>, attempt = 1): 
   }
 }
 
-const drive = async (context: vscode.ExtensionContext, url: string, query: string): Promise<void> => {
+const registerModel = async (url: string): Promise<vscode.LanguageModelChat> => {
   const copilot = vscode.extensions.all
     .filter((item) => /copilot/i.test(item.id))
     .map((item) => `${item.id}@${String(item.packageJSON?.version)} active=${String(item.isActive)}`)
@@ -72,6 +72,17 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
   if (model === undefined) {
     throw new Error("the fake model is unavailable")
   }
+  return model
+}
+
+const toggleAutoReply = async (): Promise<void> => {
+  const chat = vscode.workspace.getConfiguration("chat")
+  await chat.update("autoReply", chat.get<boolean>("autoReply", false) !== true, vscode.ConfigurationTarget.Global)
+  log(`chat.autoReply ${String(vscode.workspace.getConfiguration("chat").get("autoReply"))}`)
+}
+
+const drive = async (context: vscode.ExtensionContext, url: string, query: string): Promise<void> => {
+  const model = await registerModel(url)
   const draft = process.env["ASK_FORM_E2E_DRAFT"] === "1"
   let scenario = 0
   const openChat = async (): Promise<void> => {
@@ -85,11 +96,6 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
     })
     log(`chat ${scenario} opened`)
   }
-  const toggleAutoReply = async (): Promise<void> => {
-    const chat = vscode.workspace.getConfiguration("chat")
-    await chat.update("autoReply", chat.get<boolean>("autoReply", false) !== true, vscode.ConfigurationTarget.Global)
-    log(`chat.autoReply ${String(vscode.workspace.getConfiguration("chat").get("autoReply"))}`)
-  }
   context.subscriptions.push(
     vscode.commands.registerCommand("ask-form-e2e.newChat", openChat),
     vscode.commands.registerCommand("ask-form-e2e.autoReply", toggleAutoReply)
@@ -97,15 +103,35 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
   await openChat()
 }
 
+const harnesses = ["claude", "codex"] as const
+
+const fail = (error: unknown): void => log(`error ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`)
+
 export const activate = (context: vscode.ExtensionContext): void => {
+  for (const harness of harnesses) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(`ask-form-e2e.${harness}`, async () => {
+        await vscode.commands.executeCommand("workbench.action.chat.agentHost.downloadAgentSdk", harness)
+        await vscode.commands.executeCommand(`workbench.action.chat.openNewChatSessionInPlace.agent-host-${harness}`, "sidebar")
+      })
+    )
+  }
+  context.subscriptions.push(
+    vscode.commands.registerCommand("ask-form-e2e.copilot", () =>
+      vscode.commands.executeCommand("workbench.action.chat.openNewChatSessionInPlace.agent-host-copilotcli", "sidebar")
+    ),
+    vscode.commands.registerCommand("ask-form-e2e.agentsWindow", () => vscode.commands.executeCommand("workbench.action.openAgentsWindow"))
+  )
+  const byok = process.env["ASK_FORM_E2E_BYOK_URL"]
+  if (byok !== undefined) {
+    registerModel(byok).catch(fail)
+  }
   const url = process.env["ASK_FORM_E2E_LLM_URL"]
   const query = process.env["ASK_FORM_E2E_QUERY"]
   if (url === undefined || query === undefined) {
     return
   }
-  drive(context, url, query).catch((error: unknown) =>
-    log(`error ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`)
-  )
+  drive(context, url, query).catch(fail)
 }
 
 export const deactivate = (): void => undefined

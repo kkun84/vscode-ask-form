@@ -270,6 +270,19 @@ Copilotは、次のようなJSONでフォームを指定します。利用者が
 
 - 以前はMCPサーバーとして動かし、フォームをチャットの中に描いていました。VS Codeのハーネス(Copilot、Claude、Codex)は、MCPのツールの呼び出しを1分から5分で打ち切ります。そのため、それより長く考えた利用者の回答がCopilotに届きませんでした。VS Codeのツールの呼び出しは、CopilotとCodexのハーネスでは打ち切られません。
 - 拡張機能はポートを開かず、外から回答を送る口を持ちません。
+
+### ハーネスとウィンドウ
+
+VS Codeのチャットでは、エージェントを動かすハーネスを選べます。VS Code 1.146と1.147で確かめた対応は次のとおりです。
+
+| ハーネス | メインウィンドウ | Agentsウィンドウ |
+| -------- | ---------------- | ---------------- |
+| Copilot  | 使える           | 使える           |
+| Codex    | 使える           | 使える           |
+| Claude   | 使えない         | 使えない         |
+
+- Claudeのハーネスは、Ask Formのツールを呼んでも、VS Codeがツールを実行せずに止まります。VS Codeの不具合とみています。
+- Codexは、モデルによってツールの渡し方が違います。GPT-5.5ではツールを直接呼び、GPT-6.1-Solなど新しいモデル(Agentsウィンドウの既定)では、JavaScriptを実行するツール`exec`の中から`tools.askForm(...)`として呼びます(コードモード)。どちらでも使えます。
 - 配布物が使う外部パッケージは[Effect](https://effect.website)だけです。
 
 ## よくある質問
@@ -313,7 +326,7 @@ pnpm build
 | `pnpm typecheck`         | TypeScript 7とEffectの診断による型検査                                                                                                                                                                                                                   |
 | `pnpm check`             | lint、型検査、単体・結合・システムのテスト、配布物の大きさの検査をまとめて実行。CIは同じ検査を1つずつ動かす                                                                                                                                              |
 | `pnpm test`              | 単体、結合、システム、画面のテスト                                                                                                                                                                                                                       |
-| `pnpm test:acceptance`   | 実際のVS Code(デスクトップ版、web版、チャット)での受け入れテスト                                                                                                                                                                                         |
+| `pnpm test:acceptance`   | 実際のVS Code(デスクトップ版、web版、チャット、ハーネス)での受け入れテスト                                                                                                                                                                               |
 | `pnpm media`             | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る([`docs/media/README.md`](docs/media/README.md))                                                   |
 | `pnpm mutation`          | 単体テストによるミューテーションテストを全件で実行。結果は`.mutator/report`。失敗にしない指標                                                                                                                                                            |
 | `pnpm mutation:diff`     | `origin/main`との差分と、変更したテストが確かめるコードだけのミューテーションテスト。何も検出しない新しいテストはCIが探す。検出できなかったミュータントは表示だけで失敗にしない                                                                          |
@@ -327,6 +340,8 @@ pnpm build
 ### 実機での受け入れテスト
 
 受け入れテストは、実際のVS CodeとビルトインのCopilot Chatを動かします。チャットのモデルには、決まった応答を返す偽のLLM APIをBYOK(Custom Endpoint)としてつなぎ、フォームの表示、回答、中断までを通して確かめます。READMEの画像と動画も、同じしくみで撮っています。
+
+CopilotとCodexのハーネスも、同じように偽のLLM APIで確かめます(対象`agents`)。偽のAPIはOpenAI Chat CompletionsとOpenAI Responsesに答え、Codexのコードモードの`exec`の呼び出しも真似ます。CopilotはBYOKのモデルとして、Codexは環境変数`CODEX_HOME`の設定で偽のAPIに向けます。Agentsウィンドウでも確かめます。各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、対象`agents`を流しません。
 
 ### 文書とテストの対応
 
