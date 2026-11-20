@@ -94,7 +94,7 @@ const featureCard = `<div class="center">
     <div class="tile"><b>推奨と理由が入っている</b><span>違う所だけ直せばいい</span></div>
     <div class="tile"><b>選択肢にない答えも伝わる</b><span>補足を書いて、回答に添えて送る</span></div>
     <div class="tile"><b>質問ごとにコメント</b><span>答えない理由やしてほしい事を、定型文で一言</span></div>
-    <div class="tile"><b>デスクトップ版とweb版</b><span>チャットの中、またはvscode.devのパネルに</span></div>
+    <div class="tile"><b>何分考えても届く</b><span>フォームはチャットの横のパネルに。デスクトップ版もweb版も</span></div>
   </div>
 </div>`
 

@@ -1,6 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises"
-import { askFormDescription } from "../src/mcp/server.ts"
-import { formSpecJsonSchema } from "../src/mcp/schema.ts"
+import { askFormDescription, formSpecJsonSchema } from "../src/core/tool.ts"
 
 const file = new URL("../package.json", import.meta.url)
 const check = process.argv.includes("--check")

@@ -59,14 +59,14 @@ describe("ARCH-LAYER-001 中核は純粋", () => {
     const report = analyze([
       [
         "src/core/validate.ts",
-        'import * as vscode from "vscode"\nimport { readFileSync } from "node:fs"\nimport { FormHtml } from "../mcp/server.ts"\nexport const probe = [vscode.window, readFileSync, FormHtml]'
+        'import * as vscode from "vscode"\nimport { readFileSync } from "node:fs"\nimport { panelHtml } from "../extension/shared/panel.ts"\nexport const probe = [vscode.window, readFileSync, panelHtml]'
       ]
     ])
     assert.deepEqual(policies(report).toSorted(), [
       "ARCH-LAYER-001 src/core/validate.ts node:fs",
       "ARCH-LAYER-001 src/core/validate.ts vscode"
     ])
-    assert.deepEqual(boundaries(report), ["src/core/validate.ts core->mcp-tools"])
+    assert.deepEqual(boundaries(report), ["src/core/validate.ts core->extension-shared"])
   })
 })
 
@@ -88,29 +88,16 @@ describe("ARCH-LAYER-002 画面はブラウザだけで動く", () => {
   })
 })
 
-describe("ARCH-LAYER-003 MCPサーバーはVS Codeを知らない", () => {
-  it("ARCH-LAYER-003 MCPサーバーからVS Codeと拡張機能への依存を見つける", () => {
-    const report = analyze([
-      [
-        "src/mcp/http.ts",
-        'import * as vscode from "vscode"\nimport { panelHtml } from "../extension/shared/panel.ts"\nexport const probe = [vscode.window, panelHtml]'
-      ]
-    ])
-    assert.deepEqual(policies(report), ["ARCH-LAYER-003 src/mcp/http.ts vscode"])
-    assert.deepEqual(boundaries(report), ["src/mcp/http.ts mcp-http->extension-shared"])
-  })
-})
-
 describe("ARCH-LAYER-004 web版の入口はNode.jsを使わない", () => {
-  it("ARCH-LAYER-004 web版の入口からNode.jsとMCPサーバーへの依存を見つける", () => {
+  it("ARCH-LAYER-004 web版の入口からNode.jsとデスクトップ版の入口への依存を見つける", () => {
     const report = analyze([
       [
         "src/extension/web/main.ts",
-        'import { randomUUID } from "node:crypto"\nimport { FormHtml } from "../../mcp/server.ts"\nexport const probe = [randomUUID, FormHtml]'
+        'import { randomUUID } from "node:crypto"\nimport { activate } from "../node/main.ts"\nexport const probe = [randomUUID, activate]'
       ]
     ])
     assert.deepEqual(policies(report), ["ARCH-LAYER-004 src/extension/web/main.ts node:crypto"])
-    assert.deepEqual(boundaries(report), ["src/extension/web/main.ts extension-web->mcp-tools"])
+    assert.deepEqual(boundaries(report), ["src/extension/web/main.ts extension-web->extension-node"])
   })
 })
 
@@ -131,41 +118,6 @@ describe("ARCH-LAYER-006 画面が使う中核はEffectを使わない", () => {
     ])
     assert.deepEqual(policies(report), ["ARCH-LAYER-006 src/core/hash.ts effect"])
     assert.deepEqual(boundaries(report), ["src/core/hash.ts core-pure->core"])
-  })
-})
-
-describe("ARCH-EFFECT-001 サービスの定義は実装を知らない", () => {
-  it("ARCH-EFFECT-001 サービスの定義から実装とNode.jsへの依存を見つける", () => {
-    const report = analyze([
-      [
-        "src/mcp/ports.ts",
-        'import { createServer } from "node:http"\nimport { PendingFormsLive } from "./pending.ts"\nexport const probe = [createServer, PendingFormsLive]'
-      ]
-    ])
-    assert.deepEqual(policies(report), ["ARCH-EFFECT-001 src/mcp/ports.ts node:http"])
-    assert.deepEqual(boundaries(report), ["src/mcp/ports.ts ports->mcp-tools"])
-  })
-})
-
-describe("ARCH-EFFECT-002 ツールの処理は通信手段を知らない", () => {
-  it("ARCH-EFFECT-002 ツールの処理からHTTPとNode.jsへの依存を見つける", () => {
-    const report = analyze([
-      [
-        "src/mcp/pending.ts",
-        'import { createServer } from "node:http"\nimport { serveForms } from "./http.ts"\nexport const probe = [createServer, serveForms]'
-      ]
-    ])
-    assert.deepEqual(policies(report), ["ARCH-EFFECT-002 src/mcp/pending.ts node:http"])
-    assert.deepEqual(boundaries(report), ["src/mcp/pending.ts mcp-tools->mcp-http"])
-  })
-})
-
-describe("ARCH-EFFECT-003 層を組み立てるのは入口だけ", () => {
-  it("ARCH-EFFECT-003 入口のほかから層の組み立てへの依存を見つける", () => {
-    const report = analyze([
-      ["src/extension/shared/labels.ts", 'import { serveForms } from "../../mcp/http.ts"\nexport const probe = serveForms']
-    ])
-    assert.deepEqual(boundaries(report), ["src/extension/shared/labels.ts extension-shared->mcp-http"])
   })
 })
 

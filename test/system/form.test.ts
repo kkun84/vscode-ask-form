@@ -5,7 +5,7 @@ import { initialValues } from "../../src/core/form.ts"
 import { compile } from "../../src/core/validate.ts"
 import { eventSpec } from "../fixtures/event.ts"
 import { storageForm, storageSpec } from "../fixtures/storage.ts"
-import { structured, text, withHarness, type Harness } from "../support/server.ts"
+import { structured, text, withHarness, type Harness } from "../support/host.ts"
 
 const rejected = (h: Harness, spec: Record<string, unknown>) =>
   Effect.gen(function* () {
@@ -237,8 +237,8 @@ describe("SPEC-EXPR-001 計算式", () => {
     ))
 })
 
-describe("SPEC-MCP-003 回答を待つ", () => {
-  it("SPEC-MCP-003 選ばれていない選択肢の項目は回答に入れない", () =>
+describe("SPEC-TOOL-003 回答を待つ", () => {
+  it("SPEC-TOOL-003 選ばれていない選択肢の項目は回答に入れない", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const values = { ...initialValues(storageForm.spec), storage: "server", port: 3000 }

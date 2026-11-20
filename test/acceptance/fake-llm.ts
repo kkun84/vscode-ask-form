@@ -115,7 +115,7 @@ export const startFakeLlm = async (
     }
     const tool = (request.tools ?? [])
       .map((item) => item.function?.name ?? "")
-      .find((name) => name.endsWith("ask_form") && !name.startsWith("forms_"))
+      .find((name) => name === "forms_ask_form" || name.endsWith("askForm"))
     if (userIndex < 0 || tool === undefined) {
       return { kind: "text", text: other }
     }

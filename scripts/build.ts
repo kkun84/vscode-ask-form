@@ -6,8 +6,6 @@ import { bundle } from "./bundle.ts"
 const root = new URL("..", import.meta.url)
 const path = (relative: string) => fileURLToPath(new URL(relative, root))
 
-const pkg = JSON.parse(await readFile(path("package.json"), "utf8")) as { readonly version: string }
-
 const ui = await bundle({ input: path("src/ui/main.ts"), platform: "browser", format: "esm", minify: true })
 const script = ui.code.replaceAll("</script", "<\\/script")
 const style = (await readFile(path("src/ui/styles.css"), "utf8")).replaceAll(/^[ \t]+/gm, "").replaceAll(/\n{2,}/g, "\n")
@@ -18,8 +16,7 @@ await mkdir(path("dist"), { recursive: true })
 await writeFile(path("dist/form.html"), html)
 
 const define = {
-  ASK_FORM_HTML: JSON.stringify(html),
-  ASK_FORM_VERSION: JSON.stringify(pkg.version)
+  ASK_FORM_HTML: JSON.stringify(html)
 }
 
 const node = await bundle({ input: path("src/extension/node/main.ts"), platform: "node", format: "cjs", minify: true, define })

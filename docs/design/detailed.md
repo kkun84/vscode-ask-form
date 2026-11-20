@@ -6,20 +6,20 @@
 
 ### DES-SPEC-001 設計図の読み取り
 
-設計図はEffect Schemaで読み取る(`src/core/validate.ts`)。未知のキーは捨てる。画面はEffectを使わないため、読み取りと検査は拡張機能とMCPサーバーの側だけで行う。読み取りの誤りと意味的な検査の誤りは、どちらも「どこが」「なぜ」を含む文の一覧にまとめる。
+設計図はEffect Schemaで読み取る(`src/core/validate.ts`)。未知のキーは捨てる。画面はEffectを使わないため、読み取りと検査は拡張機能の側だけで行う。読み取りの誤りと意味的な検査の誤りは、どちらも「どこが」「なぜ」を含む文の一覧にまとめる。
 
 - 項目と計算結果で共通の`id`のSchemaから、予約語と完全に一致する`true`と`false`を拒否する。`trueValue`や`True`など異なる名前は受け付ける。
 - `default`のない項目に`reason`か`reasonDetails`があれば、項目の`id`を含む誤りを返す。画面は推奨のない項目の理由を表示しないので、AIに`description`へ書き直させる。
 - 複数選択の`default`は、配列の長さと値の集合の大きさを比べ、重複があれば項目の`id`と`default`の誤りを返す。値を黙って削らず、空の配列と重複のない配列を受け付ける。
 - 表示する文章のSchemaは、目安の文字数を受け取る関数で作る(`src/core/spec.ts`)。この関数は、上限を目安の2倍にし、目安を`description`の末尾に足す。AIに示すJSON Schemaと読み取りには、同じSchemaを使う。`id`、選択肢の`value`、`default`、計算式、`prefix`と`suffix`はこの関数を通さず、上限を広げない。
 
-派生元: SPEC-FORM-001, SPEC-FORM-002, SPEC-MCP-004, ARCH-LAYER-001
+派生元: SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-004, ARCH-LAYER-001
 
 ### DES-SPEC-002 正規化と鍵
 
 受け取った引数を、読み取る前の形のまま、キーを辞書順に並べ値が`undefined`のキーを除いたJSONに直す。その文字列から、FNV-1aを2つの異なる初期値で計算して16桁の16進数を作り、鍵とする。
 
-派生元: SPEC-MCP-006
+派生元: SPEC-TOOL-006
 
 ## 計算式
 
@@ -60,7 +60,7 @@
 
 - 複数選択は入力を変更せずに並べ替え、長さと各要素の一致を調べる。区切り文字でつながず、NUL文字を含む値でも衝突しないようにする。この差分を`changedByUser`と画面の変更表示に使う。
 
-派生元: SPEC-MCP-003, SPEC-UI-001, ARCH-LAYER-006
+派生元: SPEC-TOOL-003, SPEC-UI-001, ARCH-LAYER-006
 
 ### DES-FORM-004 値の検査
 
@@ -68,7 +68,7 @@
 
 - 複数選択は、すべての要素が選択肢の文字列で、配列の長さと値の集合の大きさが等しい場合だけ受け付ける。重複があれば項目の`id`を含む誤りを返し、計算と回答に渡さない。
 
-派生元: SPEC-MCP-005, ARCH-LAYER-001
+派生元: SPEC-TOOL-005, ARCH-LAYER-001
 
 ### DES-FORM-006 選択肢ごとの項目
 
@@ -78,7 +78,7 @@
 - 差分は`after`の有効な項目について比べる。`before`にない項目は変更とする。`changedByUser`は全項目の初期値と比べるため、切り替えただけの項目を含めない。
 - 入れ子が2段以上ある設計図は、読み取りで捨てられる前のJSONを調べて拒否する。Schemaの型を再帰させず、JSON Schemaを平らに保つため。
 
-派生元: SPEC-FORM-001, SPEC-FORM-002, SPEC-MCP-003, SPEC-UI-011
+派生元: SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-003, SPEC-UI-011
 
 ### DES-FORM-007 値のない回答
 
@@ -91,16 +91,16 @@
 - `outcomeFor`は、`held`の項目の設計図を`heldForm`に入れる。
 - 差分は値の違いを数え、値と値なしの間の変更も含める。`changedByUser`は差分から値のない項目を除く。
 
-派生元: SPEC-MCP-003, SPEC-MCP-005, SPEC-UI-012, ARCH-LAYER-006
+派生元: SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-012, ARCH-LAYER-006
 
 ### DES-FORM-008 補足
 
-`checkAnswer`は、画面から届いた値、`held`の一覧、コメント、補足をまとめて検査し、すべての誤りを1つの一覧で返す(`src/core/validate.ts`)。MCPサーバーとパネルのホストは、どちらもこの関数で回答を検査する。
+`checkAnswer`は、画面から届いた値、`held`の一覧、コメント、補足をまとめて検査し、すべての誤りを1つの一覧で返す(`src/core/validate.ts`)。パネルのホストは、この関数で回答を検査する。
 
 - 補足は前後の空白を除く。除いた結果が空なら補足なしとして扱い、`outcomeFor`は結果に`note`のキーを入れない。
 - 補足が文字列でないか、空白を除く前の長さが2000文字を超えていれば誤りとする。
 
-派生元: SPEC-MCP-003, SPEC-MCP-005, ARCH-LAYER-001
+派生元: SPEC-TOOL-003, SPEC-TOOL-005, ARCH-LAYER-001
 
 ### DES-FORM-009 項目ごとのコメント
 
@@ -111,27 +111,13 @@
 - `appendPreset`は、定型文を書きかけのコメントの後ろに足す。末尾が日本語の文字なら空白を挟まず、それ以外なら空白を挟む。
 - `commentPresetsFrom`は、設定の値が配列でなければ`undefined`を返して既定の定型文に任せ、配列なら文字列だけを空白を除いて残し、空の文と500文字を超える文を捨て、8個までにする。拡張機能と画面の両方がこの関数で設定を読む。
 
-派生元: SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-010, SPEC-UI-014
-
-## 待機
-
-### DES-PEND-001 待機の台帳
-
-待機中の呼び出しを鍵ごとの先入れ先出しの列で持つ。呼び出しが取り消されたら列から外す。待機の総数が変わったときだけ`WaitingIndicator`へ知らせる。
-
-待機の登録と終了処理はEffectの`acquireUseRelease`で組にする。終了時に、回答が渡されたか中断されたかを記録する。終了状態は直近128個の鍵だけを保持し、同じ鍵で待機中の呼び出しがあれば終了状態より優先する。記録のない鍵は`unknown`とする。
-
-- 回答時は`uninterruptibleMask`の中で台帳から対象を外し、`Deferred`を完了する。待機数の通知はその後に`restore`で中断可能に戻して行い、通知が待ち続けても質問への回答を失わない。
-
-派生元: SPEC-MCP-003, SPEC-MCP-005, SPEC-MCP-007, SPEC-EXT-002
+派生元: SPEC-TOOL-003, SPEC-TOOL-005, SPEC-TOOL-010, SPEC-UI-014
 
 ## 画面の中断
 
 ### DES-UI-001 中断状態の確認
 
-回答待ちの画面は、MCP Appsの`tools/call`で`form_status`を呼び、返答から1秒後に次の確認を行う。確認を重ねて送らず、通信の失敗や`unknown`を中断と扱わない。`cancelled`を受け取ると中断を一度だけ知らせる。回答待ちでなくなるとタイマーを止め、遅れて届いた返答を無視する。
-
-[MCP Appsの仕様](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)はホストに`ui/notifications/tool-cancelled`の送信を求めるが、[VS Code 1.142の画面ホスト](https://github.com/microsoft/vscode/blob/1.142.0/src/vs/workbench/contrib/chat/browser/widget/chatContentParts/toolInvocationParts/chatMcpAppModel.ts)はMCP出力がある結果だけを転送し、中断を通知しない。[MCPへの要求処理](https://github.com/microsoft/vscode/blob/1.142.0/src/vs/workbench/contrib/mcp/common/mcpServerRequestHandler.ts)は`notifications/cancelled`を送るため、画面はサーバーの終了状態でも中断を確認する。
+回答待ちの画面は、パネルのホストに`tools/call`で`form_status`を呼び、返答から1秒後に次の確認を行う。確認を重ねて送らず、通信の失敗や`unknown`を中断と扱わない。`cancelled`を受け取ると中断を一度だけ知らせる。回答待ちでなくなるとタイマーを止め、遅れて届いた返答を無視する。
 
 派生元: SPEC-UI-006, ARCH-UI-001
 
@@ -145,17 +131,9 @@
 ### DES-HOST-001 初期化前の中断
 
 - `createAppHost`は中断状態を保持し、初期化に応答して設計図を送った直後に中断を再通知する。初期化が繰り返されても同様に通知し、中断済みのフォームへの回答は拒否する。
-- 拡張機能はチャットの停止でパネルを閉じ、閉じたパネルには何も送らない。本番のパネルにこの再通知は届かない。届くのは、MCP Appsのホストの中断を再現する画面テストのホストである。
+- 拡張機能はチャットの停止でパネルを閉じ、閉じたパネルには何も送らない。本番のパネルにこの再通知は届かない。届くのは、ホストの中断を再現する画面テストのホストである。
 
 派生元: SPEC-EXT-004, SPEC-UI-006, ARCH-UI-001
-
-## HTTPの起動
-
-### DES-HTTP-001 待ち受けの失敗
-
-- `listen`より先に`error`の受け口を登録し、非同期のエラーと同期の例外を原因つきの`FormsListenFailed`としてEffectの失敗にする。成功と失敗のどちらでも起動用の`error`と`listening`の受け口を外し、サーバー自身の受け口は残す。失敗時もEffectのスコープがWebハンドラーを解放する。
-
-派生元: SPEC-EXT-001, SPEC-MCP-009, ARCH-EFFECT-003
 
 ## 検査の実行
 

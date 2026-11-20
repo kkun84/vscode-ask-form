@@ -71,17 +71,19 @@ const setAttendees = async (session: Session, value: string): Promise<void> => {
   await input.press("Tab")
 }
 
+const closed = (frame: Frame) => until(() => Promise.resolve(frame.isDetached() ? true : undefined), "the form panel closes", 30_000)
+
 const answer = async (session: Session, button = "Send"): Promise<string> => {
   const frame = theFrame(session)
   await settled(frame)
-  await frame.getByRole("button", { name: button, exact: true }).click()
+  await frame.getByRole("button", { name: button, exact: true }).dispatchEvent("click")
   const result = await until(
     () => Promise.resolve(session.llm.toolResults.find((item) => item.callId === session.callId)),
     `the model receives the answer for ${session.callId}`,
     60_000
   )
   await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
-  await frame.locator(".summary").waitFor({ timeout: 30_000 })
+  await closed(frame)
   await session.window.getByText("FAKE_LLM_DONE", { exact: true }).waitFor({ timeout: 30_000 })
   await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
   return result.text
@@ -89,7 +91,7 @@ const answer = async (session: Session, button = "Send"): Promise<string> => {
 
 const askedSpec = { ...eventSpec, description: `${eventSpec.description}${"The form explains itself at length. ".repeat(9)}` }
 
-test("REQ-ASK-001 Copilotのチャットで、AIが目安の文字数を超えた設計図でもフォームで質問できる", async (session) => {
+test("REQ-ASK-001 Copilotのチャットで、AIが目安の文字数を超えた設計図でもパネルのフォームで質問できる", async (session) => {
   await receiveForm(session, 0)
 })
 
@@ -111,8 +113,8 @@ test("REQ-ANS-001 フォームで回答すると、同じ流れのままモデ�
   check(result.includes('"changedByUser":["attendees"]'), `the tool result marks the changed field: ${result}`)
 })
 
-test("REQ-RES-001 回答後のフォームは要約になる", async (session) => {
-  await theFrame(session).locator(".summary").waitFor({ timeout: 30_000 })
+test("REQ-RES-001 回答するとフォームのパネルが閉じる", async (session) => {
+  await closed(theFrame(session))
 })
 
 const pressKey = async (button: Locator): Promise<void> => {
@@ -151,14 +153,14 @@ test("REQ-ANS-007 質問へのコメントは、commentsとしてモデルに届
 })
 
 test("REQ-ANS-006 補足を書いて送信すると、noteとしてモデルに届く", async (session) => {
-  const frame = await settledForm(session)
+  await settledForm(session)
+  const frame = theFrame(session)
   await frame.locator("details.note summary").click()
   await frame.getByRole("textbox", { name: "Add a note" }).fill("The venue is not decided yet.")
   const result = await answer(session)
   expect(result).toContain('"status":"submitted"')
   expect(result).toContain('"note":"The venue is not decided yet."')
   expect(result).toContain("If note is present")
-  await expect(frame.locator(".summary-row").last()).toHaveText("NoteThe venue is not decided yet.")
 })
 
 test("REQ-ANS-003 キャンセルすると、answer_in_chatがモデルに届く", async (session) => {
@@ -168,13 +170,11 @@ test("REQ-ANS-003 キャンセルすると、answer_in_chatがモデルに届く
   expect(result).toContain("End your turn now and wait for the user's next message")
 })
 
-test("REQ-CANCEL-001 待機中にチャットを停止すると、フォームとステータスバーが中断を示す", async (session) => {
+test("REQ-CANCEL-001 待機中にチャットを停止すると、フォームのパネルが閉じ、ステータスバーの表示が消える", async (session) => {
   await newForm(session)
   await waiting(session).waitFor({ timeout: 30_000 })
   await stopButton(session).click()
-  const frame = theFrame(session)
-  await expect(frame.locator("#app > .closed[role='status']")).toHaveText("Cancelled", { timeout: 30_000 })
-  await expect(frame.getByRole("button")).toHaveCount(0)
+  await closed(theFrame(session))
   await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
   await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
 })
@@ -212,7 +212,7 @@ test("REQ-WAIT-002 フォームが待っている間に設定を有効にする�
     )
     expect(result.text).toContain('"status":"unavailable"')
     await waiting(session).waitFor({ state: "hidden", timeout: 30_000 })
-    await expect(theFrame(session).getByRole("button")).toHaveCount(0, { timeout: 30_000 })
+    await closed(theFrame(session))
     await stopButton(session).waitFor({ state: "hidden", timeout: 30_000 })
   } finally {
     await runCommand(session, "Ask Form: Toggle acceptance auto reply")

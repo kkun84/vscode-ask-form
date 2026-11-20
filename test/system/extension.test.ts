@@ -2,10 +2,8 @@ import { fileURLToPath } from "node:url"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { describe, it } from "vitest"
-import { Effect, Fiber, Schedule } from "effect"
 import { initialValues } from "../../src/core/form.ts"
 import { eventForm, eventSpec } from "../fixtures/event.ts"
-import { connect, runScoped, type Connection } from "../support/server.ts"
 import { cancellation, createVscode, fakeContext, loadBundle, type FakePanel, type Recorder } from "../support/vscode-stub.ts"
 
 const nodeBundle = fileURLToPath(new URL("../../dist/node/extension.cjs", import.meta.url))
@@ -16,39 +14,12 @@ const readManifest = async <T>(): Promise<T> => JSON.parse(await readFile(new UR
 
 const formKey = eventForm.key
 
-const until = (check: () => boolean) =>
-  Effect.suspend(() => (check() ? Effect.void : Effect.fail("not yet"))).pipe(
-    Effect.retry({ times: 400, schedule: Schedule.spaced("5 millis") }),
-    Effect.orDie
-  )
-
 const start = async () => {
   const { vscode, recorder } = createVscode()
   const { context, dispose } = fakeContext()
   await loadBundle(nodeBundle, vscode, "node").activate(context)
-  const provider = recorder.providers.get("ask-form.mcp")
-  assert.ok(provider)
-  return { recorder, provider, dispose }
+  return { recorder, dispose }
 }
-
-const desktop = Effect.acquireRelease(
-  Effect.promise(async () => {
-    const { recorder, provider, dispose } = await start()
-    const [definition] = provider.provideMcpServerDefinitions()
-    if (definition === undefined) {
-      throw new Error("MCP server definition is missing")
-    }
-    return { recorder, definition, dispose }
-  }),
-  ({ dispose }) => Effect.promise(dispose)
-)
-
-const desktopConnection = Effect.gen(function* () {
-  const { recorder, definition } = yield* desktop
-  const token = (definition.headers["authorization"] ?? "").replace("Bearer ", "")
-  const connection = yield* connect(definition.uri.toString(), token)
-  return { recorder, connection }
-})
 
 const submitRecommended = (panel: FakePanel | undefined): void =>
   panel?.receive({
@@ -68,73 +39,37 @@ const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands
   assert.equal(recorder.configListeners(), 0)
 }
 
-describe("SPEC-EXT-001 MCPサーバーの登録", () => {
-  it("SPEC-EXT-001 起動するとトークンつきのHTTPのMCPサーバーを登録し、ask_formを呼べる", () =>
-    runScoped(
-      Effect.gen(function* () {
-        const { definition } = yield* desktop
-        assert.match(definition.uri.toString(), /^http:\/\/127\.0\.0\.1:\d+\/mcp$/)
-        assert.match(definition.headers["authorization"] ?? "", /^Bearer [0-9a-f-]{36}$/)
-        const { connection } = yield* desktopConnection
-        const tool = yield* connection.tool("ask_form")
-        assert.equal(tool.annotations?.readOnlyHint, true)
-      })
-    ))
-})
-
-describe("SPEC-EXT-006 MCPを使わない環境", () => {
-  it("SPEC-EXT-006 設定でMCPを切るか、組織がMCPを制限するとMCPサーバーを提供せず、変更を通知する", async () => {
-    const { recorder, provider, dispose } = await start()
-    let notified = 0
-    ;(
-      provider as unknown as { readonly onDidChangeMcpServerDefinitions: (listener: () => void) => unknown }
-    ).onDidChangeMcpServerDefinitions(() => notified++)
-    assert.equal(provider.provideMcpServerDefinitions().length, 1)
-    recorder.changeSetting("askForm.mcp.enabled", false)
-    assert.equal(provider.provideMcpServerDefinitions().length, 0)
-    recorder.changeSetting("askForm.mcp.enabled", true)
-    assert.equal(provider.provideMcpServerDefinitions().length, 1)
-    recorder.changeSetting("chat.mcp.access", "registry")
-    assert.equal(provider.provideMcpServerDefinitions().length, 0)
-    recorder.changeSetting("chat.mcp.access", "all")
-    recorder.changeSetting("unrelated.setting", 1)
-    assert.equal(notified, 4)
-    await dispose()
-  })
-
-  it("SPEC-EXT-006 デスクトップ版でもツールを登録し、パネルに表示して回答を返す", async () => {
+describe("SPEC-TOOL-001 質問のツール", () => {
+  it("SPEC-TOOL-001 デスクトップ版もweb版もツールを登録し、パネルに表示して回答を返す", async () => {
     const { recorder, dispose } = await start()
     const tool = recorder.tools.get(webTool)
     assert.ok(tool)
+    assert.deepEqual(recorder.providers.size, 0)
     const pending = tool.invoke({ input: eventSpec }, cancellation().token)
     const panel = recorder.panels[0]
     assert.ok(panel)
     submitRecommended(panel)
     assert.match(resultText(await pending), /"status":"submitted"/)
     await dispose()
+    assert.ok(web().tool)
   })
 
-  it("SPEC-EXT-006 ツールはweb版と、MCPを切った環境、組織がMCPを制限した環境で有効になる", async () => {
+  it("SPEC-TOOL-001 ツールは常に有効で、組み込みの質問ツールより優先するよう説明し、MCPサーバーを提供しない", async () => {
     const manifest = await readManifest<{
-      readonly contributes: {
-        readonly languageModelTools: ReadonlyArray<{ readonly name: string; readonly when?: string }>
-        readonly configuration: { readonly properties: Record<string, { readonly type: string; readonly default: unknown }> }
+      readonly contributes: Record<string, unknown> & {
+        readonly languageModelTools: ReadonlyArray<{ readonly name: string; readonly when?: string; readonly modelDescription: string }>
+        readonly configuration: { readonly properties: Record<string, unknown> }
       }
     }>()
     const declared = manifest.contributes.languageModelTools.find((item) => item.name === webTool)
-    assert.equal(declared?.when, "isWeb || !config.askForm.mcp.enabled || config.chat.mcp.access != 'all'")
-    const setting = manifest.contributes.configuration.properties["askForm.mcp.enabled"]
-    assert.deepEqual([setting?.type, setting?.default], ["boolean", true])
+    assert.equal(declared?.when, undefined)
+    for (const builtIn of ["askQuestions", "ask_user", "AskUserQuestion", "request_user_input"]) {
+      assert.ok(declared?.modelDescription.includes(builtIn), builtIn)
+    }
+    assert.equal("mcpServerDefinitionProviders" in manifest.contributes, false)
+    assert.equal("askForm.mcp.enabled" in manifest.contributes.configuration.properties, false)
   })
 })
-
-const waitThenCancel = (recorder: Recorder, connection: Connection) =>
-  Effect.gen(function* () {
-    const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
-    yield* until(() => visible(recorder))
-    yield* connection.call("form_answer", { formKey, action: "chat" })
-    yield* Fiber.join(fiber)
-  })
 
 it("SPEC-EXT-002 拡張機能を止めると、待機の表示のコマンドも片付ける", async () => {
   const { recorder, dispose } = await start()
@@ -148,17 +83,17 @@ it("SPEC-EXT-002 拡張機能を止めると、待機の表示のコマンドも
 })
 
 describe("SPEC-EXT-002 待機の表示", () => {
-  it("SPEC-EXT-002 回答を待つ間だけステータスバーに表示する", () =>
-    runScoped(
-      Effect.gen(function* () {
-        const { recorder, connection } = yield* desktopConnection
-        assert.equal(visible(recorder), false)
-        assert.equal(recorder.status[0]?.text.includes("Copilotが回答を待っています"), true)
-        assert.equal(recorder.status[0]?.command, "workbench.action.chat.open")
-        yield* waitThenCancel(recorder, connection)
-        yield* until(() => !visible(recorder))
-      })
-    ))
+  it("SPEC-EXT-002 回答を待つ間だけステータスバーに表示する", async () => {
+    const { recorder, dispose } = await start()
+    assert.equal(visible(recorder), false)
+    assert.equal(recorder.status[0]?.text.includes("Copilotが回答を待っています"), true)
+    const pending = recorder.tools.get(webTool)?.invoke({ input: eventSpec }, cancellation().token)
+    assert.equal(visible(recorder), true)
+    recorder.panels[0]?.dispose()
+    await pending
+    assert.equal(visible(recorder), false)
+    await dispose()
+  })
 })
 
 const web = () => {
@@ -188,7 +123,7 @@ const expectSettled = async (asked: ReturnType<typeof askOnWeb>, status: string,
   assert.equal(asked.source.listeners(), 0)
 }
 
-describe("SPEC-EXT-004 web版", () => {
+describe("SPEC-EXT-004 パネルのフォーム", () => {
   it("SPEC-EXT-004 ツールが呼ばれるとパネルにフォームを表示し、回答を結果として返す", async () => {
     const { recorder, tool } = web()
     const pending = tool.invoke({ input: eventSpec }, cancellation().token)
@@ -306,51 +241,27 @@ describe("SPEC-EXT-004 回答後のパネル", () => {
   })
 })
 
+const settingsOf = (presets: unknown) => {
+  const { recorder, tool } = web()
+  if (presets !== undefined) {
+    recorder.changeSetting("askForm.commentPresets", presets)
+  }
+  void tool.invoke({ input: eventSpec }, cancellation().token)
+  const panel = recorder.panels[0]
+  panel?.receive({ jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "form_settings", arguments: {} } })
+  const reply = panel?.sent.find((message) => message["id"] === 7) as { readonly result: { readonly structuredContent: unknown } }
+  panel?.dispose()
+  return reply.result.structuredContent
+}
+
+describe("SPEC-TOOL-010 画面の設定", () => {
+  it("SPEC-TOOL-010 利用者の設定したコメントの定型文を、文字列でない要素と空の文を捨てて返し、設定がなければnullを返す", () => {
+    assert.deepEqual(settingsOf(undefined), { commentPresets: null })
+    assert.deepEqual(settingsOf(["保留", 1, " ", " 任せる "]), { commentPresets: ["保留", "任せる"] })
+  })
+})
+
 describe("SPEC-EXT-007 自動で応じる設定", () => {
-  it("SPEC-EXT-007 chat.autoReplyが有効な間、MCPのask_formは待たずにunavailableを返す", () =>
-    runScoped(
-      Effect.gen(function* () {
-        const { recorder, connection } = yield* desktopConnection
-        recorder.changeSetting("chat.autoReply", true)
-        const result = yield* connection.call("ask_form", eventSpec)
-        assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
-        assert.equal(visible(recorder), false)
-        recorder.changeSetting("chat.autoReply", false)
-        yield* waitThenCancel(recorder, connection)
-      })
-    ))
-
-  it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、MCPのask_formは待つのをやめてunavailableを返し、設定の購読を残さない", () =>
-    runScoped(
-      Effect.gen(function* () {
-        const { recorder, connection } = yield* desktopConnection
-        const idle = recorder.configListeners()
-        const fiber = yield* Effect.forkChild(connection.call("ask_form", eventSpec))
-        yield* until(() => visible(recorder))
-        assert.equal(recorder.configListeners(), idle + 1)
-        recorder.changeSetting("chat.autoReply", false)
-        recorder.changeSetting("unrelated.setting", 1)
-        yield* Effect.sleep("50 millis")
-        assert.equal(fiber.pollUnsafe(), undefined)
-        assert.equal(visible(recorder), true)
-        recorder.changeSetting("chat.autoReply", true)
-        const result = yield* Fiber.join(fiber)
-        assert.equal((result.structuredContent as Record<string, unknown>)["status"], "unavailable")
-        yield* until(() => !visible(recorder))
-        assert.equal(recorder.configListeners(), idle)
-      })
-    ))
-
-  it("SPEC-EXT-007 回答で終わったMCPのask_formも、設定の購読を残さない", () =>
-    runScoped(
-      Effect.gen(function* () {
-        const { recorder, connection } = yield* desktopConnection
-        const idle = recorder.configListeners()
-        yield* waitThenCancel(recorder, connection)
-        yield* until(() => recorder.configListeners() === idle)
-      })
-    ))
-
   it("SPEC-EXT-007 待っている間にchat.autoReplyが有効になったら、拡張機能のツールはパネルを閉じてunavailableを返す", async () => {
     const asked = askOnWeb()
     let settled = false
