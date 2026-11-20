@@ -29,15 +29,15 @@
         pkgs:
         let
           vscode = pkgs.vscode.overrideAttrs (_: rec {
-            version = "1.146.0";
+            version = "1.147.0";
             src = pkgs.fetchurl {
               name = "VSCode_${version}_${platform}.${archive}";
               url = "https://update.code.visualstudio.com/${version}/${platform}/stable";
               hash =
                 {
-                  x86_64-linux = "sha256-y9t73j01jHKXzx2datwW37HQF5UB+ywVLfSFk+OeNgA=";
-                  aarch64-linux = "sha256-meUDMH/JVpoJ5G3TmgtByNE696BwHu48bsglV2O/I/w=";
-                  aarch64-darwin = "sha256-bo0n7gxajyqjxD43NAfuzRHCcMP+f0YQDvaCqsFLtkg=";
+                  x86_64-linux = "sha256-b9ixRgDyqN24tIM9i/KI89xMNLKHjSxsP+x+FsgQI7w=";
+                  aarch64-linux = "sha256-sTf1Oimh3r+fwwAngjVWhjIC+UwQ2STdcPLSNweVQS0=";
+                  aarch64-darwin = "sha256-FJ2UT+tZmwdrSEBrF04cPNHVEOnWc4VHd6IKb0EWpZo=";
                 }
                 .${pkgs.stdenv.hostPlatform.system};
             };
