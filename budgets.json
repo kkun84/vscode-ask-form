@@ -6,7 +6,7 @@
   },
   "time": {
     "unit": 5,
-    "integration": 15,
+    "architecture": 15,
     "system": 15,
     "ui": 40,
     "acceptance": 420

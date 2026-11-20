@@ -324,8 +324,8 @@ pnpm build
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm lint`              | oxlint、oxfmt、fallow(未使用のコード、重複、循環参照、層の境界、複雑さ)、markdownlint、コメントとトレーサビリティの検査                                                                                                                                  |
 | `pnpm typecheck`         | TypeScript 7とEffectの診断による型検査                                                                                                                                                                                                                   |
-| `pnpm check`             | lint、型検査、単体・結合・システムのテスト、配布物の大きさの検査をまとめて実行。CIは同じ検査を1つずつ動かす                                                                                                                                              |
-| `pnpm test`              | 単体、結合、システム、画面のテスト                                                                                                                                                                                                                       |
+| `pnpm check`             | lint、型検査、単体・アーキテクチャ・システムのテスト、配布物の大きさの検査をまとめて実行。CIは同じ検査を1つずつ動かす                                                                                                                                    |
+| `pnpm test`              | 単体、アーキテクチャ、システム、画面のテスト                                                                                                                                                                                                             |
 | `pnpm test:acceptance`   | 実際のVS Code(デスクトップ版、web版、チャット、ハーネス)での受け入れテスト                                                                                                                                                                               |
 | `pnpm media`             | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る([`docs/media/README.md`](docs/media/README.md))                                                   |
 | `pnpm mutation`          | 単体テストによるミューテーションテストを全件で実行。結果は`.mutator/report`。失敗にしない指標                                                                                                                                                            |
@@ -353,7 +353,7 @@ V字モデルに沿って、要求から設計までを段階ごとの文書に�
 | ----------------------------- | ------ | --------------------------------------------------- |
 | `docs/spec/requirements.md`   | `REQ`  | 受け入れテスト(`test/acceptance`)、手動受け入れ手順 |
 | `docs/spec/system.md`         | `SPEC` | システムテスト(`test/system`)                       |
-| `docs/design/architecture.md` | `ARCH` | 結合テスト(`test/integration`)                      |
+| `docs/design/architecture.md` | `ARCH` | アーキテクチャテスト(`test/architecture`)           |
 | `docs/design/detailed.md`     | `DES`  | 単体テスト(`test/unit`)                             |
 
 テストの名前はIDで始めます。`scripts/traceability.ts`が、すべての項目に派生元と検証があることを確かめ、`docs/traceability.md`を作ります。
