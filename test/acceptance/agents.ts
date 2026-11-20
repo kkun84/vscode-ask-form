@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
-import { startFakeAgents, type FakeAgents } from "./fake-agents.ts"
+import { startFakeModel, type FakeModel } from "./fake-model.ts"
 import { closedDuringClick, formFrame, settled, sleep, until } from "./frames.ts"
 import { createSteps, printChat, waitingStatus } from "./steps.ts"
 import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
@@ -18,7 +18,7 @@ const trigger = "ASK_FORM_E2E"
 interface Session {
   readonly app: ElectronApplication
   readonly window: Page
-  readonly agents: FakeAgents
+  readonly agents: FakeModel
 }
 
 type Harness = "Codex" | "Copilot"
@@ -154,7 +154,7 @@ const answer = async (session: Session, page: Page, frame: Frame, callId: string
   const result = await resultOf(session, callId)
   expect(result.text).toContain('"status":"submitted"')
   expect(result.text).toContain('"changedByUser":["attendees"]')
-  await page.getByText("FAKE_AGENT_DONE", { exact: true }).waitFor({ timeout: 60_000 })
+  await page.getByText("FAKE_MODEL_DONE", { exact: true }).waitFor({ timeout: 60_000 })
 }
 
 const answerDelay = Number(process.env["ASK_FORM_E2E_ANSWER_DELAY_MS"] ?? "0")
@@ -269,7 +269,7 @@ export const runAgents = async (paths: Paths): Promise<void> => {
   await mkdir(paths.sdkCache, { recursive: true })
   const log = join(paths.results, "driver.log")
   await rm(log, { force: true })
-  const agents = await startFakeAgents(trigger, eventSpec)
+  const agents = await startFakeModel(trigger, eventSpec)
   const profile = await mkdtemp(join(tmpdir(), "ask-form-agents-"))
   let app: ElectronApplication | undefined
   try {

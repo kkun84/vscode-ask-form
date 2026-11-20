@@ -1,15 +1,16 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { listenLocally } from "../support/listen.ts"
 
-export interface AgentToolCall {
+export interface ModelToolCall {
   readonly api: "responses" | "chat"
   readonly id: string
   readonly name: string
 }
 
-export interface FakeAgents {
+export interface FakeModel {
   readonly origin: string
-  readonly toolCalls: Array<AgentToolCall>
+  readonly url: string
+  readonly toolCalls: Array<ModelToolCall>
   readonly toolResults: Array<{ readonly id: string; readonly text: string }>
   readonly toolNames: Array<ReadonlyArray<string>>
   readonly close: () => Promise<void>
@@ -29,9 +30,9 @@ interface Script {
 }
 
 interface State {
-  readonly toolCalls: FakeAgents["toolCalls"]
-  readonly toolResults: FakeAgents["toolResults"]
-  readonly toolNames: FakeAgents["toolNames"]
+  readonly toolCalls: FakeModel["toolCalls"]
+  readonly toolResults: FakeModel["toolResults"]
+  readonly toolNames: FakeModel["toolNames"]
   readonly nextId: (prefix: string) => string
   readonly cells: Map<string, string>
   readonly waits: Map<string, string>
@@ -63,7 +64,7 @@ const text = (value: unknown): string =>
         .map((part) => partText(part))
         .join("")
 
-const isAskForm = (name: string): boolean => /(^|[-_.])askForm$/.test(name)
+const isAskForm = (name: string): boolean => name === "forms_ask_form" || /(^|[-_.])askForm$/.test(name)
 
 const readBody = async (req: IncomingMessage): Promise<Json> => {
   const chunks: Array<Buffer> = []
@@ -282,7 +283,14 @@ const chat = (state: State, script: Script, body: Json, res: ServerResponse): vo
   const base = { id: state.nextId("chatcmpl"), created: 0, model: body["model"] }
   if (body["stream"] !== true) {
     res.writeHead(200, { "content-type": "application/json" })
-    res.end(JSON.stringify({ ...base, object: "chat.completion", choices: [{ index: 0, message, finish_reason: finish }] }))
+    res.end(
+      JSON.stringify({
+        ...base,
+        object: "chat.completion",
+        choices: [{ index: 0, message, finish_reason: finish }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
+      })
+    )
     return
   }
   const delta = call === undefined ? message : { role: "assistant", tool_calls: [{ index: 0, ...call }] }
@@ -307,7 +315,7 @@ const handle = async (state: State, script: Script, req: IncomingMessage, res: S
   }
 }
 
-export const startFakeAgents = async (trigger: string, args: Json, done = "FAKE_AGENT_DONE", other = "ok"): Promise<FakeAgents> => {
+export const startFakeModel = async (trigger: string, args: Json, done = "FAKE_MODEL_DONE", other = "ok"): Promise<FakeModel> => {
   let sequence = 0
   const state: State = {
     toolCalls: [],
@@ -327,5 +335,12 @@ export const startFakeAgents = async (trigger: string, args: Json, done = "FAKE_
     })
   })
   const { origin, close } = await listenLocally(server)
-  return { origin, toolCalls: state.toolCalls, toolResults: state.toolResults, toolNames: state.toolNames, close }
+  return {
+    origin,
+    url: `${origin}/v1/chat/completions`,
+    toolCalls: state.toolCalls,
+    toolResults: state.toolResults,
+    toolNames: state.toolNames,
+    close
+  }
 }
