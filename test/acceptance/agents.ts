@@ -288,12 +288,17 @@ export const runAgents = async (paths: Paths): Promise<void> => {
       folder,
       settings: {
         "chat.agentHost.codexAgent.enabled": true,
-        "chat.editor.codex.preferAgentHost": true
+        "chat.editor.codex.preferAgentHost": true,
+        ...(process.env["ASK_FORM_E2E_FAMILY"] === undefined
+          ? {}
+          : { "chat.agentHost.copilot.modelCapabilityOverrides": { "*": { family: process.env["ASK_FORM_E2E_FAMILY"] } } })
       },
       env: {
         HOME: home,
         CODEX_HOME: join(profile, "codex"),
         ASK_FORM_E2E_BYOK_URL: `${agents.origin}/v1/chat/completions`,
+        ...(process.env["ASK_FORM_E2E_TOOL_SEARCH"] === undefined ? {} : { ASK_FORM_E2E_TOOL_SEARCH: "1" }),
+        ...(process.env["ASK_FORM_E2E_MODEL_ID"] === undefined ? {} : { ASK_FORM_E2E_MODEL_ID: process.env["ASK_FORM_E2E_MODEL_ID"] }),
         ...(process.getuid?.() === 0 ? { IS_SANDBOX: "1" } : {}),
         ...(process.env["ASK_FORM_OPENSSL_LIB"] === undefined ? {} : { LD_LIBRARY_PATH: process.env["ASK_FORM_OPENSSL_LIB"] })
       }
@@ -303,6 +308,15 @@ export const runAgents = async (paths: Paths): Promise<void> => {
     const session: Session = { app, window, agents }
     await run(session, () => report(paths, session, profile))
   } finally {
+    if (process.env["ASK_FORM_E2E_DUMP"] !== undefined) {
+      const logs = join(profile, "user", "logs")
+      for (const dir of await readdir(logs).catch(() => [])) {
+        const text = await readFile(join(logs, dir, "agenthost.log"), "utf8").catch(() => "")
+        for (const line of text.split("\n").filter((l) => /tool_search|toolSearch|tool search/i.test(l))) {
+          console.error(`HOSTLOG ${line.slice(0, 700)}`)
+        }
+      }
+    }
     await cleanUp(app, agents, profile)
   }
 }

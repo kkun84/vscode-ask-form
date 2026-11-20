@@ -55,7 +55,7 @@ const registerModel = async (url: string): Promise<vscode.LanguageModelChat> => 
     apiType: "chat-completions",
     models: [
       {
-        id: "fake-model",
+        id: process.env["ASK_FORM_E2E_MODEL_ID"] ?? "fake-model",
         name: "Fake Model",
         url,
         toolCalling: true,
@@ -122,6 +122,20 @@ export const activate = (context: vscode.ExtensionContext): void => {
     ),
     vscode.commands.registerCommand("ask-form-e2e.agentsWindow", () => vscode.commands.executeCommand("workbench.action.openAgentsWindow"))
   )
+  if (process.env["ASK_FORM_E2E_TOOL_SEARCH"] !== undefined) {
+    context.subscriptions.push(
+      vscode.lm.registerTool<{ query: string; candidateTools?: ReadonlyArray<{ name: string; description: string }> }>("e2e_tool_search", {
+        invoke: (options) => {
+          const candidates = options.input.candidateTools
+          log(
+            `toolSearch query=${options.input.query} candidates(${String(candidates?.length)})=${(candidates ?? []).map((c) => c.name).join(",")}`
+          )
+          const matched = (candidates ?? []).filter((c) => /ask/i.test(c.name)).map((c) => c.name)
+          return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(matched))])
+        }
+      })
+    )
+  }
   const byok = process.env["ASK_FORM_E2E_BYOK_URL"]
   if (byok !== undefined) {
     registerModel(byok).catch(fail)
