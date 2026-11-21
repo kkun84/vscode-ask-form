@@ -66,6 +66,7 @@ export interface ServerOptions {
   readonly profile: string
   readonly extensions: ReadonlyArray<string>
   readonly env: Readonly<Record<string, string>>
+  readonly args?: ReadonlyArray<string>
 }
 
 export interface RunningServer {
@@ -97,7 +98,8 @@ export const startServer = async (commit: string, options: ServerOptions): Promi
       "--server-data-dir",
       data,
       "--extensions-dir",
-      extensions
+      extensions,
+      ...(options.args ?? [])
     ],
     { env: { ...process.env, ...options.env }, stdio: "ignore" }
   )

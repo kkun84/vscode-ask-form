@@ -153,10 +153,6 @@ export const activate = (context: vscode.ExtensionContext): void => {
       })
     )
   }
-  const byok = process.env["ASK_FORM_E2E_BYOK_URL"]
-  if (byok !== undefined) {
-    registerModel(byok).catch(fail)
-  }
   const url = process.env["ASK_FORM_E2E_LLM_URL"]
   const query = process.env["ASK_FORM_E2E_QUERY"]
   if (url === undefined || query === undefined) {

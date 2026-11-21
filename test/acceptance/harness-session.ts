@@ -5,17 +5,21 @@ import type { ElectronApplication, Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { driver, electron, extension, sdkCache, vsix } from "./paths.ts"
 import { trigger } from "./session.ts"
+import { stubbedCopilot } from "./stub-capi.ts"
 import { startStubModel, type StubModel } from "./stub-model.ts"
 import { closeApp, fitWindow, launchVscode } from "./vscode.ts"
 
 export interface Session {
-  readonly app: ElectronApplication
+  readonly app?: ElectronApplication
   readonly window: Page
+  readonly windows: () => ReadonlyArray<Page>
   readonly agents: StubModel
   readonly profile: string
   readonly log: string
   readonly close: () => Promise<void>
 }
+
+export const smokeDriver = "--enable-smoke-test-driver"
 
 export const agentHostLog = async (profile: string): Promise<string> => {
   const logs = join(profile, "user", "logs")
@@ -42,14 +46,14 @@ export const openAgentsSession = async (results: string): Promise<Session> => {
   await rm(log, { force: true })
   const agents = await startStubModel(trigger, eventSpec)
   const profile = await mkdtemp(join(tmpdir(), "ask-form-agents-"))
-  const home = join(profile, "home")
   const folder = join(profile, "workspace")
-  await mkdir(home, { recursive: true })
+  await mkdir(join(profile, "home"), { recursive: true })
   await mkdir(folder, { recursive: true })
   await writeFile(join(folder, "README.md"), "acceptance\n")
   await mkdir(join(profile, "user", "agent-host"), { recursive: true })
   await symlink(sdkCache, join(profile, "user", "agent-host", "sdk-cache"))
   await prepareCodex(join(profile, "codex"), agents.origin)
+  const stub = stubbedCopilot(agents.origin, profile)
   const app = await launchVscode(
     { executable: electron(), extension, driver, vsix },
     {
@@ -57,19 +61,9 @@ export const openAgentsSession = async (results: string): Promise<Session> => {
       profile,
       locale: "en",
       folder,
-      settings: {
-        "chat.agentHost.codexAgent.enabled": true,
-        "chat.editor.codex.preferAgentHost": true,
-        "chat.agentHost.copilot.modelCapabilityOverrides": { "*": { family: "gpt-5.5" } }
-      },
-      env: {
-        HOME: home,
-        CODEX_HOME: join(profile, "codex"),
-        ASK_FORM_E2E_BYOK_URL: `${agents.origin}/v1/chat/completions`,
-        ASK_FORM_E2E_TOOL_SEARCH: "1",
-        ...(process.getuid?.() === 0 ? { IS_SANDBOX: "1" } : {}),
-        ...(process.env["ASK_FORM_OPENSSL_LIB"] === undefined ? {} : { LD_LIBRARY_PATH: process.env["ASK_FORM_OPENSSL_LIB"] })
-      }
+      args: [smokeDriver],
+      settings: { "chat.agentHost.codexAgent.enabled": true, "chat.editor.codex.preferAgentHost": true, ...stub.settings },
+      env: { CODEX_HOME: join(profile, "codex"), ...stub.env }
     }
   )
   const window = await fitWindow(app, { width: 1600, height: 1000 })
@@ -77,6 +71,7 @@ export const openAgentsSession = async (results: string): Promise<Session> => {
   return {
     app,
     window,
+    windows: () => app.windows(),
     agents,
     profile,
     log,

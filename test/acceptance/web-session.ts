@@ -41,16 +41,28 @@ const patchWorkbench = (): void => {
   }).observe(document, { childList: true, subtree: true })
 }
 
-const completeChatSetup = (): Promise<void> =>
+interface Stored {
+  readonly database: string
+  readonly version?: number
+  readonly stores: ReadonlyArray<string>
+  readonly store: string
+  readonly key: string
+  readonly text: string
+  readonly bytes: boolean
+}
+
+const store = (item: Stored): Promise<void> =>
   new Promise<void>((resolve, reject) => {
-    const open = indexedDB.open("vscode-web-state-db-global")
+    const open = indexedDB.open(item.database, item.version)
     open.addEventListener("upgradeneeded", () => {
-      open.result.createObjectStore("ItemTable")
+      for (const name of item.stores) {
+        open.result.createObjectStore(name)
+      }
     })
     open.addEventListener("error", () => reject(new Error(String(open.error))))
     open.addEventListener("success", () => {
-      const transaction = open.result.transaction("ItemTable", "readwrite")
-      transaction.objectStore("ItemTable").put("true", "builtinChatExtensionEnablementMigration")
+      const transaction = open.result.transaction(item.store, "readwrite")
+      transaction.objectStore(item.store).put(item.bytes ? new TextEncoder().encode(item.text) : item.text, item.key)
       transaction.addEventListener("complete", () => {
         open.result.close()
         resolve()
@@ -59,13 +71,39 @@ const completeChatSetup = (): Promise<void> =>
     })
   })
 
-export const webSession = async (profile: string, log: string, env: Readonly<Record<string, string>>): Promise<Running> => {
+const chatSetup: Stored = {
+  database: "vscode-web-state-db-global",
+  stores: ["ItemTable"],
+  store: "ItemTable",
+  key: "builtinChatExtensionEnablementMigration",
+  text: "true",
+  bytes: false
+}
+
+const userSettings = (settings: Readonly<Record<string, unknown>>): Stored => ({
+  database: "vscode-web-db",
+  version: 3,
+  stores: ["vscode-userdata-store", "vscode-logs-store", "vscode-filehandles-store"],
+  store: "vscode-userdata-store",
+  key: "/User/settings.json",
+  text: JSON.stringify(settings),
+  bytes: true
+})
+
+export const webSession = async (
+  profile: string,
+  log: string,
+  env: Readonly<Record<string, string>>,
+  args: ReadonlyArray<string> = [],
+  settings: Readonly<Record<string, unknown>> = {}
+): Promise<Running> => {
   const commit = await desktopCommit(electron())
   const server = await startServer(commit, {
     directory: await ensureServer(commit),
     profile,
     extensions: [vsix, driverVsix],
-    env
+    env,
+    args
   })
   const browser = await launchBrowser()
   const context = await browser.newContext({ viewport: size, bypassCSP: true })
@@ -73,7 +111,8 @@ export const webSession = async (profile: string, log: string, env: Readonly<Rec
   await context.addInitScript(patchWorkbench)
   const window = await context.newPage()
   await window.goto(`${server.origin}/version`)
-  await window.evaluate(completeChatSetup)
+  await window.evaluate(store, chatSetup)
+  await window.evaluate(store, userSettings(settings))
   await window.goto(server.origin)
   return {
     window,

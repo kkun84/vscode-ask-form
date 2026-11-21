@@ -350,14 +350,19 @@ pnpm build
 | `startup.spec.ts` | 起動が済むと、ツールが呼ばれなくても有効になる                       | ○         | ○     |
 | `tool.spec.ts`    | ハーネスを通さずにツールを呼んでも、フォームで回答や取り消しができる | ○         | ○     |
 | `chat.spec.ts`    | Copilotのチャットから、フォームで聞いて回答が届く                    | ○         | ○     |
-| `harness.spec.ts` | CopilotとCodexのハーネスとAgentsウィンドウで、フォームで回答が届く   | ○         | -     |
+| `harness.spec.ts` | Copilotのハーネスで、フォームで回答が届く                            | ○         | ○     |
+| `harness.spec.ts` | CodexのハーネスとAgentsウィンドウで、フォームで回答が届く            | ○         | -     |
 
 - `desktop`は、デスクトップ版のVS Code(Electron)です。
 - `web`は、サーバーにつないだweb版です。GitHub Codespacesなどと同じく、拡張機能とCopilotがサーバーの側で動きます。VS Codeのサーバーは、デスクトップ版と同じコミットの物を初回にダウンロードし、`node_modules/.cache/ask-form-vscode-server`に置きます。
 - 利用者と同じ状態で確かめるために、Ask FormはVSIXにまとめてインストールしてから起動します。開発用のパスで読み込んだ拡張機能は、Agentsウィンドウの制限を受けないなど、インストールした拡張機能と扱いが違うためです。
 - `pnpm test:acceptance chat`のようにファイル名の一部を渡すと、そのテストだけを動かせます。`pnpm test:acceptance --project=desktop`で、プロジェクトを選べます。
 
-CopilotとCodexのハーネスも、同じようにLLM APIのスタブで確かめます(`harness.spec.ts`)。スタブはOpenAI Chat CompletionsとOpenAI Responsesに答え、Codexのコードモードの`exec`の呼び出しも真似ます。CopilotはBYOKのモデルとして、Codexは環境変数`CODEX_HOME`の設定でスタブに向けます。Agentsウィンドウでも確かめます。Copilotのハーネスは、多くのモデルで拡張機能のツールを最初の一覧に入れず、モデルが検索してから読み込みます。受け入れテストでは、設定`chat.agentHost.copilot.modelCapabilityOverrides`でスタブのモデルをGPT-5.5として扱わせ、ツールの検索のスタブを登録して、この経路を通します。各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、`harness.spec.ts`を流しません。
+CopilotとCodexのハーネスも、同じようにLLM APIのスタブで確かめます(`harness.spec.ts`)。スタブはOpenAI Chat CompletionsとOpenAI Responsesに答え、Codexのコードモードの`exec`の呼び出しも真似ます。Codexは環境変数`CODEX_HOME`の設定でスタブに向けます。Agentsウィンドウでも確かめます。
+
+Copilotのハーネスは、BYOKを使わず、Copilotの接続先そのものをスタブに向けます。GitHubにはサインインしません。VS Code本体のスモークテストと同じ方法で、環境変数`VSCODE_AGENT_HOST_CAPI_URL_OVERRIDE`や`IS_SCENARIO_AUTOMATION`などと、起動時の`--enable-smoke-test-driver`を使います。スタブは、モデルの一覧やトークンの発行など、Copilotが起動時に呼ぶAPIにも答えます(`stub-capi.ts`)。こうすると、スタブのモデルがCopilotのモデルとして扱われます。Copilotのハーネスは、多くのモデルで拡張機能のツールを最初の一覧に入れず、モデルが検索してから読み込みます。テストはこの経路を通ることも確かめます。検索の順位付けだけは、GitHubのAPIに固定で問い合わせる作りなので、テスト用の検索ツールで代えています。
+
+各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、`harness.spec.ts`を流しません。
 
 ### 文書とテストの対応
 
