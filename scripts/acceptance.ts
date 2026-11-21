@@ -28,10 +28,7 @@ await Promise.all([
 ])
 
 const desktop = async (): Promise<void> => {
-  const executable = process.env["VSCODE_EXECUTABLE"]
-  if (executable === undefined) {
-    throw new Error("VSCODE_EXECUTABLE is not set. Run inside `nix develop .#acceptance`.")
-  }
+  const executable = electron()
   const profile = await mkdtemp(join(tmpdir(), "ask-form-"))
   const env = { ...process.env }
   delete env["ELECTRON_RUN_AS_NODE"]
