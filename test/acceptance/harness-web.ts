@@ -9,6 +9,15 @@ import { stubbedCopilot } from "./stub-capi.ts"
 import { startStubModel } from "./stub-model.ts"
 import { webSession } from "./web-session.ts"
 
+const offline = (proxy: string) => ({
+  HTTPS_PROXY: proxy,
+  HTTP_PROXY: proxy,
+  https_proxy: proxy,
+  http_proxy: proxy,
+  NO_PROXY: "127.0.0.1,localhost",
+  no_proxy: "127.0.0.1,localhost"
+})
+
 export const openWebHarness = async (results: string): Promise<Session> => {
   await mkdir(results, { recursive: true })
   const log = join(results, "driver-agents-web.log")
@@ -17,7 +26,7 @@ export const openWebHarness = async (results: string): Promise<Session> => {
   const profile = await mkdtemp(join(tmpdir(), "ask-form-agents-web-"))
   await mkdir(join(profile, "home"), { recursive: true })
   const stub = stubbedCopilot(agents.origin, profile)
-  const web = await webSession(profile, log, { ...stub.env, ASK_FORM_E2E_LOG: log }, [smokeDriver], {
+  const web = await webSession(profile, log, { ...stub.env, ...offline(agents.origin), ASK_FORM_E2E_LOG: log }, [smokeDriver], {
     ...stub.settings,
     "workbench.startupEditor": "none"
   })
