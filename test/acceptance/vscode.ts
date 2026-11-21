@@ -1,8 +1,9 @@
+import { execFileSync } from "node:child_process"
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { DatabaseSync } from "node:sqlite"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { _electron as electron, type ElectronApplication, type Page } from "@playwright/test"
-import type { FakeModel } from "./fake-model.ts"
+import type { StubModel } from "./stub-model.ts"
 import { sleep } from "./frames.ts"
 
 export interface VscodePaths {
@@ -12,7 +13,7 @@ export interface VscodePaths {
 }
 
 export interface LaunchOptions {
-  readonly llm?: FakeModel
+  readonly llm?: StubModel
   readonly log: string
   readonly profile: string
   readonly locale: string
@@ -57,10 +58,28 @@ export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): 
       env[key] = value
     }
   }
+  const vsix = process.env["ASK_FORM_E2E_VSIX"]
+  if (vsix !== undefined) {
+    execFileSync(
+      paths.executable,
+      [
+        join(dirname(paths.executable), "resources/app/out/cli.js"),
+        "--install-extension",
+        vsix,
+        `--extensions-dir=${join(options.profile, "extensions")}`,
+        `--user-data-dir=${user}`
+      ],
+      {
+        env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
+        stdio: "inherit",
+        timeout: 120_000
+      }
+    )
+  }
   return electron.launch({
     executablePath: paths.executable,
     args: [
-      `--extensionDevelopmentPath=${paths.extension}`,
+      ...(vsix === undefined ? [`--extensionDevelopmentPath=${paths.extension}`] : []),
       `--extensionDevelopmentPath=${paths.driver}`,
       `--user-data-dir=${user}`,
       `--extensions-dir=${join(options.profile, "extensions")}`,
