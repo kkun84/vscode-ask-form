@@ -147,16 +147,16 @@ const answeredInPanel = (harness: Harness, open: (session: Session) => Promise<P
 }
 
 const agentsWindow = async (session: Session): Promise<Page> => {
-  const existing = session.app.windows().find((page) => page.url().includes("sessions.html"))
+  const existing = session.windows().find((page) => page.url().includes("sessions.html"))
   if (existing !== undefined) {
     return existing
+  }
+  if (session.app === undefined) {
+    throw new Error("the Agents window needs the desktop app")
   }
   const opened = session.app.waitForEvent("window", { predicate: (page) => page.url().includes("sessions.html"), timeout: 180_000 })
   await runCommand(session.window, "Ask Form: Open acceptance Agents window")
   const page = await opened
-  const skip = page.getByText("Continue Without Signing In", { exact: true })
-  await skip.waitFor({ timeout: 60_000 })
-  await skip.click()
   return page
 }
 
@@ -194,7 +194,7 @@ test.afterEach(async ({ harness: session }, testInfo) => {
   if (testInfo.status === testInfo.expectedStatus) {
     return
   }
-  for (const [index, page] of session.app.windows().entries()) {
+  for (const [index, page] of session.windows().entries()) {
     const screenshot = await page.screenshot({ timeout: 10_000 }).catch(() => null)
     if (screenshot !== null) {
       await testInfo.attach(`window-${index}`, { body: screenshot, contentType: "image/png" })
@@ -208,7 +208,11 @@ test.afterEach(async ({ harness: session }, testInfo) => {
   }
   const { agents } = session
   await testInfo.attach("stub-model", {
-    body: JSON.stringify({ toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames }, undefined, 2),
+    body: JSON.stringify(
+      { toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames, paths: agents.paths },
+      undefined,
+      2
+    ),
     contentType: "application/json"
   })
   await testInfo.attach("driver-log", {

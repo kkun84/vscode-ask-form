@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { listenLocally } from "../support/listen.ts"
+import { capiReply } from "./stub-capi.ts"
 
 export interface ModelToolCall {
   readonly api: "responses" | "chat"
@@ -13,6 +14,7 @@ export interface StubModel {
   readonly toolCalls: Array<ModelToolCall>
   readonly toolResults: Array<{ readonly id: string; readonly text: string }>
   readonly toolNames: Array<ReadonlyArray<string>>
+  readonly paths: Array<string>
   readonly close: () => Promise<void>
 }
 
@@ -33,6 +35,7 @@ interface State {
   readonly toolCalls: StubModel["toolCalls"]
   readonly toolResults: StubModel["toolResults"]
   readonly toolNames: StubModel["toolNames"]
+  readonly paths: StubModel["paths"]
   readonly nextId: (prefix: string) => string
   readonly cells: Map<string, string>
   readonly waits: Map<string, string>
@@ -155,7 +158,8 @@ const responsesTurn = (state: State, script: Script, body: Json): Turn => {
   const loaded = input.filter((item) => item["type"] === "tool_search_output").flatMap((item) => records(item["tools"]))
   const names = [
     ...[...tools, ...loaded].filter((tool) => typeof tool["name"] === "string").flatMap((tool) => qualified(tool)),
-    ...codeModeNames(input)
+    ...codeModeNames(input),
+    ...(tools.some((tool) => tool["type"] === "tool_search") ? ["tool_search_tool"] : [])
   ]
   state.toolNames.push(names)
   const outputs = input.filter((entry) => entry["type"] === "function_call_output" || entry["type"] === "custom_tool_call_output")
@@ -317,7 +321,9 @@ const handle = async (state: State, script: Script, req: IncomingMessage, res: S
   } else if (path.endsWith("/chat/completions")) {
     chat(state, script, body, res)
   } else {
-    res.writeHead(404).end()
+    state.paths.push(`${req.method ?? ""} ${path}`)
+    res.writeHead(200, { "content-type": "application/json" })
+    res.end(JSON.stringify(capiReply(`http://${req.headers.host ?? ""}`, path)))
   }
 }
 
@@ -327,6 +333,7 @@ export const startStubModel = async (trigger: string, args: Json, done = "STUB_M
     toolCalls: [],
     toolResults: [],
     toolNames: [],
+    paths: [],
     nextId: (prefix) => `${prefix}_${++sequence}`,
     cells: new Map(),
     waits: new Map()
@@ -347,6 +354,7 @@ export const startStubModel = async (trigger: string, args: Json, done = "STUB_M
     toolCalls: state.toolCalls,
     toolResults: state.toolResults,
     toolNames: state.toolNames,
+    paths: state.paths,
     close
   }
 }

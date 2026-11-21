@@ -21,6 +21,7 @@ export interface LaunchOptions {
   readonly query?: string
   readonly env?: Readonly<Record<string, string>>
   readonly folder?: string
+  readonly args?: ReadonlyArray<string>
   readonly settings?: Readonly<Record<string, unknown>>
   readonly draft?: boolean
   readonly autostart?: boolean
@@ -88,6 +89,7 @@ export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): 
       `--locale=${options.locale}`,
       "--password-store=basic",
       ...(options.scale === undefined ? [] : [`--force-device-scale-factor=${options.scale}`]),
+      ...(options.args ?? []),
       ...(options.folder === undefined ? [] : [options.folder])
     ],
     env: {
