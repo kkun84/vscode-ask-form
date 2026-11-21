@@ -23,6 +23,7 @@ export interface LaunchOptions {
   readonly folder?: string
   readonly settings?: Readonly<Record<string, unknown>>
   readonly draft?: boolean
+  readonly autostart?: boolean
   readonly scale?: number
   readonly video?: { readonly dir: string; readonly size: { readonly width: number; readonly height: number } }
 }
@@ -96,6 +97,7 @@ export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): 
         : { ASK_FORM_E2E_LLM_URL: options.llm.url, ASK_FORM_E2E_QUERY: options.query }),
       ASK_FORM_E2E_LOG: options.log,
       ASK_FORM_E2E_DRAFT: options.draft === true ? "1" : "0",
+      ASK_FORM_E2E_AUTOSTART: options.autostart === false ? "0" : "1",
       ...options.env
     },
     ...(options.video === undefined ? {} : { recordVideo: options.video })

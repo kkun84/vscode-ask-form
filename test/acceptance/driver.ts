@@ -81,13 +81,31 @@ const toggleAutoReply = async (): Promise<void> => {
   log(`chat.autoReply ${String(vscode.workspace.getConfiguration("chat").get("autoReply"))}`)
 }
 
+const applySettings = async (): Promise<void> => {
+  const settings = JSON.parse(process.env["ASK_FORM_E2E_SETTINGS"] ?? "{}") as Readonly<Record<string, unknown>>
+  for (const [key, value] of Object.entries(settings)) {
+    await vscode.workspace.getConfiguration().update(key, value, vscode.ConfigurationTarget.Global)
+  }
+}
+
+const reportState = (): void => {
+  const target = vscode.extensions.getExtension("kkun84.ask-form")
+  const tool = vscode.lm.tools.some((item) => item.name === "forms_ask_form")
+  log(`state active=${String(target?.isActive === true)} tool=${String(tool)}`)
+}
+
 const drive = async (context: vscode.ExtensionContext, url: string, query: string): Promise<void> => {
+  await applySettings()
   const model = await registerModel(url)
   const draft = process.env["ASK_FORM_E2E_DRAFT"] === "1"
   let scenario = 0
   const openChat = async (): Promise<void> => {
     scenario++
-    await vscode.commands.executeCommand("workbench.action.chat.newChat")
+    if (process.env["ASK_FORM_E2E_SETTINGS"] === undefined) {
+      await vscode.commands.executeCommand("workbench.action.chat.newChat")
+    } else {
+      await vscode.commands.executeCommand("workbench.action.chat.openNewChatSessionInPlace.local", "sidebar")
+    }
     await vscode.commands.executeCommand("workbench.action.chat.open", {
       query: draft ? "" : scenario === 1 ? query : `${query} Scenario ${scenario}.`,
       isPartialQuery: draft,
@@ -100,7 +118,10 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
     vscode.commands.registerCommand("ask-form-e2e.newChat", openChat),
     vscode.commands.registerCommand("ask-form-e2e.autoReply", toggleAutoReply)
   )
-  await openChat()
+  log("ready")
+  if (process.env["ASK_FORM_E2E_AUTOSTART"] !== "0") {
+    await openChat()
+  }
 }
 
 const harnesses = ["claude", "codex"] as const
@@ -120,7 +141,8 @@ export const activate = (context: vscode.ExtensionContext): void => {
     vscode.commands.registerCommand("ask-form-e2e.copilot", () =>
       vscode.commands.executeCommand("workbench.action.chat.openNewChatSessionInPlace.agent-host-copilotcli", "sidebar")
     ),
-    vscode.commands.registerCommand("ask-form-e2e.agentsWindow", () => vscode.commands.executeCommand("workbench.action.openAgentsWindow"))
+    vscode.commands.registerCommand("ask-form-e2e.agentsWindow", () => vscode.commands.executeCommand("workbench.action.openAgentsWindow")),
+    vscode.commands.registerCommand("ask-form-e2e.state", reportState)
   )
   if (process.env["ASK_FORM_E2E_TOOL_SEARCH"] !== undefined) {
     context.subscriptions.push(
