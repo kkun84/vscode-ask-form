@@ -42,8 +42,8 @@ jobs:
         run: pnpm typecheck
       - name: Unit tests
         run: pnpm test:unit
-      - name: Integration tests
-        run: pnpm test:integration
+      - name: Architecture tests
+        run: pnpm test:architecture
       - name: System tests
         run: pnpm test:system
       - name: Update screenshots

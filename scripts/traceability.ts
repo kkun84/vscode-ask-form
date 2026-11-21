@@ -14,7 +14,7 @@ interface Item {
 
 interface Evidence {
   readonly id: string
-  readonly kind: "unit" | "integration" | "system" | "acceptance"
+  readonly kind: "unit" | "architecture" | "system" | "acceptance"
   readonly where: string
 }
 
@@ -40,7 +40,7 @@ const parentLevels: Readonly<Record<Level, ReadonlyArray<Level>>> = {
 const evidenceKinds: Readonly<Record<Exclude<Level, "MAT">, ReadonlyArray<Evidence["kind"]>>> = {
   REQ: ["acceptance"],
   SPEC: ["system"],
-  ARCH: ["integration", "system"],
+  ARCH: ["architecture", "system"],
   DES: ["unit"]
 }
 
@@ -78,7 +78,7 @@ const walk = async (directory: string): Promise<ReadonlyArray<string>> => {
 
 const kindOf = (file: string): Evidence["kind"] | undefined => {
   const [, folder] = file.split("/")
-  return folder === "unit" || folder === "integration" || folder === "system" || folder === "acceptance" ? folder : undefined
+  return folder === "unit" || folder === "architecture" || folder === "system" || folder === "acceptance" ? folder : undefined
 }
 
 const testEvidence = async (): Promise<ReadonlyArray<Evidence>> => {

@@ -6,6 +6,6 @@ const tier = (name: string, testTimeout: number) => ({
 
 export default defineConfig({
   test: {
-    projects: [tier("unit", 5000), tier("integration", 10_000), tier("system", 5000)]
+    projects: [tier("unit", 5000), tier("architecture", 10_000), tier("system", 5000)]
   }
 })
