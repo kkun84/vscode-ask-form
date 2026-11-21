@@ -255,10 +255,6 @@ const chatTurn = (state: State, script: Script, body: Json): Turn => {
     return typeof fn === "object" && fn !== null && typeof (fn as Json)["name"] === "string" ? [String((fn as Json)["name"])] : []
   })
   state.toolNames.push(names)
-  if (process.env["ASK_FORM_E2E_DUMP"] !== undefined) {
-    console.error(`DUMP model=${String(body["model"])} tools(${names.length})=${names.join(",")}`)
-    console.error(`DUMP last=${JSON.stringify(history.at(-1)).slice(0, 1500)}`)
-  }
   for (const message of history.filter((entry) => entry["role"] === "tool")) {
     remember(state, String(message["tool_call_id"]), message["content"])
   }

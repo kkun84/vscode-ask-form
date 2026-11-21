@@ -10,6 +10,7 @@ export interface VscodePaths {
   readonly executable: string
   readonly extension: string
   readonly driver: string
+  readonly vsix?: string | undefined
 }
 
 export interface LaunchOptions {
@@ -58,28 +59,23 @@ export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): 
       env[key] = value
     }
   }
-  const vsix = process.env["ASK_FORM_E2E_VSIX"]
-  if (vsix !== undefined) {
+  if (paths.vsix !== undefined) {
     execFileSync(
       paths.executable,
       [
         join(dirname(paths.executable), "resources/app/out/cli.js"),
         "--install-extension",
-        vsix,
+        paths.vsix,
         `--extensions-dir=${join(options.profile, "extensions")}`,
         `--user-data-dir=${user}`
       ],
-      {
-        env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
-        stdio: "inherit",
-        timeout: 120_000
-      }
+      { env: { ...env, ELECTRON_RUN_AS_NODE: "1" }, stdio: "inherit", timeout: 120_000 }
     )
   }
   return electron.launch({
     executablePath: paths.executable,
     args: [
-      ...(vsix === undefined ? [`--extensionDevelopmentPath=${paths.extension}`] : []),
+      ...(paths.vsix === undefined ? [`--extensionDevelopmentPath=${paths.extension}`] : []),
       `--extensionDevelopmentPath=${paths.driver}`,
       `--user-data-dir=${user}`,
       `--extensions-dir=${join(options.profile, "extensions")}`,
