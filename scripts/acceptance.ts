@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url"
-import { spawn } from "node:child_process"
+import { execFileSync, spawn } from "node:child_process"
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -71,13 +71,26 @@ const electron = (): string => {
   return executable
 }
 
-const chat = (): Promise<void> => runChat({ executable: electron(), extension, driver, results: join(root, "test-results/chat") })
+const packaged = join(root, "out/ask-form.vsix")
+
+const packageVsix = (): string => {
+  execFileSync("pnpm", ["dlx", "@vscode/vsce@4.0.0", "package", "--no-dependencies", "--out", packaged], {
+    cwd: extension,
+    stdio: ["ignore", "ignore", "inherit"]
+  })
+  return packaged
+}
+
+const vsix = targets.some((target) => target === "chat" || target === "agents") ? packageVsix() : undefined
+
+const chat = (): Promise<void> => runChat({ executable: electron(), extension, driver, vsix, results: join(root, "test-results/chat") })
 
 const agents = (): Promise<void> =>
   runAgents({
     executable: electron(),
     extension,
     driver,
+    vsix,
     results: join(root, "test-results/agents"),
     sdkCache: join(root, "node_modules/.cache/ask-form-agent-sdk")
   })
