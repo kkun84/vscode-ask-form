@@ -28,13 +28,11 @@ await Promise.all([
 ])
 
 const desktop = async (): Promise<void> => {
-  const executable = process.env["VSCODE_EXECUTABLE"]
-  if (executable === undefined) {
-    throw new Error("VSCODE_EXECUTABLE is not set. Run inside `nix develop .#acceptance`.")
-  }
+  const executable = electron()
   const profile = await mkdtemp(join(tmpdir(), "ask-form-"))
   const env = { ...process.env }
   delete env["ELECTRON_RUN_AS_NODE"]
+  let output = ""
   const code = await new Promise<number | null>((resolve, reject) => {
     const child = spawn(
       executable,
@@ -50,13 +48,26 @@ const desktop = async (): Promise<void> => {
         "--skip-welcome",
         "--skip-release-notes"
       ],
-      { stdio: "inherit", env }
+      { stdio: ["ignore", "pipe", "pipe"], env }
     )
+    child.stdout.on("data", (chunk: Buffer) => {
+      output += chunk.toString()
+      process.stdout.write(chunk)
+    })
+    child.stderr.on("data", (chunk: Buffer) => {
+      output += chunk.toString()
+      process.stderr.write(chunk)
+    })
     child.on("error", reject)
     child.on("exit", resolve)
   })
   if (code !== 0) {
     throw new Error(`desktop acceptance tests failed with exit code ${code}`)
+  }
+  const started = output.match(/^start /gm)?.length ?? 0
+  const passed = output.match(/^ok /gm)?.length ?? 0
+  if (started === 0 || passed !== started) {
+    throw new Error(`desktop acceptance tests did not all run: ${started} started, ${passed} passed`)
   }
 }
 

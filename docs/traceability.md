@@ -67,13 +67,13 @@
 
 | ID | 名前 | 派生元 | 派生先 | 検証 |
 | --- | --- | --- | --- | --- |
-| ARCH-CYCLE-001 | 循環参照がない | SPEC-TOOL-001 | - | `test/integration/architecture.test.ts` |
-| ARCH-LAYER-001 | 中核は純粋 | SPEC-FORM-001, SPEC-FORM-002, SPEC-EXPR-001, SPEC-TOOL-006 | DES-SPEC-001, DES-FORM-004, DES-FORM-008 | `test/integration/architecture.test.ts` |
-| ARCH-LAYER-002 | 画面はブラウザだけで動く | SPEC-UI-001, SPEC-EXT-004, SPEC-EXT-005 | - | `test/integration/architecture.test.ts` |
-| ARCH-LAYER-004 | web版の入口はNode.jsを使わない | SPEC-EXT-004 | - | `test/integration/architecture.test.ts` |
-| ARCH-LAYER-005 | 入口は互いに依存しない | SPEC-TOOL-001, SPEC-EXT-004 | - | `test/integration/architecture.test.ts` |
-| ARCH-LAYER-006 | 画面が使う中核はEffectを使わない | SPEC-EXT-005, SPEC-UI-002, SPEC-EXPR-001, SPEC-TOOL-003 | DES-EXPR-002, DES-FORM-002, DES-FORM-003, DES-FORM-007 | `test/integration/architecture.test.ts` |
-| ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | DES-TOOLS-001, DES-TOOLS-003 | `test/integration/architecture.test.ts` |
+| ARCH-CYCLE-001 | 循環参照がない | SPEC-TOOL-001 | - | `test/architecture/architecture.test.ts` |
+| ARCH-LAYER-001 | 中核は純粋 | SPEC-FORM-001, SPEC-FORM-002, SPEC-EXPR-001, SPEC-TOOL-006 | DES-SPEC-001, DES-FORM-004, DES-FORM-008 | `test/architecture/architecture.test.ts` |
+| ARCH-LAYER-002 | 画面はブラウザだけで動く | SPEC-UI-001, SPEC-EXT-004, SPEC-EXT-005 | - | `test/architecture/architecture.test.ts` |
+| ARCH-LAYER-004 | web版の入口はNode.jsを使わない | SPEC-EXT-004 | - | `test/architecture/architecture.test.ts` |
+| ARCH-LAYER-005 | 入口は互いに依存しない | SPEC-TOOL-001, SPEC-EXT-004 | - | `test/architecture/architecture.test.ts` |
+| ARCH-LAYER-006 | 画面が使う中核はEffectを使わない | SPEC-EXT-005, SPEC-UI-002, SPEC-EXPR-001, SPEC-TOOL-003 | DES-EXPR-002, DES-FORM-002, DES-FORM-003, DES-FORM-007 | `test/architecture/architecture.test.ts` |
+| ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | DES-TOOLS-001, DES-TOOLS-003 | `test/architecture/architecture.test.ts` |
 | ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001, SPEC-UI-006, SPEC-UI-010 | DES-UI-002, DES-HOST-001, DES-TOOLS-002 | `test/system/ui.spec.ts` |
 | ARCH-REL-001 | 検出と公開の権限を分ける | SPEC-REL-001 | DES-REL-001 | `test/system/release-workflow.test.ts` |
 
