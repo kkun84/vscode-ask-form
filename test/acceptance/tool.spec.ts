@@ -34,7 +34,7 @@ test.afterEach(async ({ session }, testInfo) => {
   await runCommand(session.window, "Ask Form: Cancel acceptance form")
 })
 
-test("REQ-WEB-001 Copilotを通さずにツールが呼ばれても、フォームを横のパネルに表示し、そこで回答するとツールの結果になる", async ({
+test("REQ-WEB-001 デスクトップ版でもweb版でも、ハーネスを通さずにツールが呼ばれると、フォームを横のパネルに表示し、そこで回答するとツールの結果になる", async ({
   session
 }) => {
   const { frame, result } = await invoke(session)

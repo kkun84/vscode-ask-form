@@ -4,10 +4,8 @@ import { bundle } from "../../scripts/bundle.ts"
 
 export const buildDriver = async (root: string, driver: string): Promise<void> => {
   const built = await bundle({ input: join(root, "test/acceptance/driver.ts"), platform: "node", format: "cjs" })
-  const web = await bundle({ input: join(root, "test/acceptance/driver-web.ts"), platform: "browser", format: "cjs" })
   await mkdir(driver, { recursive: true })
   await writeFile(join(driver, "driver.cjs"), built.code)
-  await writeFile(join(driver, "driver-web.js"), web.code)
   await writeFile(
     join(driver, "package.json"),
     JSON.stringify({
@@ -16,7 +14,6 @@ export const buildDriver = async (root: string, driver: string): Promise<void> =
       version: "0.0.0",
       engines: { vscode: "^1.110.0" },
       main: "./driver.cjs",
-      browser: "./driver-web.js",
       activationEvents: ["onStartupFinished"],
       contributes: {
         commands: [

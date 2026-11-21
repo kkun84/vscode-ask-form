@@ -7,16 +7,14 @@ src/
   core/        設計図・計算式・差分・パネルのホスト役などの純粋な処理
   ui/          フォーム画面(ブラウザで動く)
   extension/
-    node/      デスクトップ版の入口
-    web/       web版の入口
-    shared/    両方の入口が使うVS Code依存の処理(ツールとパネル)
+    node/      拡張機能の入口
+    shared/    VS Code依存の処理(ツールとパネル)
 ```
 
 依存は次の向きにだけ流れます。
 
 ```text
 extension/node ──▶ extension/shared ──▶ core ◀── ui
-extension/web  ──▶ extension/shared
 ```
 
 ## 層の境界
@@ -31,7 +29,7 @@ extension/web  ──▶ extension/shared
 
 `src/core`は`effect`と`src/core`のほかに依存しない。`vscode`、Node.jsの組み込みモジュール、ほかの層には依存しない。
 
-- 予約語の`id`と複数選択の重複は中核のSchemaと検査で拒否する。デスクトップ版とweb版は同じ検査を通し、画面からの回答も計算に渡す前に重複を検査する。
+- 予約語の`id`と複数選択の重複は中核のSchemaと検査で拒否する。ツールの入力は同じ検査を通し、画面からの回答も計算に渡す前に重複を検査する。
 
 派生元: SPEC-FORM-001, SPEC-FORM-002, SPEC-EXPR-001, SPEC-TOOL-006
 
@@ -40,18 +38,6 @@ extension/web  ──▶ extension/shared
 `src/ui`は`src/ui`と、ARCH-LAYER-006 のEffectを使わない中核だけに依存する。設計図の型だけは参照してよい。
 
 派生元: SPEC-UI-001, SPEC-EXT-004, SPEC-EXT-005
-
-### ARCH-LAYER-004 web版の入口はNode.jsを使わない
-
-`src/extension/web`と`src/extension/shared`は、Node.jsの組み込みモジュールと`src/extension/node`に依存しない。
-
-派生元: SPEC-EXT-004
-
-### ARCH-LAYER-005 入口は互いに依存しない
-
-`src/extension/node`と`src/extension/web`は互いに依存しない。
-
-派生元: SPEC-TOOL-001, SPEC-EXT-004
 
 ### ARCH-LAYER-006 画面が使う中核はEffectを使わない
 

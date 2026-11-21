@@ -7,9 +7,9 @@ import { until } from "./frames.ts"
 import { driver, electron, extension, vsix } from "./paths.ts"
 import { startStubModel, type StubModel } from "./stub-model.ts"
 import { closeApp, fitWindow, launchVscode, localHarness } from "./vscode.ts"
-import { browserSession, lines, size, webSession, type Running } from "./web-session.ts"
+import { lines, size, webSession, type Running } from "./web-session.ts"
 
-export type Platform = "desktop" | "web" | "browser"
+export type Platform = "desktop" | "web"
 
 export interface Session {
   readonly window: Page
@@ -45,9 +45,6 @@ const launch = (platform: Platform, llm: StubModel, profile: string, log: string
   if (platform === "desktop") {
     return desktopSession(llm, profile, log)
   }
-  if (platform === "browser") {
-    return browserSession()
-  }
   return webSession(profile, log, {
     ASK_FORM_E2E_LLM_URL: llm.url,
     ASK_FORM_E2E_QUERY: query,
@@ -69,7 +66,7 @@ export const openSession = async (platform: Platform, results: string, name: str
     await llm.close()
     await rm(profile, { recursive: true, force: true, maxRetries: 3 })
   }
-  await driverReady(session, platform === "browser" ? "commands ready" : "chat ready").catch(async (error: unknown) => {
+  await driverReady(session, "chat ready").catch(async (error: unknown) => {
     await close()
     throw error
   })

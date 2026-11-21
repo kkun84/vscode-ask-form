@@ -1,8 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { chromium, type Page } from "@playwright/test"
-import { open as openWeb } from "@vscode/test-web"
-import { driver, driverVsix, electron, extension, vsix, webHost } from "./paths.ts"
-import { desktopCommit, ensureServer, freePort, startServer } from "./server.ts"
+import { driverVsix, electron, vsix } from "./paths.ts"
+import { desktopCommit, ensureServer, startServer } from "./server.ts"
 
 export interface Running {
   readonly window: Page
@@ -82,36 +81,6 @@ export const webSession = async (profile: string, log: string, env: Readonly<Rec
     close: async () => {
       await browser.close()
       await server.close()
-    }
-  }
-}
-
-export const browserSession = async (): Promise<Running> => {
-  const port = await freePort()
-  const server = await openWeb({
-    browserType: "none",
-    quality: "stable",
-    commit: await desktopCommit(electron()),
-    port,
-    extensionDevelopmentPath: extension,
-    extensionPaths: [driver],
-    extensionTestsPath: webHost
-  })
-  const browser = await launchBrowser()
-  const window = await browser.newPage({ viewport: size })
-  window.setDefaultTimeout(30_000)
-  const logged: Array<string> = []
-  await window.exposeFunction("codeAutomationLog", (_type: string, args: ReadonlyArray<unknown>) => {
-    logged.push(args.map(String).join(" "))
-  })
-  await window.exposeFunction("codeAutomationExit", () => null)
-  await window.goto(`http://localhost:${port}`)
-  return {
-    window,
-    events: () => Promise.resolve(logged),
-    close: async () => {
-      await browser.close()
-      server.dispose()
     }
   }
 }
