@@ -347,10 +347,6 @@ export const startStubModel = async (trigger: string, args: Json, done = "STUB_M
       res.end()
     })
   })
-  server.on("connect", (req, socket) => {
-    state.paths.push(`CONNECT ${req.url ?? ""}`)
-    socket.end("HTTP/1.1 403 Forbidden\r\n\r\n")
-  })
   const { origin, close } = await listenLocally(server)
   return {
     origin,

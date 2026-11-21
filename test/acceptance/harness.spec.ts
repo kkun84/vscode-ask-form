@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { expect, type Frame, type Page } from "@playwright/test"
 import { agentHostLog, openAgentsSession, type Session } from "./harness-session.ts"
-import { openWebHarness } from "./harness-web.ts"
 import { runCommand } from "./commands.ts"
 import { test as base } from "./fixtures.ts"
 import { closedDuringClick, formFrame, settled, sleep, until } from "./frames.ts"
@@ -180,9 +179,8 @@ const inAgentsWindow = (harness: Harness) => async (session: Session) => newAgen
 
 const test = base.extend<object, { readonly harness: Session }>({
   harness: [
-    async ({ platform }, use, workerInfo) => {
-      const open = platform === "web" ? openWebHarness : openAgentsSession
-      const session = await open(workerInfo.project.outputDir)
+    async ({ platform: _platform }, use, workerInfo) => {
+      const session = await openAgentsSession(workerInfo.project.outputDir)
       await use(session)
       await session.close()
     },
@@ -191,8 +189,6 @@ const test = base.extend<object, { readonly harness: Session }>({
 })
 
 test.describe.configure({ timeout: 600_000 })
-
-const desktopOnly = { tag: "@desktop" }
 
 test.afterEach(async ({ harness: session }, testInfo) => {
   if (testInfo.status === testInfo.expectedStatus) {
@@ -229,16 +225,12 @@ test.afterEach(async ({ harness: session }, testInfo) => {
 test("REQ-ASK-001 既定のCopilotハーネスでは、フォームがチャットの横のパネルに出て、回答がモデルに届く", ({ harness }) =>
   answeredInPanel("Copilot", (current) => openSession(current, "Copilot"))(harness))
 
-test("REQ-ENV-002 Codexのハーネスでも、フォームがチャットの横のパネルに出て、回答がモデルに届く", desktopOnly, ({ harness }) =>
-  answeredInPanel("Codex", (current) => openSession(current, "Codex"))(harness)
-)
+test("REQ-ENV-002 Codexのハーネスでも、フォームがチャットの横のパネルに出て、回答がモデルに届く", ({ harness }) =>
+  answeredInPanel("Codex", (current) => openSession(current, "Codex"))(harness))
 
-test("REQ-ENV-003 AgentsウィンドウのCopilotハーネスでも、フォームがパネルに出て、回答がモデルに届く", desktopOnly, ({ harness }) =>
-  answeredInPanel("Copilot", inAgentsWindow("Copilot"))(harness)
-)
+test("REQ-ENV-003 AgentsウィンドウのCopilotハーネスでも、フォームがパネルに出て、回答がモデルに届く", ({ harness }) =>
+  answeredInPanel("Copilot", inAgentsWindow("Copilot"))(harness))
 
-test(
-  "REQ-ENV-003 AgentsウィンドウのCodexハーネスでも、既定のモデルがコードモードでツールを呼んで、フォームがパネルに出て回答が届く",
-  desktopOnly,
-  ({ harness }) => answeredInPanel("Codex", inAgentsWindow("Codex"))(harness)
-)
+test("REQ-ENV-003 AgentsウィンドウのCodexハーネスでも、既定のモデルがコードモードでツールを呼んで、フォームがパネルに出て回答が届く", ({
+  harness
+}) => answeredInPanel("Codex", inAgentsWindow("Codex"))(harness))

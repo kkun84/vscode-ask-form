@@ -19,7 +19,7 @@ export interface Session {
   readonly close: () => Promise<void>
 }
 
-export const smokeDriver = "--enable-smoke-test-driver"
+const smokeDriver = "--enable-smoke-test-driver"
 
 export const agentHostLog = async (profile: string): Promise<string> => {
   const logs = join(profile, "user", "logs")
