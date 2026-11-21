@@ -341,9 +341,9 @@ pnpm build
 
 ### 実機での受け入れテスト
 
-受け入れテストは、実際のVS CodeとビルトインのCopilot Chatを動かします。チャットのモデルには、決まった応答を返すLLM APIのスタブをBYOK(Custom Endpoint)としてつなぎ、フォームの表示、回答、中断までを通して確かめます。READMEの画像と動画も、同じしくみで撮っています。
+受け入れテストは、実際のVS CodeとビルトインのCopilot Chatを動かします。チャットのモデルには、決まった応答を返すLLM APIのスタブをBYOK(Custom Endpoint)としてつなぎ、フォームの表示、回答、中断までを通して確かめます。READMEの画像と動画も、同じしくみで撮っています。チャットとハーネスの受け入れテストは、利用者と同じ状態で確かめるために、Ask FormをVSIXにまとめてインストールしてから起動します。開発用のパスで読み込んだ拡張機能は、Agentsウィンドウの制限を受けないなど、インストールした拡張機能と扱いが違うためです。
 
-CopilotとCodexのハーネスも、同じようにLLM APIのスタブで確かめます(対象`agents`)。スタブはOpenAI Chat CompletionsとOpenAI Responsesに答え、Codexのコードモードの`exec`の呼び出しも真似ます。CopilotはBYOKのモデルとして、Codexは環境変数`CODEX_HOME`の設定でスタブに向けます。Agentsウィンドウでも確かめます。各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、対象`agents`を流しません。
+CopilotとCodexのハーネスも、同じようにLLM APIのスタブで確かめます(対象`agents`)。スタブはOpenAI Chat CompletionsとOpenAI Responsesに答え、Codexのコードモードの`exec`の呼び出しも真似ます。CopilotはBYOKのモデルとして、Codexは環境変数`CODEX_HOME`の設定でスタブに向けます。Agentsウィンドウでも確かめます。Copilotのハーネスは、多くのモデルで拡張機能のツールを最初の一覧に入れず、モデルが検索してから読み込みます。受け入れテストでは、設定`chat.agentHost.copilot.modelCapabilityOverrides`でスタブのモデルをGPT-5.5として扱わせ、ツールの検索のスタブを登録して、この経路を通します。各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、対象`agents`を流しません。
 
 ### 文書とテストの対応
 

@@ -55,7 +55,7 @@ const registerModel = async (url: string): Promise<vscode.LanguageModelChat> => 
     apiType: "chat-completions",
     models: [
       {
-        id: process.env["ASK_FORM_E2E_MODEL_ID"] ?? "stub-model",
+        id: "stub-model",
         name: "Stub Model",
         url,
         toolCalling: true,
