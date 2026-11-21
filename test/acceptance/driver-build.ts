@@ -23,6 +23,15 @@ export const buildDriver = async (root: string, driver: string): Promise<void> =
           { command: "ask-form-e2e.codex", title: "Ask Form: New acceptance Codex session" },
           { command: "ask-form-e2e.copilot", title: "Ask Form: New acceptance Copilot session" },
           { command: "ask-form-e2e.agentsWindow", title: "Ask Form: Open acceptance Agents window" }
+        ],
+        languageModelTools: [
+          {
+            name: "e2e_tool_search",
+            toolReferenceName: "toolSearch",
+            displayName: "E2E tool search",
+            modelDescription: "Search for relevant tools by describing what you need.",
+            inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] }
+          }
         ]
       }
     })

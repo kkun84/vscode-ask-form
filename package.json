@@ -650,5 +650,10 @@
     "node": ">=22.18.0",
     "vscode": "^1.110.0"
   },
-  "packageManager": "pnpm@12.9.0"
+  "packageManager": "pnpm@12.9.0",
+  "capabilities": {
+    "agentsWindow": {
+      "supported": true
+    }
+  }
 }

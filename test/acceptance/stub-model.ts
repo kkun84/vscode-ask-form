@@ -7,7 +7,7 @@ export interface ModelToolCall {
   readonly name: string
 }
 
-export interface FakeModel {
+export interface StubModel {
   readonly origin: string
   readonly url: string
   readonly toolCalls: Array<ModelToolCall>
@@ -30,9 +30,9 @@ interface Script {
 }
 
 interface State {
-  readonly toolCalls: FakeModel["toolCalls"]
-  readonly toolResults: FakeModel["toolResults"]
-  readonly toolNames: FakeModel["toolNames"]
+  readonly toolCalls: StubModel["toolCalls"]
+  readonly toolResults: StubModel["toolResults"]
+  readonly toolNames: StubModel["toolNames"]
   readonly nextId: (prefix: string) => string
   readonly cells: Map<string, string>
   readonly waits: Map<string, string>
@@ -255,6 +255,10 @@ const chatTurn = (state: State, script: Script, body: Json): Turn => {
     return typeof fn === "object" && fn !== null && typeof (fn as Json)["name"] === "string" ? [String((fn as Json)["name"])] : []
   })
   state.toolNames.push(names)
+  if (process.env["ASK_FORM_E2E_DUMP"] !== undefined) {
+    console.error(`DUMP model=${String(body["model"])} tools(${names.length})=${names.join(",")}`)
+    console.error(`DUMP last=${JSON.stringify(history.at(-1)).slice(0, 1500)}`)
+  }
   for (const message of history.filter((entry) => entry["role"] === "tool")) {
     remember(state, String(message["tool_call_id"]), message["content"])
   }
@@ -263,7 +267,13 @@ const chatTurn = (state: State, script: Script, body: Json): Turn => {
     .slice(start + 1)
     .flatMap((message) => records(message["tool_calls"]))
     .map((call) => String((call["function"] as Json | undefined)?.["name"]))
-  return { asked: start >= 0, answered: called.some((name) => isAskForm(name)), searched: true, names, search: undefined }
+  return {
+    asked: start >= 0,
+    answered: called.some((name) => isAskForm(name)),
+    searched: called.includes("tool_search_tool"),
+    names,
+    search: names.includes("tool_search_tool") ? "tool_search_tool" : undefined
+  }
 }
 
 const chat = (state: State, script: Script, body: Json, res: ServerResponse): void => {
@@ -315,7 +325,7 @@ const handle = async (state: State, script: Script, req: IncomingMessage, res: S
   }
 }
 
-export const startFakeModel = async (trigger: string, args: Json, done = "FAKE_MODEL_DONE", other = "ok"): Promise<FakeModel> => {
+export const startStubModel = async (trigger: string, args: Json, done = "STUB_MODEL_DONE", other = "ok"): Promise<StubModel> => {
   let sequence = 0
   const state: State = {
     toolCalls: [],
