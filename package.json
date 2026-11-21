@@ -643,7 +643,6 @@
     "onStartupFinished"
   ],
   "extensionKind": [
-    "ui",
     "workspace"
   ],
   "engines": {
