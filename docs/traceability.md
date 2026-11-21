@@ -17,13 +17,13 @@
 | REQ-ANS-007 | 質問ごとにコメントを添えられる | - | SPEC-TOOL-005, SPEC-TOOL-010, SPEC-UI-014 | `test/acceptance/chat.spec.ts`, MAT-ANS-002 |
 | REQ-ANS-004 | キーボードだけで回答できる | - | SPEC-UI-003, SPEC-UI-008 | MAT-ANS-001 |
 | REQ-RES-001 | 回答後にフォームが残らない | - | SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, MAT-RES-001 |
-| REQ-CANCEL-001 | 止めた質問に回答が残らない | - | SPEC-TOOL-005, SPEC-TOOL-007, SPEC-UI-006, SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, MAT-CANCEL-001 |
-| REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.spec.ts`, `test/acceptance/web.spec.ts`, MAT-CANCEL-001, MAT-PANEL-001 |
+| REQ-CANCEL-001 | 止めた質問に回答が残らない | - | SPEC-TOOL-005, SPEC-TOOL-007, SPEC-UI-006, SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, `test/acceptance/tool.spec.ts`, MAT-CANCEL-001 |
+| REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.spec.ts`, `test/acceptance/tool.spec.ts`, MAT-CANCEL-001, MAT-PANEL-001 |
 | REQ-WAIT-002 | 利用者が不在の設定では待たない | - | SPEC-TOOL-003, SPEC-EXT-007 | `test/acceptance/chat.spec.ts`, MAT-WAIT-001 |
-| REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/web.spec.ts`, MAT-WEB-001 |
+| REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/tool.spec.ts`, MAT-WEB-001 |
 | REQ-ENV-002 | Codexのハーネスでも回答できる | - | SPEC-TOOL-001 | `test/acceptance/harness.spec.ts`, MAT-ENV-002 |
 | REQ-ENV-003 | Agentsウィンドウでも回答できる | - | SPEC-TOOL-001 | `test/acceptance/harness.spec.ts`, MAT-ENV-003 |
-| REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/desktop.spec.ts`, MAT-PERF-001 |
+| REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/startup.spec.ts`, MAT-PERF-001 |
 | REQ-SEC-001 | 回答を偽装されない | - | SPEC-UI-010 | MAT-SEC-001 |
 | REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | MAT-LOOK-001 |
 | REQ-A11Y-001 | 支援技術で使える | - | SPEC-UI-008 | MAT-LOOK-001 |

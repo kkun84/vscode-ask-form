@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs"
 import * as vscode from "vscode"
+import { registerCommands } from "./driver-commands.ts"
 
 const log = (line: string): void => {
   const file = process.env["ASK_FORM_E2E_LOG"]
@@ -88,12 +89,6 @@ const applySettings = async (): Promise<void> => {
   }
 }
 
-const reportState = (): void => {
-  const target = vscode.extensions.getExtension("kkun84.ask-form")
-  const tool = vscode.lm.tools.some((item) => item.name === "forms_ask_form")
-  log(`state active=${String(target?.isActive === true)} tool=${String(tool)}`)
-}
-
 const drive = async (context: vscode.ExtensionContext, url: string, query: string): Promise<void> => {
   await applySettings()
   const model = await registerModel(url)
@@ -118,7 +113,7 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
     vscode.commands.registerCommand("ask-form-e2e.newChat", openChat),
     vscode.commands.registerCommand("ask-form-e2e.autoReply", toggleAutoReply)
   )
-  log("ready")
+  log("chat ready")
   if (process.env["ASK_FORM_E2E_AUTOSTART"] !== "0") {
     await openChat()
   }
@@ -141,9 +136,9 @@ export const activate = (context: vscode.ExtensionContext): void => {
     vscode.commands.registerCommand("ask-form-e2e.copilot", () =>
       vscode.commands.executeCommand("workbench.action.chat.openNewChatSessionInPlace.agent-host-copilotcli", "sidebar")
     ),
-    vscode.commands.registerCommand("ask-form-e2e.agentsWindow", () => vscode.commands.executeCommand("workbench.action.openAgentsWindow")),
-    vscode.commands.registerCommand("ask-form-e2e.state", reportState)
+    vscode.commands.registerCommand("ask-form-e2e.agentsWindow", () => vscode.commands.executeCommand("workbench.action.openAgentsWindow"))
   )
+  registerCommands(context, log)
   if (process.env["ASK_FORM_E2E_TOOL_SEARCH"] !== undefined) {
     context.subscriptions.push(
       vscode.lm.registerTool<{ query: string; candidateTools?: ReadonlyArray<{ name: string; description: string }> }>("e2e_tool_search", {
