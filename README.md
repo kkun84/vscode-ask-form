@@ -71,7 +71,7 @@ Ask Formを入れると、Copilotは聞きたいことを**1つのフォーム�
 
 ## 動作環境
 
-- VS Code 1.110以降(デスクトップ版、またはvscode.devなどのweb版)
+- VS Code 1.110以降のデスクトップ版か、GitHub Codespacesのようにサーバーにつないで使うweb版。vscode.devのようにブラウザだけで動くweb版では動きません。
 - GitHub Copilot Chat。ほかのモデルをBYOKでつないだ場合も使えます。
 - エージェントのモード
 
@@ -326,7 +326,7 @@ pnpm build
 | `pnpm typecheck`         | TypeScript 7とEffectの診断による型検査                                                                                                                                                                                                                   |
 | `pnpm check`             | lint、型検査、単体・アーキテクチャ・システムのテスト、配布物の大きさの検査をまとめて実行。CIは同じ検査を1つずつ動かす                                                                                                                                    |
 | `pnpm test`              | 単体、アーキテクチャ、システム、画面のテスト                                                                                                                                                                                                             |
-| `pnpm test:acceptance`   | 実際のVS Code(デスクトップ版、web版、チャット、ハーネス)での受け入れテスト                                                                                                                                                                               |
+| `pnpm test:acceptance`   | 実際のVS Code(デスクトップ版とweb版)での受け入れテスト                                                                                                                                                                                                   |
 | `pnpm media`             | 実際のVS CodeでREADMEの画像、GIF、紹介動画(`docs/images`、`docs/media`)を撮り直す。紹介動画のBGMは、曲のファイルを`scripts/music/`に置いたときだけ入る([`docs/media/README.md`](docs/media/README.md))                                                   |
 | `pnpm mutation`          | 単体テストによるミューテーションテストを全件で実行。結果は`.mutator/report`。失敗にしない指標                                                                                                                                                            |
 | `pnpm mutation:diff`     | `origin/main`との差分と、変更したテストが確かめるコードだけのミューテーションテスト。何も検出しない新しいテストはCIが探す。検出できなかったミュータントは表示だけで失敗にしない                                                                          |
@@ -343,16 +343,18 @@ pnpm build
 
 受け入れテストは、実際のVS CodeとビルトインのCopilot Chatを動かし、[Playwright Test](https://playwright.dev/docs/test-intro)で画面を操作して確かめます(設定は`playwright.acceptance.config.ts`)。チャットのモデルには、決まった応答を返すLLM APIのスタブをBYOK(Custom Endpoint)としてつなぎ、フォームの表示、回答、中断までを通します。テストは1件ずつ新しいチャットを開くので、互いに依存しません。READMEの画像と動画も、同じスタブと起動のしくみで撮っています。
 
-テストは、動かす環境ごとに2つのプロジェクトに分かれます。
+テストは、動かす環境ごとに2つのプロジェクトに分かれ、確かめる内容ごとのファイルを環境の間で共有します。
 
-| プロジェクト | 環境                                                                      | テスト                                                                         |
-| ------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `desktop`    | デスクトップ版のVS Code(Electron)                                         | 起動(`desktop.spec.ts`)、チャット(`chat.spec.ts`)、ハーネス(`harness.spec.ts`) |
-| `web`        | サーバーにつないだweb版(VS Codeのサーバーとブラウザ)とブラウザだけのweb版 | チャット(`chat.spec.ts`)、ブラウザだけのweb版(`web.spec.ts`)                   |
+| ファイル          | 確かめること                                                         | `desktop` | `web` |
+| ----------------- | -------------------------------------------------------------------- | --------- | ----- |
+| `startup.spec.ts` | 起動が済むと、ツールが呼ばれなくても有効になる                       | ○         | ○     |
+| `tool.spec.ts`    | ハーネスを通さずにツールを呼んでも、フォームで回答や取り消しができる | ○         | ○     |
+| `chat.spec.ts`    | Copilotのチャットから、フォームで聞いて回答が届く                    | ○         | ○     |
+| `harness.spec.ts` | CopilotとCodexのハーネスとAgentsウィンドウで、フォームで回答が届く   | ○         | -     |
 
-- チャットのテストは、デスクトップ版と、サーバーにつないだweb版の両方で、同じ内容を動かします。サーバーにつないだweb版は、GitHub Codespacesなどと同じく、拡張機能とCopilotがサーバーの側で動く形です。VS Codeのサーバーは、デスクトップ版と同じコミットの物を初回にダウンロードし、`node_modules/.cache/ask-form-vscode-server`に置きます。
-- ブラウザだけのweb版にはCopilotが無いので、`web.spec.ts`は、テスト用の拡張機能のコマンドからツールを直接呼びます。
-- 利用者と同じ状態で確かめるために、Ask FormはVSIXにまとめてインストールしてから起動します。開発用のパスで読み込んだ拡張機能は、Agentsウィンドウの制限を受けないなど、インストールした拡張機能と扱いが違うためです。ブラウザだけのweb版だけは、テスト用のサーバーの都合で、ビルドしたフォルダーから読み込みます。
+- `desktop`は、デスクトップ版のVS Code(Electron)です。
+- `web`は、サーバーにつないだweb版です。GitHub Codespacesなどと同じく、拡張機能とCopilotがサーバーの側で動きます。VS Codeのサーバーは、デスクトップ版と同じコミットの物を初回にダウンロードし、`node_modules/.cache/ask-form-vscode-server`に置きます。
+- 利用者と同じ状態で確かめるために、Ask FormはVSIXにまとめてインストールしてから起動します。開発用のパスで読み込んだ拡張機能は、Agentsウィンドウの制限を受けないなど、インストールした拡張機能と扱いが違うためです。
 - `pnpm test:acceptance chat`のようにファイル名の一部を渡すと、そのテストだけを動かせます。`pnpm test:acceptance --project=desktop`で、プロジェクトを選べます。
 
 CopilotとCodexのハーネスも、同じようにLLM APIのスタブで確かめます(`harness.spec.ts`)。スタブはOpenAI Chat CompletionsとOpenAI Responsesに答え、Codexのコードモードの`exec`の呼び出しも真似ます。CopilotはBYOKのモデルとして、Codexは環境変数`CODEX_HOME`の設定でスタブに向けます。Agentsウィンドウでも確かめます。Copilotのハーネスは、多くのモデルで拡張機能のツールを最初の一覧に入れず、モデルが検索してから読み込みます。受け入れテストでは、設定`chat.agentHost.copilot.modelCapabilityOverrides`でスタブのモデルをGPT-5.5として扱わせ、ツールの検索のスタブを登録して、この経路を通します。各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、`harness.spec.ts`を流しません。

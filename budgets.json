@@ -1,8 +1,7 @@
 {
   "size": {
     "dist/form.html": 44000,
-    "dist/node/extension.cjs": 700000,
-    "dist/web/extension.js": 360000
+    "dist/node/extension.cjs": 700000
   },
   "time": {
     "unit": 5,

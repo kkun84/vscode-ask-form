@@ -277,14 +277,11 @@ export interface ExtensionModule {
   readonly activate: (context: unknown) => unknown
 }
 
-export const loadBundle = (path: string, vscode: unknown, runtime: "node" | "web"): ExtensionModule => {
+export const loadBundle = (path: string, vscode: unknown): ExtensionModule => {
   const nodeRequire = createRequire(path)
   const require = (request: string): unknown => {
     if (request === "vscode") {
       return vscode
-    }
-    if (runtime === "web") {
-      throw new Error(`web extension cannot require ${request}`)
     }
     return nodeRequire(request)
   }

@@ -7,8 +7,7 @@ import { eventForm, eventSpec } from "../fixtures/event.ts"
 import { cancellation, createVscode, fakeContext, loadBundle, type FakePanel, type Recorder } from "../support/vscode-stub.ts"
 
 const nodeBundle = fileURLToPath(new URL("../../dist/node/extension.cjs", import.meta.url))
-const webBundle = fileURLToPath(new URL("../../dist/web/extension.js", import.meta.url))
-const webTool = "forms_ask_form"
+const toolName = "forms_ask_form"
 
 const readManifest = async <T>(): Promise<T> => JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as T
 
@@ -17,7 +16,7 @@ const formKey = eventForm.key
 const start = async () => {
   const { vscode, recorder } = createVscode()
   const { context, dispose } = fakeContext()
-  await loadBundle(nodeBundle, vscode, "node").activate(context)
+  await loadBundle(nodeBundle, vscode).activate(context)
   return { recorder, dispose }
 }
 
@@ -40,9 +39,9 @@ const expectClosed = (recorder: Recorder, panel: FakePanel | undefined, commands
 }
 
 describe("SPEC-TOOL-001 質問のツール", () => {
-  it("SPEC-TOOL-001 デスクトップ版もweb版もツールを登録し、パネルに表示して回答を返す", async () => {
+  it("SPEC-TOOL-001 ツールを登録し、パネルに表示して回答を返す", async () => {
     const { recorder, dispose } = await start()
-    const tool = recorder.tools.get(webTool)
+    const tool = recorder.tools.get(toolName)
     assert.ok(tool)
     assert.deepEqual(recorder.providers.size, 0)
     const pending = tool.invoke({ input: eventSpec }, cancellation().token)
@@ -51,7 +50,6 @@ describe("SPEC-TOOL-001 質問のツール", () => {
     submitRecommended(panel)
     assert.match(resultText(await pending), /"status":"submitted"/)
     await dispose()
-    assert.ok(web().tool)
   })
 
   it("SPEC-TOOL-001 ツールは常に有効で、組み込みの質問ツールより優先するよう説明し、MCPサーバーを提供しない", async () => {
@@ -61,7 +59,7 @@ describe("SPEC-TOOL-001 質問のツール", () => {
         readonly configuration: { readonly properties: Record<string, unknown> }
       }
     }>()
-    const declared = manifest.contributes.languageModelTools.find((item) => item.name === webTool)
+    const declared = manifest.contributes.languageModelTools.find((item) => item.name === toolName)
     assert.equal(declared?.when, undefined)
     for (const builtIn of ["askQuestions", "ask_user", "AskUserQuestion", "request_user_input"]) {
       assert.ok(declared?.modelDescription.includes(builtIn), builtIn)
@@ -87,7 +85,7 @@ describe("SPEC-EXT-002 待機の表示", () => {
     const { recorder, dispose } = await start()
     assert.equal(visible(recorder), false)
     assert.equal(recorder.status[0]?.text.includes("Copilotが回答を待っています"), true)
-    const pending = recorder.tools.get(webTool)?.invoke({ input: eventSpec }, cancellation().token)
+    const pending = recorder.tools.get(toolName)?.invoke({ input: eventSpec }, cancellation().token)
     assert.equal(visible(recorder), true)
     recorder.panels[0]?.dispose()
     await pending
@@ -96,13 +94,13 @@ describe("SPEC-EXT-002 待機の表示", () => {
   })
 })
 
-const web = () => {
+const loaded = () => {
   const { vscode, recorder } = createVscode()
   const { context } = fakeContext()
-  loadBundle(webBundle, vscode, "web").activate(context)
-  const tool = recorder.tools.get(webTool)
+  loadBundle(nodeBundle, vscode).activate(context)
+  const tool = recorder.tools.get(toolName)
   if (tool === undefined) {
-    throw new Error("web tool is missing")
+    throw new Error("the tool is missing")
   }
   return { recorder, tool }
 }
@@ -111,7 +109,7 @@ const resultText = (result: unknown): string =>
   (result as { readonly content: ReadonlyArray<{ readonly value: string }> }).content[0]?.value ?? ""
 
 const askOnWeb = () => {
-  const { recorder, tool } = web()
+  const { recorder, tool } = loaded()
   const source = cancellation()
   const pending = tool.invoke({ input: eventSpec }, source.token)
   return { recorder, pending, panel: recorder.panels[0], source }
@@ -125,7 +123,7 @@ const expectSettled = async (asked: ReturnType<typeof askOnWeb>, status: string,
 
 describe("SPEC-EXT-004 パネルのフォーム", () => {
   it("SPEC-EXT-004 ツールが呼ばれるとパネルにフォームを表示し、回答を結果として返す", async () => {
-    const { recorder, tool } = web()
+    const { recorder, tool } = loaded()
     const pending = tool.invoke({ input: eventSpec }, cancellation().token)
     const [panel] = recorder.panels
     assert.equal(panel?.title, eventSpec.title)
@@ -150,7 +148,7 @@ describe("SPEC-EXT-004 パネルのフォーム", () => {
   })
 
   it("SPEC-EXT-004 チャットを停止すると、読み込み中でも結果を返してパネルを閉じ、チャットを開かない", async () => {
-    const { recorder, tool } = web()
+    const { recorder, tool } = loaded()
     const source = cancellation()
     const pending = tool.invoke({ input: eventSpec }, source.token)
     source.cancel()
@@ -218,7 +216,7 @@ describe("SPEC-EXT-004 回答後のパネル", () => {
   })
 
   it("SPEC-EXT-002 パネルで待つ間は、待機の表示を押すと先に待ち始めたフォームのパネルを前面に出す", async () => {
-    const { recorder, tool } = web()
+    const { recorder, tool } = loaded()
     const first = tool.invoke({ input: eventSpec }, cancellation().token)
     const second = tool.invoke({ input: { ...eventSpec, title: "2つ目" } }, cancellation().token)
     const command = recorder.status.find((item) => item.visible)?.command
@@ -242,7 +240,7 @@ describe("SPEC-EXT-004 回答後のパネル", () => {
 })
 
 const settingsOf = (presets: unknown) => {
-  const { recorder, tool } = web()
+  const { recorder, tool } = loaded()
   if (presets !== undefined) {
     recorder.changeSetting("askForm.commentPresets", presets)
   }
@@ -278,7 +276,7 @@ describe("SPEC-EXT-007 自動で応じる設定", () => {
   })
 
   it("SPEC-EXT-007 chat.autoReplyが有効な間、拡張機能のツールはパネルを開かずにunavailableを返す", async () => {
-    const { recorder, tool } = web()
+    const { recorder, tool } = loaded()
     recorder.changeSetting("chat.autoReply", true)
     const text = resultText(await tool.invoke({ input: eventSpec }, cancellation().token))
     assert.match(text, /"status":"unavailable"/)
@@ -300,7 +298,7 @@ describe("SPEC-EXT-005 起動とサイズ", () => {
     const { vscode } = createVscode()
     const { context, dispose } = fakeContext()
     const started = performance.now()
-    await loadBundle(nodeBundle, vscode, "node").activate(context)
+    await loadBundle(nodeBundle, vscode).activate(context)
     const elapsed = performance.now() - started
     await dispose()
     assert.ok(elapsed < budgets.activationMs, `${elapsed.toFixed(0)}ms`)

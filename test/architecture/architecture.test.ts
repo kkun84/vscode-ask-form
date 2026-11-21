@@ -88,26 +88,6 @@ describe("ARCH-LAYER-002 画面はブラウザだけで動く", () => {
   })
 })
 
-describe("ARCH-LAYER-004 web版の入口はNode.jsを使わない", () => {
-  it("ARCH-LAYER-004 web版の入口からNode.jsとデスクトップ版の入口への依存を見つける", () => {
-    const report = analyze([
-      [
-        "src/extension/web/main.ts",
-        'import { randomUUID } from "node:crypto"\nimport { activate } from "../node/main.ts"\nexport const probe = [randomUUID, activate]'
-      ]
-    ])
-    assert.deepEqual(policies(report), ["ARCH-LAYER-004 src/extension/web/main.ts node:crypto"])
-    assert.deepEqual(boundaries(report), ["src/extension/web/main.ts extension-web->extension-node"])
-  })
-})
-
-describe("ARCH-LAYER-005 入口は互いに依存しない", () => {
-  it("ARCH-LAYER-005 デスクトップ版の入口からweb版の入口への依存を見つける", () => {
-    const report = analyze([["src/extension/node/main.ts", 'import { activate } from "../web/main.ts"\nexport const probe = activate']])
-    assert.deepEqual(boundaries(report), ["src/extension/node/main.ts extension-node->extension-web"])
-  })
-})
-
 describe("ARCH-LAYER-006 画面が使う中核はEffectを使わない", () => {
   it("ARCH-LAYER-006 画面が使う中核からEffectとEffectを使う中核への依存を見つける", () => {
     const report = analyze([

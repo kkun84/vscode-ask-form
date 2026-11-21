@@ -20,15 +20,12 @@ const define = {
 }
 
 const node = await bundle({ input: path("src/extension/node/main.ts"), platform: "node", format: "cjs", minify: true, define })
-const web = await bundle({ input: path("src/extension/web/main.ts"), platform: "browser", format: "cjs", minify: true, define })
 
 await mkdir(path("dist/node"), { recursive: true })
-await mkdir(path("dist/web"), { recursive: true })
 await writeFile(path("dist/node/extension.cjs"), node.code)
-await writeFile(path("dist/web/extension.js"), web.code)
 await writeFile(
   path("dist/meta.json"),
-  JSON.stringify({ inputs: Object.fromEntries([...ui.modules, ...node.modules, ...web.modules].map((id) => [id, {}])) })
+  JSON.stringify({ inputs: Object.fromEntries([...ui.modules, ...node.modules].map((id) => [id, {}])) })
 )
 
 const stage = path("out/extension/")
@@ -48,6 +45,5 @@ await writeFile(
 )
 await Promise.all([
   cp(path("dist/node"), join(stage, "dist/node"), { recursive: true }),
-  cp(path("dist/web"), join(stage, "dist/web"), { recursive: true }),
   ...["README.md", "LICENSE", "CHANGELOG.md"].map((file) => cp(path(file), join(stage, file)))
 ])

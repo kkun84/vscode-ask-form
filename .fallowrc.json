@@ -2,14 +2,11 @@
   "$schema": "./node_modules/fallow/schema.json",
   "entry": [
     "src/extension/node/main.ts",
-    "src/extension/web/main.ts",
     "src/ui/main.ts",
     "scripts/*.ts",
     "test/**/*.test.ts",
     "test/**/*.spec.ts",
     "test/acceptance/global-setup.ts",
-    "test/acceptance/driver-web.ts",
-    "test/acceptance/web-host.ts",
     "test/support/host-page.ts",
     "playwright.config.ts",
     "playwright.acceptance.config.ts",
@@ -44,10 +41,6 @@
       {
         "name": "extension-node",
         "patterns": ["src/extension/node/**"]
-      },
-      {
-        "name": "extension-web",
-        "patterns": ["src/extension/web/**"]
       },
       {
         "name": "extension-shared",
@@ -85,10 +78,6 @@
       },
       {
         "from": "extension-node",
-        "allow": ["extension-shared", "core-pure", "core"]
-      },
-      {
-        "from": "extension-web",
         "allow": ["extension-shared", "core-pure", "core"]
       },
       {
