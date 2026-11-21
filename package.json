@@ -31,7 +31,7 @@
     "check": "pnpm -s lint && pnpm -s typecheck && pnpm -s test:unit && pnpm -s test:architecture && pnpm -s test:system && pnpm -s budget",
     "prepare": "lefthook install --reset-hooks-path",
     "test:architecture": "pnpm -s build && node scripts/timed.ts architecture vitest run --project architecture",
-    "test:acceptance": "pnpm -s build && node scripts/timed.ts acceptance node scripts/acceptance.ts",
+    "test:acceptance": "pnpm -s build && node scripts/timed.ts acceptance playwright test -c playwright.acceptance.config.ts",
     "media": "pnpm -s build && node scripts/media.ts && node scripts/pv.ts",
     "traceability": "node scripts/traceability.ts --write",
     "package": "pnpm -s build && cd out/extension && pnpm dlx @vscode/vsce@4.0.0 package --no-dependencies --out ../..",

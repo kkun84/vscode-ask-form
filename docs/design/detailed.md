@@ -139,12 +139,6 @@
 
 派生元: SPEC-EXT-005, ARCH-DEPS-001
 
-### DES-TOOLS-002 web受け入れテストの完了
-
-- `codeAutomationExit`の終了通知とブラウザ側の回答処理を別のPromiseとして待つ。終了コード0だけでは完了せず、入力操作とパネルが閉じたことの確認も成功してからブラウザを閉じる。終了コードが非0か回答処理が失敗した場合は、他方の完了を待たず失敗とする。
-
-派生元: SPEC-EXT-004, ARCH-UI-001
-
 ### DES-TOOLS-003 ミューテーションテストの結果の判定
 
 - `scripts/mutation-report.ts`の純粋な関数で、mutatorのJSONの結果の`findings`を判定する。`detectionRegression`はGitHub Actionsの`::error`の注釈にし、ミュータントのファイルと開始行を`files`の`mutants`からidで引いて付ける。引けなければファイルを付けない。`newTestNoKills`は`::warning`の注釈にする。他の種類は扱わない。`comparison`が`unavailable`なら、前回の結果と比べていないことを`::notice`の注釈で知らせ、失敗にはしない。

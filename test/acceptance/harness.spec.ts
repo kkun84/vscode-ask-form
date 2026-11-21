@@ -1,51 +1,14 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-import { expect, type ElectronApplication, type Frame, type Page } from "@playwright/test"
-import { eventSpec } from "../fixtures/event.ts"
-import { startStubModel, type StubModel } from "./stub-model.ts"
+import { readFile } from "node:fs/promises"
+import { expect, type Frame, type Page } from "@playwright/test"
+import { agentHostLog, openAgentsSession, type Session } from "./harness-session.ts"
+import { runCommand } from "./commands.ts"
+import { test as base } from "./fixtures.ts"
 import { closedDuringClick, formFrame, settled, sleep, until } from "./frames.ts"
-import { createSteps, printChat, waitingStatus } from "./steps.ts"
-import { cleanUp, fitWindow, launchVscode, type VscodePaths } from "./vscode.ts"
-
-interface Paths extends VscodePaths {
-  readonly results: string
-  readonly sdkCache: string
-}
-
-const trigger = "ASK_FORM_E2E"
-
-interface Session {
-  readonly app: ElectronApplication
-  readonly window: Page
-  readonly agents: StubModel
-}
+import { trigger } from "./session.ts"
 
 type Harness = "Codex" | "Copilot"
 
-const { test, run } = createSteps<Session>()
-
-const waiting = (page: Page) => waitingStatus(page)
-
-const runCommand = async (page: Page, title: string): Promise<void> => {
-  const input = page.locator(".quick-input-widget input")
-  const row = page.locator(".quick-input-list .monaco-list-row", { hasText: title })
-  await until(
-    async () => {
-      await page.keyboard.press("Escape")
-      await page.locator(".monaco-workbench").click({ position: { x: 600, y: 400 } })
-      await page.keyboard.press("F1")
-      if (!(await input.isVisible().catch(() => false))) {
-        return null
-      }
-      await input.fill(`>${title}`)
-      return (await row.isVisible().catch(() => false)) ? true : undefined
-    },
-    `the command palette offers ${title}`,
-    120_000
-  )
-  await row.click()
-}
+const waiting = (page: Page) => page.locator(".statusbar-item", { hasText: "Copilot is waiting for your answer" })
 
 const modelReady = async (page: Page, harness: Harness): Promise<void> => {
   const download = page.locator(".monaco-button:visible", { hasText: /^Download$/ })
@@ -214,104 +177,56 @@ const newAgentsSession = async (page: Page, harness: Harness): Promise<Page> => 
 
 const inAgentsWindow = (harness: Harness) => async (session: Session) => newAgentsSession(await agentsWindow(session), harness)
 
-test(
-  "REQ-ASK-001 既定のCopilotハーネスでは、フォームがチャットの横のパネルに出て、回答がモデルに届く",
-  answeredInPanel("Copilot", (session) => openSession(session, "Copilot"))
-)
+const test = base.extend<object, { readonly session: Session }>({
+  session: [
+    async ({ platform: _platform }, use, workerInfo) => {
+      const session = await openAgentsSession(workerInfo.project.outputDir)
+      await use(session)
+      await session.close()
+    },
+    { scope: "worker", timeout: 600_000 }
+  ]
+})
 
-test(
-  "REQ-ENV-002 Codexのハーネスでも、フォームがチャットの横のパネルに出て、回答がモデルに届く",
-  answeredInPanel("Codex", (session) => openSession(session, "Codex"))
-)
+test.describe.configure({ timeout: 600_000 })
 
-test(
-  "REQ-ENV-003 AgentsウィンドウのCopilotハーネスでも、フォームがパネルに出て、回答がモデルに届く",
-  answeredInPanel("Copilot", inAgentsWindow("Copilot"))
-)
-
-test(
-  "REQ-ENV-003 AgentsウィンドウのCodexハーネスでも、既定のモデルがコードモードでツールを呼んで、フォームがパネルに出て回答が届く",
-  answeredInPanel("Codex", inAgentsWindow("Codex"))
-)
-
-const agentHostLog = async (profile: string): Promise<string> => {
-  const logs = join(profile, "user", "logs")
-  const sessions = await readdir(logs).catch(() => [])
-  const latest = sessions.toSorted().at(-1)
-  const text = latest === undefined ? "" : await readFile(join(logs, latest, "agenthost.log"), "utf8").catch(() => "")
-  return text
-    .split("\n")
-    .filter((line) => /\[(Codex|Claude)\]|error/i.test(line))
-    .slice(-40)
-    .join("\n")
-}
-
-const report = async (paths: Paths, session: Session, profile: string): Promise<void> => {
-  const { app, agents } = session
-  for (const [index, page] of app.windows().entries()) {
-    await page.screenshot({ path: join(paths.results, `agents-failure-${index}.png`), timeout: 10_000 }).catch(() => null)
+test.afterEach(async ({ session }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) {
+    return
   }
-  await writeFile(
-    join(paths.results, "agents-llm.json"),
-    JSON.stringify({ toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames }, undefined, 2)
-  )
-  for (const page of app.windows()) {
-    await printChat(page)
+  for (const [index, page] of session.app.windows().entries()) {
+    const screenshot = await page.screenshot({ timeout: 10_000 }).catch(() => null)
+    if (screenshot !== null) {
+      await testInfo.attach(`window-${index}`, { body: screenshot, contentType: "image/png" })
+    }
+    const chat = await page
+      .locator(".interactive-session")
+      .first()
+      .innerText({ timeout: 5000 })
+      .catch(() => "(no chat text)")
+    await testInfo.attach(`chat-${index}`, { body: chat, contentType: "text/plain" })
   }
-  console.error(`stub agents: ${agents.toolNames.length} request(s), ask_form calls ${JSON.stringify(agents.toolCalls)}`)
-  for (const names of agents.toolNames) {
-    console.error(`  tools(${names.length}): ${names.filter((name) => /ask|search|user_input/i.test(name)).join(",")}`)
-  }
-  console.error(`agent host log:\n${await agentHostLog(profile)}`)
-}
+  const { agents } = session
+  await testInfo.attach("stub-model", {
+    body: JSON.stringify({ toolCalls: agents.toolCalls, toolResults: agents.toolResults, toolNames: agents.toolNames }, undefined, 2),
+    contentType: "application/json"
+  })
+  await testInfo.attach("driver-log", {
+    body: await readFile(session.log, "utf8").catch(() => "(no driver log)"),
+    contentType: "text/plain"
+  })
+  await testInfo.attach("agent-host-log", { body: await agentHostLog(session.profile), contentType: "text/plain" })
+})
 
-const prepareCodex = async (home: string, origin: string): Promise<void> => {
-  await mkdir(home, { recursive: true })
-  await writeFile(join(home, "config.toml"), `openai_base_url = "${origin}/v1"\n`)
-  await writeFile(join(home, "auth.json"), JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "sk-stub" }))
-}
+test("REQ-ASK-001 既定のCopilotハーネスでは、フォームがチャットの横のパネルに出て、回答がモデルに届く", ({ session }) =>
+  answeredInPanel("Copilot", (current) => openSession(current, "Copilot"))(session))
 
-export const runAgents = async (paths: Paths): Promise<void> => {
-  await mkdir(paths.results, { recursive: true })
-  await mkdir(paths.sdkCache, { recursive: true })
-  const log = join(paths.results, "driver.log")
-  await rm(log, { force: true })
-  const agents = await startStubModel(trigger, eventSpec)
-  const profile = await mkdtemp(join(tmpdir(), "ask-form-agents-"))
-  let app: ElectronApplication | undefined
-  try {
-    const home = join(profile, "home")
-    const folder = join(profile, "workspace")
-    await mkdir(home, { recursive: true })
-    await mkdir(folder, { recursive: true })
-    await writeFile(join(folder, "README.md"), "acceptance\n")
-    await mkdir(join(profile, "user", "agent-host"), { recursive: true })
-    await symlink(paths.sdkCache, join(profile, "user", "agent-host", "sdk-cache"))
-    await prepareCodex(join(profile, "codex"), agents.origin)
-    app = await launchVscode(paths, {
-      log,
-      profile,
-      locale: "en",
-      folder,
-      settings: {
-        "chat.agentHost.codexAgent.enabled": true,
-        "chat.editor.codex.preferAgentHost": true,
-        "chat.agentHost.copilot.modelCapabilityOverrides": { "*": { family: "gpt-5.5" } }
-      },
-      env: {
-        HOME: home,
-        CODEX_HOME: join(profile, "codex"),
-        ASK_FORM_E2E_BYOK_URL: `${agents.origin}/v1/chat/completions`,
-        ASK_FORM_E2E_TOOL_SEARCH: "1",
-        ...(process.getuid?.() === 0 ? { IS_SANDBOX: "1" } : {}),
-        ...(process.env["ASK_FORM_OPENSSL_LIB"] === undefined ? {} : { LD_LIBRARY_PATH: process.env["ASK_FORM_OPENSSL_LIB"] })
-      }
-    })
-    const window = await fitWindow(app, { width: 1600, height: 1000 })
-    window.context().setDefaultTimeout(30_000)
-    const session: Session = { app, window, agents }
-    await run(session, () => report(paths, session, profile))
-  } finally {
-    await cleanUp(app, agents, profile)
-  }
-}
+test("REQ-ENV-002 Codexのハーネスでも、フォームがチャットの横のパネルに出て、回答がモデルに届く", ({ session }) =>
+  answeredInPanel("Codex", (current) => openSession(current, "Codex"))(session))
+
+test("REQ-ENV-003 AgentsウィンドウのCopilotハーネスでも、フォームがパネルに出て、回答がモデルに届く", ({ session }) =>
+  answeredInPanel("Copilot", inAgentsWindow("Copilot"))(session))
+
+test("REQ-ENV-003 AgentsウィンドウのCodexハーネスでも、既定のモデルがコードモードでツールを呼んで、フォームがパネルに出て回答が届く", ({
+  session
+}) => answeredInPanel("Codex", inAgentsWindow("Codex"))(session))
