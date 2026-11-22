@@ -4,6 +4,7 @@ import type { Messages } from "./messages.ts"
 import type { ChoiceField, Computed, Field, FormSpec, RankingField } from "./spec.ts"
 import type { ChoiceField, Computed, Field, FormSpec, NumberRangeField } from "./spec.ts"
 import type { ChoiceField, Computed, Field, FormSpec, TreeChoiceField, TreeNode } from "./spec.ts"
+import type { ChoiceField, Computed, Field, FormSpec, SearchChoiceField } from "./spec.ts"
 
 export type FieldValue = string | number | ReadonlyArray<string> | readonly [number, number]
 export type Values = Readonly<Record<string, FieldValue>>
@@ -34,6 +35,7 @@ export const treeAncestors = (nodes: ReadonlyArray<TreeNode>, values: ReadonlyAr
   walk(nodes, [])
   return [...new Set(found)]
 }
+export const isMultiple = (field: ChoiceField | SearchChoiceField): boolean => field.multiple === true
 
 const branchFields = (field: Field, value: FieldValue | undefined): ReadonlyArray<Field> =>
   field.type === "choice" && !isMultiple(field) ? (field.options.find((option) => option.value === value)?.fields ?? []) : []
@@ -87,6 +89,7 @@ const initialValue = (field: Field): FieldValue | undefined => {
       return field.default
     case "choice":
     case "treeChoice":
+    case "searchChoice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
     case "ranking":
       return field.default
@@ -122,6 +125,7 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
   }
   if ((field.type === "choice" && isMultiple(field)) || field.type === "textList") {
   if ((field.type === "choice" || field.type === "treeChoice") && isMultiple(field)) {
+  if ((field.type === "choice" || field.type === "searchChoice") && isMultiple(field)) {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -202,6 +206,9 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       return String(value)
     case "choice": {
       const selected = Array.isArray(value) ? value : [value]
+    case "choice":
+    case "searchChoice": {
+      const selected = Array.isArray(value) ? value : value === undefined ? [] : [value]
       const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
     case "choice":
     case "treeChoice": {

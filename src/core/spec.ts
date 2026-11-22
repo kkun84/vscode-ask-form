@@ -107,6 +107,7 @@ const IsoTime = Schema.String.check(Schema.isPattern(/^(?:[01]\d|2[0-3]):[0-5]\d
 
 const DateField = Schema.Struct({
   type: Schema.Literal("date"),
+const pickFields = {
   ...commonFields,
   default: Schema.optionalKey(IsoDate),
   min: Schema.optionalKey(IsoDate),
@@ -205,6 +206,20 @@ const TreeChoiceField = Schema.Struct({
 })
 
 const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, TreeChoiceField])
+const choiceFields = { type: Schema.Literal("choice"), ...pickFields }
+
+const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
+
+const SearchChoiceField = Schema.Struct({
+  type: Schema.Literal("searchChoice"),
+  ...pickFields,
+  options: Schema.Array(ChoiceOption).check(Schema.isMinLength(7), Schema.isMaxLength(100))
+}).annotate({
+  description:
+    "The user finds options by name among 7 to 100 candidates, typing to narrow the list, and picks one, or several with multiple. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, and treeChoice when the candidates form a hierarchy."
+})
+
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, SearchChoiceField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -223,6 +238,7 @@ const Field = Schema.Union([TextField, NumberField, ChoiceField, NumberRangeFiel
 const Field = Schema.Union([TextField, NumberField, ChoiceField, TextListField])
 const Field = Schema.Union([TextField, NumberField, ChoiceField, DateField, TimeField])
 const Field = Schema.Union([TextField, NumberField, ChoiceField, TreeChoiceField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, SearchChoiceField])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -246,6 +262,7 @@ export interface TreeNode {
   readonly description?: string
   readonly children?: ReadonlyArray<TreeNode>
 }
+export type SearchChoiceField = typeof SearchChoiceField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

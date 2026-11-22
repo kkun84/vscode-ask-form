@@ -22,6 +22,7 @@ import { FormSpec, type ChoiceField, type Field, type NumberField, type NumberRa
 import { FormSpec, type ChoiceField, type Field, type TextListField, type NumberField } from "./spec.ts"
 import { FormSpec, type ChoiceField, type DateField, type Field, type NumberField, type TimeField } from "./spec.ts"
 import { FormSpec, type ChoiceField, type Field, type NumberField, type TreeChoiceField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type NumberField, type SearchChoiceField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -51,7 +52,16 @@ const totalProblems = (spec: FormSpec): ReadonlyArray<string> => {
   return total > maxTotalFields ? [`項目が入れ子も含めて${total}個あります。${maxTotalFields}個以下にしてください`] : []
 }
 
+const searchChoiceBranches = (input: unknown): ReadonlyArray<string> => {
+  const fields = records([input]).flatMap((spec) => records(spec["fields"]))
+  const nested = fields.flatMap((field) => records(field["options"])).flatMap((option) => records(option["fields"]))
+  return [...fields, ...nested]
+    .filter((field) => field["type"] === "searchChoice" && records(field["options"]).some((option) => "fields" in option))
+    .map((field) => `項目「${String(field["id"])}」はsearchChoiceなので、選択肢にfieldsを付けられません`)
+}
+
 const semanticProblems = (spec: FormSpec, input: unknown): ReadonlyArray<string> => [
+  ...searchChoiceBranches(input),
   ...totalProblems(spec),
   ...duplicateIds(spec),
   ...deepBranches(input),
@@ -93,6 +103,7 @@ const numberProblems = (field: NumberField): ReadonlyArray<string> => {
 }
 
 const choiceDefaultProblems = (field: ChoiceField | TreeChoiceField, values: ReadonlySet<string>): ReadonlyArray<string> => {
+const choiceDefaultProblems = (field: ChoiceField | SearchChoiceField, values: ReadonlySet<string>): ReadonlyArray<string> => {
   if (field.default === undefined) {
     return []
   }
@@ -109,14 +120,10 @@ const choiceDefaultProblems = (field: ChoiceField | TreeChoiceField, values: Rea
   ]
 }
 
-const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
+const optionProblems = (field: ChoiceField | SearchChoiceField): ReadonlyArray<string> => {
   const values = new Set(field.options.map((option) => option.value))
   const duplicated = values.size === field.options.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
-  const branched =
-    isMultiple(field) && field.options.some((option) => option.fields !== undefined)
-      ? [`項目「${field.id}」は複数選択なので、選択肢にfieldsを付けられません`]
-      : []
-  return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
+  return [...duplicated, ...choiceDefaultProblems(field, values)]
 }
 
 const rankBounds = (field: RankingField): readonly [number, number] => [field.min ?? 1, field.max ?? field.options.length]
@@ -259,6 +266,13 @@ const treeProblems = (field: TreeChoiceField): ReadonlyArray<string> => {
   ]
 }
 
+const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => [
+  ...(isMultiple(field) && field.options.some((option) => option.fields !== undefined)
+    ? [`項目「${field.id}」は複数選択なので、選択肢にfieldsを付けられません`]
+    : []),
+  ...optionProblems(field)
+]
+
 const reasonProblems = (field: Field): ReadonlyArray<string> =>
   field.default === undefined && (field.reason !== undefined || field.reasonDetails !== undefined)
     ? [`項目「${field.id}」はdefaultがないので、reasonとreasonDetailsを付けられません。質問の説明はdescriptionに書いてください`]
@@ -282,6 +296,8 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return timeFieldProblems(field)
     case "treeChoice":
       return treeProblems(field)
+    case "searchChoice":
+      return optionProblems(field)
     default:
       return []
   }
@@ -311,6 +327,8 @@ const numberProblem = (field: NumberField, value: unknown): string | undefined =
 
 const choiceProblem = (field: ChoiceField | TreeChoiceField, value: unknown): string | undefined => {
   const allowed = new Set((field.type === "choice" ? field.options : treeNodes(field.nodes)).map((option) => option.value))
+const choiceProblem = (field: ChoiceField | SearchChoiceField, value: unknown): string | undefined => {
+  const allowed = new Set(field.options.map((option) => option.value))
   if (isMultiple(field)) {
     return Array.isArray(value) &&
       new Set(value).size === value.length &&
@@ -329,6 +347,7 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
       return numberProblem(field, value)
     case "choice":
     case "treeChoice":
+    case "searchChoice":
       return choiceProblem(field, value)
     case "ranking":
       return isRanking(value, field)

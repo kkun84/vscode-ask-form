@@ -270,6 +270,7 @@ body {
 }
 
 input[type="text"],
+input[type="search"],
 input[type="number"],
 textarea {
   width: 100%;
@@ -1375,4 +1376,66 @@ ui-tree-item-checkbox[data-indeterminate]::before {
 
 .tree-box > * + * {
   margin-top: 4px;
+.search-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-row ui-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.options.search {
+  max-height: 252px;
+  overflow-y: auto;
+}
+
+.options.search .option-text {
+  min-width: 0;
+  white-space: normal;
+}
+
+.options.search .option:not(:has([data-checked])) :is(.option-summary, .rec-reason) {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.options.search .option:not(:has([data-checked])) :is(.option-details, .rec-details) {
+  display: none;
+}
+
+.options.search label.option[hidden] {
+  display: none;
+}
+
+.no-match:not([hidden]),
+.picked {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.picked-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
