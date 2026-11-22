@@ -37,9 +37,9 @@ const selectStorage = async (frame: Frame, name: string) => {
   await frame.getByRole("radio", { name }).check()
 }
 
-const axeViolations = async (frame: Frame): Promise<ReadonlyArray<string>> => {
+const axeViolations = async (frame: Frame, disabled: ReadonlyArray<string> = []): Promise<ReadonlyArray<string>> => {
   await expect.poll(() => frame.evaluate(() => document.getAnimations().length)).toBe(0)
-  const results = await new AxeBuilder(frame).analyze()
+  const results = await new AxeBuilder(frame).disableRules([...disabled]).analyze()
   return results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
 }
 
@@ -639,5 +639,109 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
     await openComment(none, "件数")
     await expect(comment(none, "件数")).toBeVisible()
     await expect(none.getByRole("group", { name: "件数へのコメントの定型文" })).toHaveCount(0)
+  })
+})
+
+const treeArgs = {
+  title: "対象",
+  fields: [
+    {
+      type: "tree",
+      id: "target",
+      label: "直すファイル",
+      default: "src/ui/app.ts",
+      reason: "差分より",
+      nodes: [
+        {
+          value: "src",
+          label: "src",
+          children: [
+            {
+              value: "src/ui",
+              label: "ui",
+              description: "画面",
+              children: [
+                { value: "src/ui/app.ts", label: "app.ts" },
+                { value: "src/ui/main.ts", label: "main.ts" }
+              ]
+            },
+            { value: "src/core", label: "core", children: [{ value: "src/core/form.ts", label: "form.ts" }] }
+          ]
+        },
+        { value: "README.md", label: "README.md" }
+      ]
+    },
+    {
+      type: "tree",
+      id: "scope",
+      label: "検査する範囲",
+      multiple: true,
+      nodes: [
+        {
+          value: "src",
+          label: "src",
+          children: [
+            { value: "src/ui", label: "ui" },
+            { value: "src/core", label: "core" }
+          ]
+        },
+        { value: "README.md", label: "README.md" }
+      ]
+    },
+    {
+      type: "tree",
+      id: "place",
+      label: "置き場所",
+      nodes: [
+        { value: "lib", label: "lib", children: [{ value: "lib/util", label: "util" }] },
+        { value: "docs", label: "docs" }
+      ]
+    }
+  ]
+}
+
+test.describe("SPEC-UI-020 木から選ぶ", () => {
+  test("SPEC-UI-020 推奨の祖先を開いて始め、矢印キーで移動と開閉をして選べる", async ({ page }) => {
+    const frame = await open(page, { args: treeArgs })
+    const tree = frame.getByRole("tree", { name: "直すファイル" })
+    const app = tree.getByRole("treeitem", { name: "app.ts" })
+    await expect(app).toHaveAttribute("aria-selected", "true")
+    await expect(tree.getByRole("treeitem", { name: "form.ts" })).toBeHidden()
+    await app.focus()
+    await app.press("ArrowDown")
+    await expect(tree.getByRole("treeitem", { name: "main.ts" })).toBeFocused()
+    await page.keyboard.press("ArrowDown")
+    await page.keyboard.press("ArrowRight")
+    await expect(tree.getByRole("treeitem", { name: "form.ts" })).toBeVisible()
+    await page.keyboard.press("ArrowRight")
+    await page.keyboard.press("Space")
+    await expect(tree.getByRole("treeitem", { name: "form.ts" })).toHaveAttribute("aria-selected", "true")
+    await expect(frame.getByRole("button", { name: "推奨に戻す" })).toBeVisible()
+  })
+
+  test("SPEC-UI-020 推奨のない単一選択は未回答で始め、複数選択は枝をチェックすると最も外側の項目で答える", async ({ page }) => {
+    const frame = await open(page, { args: treeArgs })
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 置き場所")
+    await frame.getByRole("tree", { name: "置き場所" }).getByRole("treeitem", { name: "docs" }).click()
+    const scope = frame.getByRole("tree", { name: "検査する範囲" })
+    await scope.getByRole("treeitem", { name: "src" }).click()
+    await expect(scope.getByRole("treeitem", { name: "src" })).toHaveAttribute("aria-checked", "true")
+    await scope.getByRole("treeitem", { name: "README.md" }).focus()
+    await page.keyboard.press("Space")
+    expect(await axeViolations(frame, ["label-content-name-mismatch"])).toEqual([])
+    await send(frame)
+    const outcome = await singleOutcome(page)
+    expect(outcome?.values).toEqual({ target: "src/ui/app.ts", scope: ["src", "README.md"], place: "docs" })
+  })
+
+  test("SPEC-UI-020 単一選択は「選択を解除」で選択を外し、コメント欄を開く", async ({ page }) => {
+    const frame = await open(page, { args: treeArgs })
+    await frame.getByRole("button", { name: "直すファイルの選択を解除" }).click()
+    await expect(frame.getByRole("tree", { name: "直すファイル" }).getByRole("treeitem", { name: "app.ts" })).toHaveAttribute(
+      "aria-selected",
+      "false"
+    )
+    await expect(frame.getByRole("textbox", { name: "直すファイルへのコメント" })).toBeFocused()
   })
 })

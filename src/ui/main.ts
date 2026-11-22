@@ -5,6 +5,7 @@ import "@ui-sdk/web/input"
 import "@ui-sdk/web/number-input"
 import "@ui-sdk/web/radio"
 import "@ui-sdk/web/slider"
+import "@ui-sdk/web/tree"
 import { FormApp } from "./app.ts"
 import { connect } from "./bridge.ts"
 

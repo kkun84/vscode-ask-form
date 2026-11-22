@@ -252,3 +252,89 @@ describe("SPEC-TOOL-003 回答を待つ", () => {
       })
     ))
 })
+
+const treeNodes = [
+  {
+    value: "src",
+    label: "src",
+    children: [
+      { value: "src/ui", label: "ui", children: [{ value: "src/ui/app.ts", label: "app.ts" }] },
+      { value: "src/core", label: "core" }
+    ]
+  },
+  { value: "README.md", label: "README.md" }
+]
+
+const treeSpec = {
+  title: "対象",
+  fields: [
+    { type: "tree", id: "target", label: "直すファイル", nodes: treeNodes, default: "src/ui/app.ts" },
+    { type: "tree", id: "scope", label: "範囲", multiple: true, nodes: treeNodes, default: ["src/core"] }
+  ],
+  computed: [{ id: "count", label: "数", expression: "scope" }]
+}
+
+const treeLeaf = (index: number) => ({ value: `n${index}`, label: `N${index}` })
+
+describe("SPEC-FORM-001 木の項目", () => {
+  it("SPEC-FORM-001 木の項目を受け付け、5段の深さを拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        assert.equal(Result.isSuccess(compile(treeSpec)), true)
+        const deep = {
+          value: "a",
+          label: "a",
+          children: [
+            {
+              value: "b",
+              label: "b",
+              children: [{ value: "c", label: "c", children: [{ value: "d", label: "d", children: [treeLeaf(1)] }] }]
+            }
+          ]
+        }
+        yield* rejected(h, { title: "t", fields: [{ type: "tree", id: "t", label: "T", nodes: [deep] }] })
+      })
+    ))
+
+  it("SPEC-FORM-002 木のvalueの重複、101個の項目、木にない推奨、祖先と子の両方を含む推奨を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const message = yield* rejected(h, {
+          title: "t",
+          fields: [
+            { type: "tree", id: "dup", label: "D", nodes: [treeLeaf(1), treeLeaf(1)] },
+            { type: "tree", id: "many", label: "M", nodes: Array.from({ length: 101 }, (_, i) => treeLeaf(i)) },
+            { type: "tree", id: "missing", label: "X", nodes: treeNodes, default: "lib" },
+            { type: "tree", id: "nested", label: "N", multiple: true, nodes: treeNodes, default: ["src", "src/ui"] }
+          ]
+        })
+        assert.match(message, /dup.*重複/)
+        assert.match(message, /many.*101個/)
+        assert.match(message, /missing.*lib/)
+        assert.match(message, /nested.*src\/ui.*祖先/)
+      })
+    ))
+})
+
+describe("SPEC-TOOL-003 木の回答", () => {
+  it("SPEC-TOOL-003 木の回答を受け付けて複数選択は数として計算し、木にない値を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const form = compile(treeSpec).pipe(Result.getOrThrow)
+        const fiber = yield* Effect.forkChild(h.call("ask_form", treeSpec))
+        yield* h.waitUntil(1)
+        const bad = yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { target: "lib", scope: [] } })
+        assert.equal(bad.isError, true)
+        assert.match(text(bad), /target/)
+        yield* h.call("form_answer", {
+          formKey: form.key,
+          action: "submit",
+          values: { target: "src/ui", scope: ["src/core", "README.md"] }
+        })
+        const outcome = structured(yield* Fiber.join(fiber))
+        assert.deepEqual(outcome["values"], { target: "src/ui", scope: ["src/core", "README.md"] })
+        assert.deepEqual(outcome["changedByUser"], ["target", "scope"])
+        assert.deepEqual(outcome["computed"], { count: 2 })
+      })
+    ))
+})

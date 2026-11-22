@@ -1,7 +1,7 @@
 import { evaluate, parse, type Expr, type Scope, type Value } from "./expression.ts"
 import { stableHash } from "./hash.ts"
 import type { Messages } from "./messages.ts"
-import type { ChoiceField, Computed, Field, FormSpec } from "./spec.ts"
+import type { ChoiceField, Computed, Field, FormSpec, TreeField, TreeNode } from "./spec.ts"
 
 export type FieldValue = string | number | ReadonlyArray<string>
 export type Values = Readonly<Record<string, FieldValue>>
@@ -14,7 +14,24 @@ export interface CompiledForm {
   readonly expressions: ReadonlyMap<string, Expr>
 }
 
-export const isMultiple = (field: ChoiceField): boolean => field.multiple === true
+export const isMultiple = (field: ChoiceField | TreeField): boolean => field.multiple === true
+
+export const treeNodes = (nodes: ReadonlyArray<TreeNode>): ReadonlyArray<TreeNode> =>
+  nodes.flatMap((node) => [node, ...treeNodes(node.children ?? [])])
+
+export const treeAncestors = (nodes: ReadonlyArray<TreeNode>, values: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const found: Array<string> = []
+  const walk = (list: ReadonlyArray<TreeNode>, path: ReadonlyArray<string>): void => {
+    for (const node of list) {
+      if (values.includes(node.value)) {
+        found.push(...path)
+      }
+      walk(node.children ?? [], [...path, node.value])
+    }
+  }
+  walk(nodes, [])
+  return [...new Set(found)]
+}
 
 const branchFields = (field: Field, value: FieldValue | undefined): ReadonlyArray<Field> =>
   field.type === "choice" && !isMultiple(field) ? (field.options.find((option) => option.value === value)?.fields ?? []) : []
@@ -67,6 +84,7 @@ const initialValue = (field: Field): FieldValue | undefined => {
     case "number":
       return field.default
     case "choice":
+    case "tree":
       return field.default ?? (isMultiple(field) ? [] : undefined)
   }
 }
@@ -86,7 +104,7 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
   if (value === undefined) {
     return undefined
   }
-  if (field.type === "choice" && isMultiple(field)) {
+  if ((field.type === "choice" || field.type === "tree") && isMultiple(field)) {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -147,9 +165,12 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       return typeof value === "string" && value !== "" ? value : m.empty
     case "number":
       return typeof value === "number" ? affixed(formatNumber(value), field.prefix, field.suffix) : "—"
-    case "choice": {
-      const selected = Array.isArray(value) ? value : value === undefined ? [] : [value]
-      const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
+    case "choice":
+    case "tree": {
+      const known = field.type === "choice" ? field.options : treeNodes(field.nodes)
+      const labels = (Array.isArray(value) ? value : [value]).map(
+        (item) => known.find((node) => node.value === item)?.label ?? String(item)
+      )
       return labels.length === 0 ? m.none : labels.join(m.listSeparator)
     }
   }
