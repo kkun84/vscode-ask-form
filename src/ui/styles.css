@@ -810,3 +810,97 @@ ui-collapsible.advanced .fields {
 ui-collapsible-panel:not([hidden]) {
   display: block;
 }
+
+ui-input-group.text-group {
+  display: flex;
+  align-items: center;
+}
+
+ui-input-group.text-group ui-input {
+  flex: 1;
+  min-width: 0;
+}
+
+ui-input-group.text-group input {
+  padding-right: 28px;
+}
+
+ui-input-clear {
+  display: block;
+  flex: none;
+  margin-left: -26px;
+}
+
+ui-input-clear[hidden] {
+  display: none;
+}
+
+button.clear,
+button.step {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+button.step {
+  width: 24px;
+  height: 26px;
+  font-size: 15px;
+}
+
+:is(button.clear, button.step):hover {
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  color: var(--fg);
+}
+
+ui-number-input-group.stepper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  padding: 0 2px;
+}
+
+ui-number-input-group.stepper:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+
+ui-number-input-group.stepper input.exact {
+  width: 72px;
+  min-height: 26px;
+  border: 0;
+  padding: 2px 4px;
+  background: transparent;
+  text-align: right;
+}
+
+ui-number-input-group.stepper input.exact:focus-visible {
+  outline: none;
+}
+
+ui-number-input-scrub-area.scrub {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  padding: 0 4px;
+  color: var(--muted);
+  cursor: ew-resize;
+  user-select: none;
+  touch-action: none;
+}
+
+ui-number-input-scrub-area.scrub:hover {
+  color: var(--fg);
+}

@@ -15,6 +15,10 @@ const ja = {
   presetsOf: (label: string) => `${label}へのコメントの定型文`,
   clear: "選択を解除",
   clearOf: (label: string) => `${label}の選択を解除`,
+  clearTextOf: (label: string) => `${label}を空にする`,
+  increase: (label: string) => `${label}を増やす`,
+  decrease: (label: string) => `${label}を減らす`,
+  scrub: "左右にドラッグして値を変える",
   commentOf: (label: string) => `${label}へのコメント`,
   commentHint: "この質問について、Copilotに伝えたいことを書けます。",
   unsetHint: "答えないときは、理由や、あとで聞いてほしいか、Copilotに決めてほしいかを書けます。",
@@ -69,7 +73,11 @@ const en: typeof ja = {
   empty: "(empty)",
   listSeparator: ", ",
   yes: "Yes",
-  no: "No"
+  no: "No",
+  scrub: "Drag left or right to change the value",
+  decrease: (label: string) => `Decrease ${label}`,
+  increase: (label: string) => `Increase ${label}`,
+  clearTextOf: (label: string) => `Clear ${label}`
 }
 
 export type Messages = typeof ja

@@ -70,6 +70,11 @@ const focusControl = (card: HTMLElement | undefined): void => {
   control?.focus()
 }
 
+const largeStep = (field: NumberField): number | undefined => {
+  const step = field.step ?? (field.max - field.min) / 100
+  return Math.max(step, Math.round((field.max - field.min) / 10 / step) * step)
+}
+
 const choiceControl = (multiple: boolean, value: string, labelledBy: string, describedBy: ReadonlyArray<string | undefined>): HTMLElement =>
   h(
     multiple ? "ui-checkbox" : "ui-radio",
@@ -580,7 +585,15 @@ export class FormApp {
       input.value = String(next)
       typed()
     })
-    return h(field.multiline === true ? "ui-textarea" : "ui-input", {}, input)
+    if (field.multiline === true) {
+      return h("ui-textarea", {}, input)
+    }
+    return h(
+      "ui-input-group",
+      { class: "text-group" },
+      h("ui-input", {}, input),
+      h("ui-input-clear", {}, h("button", { type: "button", class: "clear", "aria-label": this.m.clearTextOf(field.label) }, "×"))
+    )
   }
 
   private numberView(field: NumberField, labelId: string, describedBy: string): HTMLElement {
@@ -590,7 +603,14 @@ export class FormApp {
     const thumb = h("ui-slider-thumb", { "aria-labelledby": labelId, "aria-describedby": describedBy })
     const slider = h(
       "ui-slider",
-      { min: field.min, max: field.max, step: field.step, "default-value": value, class: unset ? "unset" : undefined },
+      {
+        min: field.min,
+        max: field.max,
+        step: field.step,
+        "large-step": largeStep(field),
+        "default-value": value,
+        class: unset ? "unset" : undefined
+      },
       h("ui-slider-control", {}, h("ui-slider-track", {}, h("ui-slider-indicator"), thumb))
     )
     const input = h("input", {
@@ -599,10 +619,22 @@ export class FormApp {
       "aria-label": [field.label, field.prefix, field.suffix].filter((part) => part !== undefined).join(" "),
       "aria-describedby": describedBy
     })
+    const large = largeStep(field)
     const exact = h(
       "ui-number-input",
-      { min: field.min, max: field.max, step: field.step, "default-value": unset ? undefined : value },
-      h("ui-number-input-control", {}, input)
+      { min: field.min, max: field.max, step: field.step, "large-step": large, wheel: true, "default-value": unset ? undefined : value },
+      h(
+        "ui-number-input-group",
+        { class: "stepper" },
+        h(
+          "ui-number-input-scrub-area",
+          { class: "scrub", title: this.m.scrub, "pixels-per-step": 4 },
+          h("span", { "aria-hidden": "true" }, field.prefix ?? "⇔")
+        ),
+        h("ui-number-input-decrement", {}, h("button", { type: "button", class: "step", "aria-label": this.m.decrease(field.label) }, "−")),
+        h("ui-number-input-control", {}, input),
+        h("ui-number-input-increment", {}, h("button", { type: "button", class: "step", "aria-label": this.m.increase(field.label) }, "+"))
+      )
     )
     const spoken = (next: number | null) => {
       slider.format = () => (next === null ? this.m.notAnswered : text(next))
@@ -639,7 +671,7 @@ export class FormApp {
         update(next)
       }
     })
-    return h("div", { class: "row" }, slider, affix(field.prefix), exact, affix(field.suffix))
+    return h("div", { class: "row" }, slider, exact, affix(field.suffix))
   }
 
   private choiceView(field: ChoiceField, labelId: string, describedBy: string): HTMLElement {
