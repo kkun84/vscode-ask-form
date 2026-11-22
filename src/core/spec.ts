@@ -125,12 +125,15 @@ const TimeField = Schema.Struct({
     })
   )
 }).annotate({ description: "A time of day. The answer is a 24-hour HH:MM string." })
+const selectionFields = {
+  default: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
+  multiple: Schema.optionalKey(Schema.Boolean)
+}
 
 const choiceFields = {
   type: Schema.Literal("choice"),
   ...commonFields,
-  default: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
-  multiple: Schema.optionalKey(Schema.Boolean)
+  ...selectionFields
 }
 
 const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
@@ -173,6 +176,35 @@ const TextListField = Schema.Struct({
 
 const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, TextListField])
 const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, DateField, TimeField])
+const treeNodeFields = {
+  value: required(200),
+  label: shownRequired(60),
+  description: Schema.optionalKey(shown(60, "One sentence on what this item is. Always shown."))
+}
+
+const treeChildren = <S extends Schema.Top>(node: S) => ({
+  children: Schema.optionalKey(Schema.Array(node).check(Schema.isMinLength(1)))
+})
+
+const TreeLeaf = Schema.Struct(treeNodeFields)
+const TreeNode3 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeLeaf) })
+const TreeNode2 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode3) })
+const TreeNode = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode2) })
+
+const TreeChoiceField = Schema.Struct({
+  type: Schema.Literal("treeChoice"),
+  ...commonFields,
+  ...selectionFields,
+  nodes: Schema.Array(TreeNode).check(Schema.isMinLength(1)).annotate({
+    description:
+      "Items in a hierarchy, up to 4 levels and 100 items in all, such as folders and files. Every value is unique in the whole tree. Any item, branch or leaf, can be chosen."
+  })
+}).annotate({
+  description:
+    "The user picks from a hierarchy, such as a folder, a file or a module. With multiple, checking a branch checks everything in it, and the answer lists the outermost fully checked items."
+})
+
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, TreeChoiceField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -190,6 +222,7 @@ const Field = Schema.Union([TextField, NumberField, ChoiceField, RankingField])
 const Field = Schema.Union([TextField, NumberField, ChoiceField, NumberRangeField])
 const Field = Schema.Union([TextField, NumberField, ChoiceField, TextListField])
 const Field = Schema.Union([TextField, NumberField, ChoiceField, DateField, TimeField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, TreeChoiceField])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -206,6 +239,13 @@ export type RankingField = typeof RankingField.Type
 export type TextListField = typeof TextListField.Type
 export type DateField = typeof DateField.Type
 export type TimeField = typeof TimeField.Type
+export type TreeChoiceField = typeof TreeChoiceField.Type
+export interface TreeNode {
+  readonly value: string
+  readonly label: string
+  readonly description?: string
+  readonly children?: ReadonlyArray<TreeNode>
+}
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

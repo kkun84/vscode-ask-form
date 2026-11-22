@@ -8,6 +8,8 @@ import {
   formatNumber,
   heldFields,
   initialValues,
+  isMultiple,
+  treeAncestors,
   appendPreset,
   commentPresetsFrom,
   maxCommentLength,
@@ -30,6 +32,10 @@ import type { ChoiceField, Field, FormSpec, TextListField, NumberField, TextFiel
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 import { listControl } from "./list.ts"
+import type { ChoiceField, Field, FormSpec, NumberField, TextField, TreeChoiceField, TreeNode } from "../core/spec.ts"
+import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
+import { h, on, uid } from "./dom.ts"
+import type { TreeItemData } from "@ui-sdk/core/tree"
 
 type Action = "submit" | "chat"
 
@@ -80,6 +86,7 @@ const hasDetails = (field: Field): boolean =>
 
 const invalidTargets = [
   ":scope > .q-group af-ranking",
+  ":scope > .q-group ui-tree",
   ":scope > .q-group input:not([type=range])",
   ":scope > .q-group textarea",
   ":scope > .q-group ui-radio-group",
@@ -88,6 +95,9 @@ const invalidTargets = [
 
 const focusControl = (card: HTMLElement | undefined): void => {
   const control = card?.querySelector<HTMLElement>(":scope > .q-group :is(input, textarea, ui-radio, ui-checkbox, button.grip)")
+  const control = card?.querySelector<HTMLElement>(
+    ":scope > .q-group :is(input, textarea, ui-radio, ui-checkbox, ui-tree-item[tabindex='0'])"
+  )
   control?.focus()
 }
 
@@ -224,6 +234,40 @@ const rangeParts = (
   const fields = inputs.map((input, index) => numberInput(field, names[index === 0 ? 0 : 1], input, pair?.[index], m))
   return { slider, inputs, fields }
 }
+
+const treeData = (nodes: ReadonlyArray<TreeNode>): Array<TreeItemData> =>
+  nodes.map((node) => ({
+    value: node.value,
+    label: node.label,
+    ...(node.children === undefined ? {} : { children: treeData(node.children) })
+  }))
+
+const treeRow = (node: TreeNode, multiple: boolean): HTMLElement =>
+  h(
+    "ui-tree-item",
+    { value: node.value },
+    h(
+      "ui-tree-item-label",
+      {},
+      node.children === undefined
+        ? h("span", { class: "tree-leaf", "aria-hidden": "true" })
+        : h("ui-tree-item-indicator", { "aria-hidden": "true" }),
+      multiple ? h("ui-tree-item-checkbox") : null,
+      h(
+        "span",
+        { class: "tree-text" },
+        h("span", { class: "tree-label" }, node.label),
+        node.description === undefined ? null : h("span", { class: "option-summary" }, node.description)
+      )
+    ),
+    node.children === undefined
+      ? null
+      : h(
+          "ui-tree-group",
+          {},
+          node.children.map((child) => treeRow(child, multiple))
+        )
+  )
 
 const choiceControl = (multiple: boolean, value: string, labelledBy: string, describedBy: ReadonlyArray<string | undefined>): HTMLElement =>
   h(
@@ -970,6 +1014,70 @@ export class FormApp {
       this.setValue(field.id, String(next))
     })
     return time
+      case "treeChoice":
+        return this.treeView(field, labelId, describedBy)
+    }
+  }
+
+  private treeView(field: TreeChoiceField, labelId: string, describedBy: string): HTMLElement {
+    const multiple = isMultiple(field)
+    const current = this.values[field.id]
+    const selected = Array.isArray(current) ? [...current] : typeof current === "string" ? [current] : []
+    const tree = h("ui-tree", {
+      class: "tree",
+      "aria-labelledby": labelId,
+      "aria-describedby": describedBy === "" ? undefined : describedBy,
+      "expand-on-press": "false"
+    })
+    tree.append(...field.nodes.map((node) => treeRow(node, multiple)))
+    tree.items = treeData(field.nodes)
+    tree.defaultExpanded = [...treeAncestors(field.nodes, selected)]
+    if (multiple) {
+      tree.mode = "none"
+      tree.checkable = true
+      tree.checkStrategy = "trunk"
+      tree.defaultChecked = selected
+      tree.addEventListener("checkedchange", (event) => {
+        this.setValue(field.id, [...(event as CustomEvent<{ readonly value: ReadonlyArray<string> }>).detail.value])
+      })
+      tree.addEventListener("action", (event) => {
+        const { value } = (event as CustomEvent<{ readonly value: string }>).detail
+        tree
+          .querySelector(`ui-tree-item[value="${CSS.escape(value)}"] > ui-tree-item-label > ui-tree-item-checkbox`)
+          ?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      })
+    } else {
+      tree.mode = "single"
+      tree.defaultValue = selected[0] ?? null
+      onValue<string | null>(tree, "valuechange", (next) => {
+        if (typeof next === "string") {
+          this.setValue(field.id, next)
+        }
+      })
+    }
+    this.live.setters.set(field.id, (next) => {
+      if (Array.isArray(next)) {
+        tree.api?.setChecked([...next])
+      } else {
+        tree.api?.setValue(String(next))
+      }
+    })
+    if (multiple) {
+      return h("div", { class: "tree-box" }, tree)
+    }
+    const unselect = on(
+      h("button", { type: "button", class: "link unselect", "aria-label": this.m.clearOf(field.label) }, this.m.clear),
+      "click",
+      () => {
+        tree.api?.setValue(null)
+        this.unset(field.id)
+        this.commenting.add(field.id)
+        this.refresh()
+        unselect.closest(".q")?.querySelector<HTMLElement>(":scope > .q-comment textarea")?.focus()
+      }
+    )
+    this.live.unselects.set(field.id, unselect)
+    return h("div", { class: "tree-box" }, tree, unselect)
   }
 
   private setFolded(id: string, folded: boolean): void {

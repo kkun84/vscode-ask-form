@@ -3,6 +3,7 @@ import { stableHash } from "./hash.ts"
 import type { Messages } from "./messages.ts"
 import type { ChoiceField, Computed, Field, FormSpec, RankingField } from "./spec.ts"
 import type { ChoiceField, Computed, Field, FormSpec, NumberRangeField } from "./spec.ts"
+import type { ChoiceField, Computed, Field, FormSpec, TreeChoiceField, TreeNode } from "./spec.ts"
 
 export type FieldValue = string | number | ReadonlyArray<string> | readonly [number, number]
 export type Values = Readonly<Record<string, FieldValue>>
@@ -15,7 +16,24 @@ export interface CompiledForm {
   readonly expressions: ReadonlyMap<string, Expr>
 }
 
-export const isMultiple = (field: ChoiceField): boolean => field.multiple === true
+export const isMultiple = (field: ChoiceField | TreeChoiceField): boolean => field.multiple === true
+
+export const treeNodes = (nodes: ReadonlyArray<TreeNode>): ReadonlyArray<TreeNode> =>
+  nodes.flatMap((node) => [node, ...treeNodes(node.children ?? [])])
+
+export const treeAncestors = (nodes: ReadonlyArray<TreeNode>, values: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const found: Array<string> = []
+  const walk = (list: ReadonlyArray<TreeNode>, path: ReadonlyArray<string>): void => {
+    for (const node of list) {
+      if (values.includes(node.value)) {
+        found.push(...path)
+      }
+      walk(node.children ?? [], [...path, node.value])
+    }
+  }
+  walk(nodes, [])
+  return [...new Set(found)]
+}
 
 const branchFields = (field: Field, value: FieldValue | undefined): ReadonlyArray<Field> =>
   field.type === "choice" && !isMultiple(field) ? (field.options.find((option) => option.value === value)?.fields ?? []) : []
@@ -68,6 +86,7 @@ const initialValue = (field: Field): FieldValue | undefined => {
     case "number":
       return field.default
     case "choice":
+    case "treeChoice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
     case "ranking":
       return field.default
@@ -102,6 +121,7 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
     return undefined
   }
   if ((field.type === "choice" && isMultiple(field)) || field.type === "textList") {
+  if ((field.type === "choice" || field.type === "treeChoice") && isMultiple(field)) {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -183,6 +203,12 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
     case "choice": {
       const selected = Array.isArray(value) ? value : [value]
       const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
+    case "choice":
+    case "treeChoice": {
+      const known = field.type === "choice" ? field.options : treeNodes(field.nodes)
+      const labels = (Array.isArray(value) ? value : [value]).map(
+        (item) => known.find((node) => node.value === item)?.label ?? String(item)
+      )
       return labels.length === 0 ? m.none : labels.join(m.listSeparator)
     }
     case "ranking":

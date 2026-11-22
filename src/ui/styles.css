@@ -973,6 +973,41 @@ af-ranking-item:focus-visible {
 }
 
 af-ranking-item[data-grabbed] {
+ui-tree {
+  display: block;
+  padding: 4px;
+  border: 1px solid var(--contrast-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--fg) 3%, transparent);
+}
+
+ui-tree-item {
+  display: block;
+  border-radius: 6px;
+  outline: none;
+}
+
+ui-tree-item-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+ui-tree-item-label:hover {
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+}
+
+ui-tree-item[data-selected] > ui-tree-item-label {
+  background: color-mix(in srgb, var(--fg) 9%, transparent);
+  outline: 1px dashed var(--vscode-contrastActiveBorder, transparent);
+  outline-offset: -1px;
+}
+
+ui-tree-item:focus-visible > ui-tree-item-label {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
@@ -1079,6 +1114,42 @@ ui-token-input-token.list-item[data-selected] {
 }
 
 ui-token-input-token-remove.list-remove {
+ui-tree-group {
+  display: block;
+  margin-left: 14px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+ui-tree-group[hidden] {
+  display: none;
+}
+
+ui-tree-item-indicator,
+.tree-leaf {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 20px;
+  color: var(--muted);
+}
+
+ui-tree-item-indicator::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+ui-tree-item-indicator[data-expanded]::before {
+  transform: translateY(-2px) rotate(45deg);
+}
+
+ui-tree-item-checkbox {
+  flex: none;
   display: grid;
   place-items: center;
   width: 16px;
@@ -1267,4 +1338,41 @@ ui-time-input-segment input:focus-visible {
   outline: none;
   background: color-mix(in srgb, var(--accent) 35%, transparent);
   border-radius: 2px;
+  margin-top: 2px;
+  border: 1px solid var(--input-border);
+  border-radius: 3px;
+  background: var(--input-bg);
+}
+
+ui-tree-item-checkbox:is([data-checked], [data-indeterminate]) {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--contrast-border);
+}
+
+ui-tree-item-checkbox[data-checked]::before {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border-bottom: 2px solid var(--accent-fg);
+  border-left: 2px solid var(--accent-fg);
+  translate: 0 -1px;
+  rotate: -45deg;
+}
+
+ui-tree-item-checkbox[data-indeterminate]::before {
+  content: "";
+  width: 8px;
+  height: 2px;
+  background: var(--accent-fg);
+}
+
+.tree-text {
+  display: flex;
+  flex-direction: column;
+  padding-top: 1px;
+}
+
+.tree-box > * + * {
+  margin-top: 4px;
 }
