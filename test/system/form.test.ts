@@ -253,41 +253,55 @@ describe("SPEC-TOOL-003 回答を待つ", () => {
     ))
 })
 
-const selectOptions = (count: number) => Array.from({ length: count }, (_, i) => ({ value: `v${i}`, label: `候補${i}` }))
+const searchOptions = (count: number) => Array.from({ length: count }, (_, i) => ({ value: `v${i}`, label: `候補${i}` }))
 
-const selectSpec = {
+const searchForm = (count: number) => ({
+  title: "t",
+  fields: [{ type: "searchChoice", id: "s", label: "S", options: searchOptions(count) }]
+})
+
+const searchSpec = {
   title: "候補",
   fields: [
-    { type: "select", id: "one", label: "1つ", options: selectOptions(12) },
-    { type: "select", id: "many", label: "複数", multiple: true, default: ["v1"], options: selectOptions(12) }
+    { type: "searchChoice", id: "one", label: "1つ", options: searchOptions(12) },
+    { type: "searchChoice", id: "many", label: "複数", multiple: true, default: ["v1"], options: searchOptions(12) }
   ],
   computed: [{ id: "count", label: "数", expression: "many" }]
 }
 
 describe("SPEC-FORM-001 候補を絞り込む項目", () => {
-  it("SPEC-FORM-001 selectの項目を受け付け、選択肢が2〜100個でなければ拒否する", () =>
+  it("SPEC-FORM-001 searchChoiceの項目は選択肢が7〜100個なら受け付け、6個以下か101個以上なら拒否する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        assert.equal(Result.isSuccess(compile(selectSpec)), true)
-        yield* rejected(h, { title: "t", fields: [{ type: "select", id: "s", label: "S", options: selectOptions(101) }] })
-        yield* rejected(h, { title: "t", fields: [{ type: "select", id: "s", label: "S", options: selectOptions(1) }] })
+        assert.equal(Result.isSuccess(compile(searchSpec)), true)
+        assert.equal(Result.isSuccess(compile(searchForm(7))), true)
+        assert.equal(Result.isSuccess(compile(searchForm(100))), true)
+        yield* rejected(h, searchForm(6))
+        yield* rejected(h, searchForm(101))
       })
     ))
 
-  it("SPEC-FORM-002 selectの選択肢の重複、選択肢に無い推奨、multipleと形の合わない推奨を拒否する", () =>
+  it("SPEC-FORM-002 searchChoiceの選択肢の重複、選択肢に無い推奨、multipleと形の合わない推奨、選択肢のfieldsを拒否する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const message = yield* rejected(h, {
           title: "t",
           fields: [
-            { type: "select", id: "dup", label: "D", options: [...selectOptions(2), { value: "v0", label: "重複" }] },
-            { type: "select", id: "missing", label: "M", default: "zz", options: selectOptions(3) },
-            { type: "select", id: "shape", label: "S", multiple: true, default: "v0", options: selectOptions(3) }
+            { type: "searchChoice", id: "dup", label: "D", options: [...searchOptions(7), { value: "v0", label: "重複" }] },
+            { type: "searchChoice", id: "missing", label: "M", default: "zz", options: searchOptions(7) },
+            { type: "searchChoice", id: "shape", label: "S", multiple: true, default: "v0", options: searchOptions(7) },
+            {
+              type: "searchChoice",
+              id: "branch",
+              label: "B",
+              options: [...searchOptions(6), { value: "x", label: "X", fields: [{ type: "text", id: "t1", label: "T" }] }]
+            }
           ]
         })
         assert.match(message, /dup.*重複/)
         assert.match(message, /missing.*zz.*選択肢にありません/)
         assert.match(message, /shape.*配列/)
+        assert.match(message, /branch.*searchChoice.*fields/)
       })
     ))
 })
@@ -296,8 +310,8 @@ describe("SPEC-TOOL-003 候補を絞り込む項目の回答", () => {
   it("SPEC-TOOL-003 選択肢に無い値を拒否し、複数の選択は選んだ数で計算する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const form = compile(selectSpec).pipe(Result.getOrThrow)
-        const fiber = yield* Effect.forkChild(h.call("ask_form", selectSpec))
+        const form = compile(searchSpec).pipe(Result.getOrThrow)
+        const fiber = yield* Effect.forkChild(h.call("ask_form", searchSpec))
         yield* h.waitUntil(1)
         const bad = yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { one: "nope", many: [] } })
         assert.equal(bad.isError, true)

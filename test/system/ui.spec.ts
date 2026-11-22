@@ -642,52 +642,60 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
   })
 })
 
-const languages = ["TypeScript", "JavaScript", "Python", "Go", "Rust", "Java", "Kotlin", "Swift", "Ruby", "PHP"].map((label) => ({
-  value: label.toLowerCase(),
-  label
-}))
+const goDescription = "静的型付けでコンパイルが速く、並行処理を書きやすい。標準ライブラリが充実していて、配布も1つのバイナリで済む"
 
-const selectArgs = {
+const languages = ["TypeScript", "JavaScript", "Python", "Go", "Rust", "Java", "Kotlin", "Swift", "Ruby", "PHP"].map((label) =>
+  label === "Go" ? { value: "go", label, description: goDescription } : { value: label.toLowerCase(), label }
+)
+
+const searchArgs = {
   title: "言語",
   fields: [
-    { type: "select", id: "lang", label: "主な言語", options: languages },
-    { type: "select", id: "more", label: "ほかの言語", multiple: true, default: ["go"], reason: "go.modより", options: languages }
+    { type: "searchChoice", id: "lang", label: "主な言語", options: languages },
+    { type: "searchChoice", id: "more", label: "ほかの言語", multiple: true, default: ["go"], reason: "go.modより", options: languages }
   ]
 }
 
+const filterOf = (frame: Frame, name: string) => frame.getByRole("searchbox", { name: `${name}を絞り込む` })
+
 test.describe("SPEC-UI-016 候補の絞り込み", () => {
-  test("SPEC-UI-016 文字を打って絞り込み、キーボードで選ぶ。推奨のない単一は未回答で始める", async ({ page }) => {
-    const frame = await open(page, { args: selectArgs })
-    const lang = frame.getByRole("combobox", { name: "主な言語" })
+  test("SPEC-UI-016 推奨のない単一は未回答で始め、キーボードだけで絞り込んで選び、隠れても選んだものが分かる", async ({ page }) => {
+    const frame = await open(page, { args: searchArgs })
     await send(frame)
     await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 主な言語")
-    await lang.click()
-    await lang.pressSequentially("ru")
-    await expect(frame.getByRole("option")).toHaveText([/^Rust/, /^Ruby/])
-    await lang.press("ArrowDown")
-    await lang.press("Enter")
-    await expect(lang).toHaveValue("Ruby")
+    const filter = filterOf(frame, "主な言語")
+    await filter.fill("ru")
+    await expect(frame.locator(".filter-count").first()).toHaveText("2 / 10")
+    await expect(frame.getByRole("radiogroup", { name: "主な言語" }).getByRole("radio").filter({ visible: true })).toHaveCount(2)
+    await filter.press("ArrowDown")
+    await expect(frame.getByRole("radio", { name: "Rust" })).toBeFocused()
+    await frame.getByRole("radio", { name: "Rust" }).press("ArrowDown")
+    await expect(frame.getByRole("radio", { name: "Ruby" })).toBeChecked()
+    await filter.fill("zzz")
+    await expect(frame.getByText("一致する選択肢がありません").first()).toBeVisible()
+    await expect(frame.locator(".picked").first()).toHaveText("選んだもの：Ruby")
     expect(await axeViolations(frame)).toEqual([])
-    await send(frame)
+    await filter.press("ControlOrMeta+Enter")
     expect((await singleOutcome(page))?.values).toEqual({ lang: "ruby", more: ["go"] })
   })
 
-  test("SPEC-UI-016 複数の選択をチップで並べ、チップの「×」で外せる", async ({ page }) => {
-    const frame = await open(page, { args: selectArgs })
-    const more = frame.getByRole("combobox", { name: "ほかの言語" })
-    await expect(frame.locator(".rec", { hasText: "go.modより" })).toContainText("Go")
-    await more.click()
-    await more.pressSequentially("py")
-    await more.press("Enter")
-    await more.pressSequentially("sw")
-    await more.press("Enter")
-    await more.press("Escape")
-    await expect(frame.locator("ui-combobox-chip")).toHaveCount(3)
-    await frame.locator("ui-combobox-chip", { hasText: "Go" }).getByRole("button").click()
-    await expect(frame.locator("ui-combobox-chip")).toHaveCount(2)
-    await frame.getByRole("combobox", { name: "主な言語" }).click()
-    await frame.getByRole("option", { name: "Go" }).click()
+  test("SPEC-UI-016 複数選択は選んだものが一覧に残ってチェックが付き、もう一度押すと外れる。説明は選ぶまで1行", async ({ page }) => {
+    const frame = await open(page, { args: searchArgs })
+    const go = frame.getByRole("checkbox", { name: /^Go/ })
+    await expect(go).toBeChecked()
+    await expect(frame.locator(".rec", { hasText: "go.modより" })).toBeVisible()
+    await go.click()
+    const summary = frame.getByRole("group", { name: "ほかの言語" }).locator(".option", { hasText: "Go" }).locator(".option-summary")
+    await expect(summary).toHaveCSS("white-space", "nowrap")
+    await go.click()
+    await expect(summary).toHaveCSS("white-space", "normal")
+    await filterOf(frame, "ほかの言語").fill("py")
+    await frame.getByRole("checkbox", { name: "Python" }).click()
+    await expect(frame.getByRole("checkbox", { name: "Python" })).toBeChecked()
+    await expect(frame.getByRole("checkbox", { name: "Python" })).toBeVisible()
+    await expect(frame.locator(".picked").nth(1)).toHaveText("選んだもの：Python、Go")
+    await frame.getByRole("radio", { name: "Go" }).check()
     await send(frame)
-    expect((await singleOutcome(page))?.values).toEqual({ lang: "go", more: ["python", "swift"] })
+    expect((await singleOutcome(page))?.values).toEqual({ lang: "go", more: ["python", "go"] })
   })
 })

@@ -1,7 +1,6 @@
 import "@ui-sdk/web/button"
 import "@ui-sdk/web/checkbox"
 import "@ui-sdk/web/collapsible"
-import "@ui-sdk/web/combobox"
 import "@ui-sdk/web/input"
 import "@ui-sdk/web/number-input"
 import "@ui-sdk/web/radio"

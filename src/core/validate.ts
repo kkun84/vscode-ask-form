@@ -13,7 +13,7 @@ import {
   type CompiledForm,
   type Values
 } from "./form.ts"
-import { FormSpec, type ChoiceField, type Field, type NumberField, type SelectField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type NumberField, type SearchChoiceField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -43,7 +43,16 @@ const totalProblems = (spec: FormSpec): ReadonlyArray<string> => {
   return total > maxTotalFields ? [`項目が入れ子も含めて${total}個あります。${maxTotalFields}個以下にしてください`] : []
 }
 
+const searchChoiceBranches = (input: unknown): ReadonlyArray<string> => {
+  const fields = records([input]).flatMap((spec) => records(spec["fields"]))
+  const nested = fields.flatMap((field) => records(field["options"])).flatMap((option) => records(option["fields"]))
+  return [...fields, ...nested]
+    .filter((field) => field["type"] === "searchChoice" && records(field["options"]).some((option) => "fields" in option))
+    .map((field) => `項目「${String(field["id"])}」はsearchChoiceなので、選択肢にfieldsを付けられません`)
+}
+
 const semanticProblems = (spec: FormSpec, input: unknown): ReadonlyArray<string> => [
+  ...searchChoiceBranches(input),
   ...totalProblems(spec),
   ...duplicateIds(spec),
   ...deepBranches(input),
@@ -70,7 +79,7 @@ const numberProblems = (field: NumberField): ReadonlyArray<string> => {
   return outside ? [`項目「${field.id}」のdefaultが${field.min}〜${field.max}の範囲外です`] : []
 }
 
-const choiceDefaultProblems = (field: ChoiceField | SelectField, values: ReadonlySet<string>): ReadonlyArray<string> => {
+const choiceDefaultProblems = (field: ChoiceField | SearchChoiceField, values: ReadonlySet<string>): ReadonlyArray<string> => {
   if (field.default === undefined) {
     return []
   }
@@ -87,7 +96,7 @@ const choiceDefaultProblems = (field: ChoiceField | SelectField, values: Readonl
   ]
 }
 
-const optionProblems = (field: ChoiceField | SelectField): ReadonlyArray<string> => {
+const optionProblems = (field: ChoiceField | SearchChoiceField): ReadonlyArray<string> => {
   const values = new Set(field.options.map((option) => option.value))
   const duplicated = values.size === field.options.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
   return [...duplicated, ...choiceDefaultProblems(field, values)]
@@ -111,7 +120,7 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return numberProblems(field)
     case "choice":
       return choiceProblems(field)
-    case "select":
+    case "searchChoice":
       return optionProblems(field)
     default:
       return []
@@ -140,7 +149,7 @@ const numberProblem = (field: NumberField, value: unknown): string | undefined =
   return value < field.min || value > field.max ? `項目「${field.id}」が範囲外です` : undefined
 }
 
-const choiceProblem = (field: ChoiceField | SelectField, value: unknown): string | undefined => {
+const choiceProblem = (field: ChoiceField | SearchChoiceField, value: unknown): string | undefined => {
   const allowed = new Set(field.options.map((option) => option.value))
   if (isMultiple(field)) {
     return Array.isArray(value) &&
@@ -159,7 +168,7 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
     case "number":
       return numberProblem(field, value)
     case "choice":
-    case "select":
+    case "searchChoice":
       return choiceProblem(field, value)
   }
 }

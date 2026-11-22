@@ -1,7 +1,7 @@
 import { evaluate, parse, type Expr, type Scope, type Value } from "./expression.ts"
 import { stableHash } from "./hash.ts"
 import type { Messages } from "./messages.ts"
-import type { ChoiceField, Computed, Field, FormSpec, SelectField } from "./spec.ts"
+import type { ChoiceField, Computed, Field, FormSpec, SearchChoiceField } from "./spec.ts"
 
 export type FieldValue = string | number | ReadonlyArray<string>
 export type Values = Readonly<Record<string, FieldValue>>
@@ -14,7 +14,7 @@ export interface CompiledForm {
   readonly expressions: ReadonlyMap<string, Expr>
 }
 
-export const isMultiple = (field: ChoiceField | SelectField): boolean => field.multiple === true
+export const isMultiple = (field: ChoiceField | SearchChoiceField): boolean => field.multiple === true
 
 const branchFields = (field: Field, value: FieldValue | undefined): ReadonlyArray<Field> =>
   field.type === "choice" && !isMultiple(field) ? (field.options.find((option) => option.value === value)?.fields ?? []) : []
@@ -67,7 +67,7 @@ const initialValue = (field: Field): FieldValue | undefined => {
     case "number":
       return field.default
     case "choice":
-    case "select":
+    case "searchChoice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
   }
 }
@@ -87,7 +87,7 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
   if (value === undefined) {
     return undefined
   }
-  if ((field.type === "choice" || field.type === "select") && isMultiple(field)) {
+  if ((field.type === "choice" || field.type === "searchChoice") && isMultiple(field)) {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -149,7 +149,7 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
     case "number":
       return typeof value === "number" ? affixed(formatNumber(value), field.prefix, field.suffix) : "—"
     case "choice":
-    case "select": {
+    case "searchChoice": {
       const selected = Array.isArray(value) ? value : value === undefined ? [] : [value]
       const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
       return labels.length === 0 ? m.none : labels.join(m.listSeparator)

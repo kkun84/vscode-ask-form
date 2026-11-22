@@ -270,6 +270,7 @@ body {
 }
 
 input[type="text"],
+input[type="search"],
 input[type="number"],
 textarea {
   width: 100%;
@@ -915,110 +916,66 @@ ui-number-input-scrub-area.scrub:hover {
   color: var(--fg);
 }
 
-ui-combobox.select {
-  display: block;
+.search-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.select-row {
+.filter-row {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 2px;
-  border: 1px solid var(--input-border);
-  border-radius: 4px;
-  background: var(--input-bg);
+  gap: 8px;
 }
 
-.select-row:focus-within {
-  outline: 2px solid var(--focus);
-  outline-offset: -1px;
+.filter-row ui-input {
+  flex: 1;
+  min-width: 0;
 }
 
-.select-row ui-combobox-input {
+.filter-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.options.search {
+  max-height: 252px;
+  overflow-y: auto;
+}
+
+.options.search .option-text {
+  min-width: 0;
+  white-space: normal;
+}
+
+.options.search .option:not(:has([data-checked])) :is(.option-summary, .rec-reason) {
   display: block;
-  flex: 1;
-  min-width: 80px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.select-row input {
-  min-height: 26px;
-  border: 0;
-  background: transparent;
+.options.search .option:not(:has([data-checked])) :is(.option-details, .rec-details) {
+  display: none;
 }
 
-.select-row input:focus-visible {
-  outline: none;
+.options.search label.option[hidden] {
+  display: none;
 }
 
-ui-combobox-chips.chips {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 0;
-}
-
-ui-combobox-chip.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0 2px 0 8px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  outline: 1px solid var(--contrast-border);
-}
-
-button.chip-remove {
+.no-match:not([hidden]),
+.picked {
+  margin: 0;
   padding: 0 4px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--fg);
-  font: inherit;
-  cursor: pointer;
-}
-
-ui-combobox-content.select-list:not([hidden]) {
-  display: block;
-  width: var(--anchor-width);
-  max-height: min(240px, var(--available-height));
-  overflow: auto;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  box-shadow: 0 6px 18px color-mix(in srgb, #000000 30%, transparent);
-}
-
-ui-combobox-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  column-gap: 8px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-ui-combobox-item .option-summary {
-  grid-column: 1;
   color: var(--muted);
   font-size: 12px;
 }
 
-ui-combobox-item ui-combobox-item-indicator {
-  grid-column: 2;
-  grid-row: 1;
-  color: var(--accent);
-}
-
-ui-combobox-item[data-highlighted] {
-  background: color-mix(in srgb, var(--fg) 10%, transparent);
-  outline: 1px dashed var(--vscode-contrastActiveBorder, transparent);
-}
-
-ui-combobox-empty:not([hidden]) {
-  display: block;
-  padding: 4px 8px;
-  color: var(--muted);
+.picked-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }

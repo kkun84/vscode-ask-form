@@ -8,7 +8,6 @@ import {
   formatNumber,
   heldFields,
   initialValues,
-  isMultiple,
   appendPreset,
   commentPresetsFrom,
   maxCommentLength,
@@ -20,31 +19,12 @@ import {
   type FieldValue,
   type Values
 } from "../core/form.ts"
-import { languageOf, messages, type Messages, type SelectAnnouncement } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, SelectField, TextField } from "../core/spec.ts"
+import { languageOf, messages, type Messages } from "../core/messages.ts"
+import type { ChoiceField, Field, FormSpec, NumberField, SearchChoiceField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 
 type Action = "submit" | "chat"
-
-type SelectElement = HTMLElement & {
-  value: string | string[] | null
-  defaultValue: string | string[] | null
-  itemToLabel: (value: string) => string
-  announcement: (change: SelectAnnouncement) => string | null
-}
-
-const selectChipTemplate = (m: Messages): HTMLTemplateElement => {
-  const template = document.createElement("template")
-  template.content.append(
-    h(
-      "ui-combobox-chip",
-      { class: "chip" },
-      h("ui-combobox-chip-remove", {}, h("button", { type: "button", class: "chip-remove", "aria-label": m.removeChoice }, "×"))
-    )
-  )
-  return template
-}
 
 const onValue = <T>(element: HTMLElement, type: "valuechange" | "valuecommit", listener: (value: T, detail: ValueDetail) => void) =>
   element.addEventListener(type, (event) => {
@@ -74,9 +54,11 @@ const recView = (field: Field, title: string, value: string | undefined, action:
     action
   )
 
+const picks = (field: Field): boolean => field.type === "choice" || field.type === "searchChoice"
+
 const hasDetails = (field: Field): boolean =>
-  (field.default !== undefined && (field.reason !== undefined || field.reasonDetails !== undefined || field.type !== "choice")) ||
-  (field.type === "choice" && field.options.some((option) => option.details !== undefined))
+  (field.default !== undefined && (field.reason !== undefined || field.reasonDetails !== undefined || !picks(field))) ||
+  ((field.type === "choice" || field.type === "searchChoice") && field.options.some((option) => option.details !== undefined))
 
 const invalidTargets = [
   ":scope > .q-group input:not([type=range])",
@@ -225,7 +207,8 @@ export class FormApp {
     primary: undefined as HTMLButtonElement | undefined,
     form: undefined as HTMLElement | undefined,
     setters: new Map<string, (value: FieldValue) => void>(),
-    unselects: new Map<string, HTMLElement>()
+    unselects: new Map<string, HTMLElement>(),
+    pickedLists: new Map<string, { readonly element: HTMLElement; readonly field: SearchChoiceField }>()
   }
   private readonly folded = new Set<string>()
   private showMissing = false
@@ -435,6 +418,7 @@ export class FormApp {
     this.live.branches.length = 0
     this.live.setters.clear()
     this.live.unselects.clear()
+    this.live.pickedLists.clear()
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
@@ -535,10 +519,9 @@ export class FormApp {
           "aria-controls": groupId
         })
       : null
-    const back = field.type === "choice" ? null : h("button", { type: "button", class: "link", hidden: true }, this.m.backToRecommended)
+    const back = picks(field) ? null : h("button", { type: "button", class: "link", hidden: true }, this.m.backToRecommended)
     const recommended = this.initialText(field)
-    const rec =
-      field.type === "choice" || recommended === undefined ? null : recView(field, this.m.recommended, recommended, back, uid("rec"))
+    const rec = picks(field) || recommended === undefined ? null : recView(field, this.m.recommended, recommended, back, uid("rec"))
     const element = h(
       "div",
       { class: "q", role: "group", "aria-labelledby": labelId, "aria-describedby": descId },
@@ -546,7 +529,7 @@ export class FormApp {
       field.description === undefined ? null : h("p", { class: "q-desc", id: descId }, field.description),
       h(
         "div",
-        { class: field.type === "choice" ? "q-group choices" : "q-group", id: groupId },
+        { class: picks(field) ? "q-group choices" : "q-group", id: groupId },
         this.control(field, labelId, [answer.id, rec?.id].filter((id) => id !== undefined && id !== "").join(" ")),
         rec
       ),
@@ -590,67 +573,9 @@ export class FormApp {
         return this.numberView(field, labelId, describedBy)
       case "choice":
         return this.choiceView(field, labelId, describedBy)
-      case "select":
-        return this.selectView(field, labelId, describedBy)
+      case "searchChoice":
+        return this.searchChoiceView(field, labelId, describedBy)
     }
-  }
-
-  private selectView(field: SelectField, labelId: string, describedBy: string): HTMLElement {
-    const multiple = isMultiple(field)
-    const current = this.values[field.id]
-    const labels = new Map(field.options.map((option) => [option.value, option.label]))
-    const input = h("input", { "aria-labelledby": labelId, "aria-describedby": describedBy, placeholder: this.m.searchOptions })
-    const control = h("ui-combobox-input", {}, input)
-    const box = h(
-      "ui-combobox",
-      { class: "select", multiple, "auto-highlight": true, loop: true },
-      h(
-        "div",
-        { class: "select-row" },
-        multiple ? h("ui-combobox-chips", { class: "chips" }, control) : control,
-        multiple
-          ? null
-          : h("ui-combobox-clear", {}, h("button", { type: "button", class: "clear", "aria-label": this.m.clearOf(field.label) }, "×")),
-        h("ui-combobox-trigger", {}, h("button", { type: "button", class: "step", "aria-label": this.m.showOptionsOf(field.label) }, "⌄"))
-      ),
-      h(
-        "ui-combobox-content",
-        { class: "select-list", hidden: true },
-        h("ui-combobox-empty", {}, this.m.noMatches),
-        h(
-          "ui-combobox-list",
-          {},
-          field.options.map((option) =>
-            h(
-              "ui-combobox-item",
-              { value: option.value, label: option.label },
-              h("span", { class: "option-head" }, option.label),
-              option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
-              h("ui-combobox-item-indicator", { "aria-hidden": "true" }, "✓")
-            )
-          )
-        )
-      ),
-      multiple ? selectChipTemplate(this.m) : null
-    ) as SelectElement
-    box.itemToLabel = (value) => labels.get(value) ?? value
-    box.announcement = (change) => this.m.selectAnnouncement(change)
-    box.defaultValue = multiple ? (Array.isArray(current) ? [...current] : []) : typeof current === "string" ? current : null
-    box.addEventListener("valuechange", (event) => {
-      const next = (event as CustomEvent<{ readonly value: string | ReadonlyArray<string> | null }>).detail.value
-      if (Array.isArray(next)) {
-        this.setValue(field.id, [...next])
-      } else if (typeof next === "string") {
-        this.setValue(field.id, next)
-      } else {
-        this.unset(field.id)
-      }
-    })
-    this.live.setters.set(field.id, (next) => {
-      box.value = Array.isArray(next) ? [...next] : (next as string)
-      this.setValue(field.id, next)
-    })
-    return box
   }
 
   private setFolded(id: string, folded: boolean): void {
@@ -764,7 +689,7 @@ export class FormApp {
     return h("div", { class: "row" }, slider, exact, affix(field.suffix))
   }
 
-  private choiceView(field: ChoiceField, labelId: string, describedBy: string): HTMLElement {
+  private choiceView(field: ChoiceField | SearchChoiceField, labelId: string, describedBy: string): HTMLElement {
     const multiple = field.multiple === true
     const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
     const current = this.values[field.id]
@@ -784,7 +709,7 @@ export class FormApp {
         describedBy
       ])
       const row = optionRow(input, option, [headId, ...textIds], isRecommended ? this.m.recommended : undefined, why)
-      const revealed = this.reveal(field, option)
+      const revealed = field.type === "choice" ? this.reveal(field, option) : null
       return revealed === null ? [row] : [row, revealed]
     })
     const unselect = multiple
@@ -834,6 +759,51 @@ export class FormApp {
       pointing = false
     })
     return group
+  }
+  private searchChoiceView(field: SearchChoiceField, labelId: string, describedBy: string): HTMLElement {
+    const group = this.choiceView(field, labelId, describedBy)
+    group.classList.add("search")
+    const filter = h("input", { type: "search", "aria-label": this.m.filterOf(field.label), placeholder: this.m.searchOptions })
+    const count = h("span", { class: "filter-count", "aria-live": "polite" })
+    const empty = h("p", { class: "no-match", hidden: true }, this.m.noMatches)
+    const picked = h("p", { class: "picked" })
+    const rows = [...group.querySelectorAll<HTMLElement>(":scope > label.option")]
+    const total = rows.length
+    const apply = () => {
+      const query = filter.value.trim().toLowerCase()
+      let shown = 0
+      for (const row of rows) {
+        const text =
+          (row.querySelector(".option-head")?.textContent ?? "") + " " + (row.querySelector(".option-summary")?.textContent ?? "")
+        const hit = query === "" || text.toLowerCase().includes(query)
+        row.hidden = !hit
+        row.querySelector<HTMLElement>("ui-radio, ui-checkbox")?.toggleAttribute("disabled", !hit)
+        shown += hit ? 1 : 0
+      }
+      count.textContent = `${shown} / ${total}`
+      empty.hidden = shown > 0
+    }
+    on(filter, "input", apply)
+    on(filter, "keydown", (event) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault()
+        rows
+          .find((row) => !row.hidden)
+          ?.querySelector<HTMLElement>("ui-radio, ui-checkbox")
+          ?.focus()
+      }
+    })
+    const unselect = group.querySelector<HTMLElement>(":scope > .unselect")
+    this.live.pickedLists.set(field.id, { element: picked, field })
+    apply()
+    return h(
+      "div",
+      { class: "search-choice" },
+      h("div", { class: "filter-row" }, h("ui-input", {}, filter), count),
+      group,
+      empty,
+      h("div", { class: "picked-row" }, picked, unselect)
+    )
   }
 
   private noteView(): HTMLElement {
@@ -953,6 +923,12 @@ export class FormApp {
     }
     for (const [id, unselect] of this.live.unselects) {
       unselect.hidden = this.values[id] === undefined
+    }
+    for (const [id, picked] of this.live.pickedLists) {
+      const value = this.values[id]
+      const chosen = picked.field.options.filter((option) => (Array.isArray(value) ? value.includes(option.value) : value === option.value))
+      picked.element.textContent =
+        this.m.picked + (chosen.length === 0 ? this.m.none : chosen.map((option) => option.label).join(this.m.listSeparator))
     }
     for (const branch of this.live.branches) {
       branch.element.hidden = this.values[branch.id] !== branch.value
