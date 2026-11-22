@@ -15,7 +15,7 @@ import {
   type CompiledForm,
   type Values
 } from "./form.ts"
-import { FormSpec, type ChoiceField, type Field, type ListField, type NumberField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type TextListField, type NumberField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -105,7 +105,7 @@ const isList = (value: unknown): boolean =>
   new Set(value).size === value.length &&
   value.every((item) => typeof item === "string" && item.trim() !== "" && item.length <= maxListItemLength)
 
-const listProblems = (field: ListField): ReadonlyArray<string> =>
+const listProblems = (field: TextListField): ReadonlyArray<string> =>
   field.default === undefined || new Set(field.default).size === field.default.length
     ? []
     : [`項目「${field.id}」のdefaultが重複しています`]
@@ -121,7 +121,7 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return numberProblems(field)
     case "choice":
       return choiceProblems(field)
-    case "list":
+    case "textList":
       return listProblems(field)
     default:
       return []
@@ -170,7 +170,7 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
       return numberProblem(field, value)
     case "choice":
       return choiceProblem(field, value)
-    case "list":
+    case "textList":
       return isList(value)
         ? undefined
         : `項目「${field.id}」は、${maxListItemLength}文字以下の空でない文字列を重複なく${maxListItems}個まで並べた配列が必要です`

@@ -20,7 +20,7 @@ import {
   type Values
 } from "../core/form.ts"
 import { languageOf, messages, type Messages } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, ListField, NumberField, TextField } from "../core/spec.ts"
+import type { ChoiceField, Field, FormSpec, TextListField, NumberField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 import { listControl } from "./list.ts"
@@ -571,12 +571,12 @@ export class FormApp {
         return this.numberView(field, labelId, describedBy)
       case "choice":
         return this.choiceView(field, labelId, describedBy)
-      case "list":
+      case "textList":
         return this.listView(field, labelId, describedBy)
     }
   }
 
-  private listView(field: ListField, labelId: string, describedBy: string): HTMLElement {
+  private listView(field: TextListField, labelId: string, describedBy: string): HTMLElement {
     const current = this.values[field.id]
     const control = listControl({
       items: Array.isArray(current) ? current : [],

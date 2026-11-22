@@ -645,8 +645,8 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
 const listArgs = {
   title: "除外の設定",
   fields: [
-    { type: "list", id: "ignore", label: "除外するパス", default: ["dist", "node_modules"], reason: ".gitignoreより" },
-    { type: "list", id: "tags", label: "タグ", placeholder: "タグを書く" }
+    { type: "textList", id: "ignore", label: "除外するパス", default: ["dist", "node_modules"], reason: ".gitignoreより" },
+    { type: "textList", id: "tags", label: "タグ", placeholder: "タグを書く" }
   ]
 }
 

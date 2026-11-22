@@ -68,7 +68,7 @@ const initialValue = (field: Field): FieldValue | undefined => {
       return field.default
     case "choice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
-    case "list":
+    case "textList":
       return field.default ?? []
   }
 }
@@ -88,7 +88,7 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
   if (value === undefined) {
     return undefined
   }
-  if ((field.type === "choice" && isMultiple(field)) || field.type === "list") {
+  if ((field.type === "choice" && isMultiple(field)) || field.type === "textList") {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -151,7 +151,7 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       return typeof value === "string" && value !== "" ? value : m.empty
     case "number":
       return typeof value === "number" ? affixed(formatNumber(value), field.prefix, field.suffix) : "—"
-    case "list":
+    case "textList":
       return joined(Array.isArray(value) ? value : [], m)
     case "choice":
       return joined(

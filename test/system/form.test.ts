@@ -255,11 +255,11 @@ describe("SPEC-TOOL-003 回答を待つ", () => {
 
 const listSpec = {
   title: "除外の設定",
-  fields: [{ type: "list", id: "ignore", label: "除外するパス", default: ["dist", "node_modules"] }],
+  fields: [{ type: "textList", id: "ignore", label: "除外するパス", default: ["dist", "node_modules"] }],
   computed: [{ id: "count", label: "除外の数", expression: "ignore" }]
 }
 
-const listWithDefault = (value: unknown) => ({ title: "t", fields: [{ type: "list", id: "l", label: "L", default: value }] })
+const listWithDefault = (value: unknown) => ({ title: "t", fields: [{ type: "textList", id: "l", label: "L", default: value }] })
 
 describe("SPEC-FORM-001 文字のリストの項目", () => {
   it("SPEC-FORM-001 文字のリストの項目を受け付け、21個以上や201文字以上の推奨を拒否する", () =>
@@ -275,7 +275,7 @@ describe("SPEC-FORM-001 文字のリストの項目", () => {
   it("SPEC-FORM-002 文字のリストの推奨の重複を拒否する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const message = yield* rejected(h, { title: "t", fields: [{ type: "list", id: "dup", label: "D", default: ["a", "a"] }] })
+        const message = yield* rejected(h, { title: "t", fields: [{ type: "textList", id: "dup", label: "D", default: ["a", "a"] }] })
         assert.match(message, /dup.*重複/)
       })
     ))
