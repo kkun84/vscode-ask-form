@@ -907,3 +907,11 @@ ui-number-input-scrub-area.scrub {
 ui-number-input-scrub-area.scrub:hover {
   color: var(--fg);
 }
+
+.range > * + * {
+  margin-top: 8px;
+}
+
+.range-inputs {
+  flex-wrap: wrap;
+}

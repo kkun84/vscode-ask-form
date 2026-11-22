@@ -641,3 +641,53 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
     await expect(none.getByRole("group", { name: "件数へのコメントの定型文" })).toHaveCount(0)
   })
 })
+
+const rangeArgs = {
+  title: "対応範囲",
+  fields: [
+    { type: "range", id: "node", label: "Node.jsの版", min: 16, max: 24, step: 1, default: [18, 22], reason: "LTSのため" },
+    { type: "range", id: "budget", label: "予算", min: 0, max: 100000, step: 1000, prefix: "¥" }
+  ]
+}
+
+test.describe("SPEC-UI-018 数値の範囲", () => {
+  test("SPEC-UI-018 推奨の範囲で始め、つまみはすれ違わず、欄と同期し、推奨に戻せる", async ({ page }) => {
+    const frame = await open(page, { args: rangeArgs })
+    const lower = frame.getByRole("spinbutton", { name: "Node.jsの版の下限" })
+    const upper = frame.getByRole("spinbutton", { name: "Node.jsの版の上限" })
+    await expect(lower).toHaveValue("18")
+    await expect(upper).toHaveAttribute("aria-valuenow", "22")
+    await expect(frame.locator(".rec", { hasText: "LTSのため" })).toContainText("18〜22")
+    const thumb = frame.getByRole("slider", { name: "Node.jsの版の下限" })
+    for (let step = 0; step < 6; step += 1) {
+      await thumb.press("ArrowRight")
+    }
+    await expect(lower).toHaveValue("22")
+    await expect(upper).toHaveValue("22")
+    await upper.fill("17")
+    await upper.press("Tab")
+    await expect(upper).toHaveValue("22")
+    await frame.getByRole("button", { name: "Node.jsの版の上限を増やす" }).click()
+    await expect(upper).toHaveValue("23")
+    await frame.getByRole("button", { name: "推奨に戻す" }).click()
+    await expect(lower).toHaveValue("18")
+    await expect(upper).toHaveValue("22")
+  })
+
+  test("SPEC-UI-018 推奨のない範囲は未回答で始め、欄に値を確定すると[下限, 上限]で届く", async ({ page }) => {
+    const frame = await open(page, { args: rangeArgs })
+    const lower = frame.getByRole("spinbutton", { name: "予算の下限" })
+    await expect(lower).toHaveValue("")
+    await expect(lower).toHaveAttribute("aria-valuetext", "未回答")
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 予算")
+    await lower.fill("20000")
+    await lower.press("Tab")
+    await expect(frame.getByRole("spinbutton", { name: "予算の上限" })).toHaveValue("100,000")
+    expect(await axeViolations(frame)).toEqual([])
+    await send(frame)
+    const outcome = await singleOutcome(page)
+    expect(outcome?.values).toEqual({ node: [18, 22], budget: [20000, 100000] })
+    expect(outcome?.changedByUser).toEqual(["budget"])
+  })
+})

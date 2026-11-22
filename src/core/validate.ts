@@ -13,7 +13,7 @@ import {
   type CompiledForm,
   type Values
 } from "./form.ts"
-import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type NumberField, type RangeField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -97,6 +97,23 @@ const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
   return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
 }
 
+const isRangeValue = (value: unknown, field: RangeField): boolean =>
+  Array.isArray(value) &&
+  value.length === 2 &&
+  value.every((bound) => typeof bound === "number" && Number.isFinite(bound)) &&
+  field.min <= value[0] &&
+  value[0] <= value[1] &&
+  value[1] <= field.max
+
+const rangeProblems = (field: RangeField): ReadonlyArray<string> => {
+  if (field.min >= field.max) {
+    return [`項目「${field.id}」のminがmax以上です`]
+  }
+  return field.default === undefined || isRangeValue(field.default, field)
+    ? []
+    : [`項目「${field.id}」のdefaultは、${field.min}〜${field.max}の範囲で[下限, 上限]の順にしてください`]
+}
+
 const reasonProblems = (field: Field): ReadonlyArray<string> =>
   field.default === undefined && (field.reason !== undefined || field.reasonDetails !== undefined)
     ? [`項目「${field.id}」はdefaultがないので、reasonとreasonDetailsを付けられません。質問の説明はdescriptionに書いてください`]
@@ -108,6 +125,8 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return numberProblems(field)
     case "choice":
       return choiceProblems(field)
+    case "range":
+      return rangeProblems(field)
     default:
       return []
   }
@@ -155,6 +174,8 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
       return numberProblem(field, value)
     case "choice":
       return choiceProblem(field, value)
+    case "range":
+      return isRangeValue(value, field) ? undefined : `項目「${field.id}」は、${field.min}〜${field.max}の範囲の[下限, 上限]が必要です`
   }
 }
 

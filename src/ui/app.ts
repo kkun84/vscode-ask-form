@@ -20,7 +20,7 @@ import {
   type Values
 } from "../core/form.ts"
 import { languageOf, messages, type Messages } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, TextField } from "../core/spec.ts"
+import type { ChoiceField, Field, FormSpec, NumberField, RangeField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 
@@ -70,13 +70,16 @@ const focusControl = (card: HTMLElement | undefined): void => {
   control?.focus()
 }
 
-const largeStep = (field: NumberField): number | undefined => {
+type Bounds = Pick<NumberField, "min" | "max" | "step" | "prefix">
+
+const largeStep = (field: Bounds): number | undefined => {
   const step = field.step ?? (field.max - field.min) / 100
   return Math.max(step, Math.round((field.max - field.min) / 10 / step) * step)
 }
 
 const numberInput = (
-  field: NumberField,
+  field: Bounds,
+  label: string,
   input: HTMLInputElement,
   value: number | undefined,
   m: Messages
@@ -92,11 +95,50 @@ const numberInput = (
         { class: "scrub", title: m.scrub, "pixels-per-step": 4 },
         h("span", { "aria-hidden": "true" }, field.prefix ?? "⇔")
       ),
-      h("ui-number-input-decrement", {}, h("button", { type: "button", class: "step", "aria-label": m.decrease(field.label) }, "−")),
+      h("ui-number-input-decrement", {}, h("button", { type: "button", class: "step", "aria-label": m.decrease(label) }, "−")),
       h("ui-number-input-control", {}, input),
-      h("ui-number-input-increment", {}, h("button", { type: "button", class: "step", "aria-label": m.increase(field.label) }, "+"))
+      h("ui-number-input-increment", {}, h("button", { type: "button", class: "step", "aria-label": m.increase(label) }, "+"))
     )
   )
+
+const rangeParts = (field: RangeField, labelId: string, describedBy: string, pair: readonly [number, number] | undefined, m: Messages) => {
+  const names = [m.lowerOf(field.label), m.upperOf(field.label)] as const
+  const slider = h(
+    "ui-slider",
+    {
+      min: field.min,
+      max: field.max,
+      step: field.step,
+      "large-step": largeStep(field),
+      "default-value": (pair ?? [field.min, field.max]).join("/"),
+      "aria-labelledby": labelId,
+      class: pair === undefined ? "unset" : undefined
+    },
+    h(
+      "ui-slider-control",
+      {},
+      h(
+        "ui-slider-track",
+        {},
+        h("ui-slider-indicator"),
+        names.map((name) => h("ui-slider-thumb", { "aria-label": name, "aria-describedby": describedBy }))
+      )
+    )
+  )
+  const inputs = names.map((name) =>
+    h("input", {
+      class: "exact",
+      inputmode: "decimal",
+      role: "spinbutton",
+      "aria-valuemin": field.min,
+      "aria-valuemax": field.max,
+      "aria-label": [name, field.prefix, field.suffix].filter((part) => part !== undefined).join(" "),
+      "aria-describedby": describedBy
+    })
+  )
+  const fields = inputs.map((input, index) => numberInput(field, names[index === 0 ? 0 : 1], input, pair?.[index], m))
+  return { slider, inputs, fields }
+}
 
 const choiceControl = (multiple: boolean, value: string, labelledBy: string, describedBy: ReadonlyArray<string | undefined>): HTMLElement =>
   h(
@@ -577,7 +619,82 @@ export class FormApp {
         return this.numberView(field, labelId, describedBy)
       case "choice":
         return this.choiceView(field, labelId, describedBy)
+      case "range":
+        return this.rangeView(field, labelId, describedBy)
     }
+  }
+
+  private rangeView(field: RangeField, labelId: string, describedBy: string): HTMLElement {
+    const current = this.values[field.id]
+    let pair: readonly [number, number] | undefined = Array.isArray(current) ? [Number(current[0]), Number(current[1])] : undefined
+    const text = (next: number) => `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`
+    const { slider, inputs, fields } = rangeParts(field, labelId, describedBy, pair, this.m)
+    const spoken = () => {
+      slider.format = (next: number) => (pair === undefined ? this.m.notAnswered : text(next))
+      for (const [index, input] of inputs.entries()) {
+        const bound = pair?.[index]
+        if (bound === undefined) {
+          input.removeAttribute("aria-valuenow")
+          input.setAttribute("aria-valuetext", this.m.notAnswered)
+        } else {
+          input.setAttribute("aria-valuenow", String(bound))
+          input.setAttribute("aria-valuetext", text(bound))
+        }
+      }
+    }
+    spoken()
+    const apply = (next: readonly [number, number], from: "slider" | "input") => {
+      pair = next
+      slider.classList.remove("unset")
+      if (from === "input") {
+        slider.value = [...next]
+      }
+      for (const [index, item] of fields.entries()) {
+        const bound = next[index === 0 ? 0 : 1]
+        if (item.value !== bound) {
+          item.value = bound
+        }
+      }
+      spoken()
+      this.setValue(field.id, next)
+    }
+    const clamp = (next: number) => Math.min(field.max, Math.max(field.min, next))
+    const withBound = (index: number, next: number): readonly [number, number] => {
+      const base = pair ?? [field.min, field.max]
+      const bound = clamp(next)
+      return index === 0 ? [Math.min(bound, base[1]), base[1]] : [base[0], Math.max(bound, base[0])]
+    }
+    onValue<ReadonlyArray<number>>(slider, "valuechange", (next) => apply([Number(next[0]), Number(next[1])], "slider"))
+    fields.forEach((item, index) => {
+      onValue<number | null>(item, "valuecommit", (next) => {
+        if (next === null) {
+          pair = undefined
+          slider.classList.add("unset")
+          spoken()
+          this.unset(field.id)
+        } else {
+          apply(withBound(index, next), "input")
+        }
+      })
+    })
+    this.live.setters.set(field.id, (next) => {
+      if (Array.isArray(next)) {
+        apply([Number(next[0]), Number(next[1])], "input")
+      }
+    })
+    return h(
+      "div",
+      { class: "range" },
+      slider,
+      h(
+        "div",
+        { class: "row range-inputs" },
+        fields[0],
+        h("span", { class: "muted" }, this.m.rangeSeparator.trim()),
+        fields[1],
+        affix(field.suffix)
+      )
+    )
   }
 
   private setFolded(id: string, folded: boolean): void {
@@ -645,7 +762,7 @@ export class FormApp {
       "aria-label": [field.label, field.prefix, field.suffix].filter((part) => part !== undefined).join(" "),
       "aria-describedby": describedBy
     })
-    const exact = numberInput(field, input, unset ? undefined : value, this.m)
+    const exact = numberInput(field, field.label, input, unset ? undefined : value, this.m)
     const spoken = (next: number | null) => {
       slider.format = () => (next === null ? this.m.notAnswered : text(next))
       if (next === null) {

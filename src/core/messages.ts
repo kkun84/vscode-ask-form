@@ -16,6 +16,9 @@ const ja = {
   clear: "選択を解除",
   clearOf: (label: string) => `${label}の選択を解除`,
   clearTextOf: (label: string) => `${label}を空にする`,
+  lowerOf: (label: string) => `${label}の下限`,
+  upperOf: (label: string) => `${label}の上限`,
+  rangeSeparator: "〜",
   increase: (label: string) => `${label}を増やす`,
   decrease: (label: string) => `${label}を減らす`,
   scrub: "左右にドラッグして値を変える",
@@ -77,7 +80,10 @@ const en: typeof ja = {
   scrub: "Drag left or right to change the value",
   decrease: (label: string) => `Decrease ${label}`,
   increase: (label: string) => `Increase ${label}`,
-  clearTextOf: (label: string) => `Clear ${label}`
+  clearTextOf: (label: string) => `Clear ${label}`,
+  rangeSeparator: " – ",
+  upperOf: (label: string) => `Maximum ${label}`,
+  lowerOf: (label: string) => `Minimum ${label}`
 }
 
 export type Messages = typeof ja
