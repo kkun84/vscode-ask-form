@@ -22,7 +22,7 @@ import {
   type Values
 } from "../core/form.ts"
 import { languageOf, messages, type Messages } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, TextField, TreeField, TreeNode } from "../core/spec.ts"
+import type { ChoiceField, Field, FormSpec, NumberField, TextField, TreeChoiceField, TreeNode } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 import type { TreeItemData } from "@ui-sdk/core/tree"
@@ -610,12 +610,12 @@ export class FormApp {
         return this.numberView(field, labelId, describedBy)
       case "choice":
         return this.choiceView(field, labelId, describedBy)
-      case "tree":
+      case "treeChoice":
         return this.treeView(field, labelId, describedBy)
     }
   }
 
-  private treeView(field: TreeField, labelId: string, describedBy: string): HTMLElement {
+  private treeView(field: TreeChoiceField, labelId: string, describedBy: string): HTMLElement {
     const multiple = isMultiple(field)
     const current = this.values[field.id]
     const selected = Array.isArray(current) ? [...current] : typeof current === "string" ? [current] : []

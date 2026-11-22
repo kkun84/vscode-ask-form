@@ -646,7 +646,7 @@ const treeArgs = {
   title: "対象",
   fields: [
     {
-      type: "tree",
+      type: "treeChoice",
       id: "target",
       label: "直すファイル",
       default: "src/ui/app.ts",
@@ -672,7 +672,7 @@ const treeArgs = {
       ]
     },
     {
-      type: "tree",
+      type: "treeChoice",
       id: "scope",
       label: "検査する範囲",
       multiple: true,
@@ -689,7 +689,7 @@ const treeArgs = {
       ]
     },
     {
-      type: "tree",
+      type: "treeChoice",
       id: "place",
       label: "置き場所",
       nodes: [

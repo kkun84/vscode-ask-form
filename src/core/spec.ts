@@ -110,8 +110,8 @@ const TreeNode3 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeLeaf) }
 const TreeNode2 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode3) })
 const TreeNode = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode2) })
 
-const TreeField = Schema.Struct({
-  type: Schema.Literal("tree"),
+const TreeChoiceField = Schema.Struct({
+  type: Schema.Literal("treeChoice"),
   ...commonFields,
   ...selectionFields,
   nodes: Schema.Array(TreeNode).check(Schema.isMinLength(1)).annotate({
@@ -123,7 +123,7 @@ const TreeField = Schema.Struct({
     "The user picks from a hierarchy, such as a folder, a file or a module. With multiple, checking a branch checks everything in it, and the answer lists the outermost fully checked items."
 })
 
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, TreeField])
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, TreeChoiceField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -137,7 +137,7 @@ const BranchOption = Schema.Struct({
 
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField, TreeField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, TreeChoiceField])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -149,7 +149,7 @@ export const FormSpec = Schema.Struct({
 export type TextField = typeof TextField.Type
 export type NumberField = typeof NumberField.Type
 export type ChoiceField = typeof ChoiceField.Type
-export type TreeField = typeof TreeField.Type
+export type TreeChoiceField = typeof TreeChoiceField.Type
 export interface TreeNode {
   readonly value: string
   readonly label: string

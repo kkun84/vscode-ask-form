@@ -15,7 +15,7 @@ import {
   type CompiledForm,
   type Values
 } from "./form.ts"
-import { FormSpec, type ChoiceField, type Field, type NumberField, type TreeField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type NumberField, type TreeChoiceField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -75,7 +75,7 @@ const treeDepth = (nodes: unknown): number =>
 const deepTrees = (input: unknown): ReadonlyArray<string> =>
   [topFields(input), optionFields(topFields(input))]
     .flat()
-    .filter((field) => field["type"] === "tree" && treeDepth(field["nodes"]) > maxTreeDepth)
+    .filter((field) => field["type"] === "treeChoice" && treeDepth(field["nodes"]) > maxTreeDepth)
     .map((field) => `項目「${String(field["id"])}」の木が${maxTreeDepth}段より深くなっています`)
 
 const numberProblems = (field: NumberField): ReadonlyArray<string> => {
@@ -86,7 +86,7 @@ const numberProblems = (field: NumberField): ReadonlyArray<string> => {
   return outside ? [`項目「${field.id}」のdefaultが${field.min}〜${field.max}の範囲外です`] : []
 }
 
-const choiceDefaultProblems = (field: ChoiceField | TreeField, values: ReadonlySet<string>): ReadonlyArray<string> => {
+const choiceDefaultProblems = (field: ChoiceField | TreeChoiceField, values: ReadonlySet<string>): ReadonlyArray<string> => {
   if (field.default === undefined) {
     return []
   }
@@ -115,7 +115,7 @@ const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
 
 const maxTreeNodes = 100
 
-const treeProblems = (field: TreeField): ReadonlyArray<string> => {
+const treeProblems = (field: TreeChoiceField): ReadonlyArray<string> => {
   const nodes = treeNodes(field.nodes)
   const values = new Set(nodes.map((node) => node.value))
   const defaults = field.default === undefined ? [] : typeof field.default === "string" ? [field.default] : field.default
@@ -143,7 +143,7 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return numberProblems(field)
     case "choice":
       return choiceProblems(field)
-    case "tree":
+    case "treeChoice":
       return treeProblems(field)
     default:
       return []
@@ -172,7 +172,7 @@ const numberProblem = (field: NumberField, value: unknown): string | undefined =
   return value < field.min || value > field.max ? `項目「${field.id}」が範囲外です` : undefined
 }
 
-const choiceProblem = (field: ChoiceField | TreeField, value: unknown): string | undefined => {
+const choiceProblem = (field: ChoiceField | TreeChoiceField, value: unknown): string | undefined => {
   const allowed = new Set((field.type === "choice" ? field.options : treeNodes(field.nodes)).map((option) => option.value))
   if (isMultiple(field)) {
     return Array.isArray(value) &&
@@ -191,7 +191,7 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
     case "number":
       return numberProblem(field, value)
     case "choice":
-    case "tree":
+    case "treeChoice":
       return choiceProblem(field, value)
   }
 }

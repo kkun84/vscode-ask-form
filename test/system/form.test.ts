@@ -268,8 +268,8 @@ const treeNodes = [
 const treeSpec = {
   title: "対象",
   fields: [
-    { type: "tree", id: "target", label: "直すファイル", nodes: treeNodes, default: "src/ui/app.ts" },
-    { type: "tree", id: "scope", label: "範囲", multiple: true, nodes: treeNodes, default: ["src/core"] }
+    { type: "treeChoice", id: "target", label: "直すファイル", nodes: treeNodes, default: "src/ui/app.ts" },
+    { type: "treeChoice", id: "scope", label: "範囲", multiple: true, nodes: treeNodes, default: ["src/core"] }
   ],
   computed: [{ id: "count", label: "数", expression: "scope" }]
 }
@@ -292,7 +292,7 @@ describe("SPEC-FORM-001 木の項目", () => {
             }
           ]
         }
-        yield* rejected(h, { title: "t", fields: [{ type: "tree", id: "t", label: "T", nodes: [deep] }] })
+        yield* rejected(h, { title: "t", fields: [{ type: "treeChoice", id: "t", label: "T", nodes: [deep] }] })
       })
     ))
 
@@ -302,10 +302,10 @@ describe("SPEC-FORM-001 木の項目", () => {
         const message = yield* rejected(h, {
           title: "t",
           fields: [
-            { type: "tree", id: "dup", label: "D", nodes: [treeLeaf(1), treeLeaf(1)] },
-            { type: "tree", id: "many", label: "M", nodes: Array.from({ length: 101 }, (_, i) => treeLeaf(i)) },
-            { type: "tree", id: "missing", label: "X", nodes: treeNodes, default: "lib" },
-            { type: "tree", id: "nested", label: "N", multiple: true, nodes: treeNodes, default: ["src", "src/ui"] }
+            { type: "treeChoice", id: "dup", label: "D", nodes: [treeLeaf(1), treeLeaf(1)] },
+            { type: "treeChoice", id: "many", label: "M", nodes: Array.from({ length: 101 }, (_, i) => treeLeaf(i)) },
+            { type: "treeChoice", id: "missing", label: "X", nodes: treeNodes, default: "lib" },
+            { type: "treeChoice", id: "nested", label: "N", multiple: true, nodes: treeNodes, default: ["src", "src/ui"] }
           ]
         })
         assert.match(message, /dup.*重複/)

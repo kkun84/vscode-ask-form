@@ -1,7 +1,7 @@
 import { evaluate, parse, type Expr, type Scope, type Value } from "./expression.ts"
 import { stableHash } from "./hash.ts"
 import type { Messages } from "./messages.ts"
-import type { ChoiceField, Computed, Field, FormSpec, TreeField, TreeNode } from "./spec.ts"
+import type { ChoiceField, Computed, Field, FormSpec, TreeChoiceField, TreeNode } from "./spec.ts"
 
 export type FieldValue = string | number | ReadonlyArray<string>
 export type Values = Readonly<Record<string, FieldValue>>
@@ -14,7 +14,7 @@ export interface CompiledForm {
   readonly expressions: ReadonlyMap<string, Expr>
 }
 
-export const isMultiple = (field: ChoiceField | TreeField): boolean => field.multiple === true
+export const isMultiple = (field: ChoiceField | TreeChoiceField): boolean => field.multiple === true
 
 export const treeNodes = (nodes: ReadonlyArray<TreeNode>): ReadonlyArray<TreeNode> =>
   nodes.flatMap((node) => [node, ...treeNodes(node.children ?? [])])
@@ -84,7 +84,7 @@ const initialValue = (field: Field): FieldValue | undefined => {
     case "number":
       return field.default
     case "choice":
-    case "tree":
+    case "treeChoice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
   }
 }
@@ -104,7 +104,7 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
   if (value === undefined) {
     return undefined
   }
-  if ((field.type === "choice" || field.type === "tree") && isMultiple(field)) {
+  if ((field.type === "choice" || field.type === "treeChoice") && isMultiple(field)) {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -166,7 +166,7 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
     case "number":
       return typeof value === "number" ? affixed(formatNumber(value), field.prefix, field.suffix) : "—"
     case "choice":
-    case "tree": {
+    case "treeChoice": {
       const known = field.type === "choice" ? field.options : treeNodes(field.nodes)
       const labels = (Array.isArray(value) ? value : [value]).map(
         (item) => known.find((node) => node.value === item)?.label ?? String(item)
