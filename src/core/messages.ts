@@ -1,5 +1,12 @@
 export type Language = "ja" | "en"
 
+interface ReorderMessageLike {
+  readonly type: "grab" | "move" | "drop" | "cancel"
+  readonly label: string
+  readonly position: number
+  readonly total: number
+}
+
 export const languageOf = (locale: string | undefined): Language => (locale?.toLowerCase().startsWith("ja") === true ? "ja" : "en")
 
 const ja = {
@@ -16,6 +23,17 @@ const ja = {
   clear: "選択を解除",
   clearOf: (label: string) => `${label}の選択を解除`,
   clearTextOf: (label: string) => `${label}を空にする`,
+  moveOf: (label: string) => `${label}を移動`,
+  useOrder: "この順にする",
+  rankingHint: "行をドラッグするか、つまみでSpaceかEnterを押して持ち上げ、↑↓で動かし、もう一度押して置きます。Escで元に戻します。",
+  reorderMessage: (message: ReorderMessageLike): string =>
+    message.type === "grab"
+      ? `${message.label}を持ち上げました。${message.total}個中${message.position}番目です。`
+      : message.type === "move"
+        ? `${message.position}番目`
+        : message.type === "drop"
+          ? `${message.label}を${message.position}番目に置きました。`
+          : `${message.label}を元の位置に戻しました。`,
   increase: (label: string) => `${label}を増やす`,
   decrease: (label: string) => `${label}を減らす`,
   scrub: "左右にドラッグして値を変える",
@@ -77,7 +95,19 @@ const en: typeof ja = {
   scrub: "Drag left or right to change the value",
   decrease: (label: string) => `Decrease ${label}`,
   increase: (label: string) => `Increase ${label}`,
-  clearTextOf: (label: string) => `Clear ${label}`
+  clearTextOf: (label: string) => `Clear ${label}`,
+  rankingHint:
+    "Drag a row, or press Space or Enter on its handle to pick it up, move it with the arrow keys, and press again to drop it. Escape puts it back.",
+  useOrder: "Use this order",
+  moveOf: (label: string) => `Move ${label}`,
+  reorderMessage: (message: ReorderMessageLike): string =>
+    message.type === "grab"
+      ? `Picked up ${message.label}, position ${message.position} of ${message.total}.`
+      : message.type === "move"
+        ? `Position ${message.position} of ${message.total}.`
+        : message.type === "drop"
+          ? `Dropped ${message.label} at position ${message.position} of ${message.total}.`
+          : `Put ${message.label} back.`
 }
 
 export type Messages = typeof ja

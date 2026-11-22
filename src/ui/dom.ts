@@ -6,7 +6,11 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   attributes?: Attributes,
   ...children: ReadonlyArray<Child | ReadonlyArray<Child>>
 ): HTMLElementTagNameMap[K]
-export function h(tag: `ui-${string}`, attributes?: Attributes, ...children: ReadonlyArray<Child | ReadonlyArray<Child>>): HTMLElement
+export function h(
+  tag: `ui-${string}` | `af-${string}`,
+  attributes?: Attributes,
+  ...children: ReadonlyArray<Child | ReadonlyArray<Child>>
+): HTMLElement
 export function h(tag: string, attributes: Attributes = {}, ...children: ReadonlyArray<Child | ReadonlyArray<Child>>): HTMLElement {
   const element = document.createElement(tag)
   for (const [name, value] of Object.entries(attributes)) {

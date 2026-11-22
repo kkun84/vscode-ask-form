@@ -907,3 +907,73 @@ ui-number-input-scrub-area.scrub {
 ui-number-input-scrub-area.scrub:hover {
   color: var(--fg);
 }
+
+af-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+af-ranking-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  user-select: none;
+}
+
+af-ranking-item[data-grabbed] {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+af-ranking-item[data-dragging] {
+  position: relative;
+  z-index: 1;
+  transform: translate(var(--drag-x, 0), var(--drag-y, 0));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--fg) 25%, transparent);
+}
+
+button.grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  letter-spacing: -3px;
+  cursor: grab;
+  touch-action: none;
+}
+
+button.grip:hover {
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  color: var(--fg);
+}
+
+af-ranking-item .rank {
+  flex: none;
+  min-width: 1.2em;
+  padding-top: 2px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+af-ranking-item .option-text {
+  display: flex;
+  flex-direction: column;
+  padding-top: 2px;
+}
+
+.ranking-hint {
+  margin: 6px 0 0;
+}

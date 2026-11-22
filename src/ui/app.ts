@@ -20,11 +20,18 @@ import {
   type Values
 } from "../core/form.ts"
 import { languageOf, messages, type Messages } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, TextField } from "../core/spec.ts"
+import type { ChoiceField, Field, FormSpec, NumberField, RankingField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
+import type { ReorderMessage } from "@ui-sdk/core"
 
 type Action = "submit" | "chat"
+
+type RankingElement = HTMLElement & {
+  value: ReadonlyArray<string>
+  labels: Readonly<Record<string, string>>
+  announce: (message: ReorderMessage) => string
+}
 
 const onValue = <T>(element: HTMLElement, type: "valuechange" | "valuecommit", listener: (value: T, detail: ValueDetail) => void) =>
   element.addEventListener(type, (event) => {
@@ -59,6 +66,7 @@ const hasDetails = (field: Field): boolean =>
   (field.type === "choice" && field.options.some((option) => option.details !== undefined))
 
 const invalidTargets = [
+  ":scope > .q-group af-ranking",
   ":scope > .q-group input:not([type=range])",
   ":scope > .q-group textarea",
   ":scope > .q-group ui-radio-group",
@@ -66,7 +74,7 @@ const invalidTargets = [
 ].join(", ")
 
 const focusControl = (card: HTMLElement | undefined): void => {
-  const control = card?.querySelector<HTMLElement>(":scope > .q-group :is(input, textarea, ui-radio, ui-checkbox)")
+  const control = card?.querySelector<HTMLElement>(":scope > .q-group :is(input, textarea, ui-radio, ui-checkbox, button.grip)")
   control?.focus()
 }
 
@@ -205,7 +213,8 @@ export class FormApp {
     primary: undefined as HTMLButtonElement | undefined,
     form: undefined as HTMLElement | undefined,
     setters: new Map<string, (value: FieldValue) => void>(),
-    unselects: new Map<string, HTMLElement>()
+    unselects: new Map<string, HTMLElement>(),
+    useOrders: new Map<string, HTMLElement>()
   }
   private readonly folded = new Set<string>()
   private showMissing = false
@@ -415,6 +424,7 @@ export class FormApp {
     this.live.branches.length = 0
     this.live.setters.clear()
     this.live.unselects.clear()
+    this.live.useOrders.clear()
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
@@ -577,7 +587,81 @@ export class FormApp {
         return this.numberView(field, labelId, describedBy)
       case "choice":
         return this.choiceView(field, labelId, describedBy)
+      case "ranking":
+        return this.rankingView(field, labelId, describedBy)
     }
+  }
+
+  private rankingView(field: RankingField, labelId: string, describedBy: string): HTMLElement {
+    const hintId = uid("hint")
+    const labels = Object.fromEntries(field.options.map((option) => [option.value, option.label]))
+    const current = this.values[field.id]
+    let order = Array.isArray(current) ? [...current] : field.options.map((option) => option.value)
+    const items = new Map(
+      field.options.map((option) => {
+        const headId = uid("option")
+        const handle = h(
+          "button",
+          {
+            type: "button",
+            class: "grip",
+            "aria-label": this.m.moveOf(option.label),
+            "aria-describedby": [hintId, describedBy].join(" ").trim()
+          },
+          h("span", { "aria-hidden": "true" }, "⋮⋮")
+        )
+        const item = h(
+          "af-ranking-item",
+          { value: option.value, role: "listitem", "aria-labelledby": headId },
+          h("af-ranking-handle", {}, handle),
+          h("span", { class: "rank", "aria-hidden": "true" }),
+          h(
+            "span",
+            { class: "option-text" },
+            h("span", { class: "option-head", id: headId }, option.label),
+            option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
+            option.details === undefined ? null : h("span", { class: "option-details" }, option.details)
+          )
+        )
+        return [option.value, item] as const
+      })
+    )
+    const list = h("af-ranking", { class: "ranking", role: "list", "aria-labelledby": labelId }, [...items.values()]) as RankingElement
+    const arrange = (next: ReadonlyArray<string>) => {
+      const focused = list.contains(document.activeElement) ? document.activeElement : null
+      order = [...next]
+      for (const [index, value] of order.entries()) {
+        const item = items.get(value)
+        if (item !== undefined) {
+          list.append(item)
+          item.querySelector(".rank")!.textContent = String(index + 1)
+        }
+      }
+      if (focused instanceof HTMLElement) {
+        focused.focus()
+      }
+    }
+    list.labels = labels
+    list.announce = (message) => this.m.reorderMessage(message)
+    list.value = order
+    arrange(order)
+    list.addEventListener("valuechange", (event) => {
+      const next = [...(event as CustomEvent<{ readonly value: ReadonlyArray<string> }>).detail.value]
+      list.value = next
+      arrange(next)
+      this.setValue(field.id, next)
+    })
+    this.live.setters.set(field.id, (next) => {
+      const value = Array.isArray(next) ? [...next] : order
+      list.value = value
+      arrange(value)
+      this.setValue(field.id, value)
+    })
+    const use = on(h("button", { type: "button", class: "link use-order" }, this.m.useOrder), "click", () =>
+      this.setValue(field.id, [...order])
+    )
+    this.live.useOrders.set(field.id, use)
+    return h("div", { class: "ranking-box" }, list, h("p", { class: "q-desc ranking-hint", id: hintId }, this.m.rankingHint), use)
   }
 
   private setFolded(id: string, folded: boolean): void {
@@ -880,6 +964,9 @@ export class FormApp {
     }
     for (const [id, unselect] of this.live.unselects) {
       unselect.hidden = this.values[id] === undefined
+    }
+    for (const [id, use] of this.live.useOrders) {
+      use.hidden = this.values[id] !== undefined
     }
     for (const branch of this.live.branches) {
       branch.element.hidden = this.values[branch.id] !== branch.value

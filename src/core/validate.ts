@@ -13,7 +13,7 @@ import {
   type CompiledForm,
   type Values
 } from "./form.ts"
-import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type NumberField, type RankingField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -97,6 +97,22 @@ const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
   return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
 }
 
+const isPermutation = (value: unknown, allowed: ReadonlyArray<string>): boolean =>
+  Array.isArray(value) &&
+  value.length === allowed.length &&
+  new Set(value).size === value.length &&
+  value.every((item) => typeof item === "string" && allowed.includes(item))
+
+const rankingProblems = (field: RankingField): ReadonlyArray<string> => {
+  const values = field.options.map((option) => option.value)
+  const duplicated = new Set(values).size === values.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
+  const order =
+    field.default === undefined || isPermutation(field.default, values)
+      ? []
+      : [`項目「${field.id}」のdefaultは、選択肢のvalueを1つずつすべて並べた配列にしてください`]
+  return [...duplicated, ...order]
+}
+
 const reasonProblems = (field: Field): ReadonlyArray<string> =>
   field.default === undefined && (field.reason !== undefined || field.reasonDetails !== undefined)
     ? [`項目「${field.id}」はdefaultがないので、reasonとreasonDetailsを付けられません。質問の説明はdescriptionに書いてください`]
@@ -108,6 +124,8 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return numberProblems(field)
     case "choice":
       return choiceProblems(field)
+    case "ranking":
+      return rankingProblems(field)
     default:
       return []
   }
@@ -155,6 +173,13 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
       return numberProblem(field, value)
     case "choice":
       return choiceProblem(field, value)
+    case "ranking":
+      return isPermutation(
+        value,
+        field.options.map((option) => option.value)
+      )
+        ? undefined
+        : `項目「${field.id}」は、選択肢のvalueを1つずつすべて並べた配列が必要です`
   }
 }
 

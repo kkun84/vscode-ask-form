@@ -10,6 +10,7 @@
 | REQ-ASK-002 | 推奨と理由が見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.spec.ts`, MAT-ASK-001 |
 | REQ-ASK-003 | 結果がその場で変わる | - | SPEC-FORM-001, SPEC-EXPR-001, SPEC-UI-002 | MAT-ASK-001 |
 | REQ-ASK-004 | 選んだ選択肢に応じて続きを聞ける | - | SPEC-FORM-002, SPEC-TOOL-003, SPEC-UI-011 | MAT-ASK-002 |
+| REQ-ASK-005 | 順位を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-015 | MAT-ASK-003 |
 | REQ-ANS-001 | 1回の操作で回答が届く | - | SPEC-TOOL-001, SPEC-TOOL-003, SPEC-TOOL-005, SPEC-TOOL-006, SPEC-UI-003 | `test/acceptance/chat.spec.ts`, MAT-ANS-001 |
 | REQ-ANS-003 | キャンセルしてチャットで答えられる | - | SPEC-TOOL-003, SPEC-UI-003 | `test/acceptance/chat.spec.ts`, MAT-ANS-002, MAT-PANEL-001 |
 | REQ-ANS-005 | 質問ごとに、値を答えずにコメントだけで返せる | - | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-012 | `test/acceptance/chat.spec.ts`, MAT-ANS-002 |
@@ -33,13 +34,13 @@
 
 | ID | 名前 | 派生元 | 派生先 | 検証 |
 | --- | --- | --- | --- | --- |
-| SPEC-FORM-001 | 設計図の形 | REQ-ASK-001, REQ-ASK-002, REQ-ASK-003 | ARCH-LAYER-001, DES-SPEC-001, DES-FORM-002, DES-FORM-006 | `test/system/form.test.ts` |
-| SPEC-FORM-002 | 設計図の意味的な検査 | REQ-ASK-001, REQ-ASK-004 | ARCH-LAYER-001, DES-SPEC-001, DES-EXPR-001, DES-FORM-006 | `test/system/form.test.ts` |
+| SPEC-FORM-001 | 設計図の形 | REQ-ASK-001, REQ-ASK-002, REQ-ASK-003, REQ-ASK-005 | ARCH-LAYER-001, DES-SPEC-001, DES-FORM-002, DES-FORM-006 | `test/system/form.test.ts` |
+| SPEC-FORM-002 | 設計図の意味的な検査 | REQ-ASK-001, REQ-ASK-004, REQ-ASK-005 | ARCH-LAYER-001, DES-SPEC-001, DES-EXPR-001, DES-FORM-006 | `test/system/form.test.ts` |
 | SPEC-EXPR-001 | 計算式 | REQ-ASK-003 | ARCH-LAYER-001, ARCH-LAYER-006, DES-EXPR-001, DES-EXPR-002, DES-FORM-002 | `test/system/form.test.ts` |
 | SPEC-TOOL-001 | 質問のツール | REQ-ASK-001, REQ-ANS-001, REQ-ENV-002, REQ-ENV-003 | ARCH-CYCLE-001 | `test/system/extension.test.ts` |
 | SPEC-TOOL-003 | 回答を待つ | REQ-ANS-001, REQ-ANS-003, REQ-ANS-005, REQ-ANS-006, REQ-ASK-004, REQ-WAIT-002 | ARCH-LAYER-006, DES-FORM-003, DES-FORM-006, DES-FORM-007, DES-FORM-008, DES-FORM-009 | `test/system/form.test.ts`, `test/system/tool.test.ts` |
 | SPEC-TOOL-004 | 設計図の誤り | REQ-ASK-001 | DES-SPEC-001 | `test/system/tool.test.ts` |
-| SPEC-TOOL-005 | 画面からの回答 | REQ-ANS-001, REQ-ANS-005, REQ-ANS-006, REQ-ANS-007, REQ-CANCEL-001 | DES-FORM-004, DES-FORM-007, DES-FORM-008, DES-FORM-009, DES-HOST-001 | `test/system/tool.test.ts` |
+| SPEC-TOOL-005 | 画面からの回答 | REQ-ANS-001, REQ-ANS-005, REQ-ANS-006, REQ-ANS-007, REQ-CANCEL-001, REQ-ASK-005 | DES-FORM-004, DES-FORM-007, DES-FORM-008, DES-FORM-009, DES-HOST-001 | `test/system/tool.test.ts` |
 | SPEC-TOOL-006 | フォームの鍵 | REQ-ANS-001 | ARCH-LAYER-001, DES-SPEC-002 | `test/system/tool.test.ts` |
 | SPEC-TOOL-007 | 中断 | REQ-CANCEL-001 | DES-HOST-001 | `test/system/tool.test.ts` |
 | SPEC-TOOL-010 | 画面の設定 | REQ-ANS-007 | DES-FORM-009 | `test/system/extension.test.ts` |
@@ -54,6 +55,7 @@
 | SPEC-UI-012 | 値のない回答 | REQ-ANS-005 | DES-FORM-007 | `test/system/ui.spec.ts` |
 | SPEC-UI-013 | 補足 | REQ-ANS-006 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-014 | 項目ごとのコメント | REQ-ANS-007 | DES-FORM-009 | `test/system/ui.spec.ts` |
+| SPEC-UI-015 | 並べ替え | REQ-ASK-005 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-010 | 画面への通知の送り主 | REQ-SEC-001 | ARCH-UI-001, DES-UI-002 | `test/system/ui.spec.ts` |
 | SPEC-EXT-002 | 待機の表示 | REQ-WAIT-001 | - | `test/system/extension.test.ts` |
 | SPEC-EXT-004 | パネルのフォーム | REQ-ASK-001, REQ-WEB-001, REQ-CANCEL-001, REQ-RES-001 | ARCH-LAYER-002, ARCH-UI-001, DES-UI-002, DES-HOST-001 | `test/system/extension.test.ts` |

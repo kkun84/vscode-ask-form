@@ -641,3 +641,76 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
     await expect(none.getByRole("group", { name: "件数へのコメントの定型文" })).toHaveCount(0)
   })
 })
+
+const rankingArgs = {
+  title: "作業の順番",
+  fields: [
+    {
+      type: "ranking",
+      id: "order",
+      label: "優先順位",
+      default: ["auth", "api", "ui"],
+      reason: "依存の順",
+      options: [
+        { value: "ui", label: "画面" },
+        { value: "api", label: "API", description: "外部連携" },
+        { value: "auth", label: "ログイン" }
+      ]
+    },
+    {
+      type: "ranking",
+      id: "fruit",
+      label: "好きな順",
+      options: [
+        { value: "a", label: "りんご" },
+        { value: "b", label: "みかん" }
+      ]
+    }
+  ]
+}
+
+const rankedLabels = (frame: Frame, name: string) =>
+  frame.getByRole("list", { name }).getByRole("listitem").locator(".option-head").allTextContents()
+
+test.describe("SPEC-UI-015 並べ替え", () => {
+  test("SPEC-UI-015 推奨の順で始め、キーボードで持ち上げて動かし、推奨に戻せる", async ({ page }) => {
+    const frame = await open(page, { args: rankingArgs })
+    expect(await rankedLabels(frame, "優先順位")).toEqual(["ログイン", "API", "画面"])
+    await expect(frame.locator(".rec", { hasText: "依存の順" })).toContainText("ログイン → API → 画面")
+    const grip = frame.getByRole("button", { name: "ログインを移動" })
+    await grip.focus()
+    await grip.press("Space")
+    await grip.press("ArrowDown")
+    await grip.press("ArrowDown")
+    await grip.press("Space")
+    await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["API", "画面", "ログイン"])
+    await expect(grip).toBeFocused()
+    await frame.getByRole("button", { name: "推奨に戻す" }).click()
+    await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["ログイン", "API", "画面"])
+  })
+
+  test("SPEC-UI-015 Escで持ち上げた行を元に戻す", async ({ page }) => {
+    const frame = await open(page, { args: rankingArgs })
+    const grip = frame.getByRole("button", { name: "画面を移動" })
+    await grip.focus()
+    await grip.press("Enter")
+    await grip.press("ArrowUp")
+    await grip.press("Escape")
+    await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["ログイン", "API", "画面"])
+  })
+
+  test("SPEC-UI-015 推奨のない並べ替えは未回答で始め、「この順にする」で答えて回答に順番が入る", async ({ page }) => {
+    const frame = await open(page, { args: rankingArgs })
+    await frame.getByRole("button", { name: "画面を移動" }).dragTo(frame.getByRole("button", { name: "ログインを移動" }))
+    await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["画面", "ログイン", "API"])
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 好きな順")
+    await frame.getByRole("button", { name: "この順にする" }).click()
+    await expect(frame.getByRole("button", { name: "この順にする" })).toBeHidden()
+    expect(await axeViolations(frame)).toEqual([])
+    await send(frame)
+    const outcome = await singleOutcome(page)
+    expect(outcome?.values).toEqual({ order: ["ui", "auth", "api"], fruit: ["a", "b"] })
+    expect(outcome?.changedByUser).toEqual(["order", "fruit"])
+  })
+})

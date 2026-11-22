@@ -7,6 +7,9 @@ import "@ui-sdk/web/radio"
 import "@ui-sdk/web/slider"
 import { FormApp } from "./app.ts"
 import { connect } from "./bridge.ts"
+import { defineRankingElements } from "./ranking.ts"
+
+defineRankingElements()
 
 const root = document.querySelector<HTMLElement>("#app")
 

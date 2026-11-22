@@ -91,7 +91,20 @@ const choiceFields = {
 
 const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
 
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField])
+const RankingField = Schema.Struct({
+  type: Schema.Literal("ranking"),
+  ...commonFields,
+  default: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Every option value once, in the order you recommend, first to last."
+    })
+  ),
+  options: Schema.Array(ChoiceOption).check(Schema.isMinLength(2), Schema.isMaxLength(8))
+}).annotate({
+  description: "The user puts the options in order, such as priorities. The answer lists every option value from first to last."
+})
+
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, RankingField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -105,7 +118,7 @@ const BranchOption = Schema.Struct({
 
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, RankingField])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -117,6 +130,7 @@ export const FormSpec = Schema.Struct({
 export type TextField = typeof TextField.Type
 export type NumberField = typeof NumberField.Type
 export type ChoiceField = typeof ChoiceField.Type
+export type RankingField = typeof RankingField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

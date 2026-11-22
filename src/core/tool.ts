@@ -30,7 +30,7 @@ export const askFormDescription = [
   "Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose.",
   "Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description.",
   "Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious.",
-  "For a yes/no question, use a choice with two options.",
+  "For a yes/no question, use a choice with two options. To ask for an order, such as priorities, use a ranking field.",
   "When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields.",
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",
