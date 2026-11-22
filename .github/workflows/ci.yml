@@ -98,7 +98,7 @@ jobs:
         run: |
           pnpm check-env
           pnpm install --frozen-lockfile
-      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .mutator
           key: mutator-${{ github.sha }}
@@ -111,7 +111,7 @@ jobs:
       - name: Mutation testing of everything
         if: github.event_name == 'push'
         run: pnpm exec mutator --time-budget 1200 --reporter text --reporter json
-      - uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: github.event_name == 'push'
         with:
           path: .mutator
