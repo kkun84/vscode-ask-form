@@ -19,6 +19,12 @@
       }
     ],
     "require-unicode-regexp": "off",
+    "import/no-unassigned-import": [
+      "error",
+      {
+        "allow": ["@ui-sdk/web/*"]
+      }
+    ],
     "no-underscore-dangle": [
       "error",
       {

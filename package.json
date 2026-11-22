@@ -40,6 +40,8 @@
     "mutation:findings": "node scripts/mutation-findings.ts"
   },
   "dependencies": {
+    "@ui-sdk/core": "0.1.0-beta.10",
+    "@ui-sdk/web": "0.1.0-beta.10",
     "effect": "4.1.4"
   },
   "devDependencies": {

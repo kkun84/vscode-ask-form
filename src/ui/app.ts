@@ -26,6 +26,17 @@ import { h, on, uid } from "./dom.ts"
 
 type Action = "submit" | "chat"
 
+const onValue = <T>(element: HTMLElement, type: "valuechange" | "valuecommit", listener: (value: T, detail: ValueDetail) => void) =>
+  element.addEventListener(type, (event) => {
+    const detail = (event as CustomEvent<ValueDetail & { readonly value: T }>).detail
+    listener(detail.value, detail)
+  })
+
+interface ValueDetail {
+  readonly reason?: string
+  readonly event?: Event
+}
+
 const resultText = (result: ToolResult): string => (result.content ?? []).map((item) => item.text ?? "").join("\n")
 
 const recView = (field: Field, title: string, value: string | undefined, action: HTMLElement | null, id: string): HTMLElement =>
@@ -47,9 +58,40 @@ const hasDetails = (field: Field): boolean =>
   (field.default !== undefined && (field.reason !== undefined || field.reasonDetails !== undefined || field.type !== "choice")) ||
   (field.type === "choice" && field.options.some((option) => option.details !== undefined))
 
+const invalidTargets = [
+  ":scope > .q-group input:not([type=range])",
+  ":scope > .q-group textarea",
+  ":scope > .q-group ui-radio-group",
+  ":scope > .q-group ui-checkbox-group"
+].join(", ")
+
+const focusControl = (card: HTMLElement | undefined): void => {
+  const control = card?.querySelector<HTMLElement>(":scope > .q-group :is(input, textarea, ui-radio, ui-checkbox)")
+  control?.focus()
+}
+
+const choiceControl = (multiple: boolean, value: string, labelledBy: string, describedBy: ReadonlyArray<string | undefined>): HTMLElement =>
+  h(
+    multiple ? "ui-checkbox" : "ui-radio",
+    {
+      value,
+      "aria-labelledby": labelledBy,
+      "aria-describedby": describedBy.filter((id) => id !== undefined && id !== "").join(" ")
+    },
+    h(multiple ? "ui-checkbox-indicator" : "ui-radio-indicator", { "aria-hidden": "true" })
+  )
+
+const collapsible = (name: string, open: boolean, label: string, ...content: ReadonlyArray<HTMLElement>): HTMLElement =>
+  h(
+    "ui-collapsible",
+    { class: name, "default-open": open },
+    h("ui-collapsible-trigger", {}, h("button", { type: "button", class: "summary" }, label)),
+    h("ui-collapsible-panel", { "keep-mounted": true }, ...content)
+  )
+
 const markInvalid = (card: HTMLElement, invalid: boolean): void => {
   card.classList.toggle("missing", invalid)
-  for (const input of card.querySelectorAll(":scope > .q-group input, :scope > .q-group textarea")) {
+  for (const input of card.querySelectorAll(invalidTargets)) {
     if (input.closest(".q") === card) {
       if (invalid) {
         input.setAttribute("aria-invalid", "true")
@@ -226,11 +268,11 @@ export class FormApp {
     this.showMissing = true
     this.refresh()
     const first = this.live.cards.find((card) => card.field.id === unanswered[0]?.id)
-    const details = first?.element.closest("details")
+    const details = first?.element.closest<HTMLElement & { open: boolean }>("ui-collapsible")
     if (details !== null && details !== undefined) {
       details.open = true
     }
-    first?.element.querySelector<HTMLElement>(":scope > .q-group input, :scope > .q-group textarea")?.focus()
+    focusControl(first?.element)
     return true
   }
 
@@ -386,10 +428,10 @@ export class FormApp {
       ),
       advanced.length === 0
         ? null
-        : h(
-            "details",
-            { class: "advanced" },
-            h("summary", {}, this.m.details),
+        : collapsible(
+            "advanced",
+            false,
+            this.m.details,
             h(
               "div",
               { class: "fields" },
@@ -473,7 +515,7 @@ export class FormApp {
     if (back !== null) {
       on(back, "click", () => {
         this.live.setters.get(field.id)?.(this.initial[field.id] as FieldValue)
-        element.querySelector<HTMLElement>(":scope > .q-group input, :scope > .q-group textarea")?.focus()
+        focusControl(element)
       })
     }
     if (toggle !== null) {
@@ -506,7 +548,7 @@ export class FormApp {
       case "number":
         return this.numberView(field, labelId, describedBy)
       case "choice":
-        return this.choiceView(field, describedBy)
+        return this.choiceView(field, labelId, describedBy)
     }
   }
 
@@ -538,76 +580,74 @@ export class FormApp {
       input.value = String(next)
       typed()
     })
-    return input
+    return h(field.multiline === true ? "ui-textarea" : "ui-input", {}, input)
   }
 
   private numberView(field: NumberField, labelId: string, describedBy: string): HTMLElement {
     const unset = this.values[field.id] === undefined
     const value = Number(this.values[field.id] ?? field.min)
-    const step = field.step ?? "any"
     const text = (next: number) => `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`
-    const slider = h("input", {
-      type: "range",
-      min: field.min,
-      max: field.max,
-      step,
-      value,
-      class: unset ? "unset" : undefined,
-      "aria-labelledby": labelId,
-      "aria-describedby": describedBy,
-      "aria-valuetext": unset ? this.m.notAnswered : text(value)
-    })
-    const exact = h("input", {
-      type: "number",
-      min: field.min,
-      max: field.max,
-      step,
-      value: unset ? "" : value,
+    const thumb = h("ui-slider-thumb", { "aria-labelledby": labelId, "aria-describedby": describedBy })
+    const slider = h(
+      "ui-slider",
+      { min: field.min, max: field.max, step: field.step, "default-value": value, class: unset ? "unset" : undefined },
+      h("ui-slider-control", {}, h("ui-slider-track", {}, h("ui-slider-indicator"), thumb))
+    )
+    const input = h("input", {
       class: "exact",
+      inputmode: "decimal",
       "aria-label": [field.label, field.prefix, field.suffix].filter((part) => part !== undefined).join(" "),
       "aria-describedby": describedBy
     })
+    const exact = h(
+      "ui-number-input",
+      { min: field.min, max: field.max, step: field.step, "default-value": unset ? undefined : value },
+      h("ui-number-input-control", {}, input)
+    )
+    const spoken = (next: number | null) => {
+      slider.format = () => (next === null ? this.m.notAnswered : text(next))
+    }
+    spoken(unset ? null : value)
     const show = (next: number) => {
       slider.classList.remove("unset")
-      slider.value = String(next)
-      slider.setAttribute("aria-valuetext", text(next))
+      spoken(next)
       this.setValue(field.id, next)
     }
     const update = (next: number) => {
       const clamped = Math.min(field.max, Math.max(field.min, next))
-      exact.value = String(clamped)
+      slider.value = clamped
+      exact.value = clamped
       show(clamped)
     }
-    on(slider, "input", () => update(Number(slider.value)))
+    onValue<number>(slider, "valuechange", (next) => {
+      exact.value = next
+      show(next)
+    })
     this.live.setters.set(field.id, (next) => update(Number(next)))
-    on(exact, "input", () => {
-      const next = Number(exact.value)
-      if (exact.value !== "" && Number.isFinite(next) && next >= field.min && next <= field.max) {
+    onValue<number | null>(exact, "valuechange", (next) => {
+      if (next !== null && Number.isFinite(next) && next >= field.min && next <= field.max) {
+        slider.value = next
         show(next)
       }
     })
-    on(exact, "change", () => {
-      if (exact.value === "") {
+    onValue<number | null>(exact, "valuecommit", (next) => {
+      if (next === null) {
         slider.classList.add("unset")
-        slider.setAttribute("aria-valuetext", this.m.notAnswered)
+        spoken(null)
         this.unset(field.id)
-      } else if (Number.isFinite(Number(exact.value))) {
-        update(Number(exact.value))
       } else {
-        exact.value = typeof this.values[field.id] === "number" ? slider.value : ""
+        update(next)
       }
     })
     return h("div", { class: "row" }, slider, affix(field.prefix), exact, affix(field.suffix))
   }
 
-  private choiceView(field: ChoiceField, describedBy: string): HTMLElement {
+  private choiceView(field: ChoiceField, labelId: string, describedBy: string): HTMLElement {
     const multiple = field.multiple === true
     const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
-    const name = uid(field.id)
     const current = this.values[field.id]
     let pointing = false
     const options = field.options.flatMap((option) => {
-      const checked = multiple ? Array.isArray(current) && current.includes(option.value) : current === option.value
       const headId = uid("option")
       const textIds = [uid("summary"), uid("details"), uid("why")] as const
       const isRecommended = recommended.includes(option.value)
@@ -615,33 +655,12 @@ export class FormApp {
         isRecommended && (field.reason !== undefined || field.reasonDetails !== undefined)
           ? recView(field, this.m.whyRecommended, undefined, null, textIds[2])
           : null
-      const input = h("input", {
-        type: multiple ? "checkbox" : "radio",
-        name,
-        value: option.value,
-        checked,
-        "aria-labelledby": headId,
-        "aria-describedby": [
-          option.description === undefined ? undefined : textIds[0],
-          option.details === undefined ? undefined : textIds[1],
-          why === null ? undefined : textIds[2],
-          describedBy
-        ]
-          .filter((id) => id !== undefined && id !== "")
-          .join(" ")
-      })
-      on(input, "change", () => {
-        if (multiple) {
-          const selected = Array.isArray(this.values[field.id]) ? [...(this.values[field.id] as ReadonlyArray<string>)] : []
-          this.setValue(field.id, input.checked ? [...selected, option.value] : selected.filter((item) => item !== option.value))
-        } else if (input.checked) {
-          this.setValue(field.id, option.value)
-          if (pointing) {
-            this.setFolded(field.id, true)
-          }
-        }
-        pointing = false
-      })
+      const input = choiceControl(multiple, option.value, headId, [
+        option.description === undefined ? undefined : textIds[0],
+        option.details === undefined ? undefined : textIds[1],
+        why === null ? undefined : textIds[2],
+        describedBy
+      ])
       const row = optionRow(input, option, [headId, ...textIds], isRecommended ? this.m.recommended : undefined, why)
       const revealed = this.reveal(field, option)
       return revealed === null ? [row] : [row, revealed]
@@ -652,9 +671,7 @@ export class FormApp {
           h("button", { type: "button", class: "link unselect", "aria-label": this.m.clearOf(field.label) }, this.m.clear),
           "click",
           () => {
-            for (const input of group.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)) {
-              input.checked = false
-            }
+            group.value = null
             this.unset(field.id)
             this.commenting.add(field.id)
             this.refresh()
@@ -664,7 +681,30 @@ export class FormApp {
     if (unselect !== null) {
       this.live.unselects.set(field.id, unselect)
     }
-    const group = h("div", { class: "options" }, options, unselect)
+    const group = h(
+      multiple ? "ui-checkbox-group" : "ui-radio-group",
+      {
+        class: "options",
+        "aria-labelledby": labelId
+      },
+      options,
+      unselect
+    )
+    group.defaultValue = multiple ? (Array.isArray(current) ? [...current] : []) : typeof current === "string" ? current : null
+    onValue<string | ReadonlyArray<string> | null>(group, "valuechange", (next) => {
+      if (multiple) {
+        this.setValue(field.id, Array.isArray(next) ? [...next] : [])
+      } else if (typeof next === "string") {
+        this.setValue(field.id, next)
+        if (pointing) {
+          this.setFolded(field.id, true)
+        }
+      }
+      pointing = false
+    })
+    this.live.setters.set(field.id, (next) => {
+      group.value = Array.isArray(next) ? [...next] : (next as string)
+    })
     on(group, "pointerdown", (event) => {
       pointing = (event.target as HTMLElement).closest(".reveal") === null
     })
@@ -683,15 +723,9 @@ export class FormApp {
       }
       this.note = input.value
     })
-    const element = h(
-      "details",
-      { class: "note", open: this.noteOpen },
-      h("summary", {}, this.m.note),
-      h("p", { class: "q-desc", id: hintId }, this.m.noteHint),
-      input
-    )
-    on(element, "toggle", () => {
-      this.noteOpen = element.open
+    const element = collapsible("note", this.noteOpen, this.m.note, h("p", { class: "q-desc", id: hintId }, this.m.noteHint), input)
+    element.addEventListener("openchange", (event) => {
+      this.noteOpen = (event as CustomEvent<{ readonly open: boolean }>).detail.open
     })
     return element
   }
@@ -707,11 +741,11 @@ export class FormApp {
     this.live.primary = primary
     const status = h("span", { class: "status", role: "status" })
     this.live.status = status
-    return h("footer", { class: "actions" }, ...before, status, ...after, on(primary, "click", onPrimary))
+    return h("footer", { class: "actions" }, ...before, status, ...after, h("ui-button", {}, on(primary, "click", onPrimary)))
   }
 
   private ghost(label: string, onClick: () => void): HTMLElement {
-    return on(h("button", { type: "button", class: "ghost" }, label), "click", onClick)
+    return h("ui-button", {}, on(h("button", { type: "button", class: "ghost" }, label), "click", onClick))
   }
 
   private answerFooter(): HTMLElement {

@@ -109,10 +109,13 @@ describe("ARCH-DEPS-001 配布物の依存は限られる", () => {
     assert.deepEqual(boundaries(report), ["src/core/form.ts core-pure->tests"])
   })
 
-  it("ARCH-DEPS-001 バンドルには自分のコードとeffectだけが入る", () => {
+  it("ARCH-DEPS-001 バンドルには自分のコードとeffectとUI SDKだけが入る", () => {
     const meta = JSON.parse(readFileSync(join(root, "dist/meta.json"), "utf8")) as { readonly inputs: Readonly<Record<string, unknown>> }
     const outside = Object.keys(meta.inputs).filter(
-      (input) => !input.startsWith("src/") && !/node_modules\/(?:\.pnpm\/effect@[^/]+\/node_modules\/)?effect\//.test(input)
+      (input) =>
+        !input.startsWith("src/") &&
+        !/node_modules\/(?:\.pnpm\/effect@[^/]+\/node_modules\/)?effect\//.test(input) &&
+        !/node_modules\/(?:\.pnpm\/@ui-sdk\+(?:core|web)@[^/]+\/node_modules\/)?@ui-sdk\/(?:core|web)\//.test(input)
     )
     assert.deepEqual(outside, [])
   })

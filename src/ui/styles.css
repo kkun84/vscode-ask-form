@@ -418,42 +418,6 @@ input[type="radio"] {
   white-space: nowrap;
 }
 
-:is(.advanced, .note) {
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-}
-
-:is(.advanced, .note) summary {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  list-style: none;
-  cursor: pointer;
-  color: var(--fg);
-}
-
-:is(.advanced, .note) summary::-webkit-details-marker {
-  display: none;
-}
-
-:is(.advanced, .note) summary::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  margin: 0 6px 0 3px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: translateX(-1px) rotate(-45deg);
-}
-
-:is(.advanced, .note)[open] summary::before {
-  transform: translateY(-2px) rotate(45deg);
-}
-
-.advanced .fields {
-  margin-top: 12px;
-}
-
 .computed {
   display: flex;
   flex-wrap: wrap;
@@ -684,4 +648,165 @@ summary:focus-visible {
 
 .note .q-desc {
   margin: 8px 0 6px;
+}
+
+ui-input,
+ui-textarea,
+ui-number-input {
+  display: block;
+}
+
+ui-number-input {
+  flex: none;
+}
+
+ui-slider {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+ui-slider-control {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+ui-slider-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--input-border);
+}
+
+ui-slider-indicator {
+  position: absolute;
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+ui-slider-thumb {
+  position: absolute;
+  top: 50%;
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent);
+  translate: -50% -50%;
+}
+
+ui-slider-thumb:has(:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+ui-slider.unset :is(ui-slider-thumb, ui-slider-indicator) {
+  visibility: hidden;
+}
+
+ui-radio,
+ui-checkbox {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+}
+
+ui-radio {
+  border-radius: 50%;
+}
+
+ui-checkbox {
+  border-radius: 3px;
+}
+
+:is(ui-radio, ui-checkbox)[data-checked] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+ui-radio-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-fg);
+}
+
+ui-checkbox-indicator {
+  width: 9px;
+  height: 5px;
+  border-bottom: 2px solid var(--accent-fg);
+  border-left: 2px solid var(--accent-fg);
+  translate: 0 -1px;
+  rotate: -45deg;
+}
+
+:is(ui-radio, ui-checkbox):focus-visible {
+  outline: none;
+}
+
+.option:has(:is(ui-radio, ui-checkbox)[data-checked]) {
+  background: color-mix(in srgb, var(--fg) 9%, transparent);
+}
+
+.option:has(:is(ui-radio, ui-checkbox):focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+ui-radio-group,
+ui-checkbox-group {
+  display: block;
+}
+
+ui-collapsible {
+  display: block;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+button.summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+button.summary::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin: 0 6px 0 3px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateX(-1px) rotate(-45deg);
+}
+
+ui-collapsible[data-open] button.summary::before {
+  transform: translateY(-2px) rotate(45deg);
+}
+
+ui-collapsible.advanced .fields {
+  margin-top: 12px;
+}
+
+ui-collapsible-panel:not([hidden]) {
+  display: block;
 }
