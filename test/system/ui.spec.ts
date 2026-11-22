@@ -649,67 +649,79 @@ const rankingArgs = {
       type: "ranking",
       id: "order",
       label: "優先順位",
-      default: ["auth", "api", "ui"],
+      default: ["auth", "api"],
       reason: "依存の順",
       options: [
         { value: "ui", label: "画面" },
         { value: "api", label: "API", description: "外部連携" },
-        { value: "auth", label: "ログイン" }
+        { value: "auth", label: "ログイン" },
+        { value: "docs", label: "文書" }
       ]
     },
     {
       type: "ranking",
       id: "fruit",
-      label: "好きな順",
+      label: "上位2つ",
+      max: 2,
       options: [
         { value: "a", label: "りんご" },
-        { value: "b", label: "みかん" }
+        { value: "b", label: "みかん" },
+        { value: "c", label: "ぶどう" }
       ]
     }
   ]
 }
 
-const rankedLabels = (frame: Frame, name: string) =>
-  frame.getByRole("list", { name }).getByRole("listitem").locator(".option-head").allTextContents()
+const placed = (frame: Frame, list: string) =>
+  frame.getByRole("list", { name: list }).getByRole("listitem").locator(".option-head").allTextContents()
 
 test.describe("SPEC-UI-015 並べ替え", () => {
-  test("SPEC-UI-015 推奨の順で始め、キーボードで持ち上げて動かし、推奨に戻せる", async ({ page }) => {
+  test("SPEC-UI-015 推奨を順位に入れて始め、候補を押すと末尾に入り、×で元の位置に戻り、推奨に戻せる", async ({ page }) => {
     const frame = await open(page, { args: rankingArgs })
-    expect(await rankedLabels(frame, "優先順位")).toEqual(["ログイン", "API", "画面"])
-    await expect(frame.locator(".rec", { hasText: "依存の順" })).toContainText("ログイン → API → 画面")
-    const grip = frame.getByRole("button", { name: "ログインを移動" })
-    await expect(grip).toHaveAccessibleDescription(/SpaceかEnterで持ち上げ/)
-    await expect(frame.getByText(/SpaceかEnterで持ち上げ/).first()).toBeHidden()
-    await grip.focus()
-    await grip.press("Space")
-    await grip.press("ArrowDown")
-    await grip.press("ArrowDown")
-    await grip.press("Space")
-    await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["API", "画面", "ログイン"])
-    await expect(grip).toBeFocused()
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["ログイン", "API"])
+    expect(await placed(frame, "優先順位の候補")).toEqual(["画面", "文書"])
+    await expect(frame.locator(".rec", { hasText: "依存の順" })).toContainText("ログイン → API")
+    await frame.getByRole("listitem", { name: "文書" }).click()
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["ログイン", "API", "文書"])
+    await frame.getByRole("button", { name: "APIを候補に戻す" }).click()
+    await expect.poll(() => placed(frame, "優先順位の候補")).toEqual(["画面", "API"])
     await frame.getByRole("button", { name: "推奨に戻す" }).click()
-    await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["ログイン", "API", "画面"])
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["ログイン", "API"])
   })
 
-  test("SPEC-UI-015 Escで持ち上げた行を元に戻す", async ({ page }) => {
+  test("SPEC-UI-015 キーボードで持ち上げて動かし、Escで戻し、Deleteで候補に戻す。操作方法は読み上げにだけ渡す", async ({ page }) => {
     const frame = await open(page, { args: rankingArgs })
-    const grip = frame.getByRole("button", { name: "画面を移動" })
-    await grip.focus()
-    await grip.press("Enter")
-    await grip.press("ArrowUp")
-    await grip.press("Escape")
-    await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["ログイン", "API", "画面"])
+    const api = frame.getByRole("listitem", { name: "API" })
+    await expect(api).toHaveAccessibleDescription(/SpaceかEnterで持ち上げ/)
+    await expect(frame.getByText(/SpaceかEnterで持ち上げ/).first()).toBeHidden()
+    await api.focus()
+    await api.press("Space")
+    await api.press("ArrowUp")
+    await api.press("Space")
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["API", "ログイン"])
+    await api.press("Enter")
+    await api.press("ArrowDown")
+    await api.press("Escape")
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["API", "ログイン"])
+    await frame.getByRole("listitem", { name: "ログイン" }).press("Delete")
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["API"])
   })
 
-  test("SPEC-UI-015 推奨のない並べ替えは書かれた順で始め、並べ替えずにそのまま送信できる", async ({ page }) => {
+  test("SPEC-UI-015 推奨のない並べ替えは空で始めて未回答になり、上限まで入れて送ると順位だけが届く", async ({ page }) => {
     const frame = await open(page, { args: rankingArgs })
-    await expect(frame.getByRole("group", { name: "好きな順" })).not.toContainText("未回答")
-    await frame.getByRole("button", { name: "画面を移動" }).dragTo(frame.getByRole("button", { name: "ログインを移動" }))
-    await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["画面", "ログイン", "API"])
+    await expect(frame.getByText("候補を押すと、ここに順に入ります").last()).toBeVisible()
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 上位2つ")
+    for (const name of ["みかん", "りんご", "ぶどう"]) {
+      await frame.getByRole("listitem", { name }).click()
+    }
+    await expect.poll(() => placed(frame, "上位2つの順位")).toEqual(["みかん", "りんご"])
+    await frame.getByRole("listitem", { name: "文書" }).dragTo(frame.getByRole("listitem", { name: "ログイン" }))
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["文書", "ログイン", "API"])
     expect(await axeViolations(frame)).toEqual([])
     await send(frame)
     const outcome = await singleOutcome(page)
-    expect(outcome?.values).toEqual({ order: ["ui", "auth", "api"], fruit: ["a", "b"] })
-    expect(outcome?.changedByUser).toEqual(["order"])
+    expect(outcome?.values).toEqual({ order: ["docs", "auth", "api"], fruit: ["b", "a"] })
+    expect(outcome?.changedByUser).toEqual(["order", "fruit"])
   })
 })

@@ -1,8 +1,9 @@
 export type Language = "ja" | "en"
 
-interface ReorderMessageLike {
+interface TransferMessageLike {
   readonly type: "grab" | "move" | "drop" | "cancel"
   readonly label: string
+  readonly list: string
   readonly position: number
   readonly total: number
 }
@@ -23,15 +24,21 @@ const ja = {
   clear: "選択を解除",
   clearOf: (label: string) => `${label}の選択を解除`,
   clearTextOf: (label: string) => `${label}を空にする`,
-  moveOf: (label: string) => `${label}を移動`,
-  rankingHint: "SpaceかEnterで持ち上げ、上下の矢印キーで動かし、もう一度押して置きます。Escで元に戻します。",
-  reorderMessage: (message: ReorderMessageLike): string =>
+  rankOf: (label: string) => `${label}を順位に入れる`,
+  unrankOf: (label: string) => `${label}を候補に戻す`,
+  rankedOf: (label: string) => `${label}の順位`,
+  poolOf: (label: string) => `${label}の候補`,
+  rankEmpty: "候補を押すと、ここに順に入ります",
+  reset: "リセット",
+  rankingHint:
+    "Enterで順位に入れます。SpaceかEnterで持ち上げ、上下の矢印キーで動かし、左右の矢印キーで順位と候補を移り、もう一度押して置きます。Escで元に戻し、Deleteで候補に戻します。",
+  transferMessage: (message: TransferMessageLike): string =>
     message.type === "grab"
-      ? `${message.label}を持ち上げました。${message.total}個中${message.position}番目です。`
+      ? `${message.label}を持ち上げました。${message.list}の${message.total}個中${message.position}番目です。`
       : message.type === "move"
-        ? `${message.position}番目`
+        ? `${message.list}の${message.position}番目`
         : message.type === "drop"
-          ? `${message.label}を${message.position}番目に置きました。`
+          ? `${message.label}を${message.list}の${message.position}番目に置きました。`
           : `${message.label}を元の位置に戻しました。`,
   increase: (label: string) => `${label}を増やす`,
   decrease: (label: string) => `${label}を減らす`,
@@ -95,15 +102,21 @@ const en: typeof ja = {
   decrease: (label: string) => `Decrease ${label}`,
   increase: (label: string) => `Increase ${label}`,
   clearTextOf: (label: string) => `Clear ${label}`,
-  rankingHint: "Press Space or Enter to pick it up, move it with the arrow keys, and press again to drop it. Escape puts it back.",
-  moveOf: (label: string) => `Move ${label}`,
-  reorderMessage: (message: ReorderMessageLike): string =>
+  reset: "Reset",
+  rankEmpty: "Choose a candidate to rank it here",
+  poolOf: (label: string) => `Candidates for ${label}`,
+  rankedOf: (label: string) => `Ranking for ${label}`,
+  unrankOf: (label: string) => `Move ${label} back to the candidates`,
+  rankOf: (label: string) => `Rank ${label}`,
+  rankingHint:
+    "Press Enter to rank it. Press Space or Enter to pick it up, move it with the up and down arrows, switch between the ranking and the candidates with the left and right arrows, and press again to drop it. Escape puts it back, and Delete returns it to the candidates.",
+  transferMessage: (message: TransferMessageLike): string =>
     message.type === "grab"
-      ? `Picked up ${message.label}, position ${message.position} of ${message.total}.`
+      ? `Picked up ${message.label}, position ${message.position} of ${message.total} in ${message.list}.`
       : message.type === "move"
-        ? `Position ${message.position} of ${message.total}.`
+        ? `Position ${message.position} of ${message.total} in ${message.list}.`
         : message.type === "drop"
-          ? `Dropped ${message.label} at position ${message.position} of ${message.total}.`
+          ? `Dropped ${message.label} at position ${message.position} of ${message.total} in ${message.list}.`
           : `Put ${message.label} back.`
 }
 

@@ -23,14 +23,21 @@ import { languageOf, messages, type Messages } from "../core/messages.ts"
 import type { ChoiceField, Field, FormSpec, NumberField, RankingField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
-import type { ReorderMessage } from "@ui-sdk/core"
+import type { TransferMessage } from "@ui-sdk/core"
 
 type Action = "submit" | "chat"
 
+type RankingLists = Record<"ranked" | "pool", string[]>
+
 type RankingElement = HTMLElement & {
-  value: ReadonlyArray<string>
+  lists: RankingLists
+  max: number
+  all: ReadonlyArray<string>
   labels: Readonly<Record<string, string>>
-  announce: (message: ReorderMessage) => string
+  listLabels: Readonly<Record<string, string>>
+  announce: (message: TransferMessage) => string
+  render: (lists: RankingLists) => void
+  api?: { readonly append: (key: string) => boolean; readonly remove: (key: string) => boolean }
 }
 
 const onValue = <T>(element: HTMLElement, type: "valuechange" | "valuecommit", listener: (value: T, detail: ValueDetail) => void) =>
@@ -81,6 +88,64 @@ const focusControl = (card: HTMLElement | undefined): void => {
 const largeStep = (field: NumberField): number | undefined => {
   const step = field.step ?? (field.max - field.min) / 100
   return Math.max(step, Math.round((field.max - field.min) / 10 / step) * step)
+}
+
+const placeRankingItem = (item: HTMLElement, element: HTMLElement, index: number, list: string, action: string): void => {
+  if (item.parentElement !== element || element.children[index] !== item) {
+    element.insertBefore(item, element.children[index] ?? null)
+  }
+  item.dataset["list"] = list
+  item.querySelector(".rank")!.textContent = list === "ranked" ? String(index + 1) : ""
+  item.querySelector<HTMLElement>("button.rank-action")!.setAttribute("aria-label", action)
+}
+
+const rankingDrawer =
+  (
+    items: ReadonlyMap<string, HTMLElement>,
+    parts: { readonly ranked: HTMLElement; readonly pool: HTMLElement; readonly empty: HTMLElement; readonly root: HTMLElement },
+    labels: Readonly<Record<string, string>>,
+    m: Messages
+  ) =>
+  (lists: RankingLists): void => {
+    const { ranked, pool, empty, root } = parts
+    const focused = root.contains(document.activeElement) ? (document.activeElement as HTMLElement) : null
+    for (const [name, element] of [
+      ["ranked", ranked],
+      ["pool", pool]
+    ] as const) {
+      for (const [index, value] of lists[name].entries()) {
+        const item = items.get(value)
+        if (item !== undefined) {
+          placeRankingItem(
+            item,
+            element,
+            index,
+            name,
+            name === "ranked" ? m.unrankOf(labels[value] ?? value) : m.rankOf(labels[value] ?? value)
+          )
+        }
+      }
+    }
+    empty.hidden = lists.ranked.length > 0
+    pool.hidden = lists.pool.length === 0
+    focused?.focus()
+  }
+
+const wireRanking = (items: ReadonlyMap<string, HTMLElement>, root: RankingElement): void => {
+  for (const [value, item] of items) {
+    on(item.querySelector<HTMLElement>("button.rank-action")!, "click", () => {
+      if (item.dataset["list"] === "ranked") {
+        root.api?.remove(value)
+      } else {
+        root.api?.append(value)
+      }
+    })
+    on(item, "click", (event) => {
+      if (item.dataset["list"] === "pool" && (event.target as HTMLElement).closest("button") === null) {
+        root.api?.append(value)
+      }
+    })
+  }
 }
 
 const numberInput = (
@@ -213,7 +278,8 @@ export class FormApp {
     primary: undefined as HTMLButtonElement | undefined,
     form: undefined as HTMLElement | undefined,
     setters: new Map<string, (value: FieldValue) => void>(),
-    unselects: new Map<string, HTMLElement>()
+    unselects: new Map<string, HTMLElement>(),
+    resets: new Map<string, { readonly element: HTMLElement; readonly changed: () => boolean }>()
   }
   private readonly folded = new Set<string>()
   private showMissing = false
@@ -423,6 +489,7 @@ export class FormApp {
     this.live.branches.length = 0
     this.live.setters.clear()
     this.live.unselects.clear()
+    this.live.resets.clear()
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
@@ -593,69 +660,84 @@ export class FormApp {
   private rankingView(field: RankingField, labelId: string, describedBy: string): HTMLElement {
     const hintId = uid("hint")
     const labels = Object.fromEntries(field.options.map((option) => [option.value, option.label]))
+    const all = field.options.map((option) => option.value)
+    const split = (ranked: ReadonlyArray<string>) => ({ ranked: [...ranked], pool: all.filter((value) => !ranked.includes(value)) })
     const current = this.values[field.id]
-    let order = Array.isArray(current) ? [...current] : field.options.map((option) => option.value)
-    const items = new Map(
-      field.options.map((option) => {
-        const headId = uid("option")
-        const handle = h(
-          "button",
-          {
-            type: "button",
-            class: "grip",
-            "aria-label": this.m.moveOf(option.label),
-            "aria-describedby": [hintId, describedBy].join(" ").trim()
-          },
-          h("span", { "aria-hidden": "true" }, "⋮⋮")
-        )
-        const item = h(
-          "af-ranking-item",
-          { value: option.value, role: "listitem", "aria-labelledby": headId },
-          h("af-ranking-handle", {}, handle),
-          h("span", { class: "rank", "aria-hidden": "true" }),
-          h(
-            "span",
-            { class: "option-text" },
-            h("span", { class: "option-head", id: headId }, option.label),
-            option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
-            option.details === undefined ? null : h("span", { class: "option-details" }, option.details)
-          )
-        )
-        return [option.value, item] as const
-      })
-    )
-    const list = h("af-ranking", { class: "ranking", role: "list", "aria-labelledby": labelId }, [...items.values()]) as RankingElement
-    const arrange = (next: ReadonlyArray<string>) => {
-      const focused = list.contains(document.activeElement) ? document.activeElement : null
-      order = [...next]
-      for (const [index, value] of order.entries()) {
-        const item = items.get(value)
-        if (item !== undefined) {
-          list.append(item)
-          item.querySelector(".rank")!.textContent = String(index + 1)
-        }
-      }
-      if (focused instanceof HTMLElement) {
-        focused.focus()
+    const min = field.min ?? 1
+    const items = new Map(field.options.map((option) => [option.value, this.rankingItem(option, hintId, describedBy)] as const))
+    const ranked = h("af-ranking-list", { list: "ranked", class: "ranked", role: "list", "aria-label": this.m.rankedOf(field.label) })
+    const pool = h("af-ranking-list", { list: "pool", class: "pool", role: "list", "aria-label": this.m.poolOf(field.label) })
+    const empty = h("p", { class: "ranking-empty", "aria-hidden": "true" }, this.m.rankEmpty)
+    const root = h("af-ranking", { class: "ranking", "aria-labelledby": labelId }, ranked, empty, pool) as RankingElement
+    const draw = rankingDrawer(items, { ranked, pool, empty, root }, labels, this.m)
+    Object.assign(root, {
+      labels,
+      listLabels: { ranked: this.m.rankedOf(field.label), pool: this.m.poolOf(field.label) },
+      max: field.max ?? all.length,
+      all,
+      announce: (message: TransferMessage) => this.m.transferMessage(message),
+      render: draw
+    })
+    let rankedNow: ReadonlyArray<string> = Array.isArray(current) ? current : []
+    const apply = (next: ReadonlyArray<string>) => {
+      rankedNow = next
+      if (next.length >= min) {
+        this.setValue(field.id, [...next])
+      } else {
+        this.unset(field.id)
       }
     }
-    list.labels = labels
-    list.announce = (message) => this.m.reorderMessage(message)
-    list.value = order
-    arrange(order)
-    list.addEventListener("valuechange", (event) => {
-      const next = [...(event as CustomEvent<{ readonly value: ReadonlyArray<string> }>).detail.value]
-      list.value = next
-      arrange(next)
-      this.setValue(field.id, next)
+    root.lists = split(Array.isArray(current) ? current : [])
+    root.addEventListener("listschange", (event) => {
+      const lists = (event as CustomEvent<{ readonly value: RankingLists }>).detail.value
+      root.lists = lists
+      apply(lists.ranked)
     })
+    wireRanking(items, root)
     this.live.setters.set(field.id, (next) => {
-      const value = Array.isArray(next) ? [...next] : order
-      list.value = value
-      arrange(value)
-      this.setValue(field.id, value)
+      const lists = split(Array.isArray(next) ? next : [])
+      root.lists = lists
+      draw(lists)
+      apply(lists.ranked)
     })
-    return h("div", { class: "ranking-box" }, list, h("p", { id: hintId, hidden: true }, this.m.rankingHint))
+    const reset = on(h("button", { type: "button", class: "link reset" }, this.m.reset), "click", () => {
+      this.live.setters.get(field.id)?.(field.default ?? [])
+    })
+    const initial = field.default ?? []
+    this.live.resets.set(field.id, {
+      element: reset,
+      changed: () => rankedNow.length !== initial.length || rankedNow.some((value, index) => value !== initial[index])
+    })
+    return h(
+      "div",
+      { class: "ranking-box" },
+      root,
+      h("p", { id: hintId, hidden: true }, this.m.rankingHint),
+      field.default === undefined ? reset : null
+    )
+  }
+
+  private rankingItem(option: RankingField["options"][number], hintId: string, describedBy: string): HTMLElement {
+    const headId = uid("option")
+    return h(
+      "af-ranking-item",
+      {
+        value: option.value,
+        role: "listitem",
+        tabindex: 0,
+        "aria-labelledby": headId,
+        "aria-describedby": [hintId, describedBy].join(" ").trim()
+      },
+      h("span", { class: "rank", "aria-hidden": "true" }),
+      h(
+        "span",
+        { class: "option-text" },
+        h("span", { class: "option-head", id: headId }, option.label),
+        option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
+        option.details === undefined ? null : h("span", { class: "option-details" }, option.details)
+      ),
+      h("button", { type: "button", class: "rank-action", tabindex: -1 })
+    )
   }
 
   private setFolded(id: string, folded: boolean): void {
@@ -958,6 +1040,9 @@ export class FormApp {
     }
     for (const [id, unselect] of this.live.unselects) {
       unselect.hidden = this.values[id] === undefined
+    }
+    for (const reset of this.live.resets.values()) {
+      reset.element.hidden = !reset.changed()
     }
     for (const branch of this.live.branches) {
       branch.element.hidden = this.values[branch.id] !== branch.value

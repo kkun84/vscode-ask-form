@@ -96,12 +96,23 @@ const RankingField = Schema.Struct({
   ...commonFields,
   default: Schema.optionalKey(
     Schema.Array(Schema.String).annotate({
-      description: "Every option value once, in the order you recommend, first to last."
+      description: "The option values you recommend ranking, in your recommended order, first to last. Within min and max items."
+    })
+  ),
+  min: Schema.optionalKey(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 8 })).annotate({
+      description: "The fewest options the user must rank. Defaults to 1."
+    })
+  ),
+  max: Schema.optionalKey(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 8 })).annotate({
+      description: "The most options the user can rank, such as 3 for a top three. Defaults to every option."
     })
   ),
   options: Schema.Array(ChoiceOption).check(Schema.isMinLength(2), Schema.isMaxLength(8))
 }).annotate({
-  description: "The user puts the options in order, such as priorities. The answer lists every option value from first to last."
+  description:
+    "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
 })
 
 const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, RankingField])

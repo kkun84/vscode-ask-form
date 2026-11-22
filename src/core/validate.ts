@@ -97,20 +97,30 @@ const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
   return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
 }
 
-const isPermutation = (value: unknown, allowed: ReadonlyArray<string>): boolean =>
-  Array.isArray(value) &&
-  value.length === allowed.length &&
-  new Set(value).size === value.length &&
-  value.every((item) => typeof item === "string" && allowed.includes(item))
+const rankBounds = (field: RankingField): readonly [number, number] => [field.min ?? 1, field.max ?? field.options.length]
+
+const isRanking = (value: unknown, field: RankingField): boolean => {
+  const allowed = new Set(field.options.map((option) => option.value))
+  const [min, max] = rankBounds(field)
+  return (
+    Array.isArray(value) &&
+    value.length >= min &&
+    value.length <= max &&
+    new Set(value).size === value.length &&
+    value.every((item) => typeof item === "string" && allowed.has(item))
+  )
+}
 
 const rankingProblems = (field: RankingField): ReadonlyArray<string> => {
   const values = field.options.map((option) => option.value)
+  const [min, max] = rankBounds(field)
   const duplicated = new Set(values).size === values.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
+  const bounds = min <= max && max <= values.length ? [] : [`項目「${field.id}」のminとmaxは、1≦min≦max≦選択肢の数にしてください`]
   const order =
-    field.default === undefined || isPermutation(field.default, values)
+    field.default === undefined || isRanking(field.default, field)
       ? []
-      : [`項目「${field.id}」のdefaultは、選択肢のvalueを1つずつすべて並べた配列にしてください`]
-  return [...duplicated, ...order]
+      : [`項目「${field.id}」のdefaultは、選択肢のvalueを重複なく${min}〜${max}個並べた配列にしてください`]
+  return [...duplicated, ...bounds, ...order]
 }
 
 const reasonProblems = (field: Field): ReadonlyArray<string> =>
@@ -174,12 +184,9 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
     case "choice":
       return choiceProblem(field, value)
     case "ranking":
-      return isPermutation(
-        value,
-        field.options.map((option) => option.value)
-      )
+      return isRanking(value, field)
         ? undefined
-        : `項目「${field.id}」は、選択肢のvalueを1つずつすべて並べた配列が必要です`
+        : `項目「${field.id}」は、選択肢のvalueを重複なく${rankBounds(field).join("〜")}個並べた配列が必要です`
   }
 }
 

@@ -282,14 +282,27 @@ describe("SPEC-FORM-001 並べ替えの項目", () => {
       })
     ))
 
-  it("SPEC-FORM-002 並べ替えの選択肢の重複と、すべての選択肢を1つずつ並べていない推奨を拒否する", () =>
+  it("SPEC-FORM-002 並べ替えの選択肢の重複、範囲の誤ったminとmax、範囲を外れた推奨を拒否する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
+        assert.equal(Result.isSuccess(compile({ ...rankingSpec, fields: [{ ...rankingSpec.fields[0], default: ["auth"] }] })), true)
         const message = yield* rejected(h, {
           title: "t",
           fields: [
-            { ...rankingSpec.fields[0], id: "short", default: ["auth", "api"] },
-            { ...rankingSpec.fields[0], id: "twice", default: ["auth", "auth", "ui"] },
+            { ...rankingSpec.fields[0], id: "few", min: 2, default: ["auth"] },
+            { ...rankingSpec.fields[0], id: "twice", default: ["auth", "auth"] },
+            {
+              type: "ranking",
+              id: "bounds",
+              label: "B",
+              min: 3,
+              max: 2,
+              options: [
+                { value: "a", label: "A" },
+                { value: "b", label: "B" },
+                { value: "c", label: "C" }
+              ]
+            },
             {
               type: "ranking",
               id: "dup",
@@ -301,26 +314,30 @@ describe("SPEC-FORM-001 並べ替えの項目", () => {
             }
           ]
         })
-        assert.match(message, /short.*すべて並べた/)
-        assert.match(message, /twice.*すべて並べた/)
+        assert.match(message, /few.*重複なく2〜3個/)
+        assert.match(message, /twice.*重複なく1〜3個/)
+        assert.match(message, /bounds.*min≦max/)
         assert.match(message, /dup.*重複/)
       })
     ))
 })
 
 describe("SPEC-TOOL-003 並べ替えの回答", () => {
-  it("SPEC-TOOL-003 並べ替えは順番の違いを変更として扱い、すべての選択肢を並べていない回答を拒否する", () =>
+  it("SPEC-TOOL-003 並べ替えは一部だけの順位も受け付け、順番の違いを変更として扱い、上限を超えるか重複した回答を拒否する", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const form = compile(rankingSpec).pipe(Result.getOrThrow)
-        const fiber = yield* Effect.forkChild(h.call("ask_form", rankingSpec))
+        const spec = { ...rankingSpec, fields: [{ ...rankingSpec.fields[0], max: 2, default: ["auth", "api"] }] }
+        const form = compile(spec).pipe(Result.getOrThrow)
+        const fiber = yield* Effect.forkChild(h.call("ask_form", spec))
         yield* h.waitUntil(1)
-        const partial = yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { order: ["ui", "api"] } })
-        assert.equal(partial.isError, true)
-        assert.match(text(partial), /order.*すべて並べた/)
-        yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { order: ["ui", "auth", "api"] } })
+        const over = yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { order: ["ui", "api", "auth"] } })
+        assert.equal(over.isError, true)
+        assert.match(text(over), /order.*重複なく1〜2個/)
+        const twice = yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { order: ["ui", "ui"] } })
+        assert.equal(twice.isError, true)
+        yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { order: ["ui", "auth"] } })
         const outcome = structured(yield* Fiber.join(fiber))
-        assert.deepEqual(outcome["values"], { order: ["ui", "auth", "api"] })
+        assert.deepEqual(outcome["values"], { order: ["ui", "auth"] })
         assert.deepEqual(outcome["changedByUser"], ["order"])
       })
     ))

@@ -1,76 +1,106 @@
-import {
-  createChange,
-  createReorder,
-  createRovingFocus,
-  definePrimitive,
-  reorderMessage,
-  type ReorderDraft,
-  type ReorderMessage
-} from "@ui-sdk/core"
-import { createParts, wrappedButton } from "@ui-sdk/web"
+import { createChange, createTransfer, definePrimitive, transferMessage, type TransferDraft, type TransferMessage } from "@ui-sdk/core"
+import { createParts } from "@ui-sdk/web"
+
+type Lists = Record<"ranked" | "pool", string[]>
 
 interface RankingOptions {
-  readonly value?: ReadonlyArray<string>
-  readonly defaultValue?: ReadonlyArray<string>
-  readonly onValueChange?: (value: ReadonlyArray<string>) => void
+  readonly lists?: Lists
+  readonly max?: number
+  readonly all?: ReadonlyArray<string>
   readonly labels?: Readonly<Record<string, string>>
-  readonly announce?: (message: ReorderMessage) => string
+  readonly listLabels?: Readonly<Record<string, string>>
+  readonly announce?: (message: TransferMessage) => string
+  readonly onListsChange?: (lists: Lists) => void
+  readonly render?: (lists: Lists, moving: string | undefined) => void
 }
 
 interface RankingState {
-  value: string[]
-  moving: ReorderDraft | null
-  focused: string | null
+  lists: Lists
+  moving: TransferDraft | null
 }
 
 const ranking = definePrimitive({
   name: "ranking",
-  options: { value: "value", defaultValue: "value", onValueChange: "callback", labels: "value", announce: "value" },
+  options: {
+    lists: "value",
+    max: "number",
+    all: "value",
+    labels: "value",
+    listLabels: "value",
+    announce: "value",
+    onListsChange: "callback",
+    render: "value"
+  },
   state: (options: RankingOptions): RankingState => ({
-    value: [...(options.value ?? options.defaultValue ?? [])],
-    moving: null,
-    focused: null
+    lists: { ranked: [...(options.lists?.ranked ?? [])], pool: [...(options.lists?.pool ?? [])] },
+    moving: null
   }),
-  sync: (options: RankingOptions) => (options.value === undefined ? {} : { value: [...options.value] }),
+  sync: (options: RankingOptions) =>
+    options.lists === undefined ? {} : { lists: { ranked: [...options.lists.ranked], pool: [...options.lists.pool] } },
   api: (context) => {
     const change = createChange(context)
-    const roving = createRovingFocus(context, { slot: "handle", key: "focused" })
-    const reorder = createReorder(context, {
-      slot: "item",
-      key: "value",
+    const transfer = createTransfer(context, {
+      key: "lists",
       draft: "moving",
-      set: (value, details) => change("value", value, details),
+      set: (value, details) => change("lists", value as Lists, details),
+      order: () => ["ranked", "pool"],
+      accepts: (key, list) => {
+        const max = context.options().max
+        const ranked = context.store.get().lists.ranked.filter((item) => item !== key)
+        return list !== "ranked" || max === undefined || ranked.length < max
+      },
       label: (key) => context.options().labels?.[key],
-      message: (message) => context.options().announce?.(message) ?? reorderMessage(message)
+      listLabel: (list) => context.options().listLabels?.[list],
+      message: (message) => context.options().announce?.(message) ?? transferMessage(message)
     })
-    return { roving, reorder }
+    const draw = () => {
+      const state = context.store.get()
+      context.options().render?.(transfer.lists(state) as Lists, state.moving?.key)
+    }
+    context.onDestroy(context.store.subscribe(draw))
+    queueMicrotask(draw)
+    const listOf = (key: string): keyof Lists => (context.store.get().lists.ranked.includes(key) ? "ranked" : "pool")
+    return {
+      transfer,
+      listOf,
+      append: (key: string) => transfer.move(key, "ranked", context.store.get().lists.ranked.length),
+      remove: (key: string) => {
+        const all = context.options().all ?? []
+        const rank = (value: string) => all.indexOf(value)
+        const index = context.store.get().lists.pool.filter((value) => rank(value) < rank(key)).length
+        return transfer.move(key, "pool", index)
+      }
+    }
   },
   slots: (slot) => ({
     root: slot({}),
+    list: slot<{ list: string }>({
+      props: { list: "string" },
+      bind: (el, part) => part.api.transfer.bindList(el, part.props.list)
+    }),
     item: slot<{ value: string }>({
       props: { value: "key" },
       attrs: (state, part) => ({
-        style: `order: ${part.api.reorder.order(state).indexOf(part.key)}`,
-        "data-grabbed": part.api.reorder.moving(state, part.key) ? "" : undefined,
-        "data-dragging": part.api.reorder.dragging(state, part.key) ? "" : undefined
-      }),
-      bind: (el, part) => part.api.reorder.bind(el, part)
-    }),
-    handle: slot<{ value: string }>({
-      props: { value: { kind: "key", from: "item" } },
-      attrs: (state, part) => ({
-        tabindex: part.api.roving.tabIndex(state, part),
-        "aria-pressed": String(part.api.reorder.moving(state, part.key))
+        "data-grabbed": part.api.transfer.moving(state, part.key) ? "" : undefined,
+        "data-dragging": part.api.transfer.dragging(state, part.key) ? "" : undefined
       }),
       on: {
-        keydown: (event, { el, api, key }) => {
-          if (!api.reorder.keydown(event as KeyboardEvent, key)) {
-            api.roving.keydown(event as KeyboardEvent, el!)
+        keydown: (event, { api, key }) => {
+          const keyboard = event as KeyboardEvent
+          if (api.listOf(key) === "ranked" && (keyboard.key === "Delete" || keyboard.key === "Backspace")) {
+            keyboard.preventDefault()
+            api.remove(key)
+            return
           }
+          api.transfer.keydown(keyboard, key)
         },
-        pointerdown: (event, { api, key }) => api.reorder.pointerdown(event as PointerEvent, key)
+        pointerdown: (event, { api, key }) => {
+          if ((event.target as HTMLElement).closest("button") === null) {
+            api.transfer.pointerdown(event as PointerEvent, key)
+          }
+        }
       },
-      bind: (el, part) => part.api.roving.bind(el, part)
+      bind: (el, part) => part.api.transfer.bindItem(el, part.key)
     })
   })
 })
@@ -80,8 +110,8 @@ export const defineRankingElements = (): void => {
     return
   }
   createParts(ranking, {
-    root: { tag: "af-ranking" },
-    item: { tag: "af-ranking-item" },
-    handle: { tag: "af-ranking-handle", target: wrappedButton, display: "contents" }
+    root: { tag: "af-ranking", api: ["append", "remove"] },
+    list: { tag: "af-ranking-list" },
+    item: { tag: "af-ranking-item" }
   })
 }

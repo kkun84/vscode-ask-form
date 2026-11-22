@@ -594,7 +594,19 @@
                                         "items": {
                                           "type": "string"
                                         },
-                                        "description": "Every option value once, in the order you recommend, first to last."
+                                        "description": "The option values you recommend ranking, in your recommended order, first to last. Within min and max items."
+                                      },
+                                      "min": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 8,
+                                        "description": "The fewest options the user must rank. Defaults to 1."
+                                      },
+                                      "max": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 8,
+                                        "description": "The most options the user can rank, such as 3 for a top three. Defaults to every option."
                                       },
                                       "options": {
                                         "type": "array",
@@ -640,7 +652,7 @@
                                       "options"
                                     ],
                                     "additionalProperties": true,
-                                    "description": "The user puts the options in order, such as priorities. The answer lists every option value from first to last."
+                                    "description": "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
                                   }
                                 ]
                               },
@@ -711,7 +723,19 @@
                         "items": {
                           "type": "string"
                         },
-                        "description": "Every option value once, in the order you recommend, first to last."
+                        "description": "The option values you recommend ranking, in your recommended order, first to last. Within min and max items."
+                      },
+                      "min": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 8,
+                        "description": "The fewest options the user must rank. Defaults to 1."
+                      },
+                      "max": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 8,
+                        "description": "The most options the user can rank, such as 3 for a top three. Defaults to every option."
                       },
                       "options": {
                         "type": "array",
@@ -757,7 +781,7 @@
                       "options"
                     ],
                     "additionalProperties": true,
-                    "description": "The user puts the options in order, such as priorities. The answer lists every option value from first to last."
+                    "description": "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
                   }
                 ]
               },
