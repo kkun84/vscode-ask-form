@@ -117,17 +117,44 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await frame.getByRole("button", { name: "送信", exact: true }).click()
     await expect(frame.getByText("答えるか、コメントを書いてください: 色")).toBeVisible()
     await expect(frame.getByRole("radio", { name: "赤" })).toBeFocused()
-    await expect(frame.getByRole("radio", { name: "赤" })).toHaveAttribute("aria-invalid", "true")
+    await expect(frame.getByRole("radiogroup", { name: "色" })).toHaveAttribute("aria-invalid", "true")
     expect(await recorded(page, "outcomes")).toHaveLength(0)
   })
 
   test("SPEC-UI-001 advancedの項目は閉じた「詳細」の中にある", async ({ page }) => {
     const frame = await open(page)
-    const details = frame.locator("details.advanced")
-    await expect(details).not.toHaveAttribute("open", "")
+    const details = frame.locator("ui-collapsible.advanced")
+    const trigger = details.getByRole("button", { name: "詳細" })
+    await expect(trigger).toHaveAttribute("aria-expanded", "false")
     await expect(details.getByRole("group", { name: "配布物" })).toBeHidden()
-    await details.locator("summary").click()
+    await trigger.click()
     await expect(details.getByRole("group", { name: "配布物" })).toBeVisible()
+  })
+})
+
+test.describe("SPEC-UI-001 数値と文字列の入力", () => {
+  test("SPEC-UI-001 数値は増減ボタンとShift付きの矢印キーで変えられ、スピンボタンとして読める", async ({ page }) => {
+    const frame = await open(page)
+    const price = frame.getByRole("spinbutton", { name: "参加費" })
+    await frame.getByRole("button", { name: "参加費を増やす" }).click()
+    await expect(price).toHaveValue("2,500")
+    await expect(price).toHaveAttribute("aria-valuenow", "2500")
+    await frame.getByRole("button", { name: "参加費を減らす" }).click()
+    await frame.getByRole("button", { name: "参加費を減らす" }).click()
+    await expect(price).toHaveValue("1,500")
+    const attendees = frame.getByRole("spinbutton", { name: "参加者数" })
+    await attendees.press("Shift+ArrowUp")
+    await expect(attendees).toHaveValue("150")
+    await send(frame)
+    expect((await singleOutcome(page))?.values).toMatchObject({ price: 1500, attendees: 150 })
+  })
+
+  test("SPEC-UI-001 1行の文字列はボタンで空にでき、空欄という答えになる", async ({ page }) => {
+    const frame = await open(page)
+    await frame.getByRole("button", { name: "イベント名を空にする" }).click()
+    await expect(frame.getByRole("textbox", { name: "イベント名" })).toHaveValue("")
+    await send(frame)
+    expect((await singleOutcome(page))?.values).toMatchObject({ name: "" })
   })
 })
 
@@ -274,7 +301,7 @@ for (const name of themes) {
     })
     test(`SPEC-UI-008 ${name}テーマでaxeの違反がない`, async ({ page }) => {
       const frame = await open(page, { context: themeContext(name) })
-      await frame.locator("details.advanced summary").click()
+      await frame.getByRole("button", { name: "詳細", exact: true }).click()
       expect(await axeViolations(frame)).toEqual([])
     })
   })
@@ -293,7 +320,7 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     await selectStorage(frame, "保存しない")
     await expect(port).toBeHidden()
     await selectStorage(frame, "サーバー")
-    await expect(port).toHaveValue("3000")
+    await expect(port).toHaveValue("3,000")
     expect(await axeViolations(frame)).toEqual([])
   })
 
@@ -407,7 +434,7 @@ const note = (frame: Frame) => frame.getByRole("textbox", { name: "補足を書�
 
 const openWithNote = async (page: Page): Promise<Frame> => {
   const frame = await open(page)
-  await frame.locator("details.note summary").click()
+  await frame.getByRole("button", { name: "補足を書く" }).click()
   await note(frame).fill("会場は未定です")
   return frame
 }
@@ -421,13 +448,13 @@ test.describe("SPEC-UI-013 補足の入力", () => {
         ?.contentWindow?.postMessage({ jsonrpc: "2.0", method: "ui/notifications/host-context-changed", params: { theme: "light" } }, "*")
     })
     await expect(frame.locator("html")).toHaveAttribute("data-theme", "light")
-    await expect(frame.locator("details.note")).toHaveAttribute("open", "")
+    await expect(frame.getByRole("button", { name: "補足を書く" })).toHaveAttribute("aria-expanded", "true")
     await expect(note(frame)).toHaveValue("会場は未定です")
   })
 
   test("SPEC-UI-013 2000文字を超える入力は、貼り付けても画面で切り詰める", async ({ page }) => {
     const frame = await open(page)
-    await frame.locator("details.note summary").click()
+    await frame.getByRole("button", { name: "補足を書く" }).click()
     await note(frame).evaluate((element: HTMLTextAreaElement) => {
       element.value = `${"x".repeat(1999)}😀y`
       element.dispatchEvent(new Event("input", { bubbles: true }))
@@ -443,8 +470,8 @@ test.describe("SPEC-UI-013 補足", () => {
   test("SPEC-UI-013 閉じた補足を開いて書くと、前後の空白を除いて回答と一緒に届く", async ({ page }) => {
     const frame = await open(page)
     await expect(note(frame)).toBeHidden()
-    await frame.locator("details.note summary").click()
-    await expect(frame.locator("details.note")).toContainText("選択肢にない答えや、Copilotに伝えたいことを書けます")
+    await frame.getByRole("button", { name: "補足を書く" }).click()
+    await expect(frame.locator("ui-collapsible.note")).toContainText("選択肢にない答えや、Copilotに伝えたいことを書けます")
     await expect(note(frame)).toHaveAttribute("maxlength", "2000")
     await note(frame).fill(" 会場は未定です\n参加費は任せます ")
     expect(await axeViolations(frame)).toEqual([])
@@ -460,7 +487,7 @@ test.describe("SPEC-UI-013 補足", () => {
         fields: [{ type: "choice", id: "c", label: "方式", options: ["a", "b"].map((value) => ({ value, label: value })) }]
       }
     })
-    await frame.locator("details.note summary").click()
+    await frame.getByRole("button", { name: "補足を書く" }).click()
     await note(frame).fill("どちらでもない方式にしたい")
     await send(frame)
     await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 方式")

@@ -75,6 +75,29 @@ const largeStep = (field: NumberField): number | undefined => {
   return Math.max(step, Math.round((field.max - field.min) / 10 / step) * step)
 }
 
+const numberInput = (
+  field: NumberField,
+  input: HTMLInputElement,
+  value: number | undefined,
+  m: Messages
+): HTMLElementTagNameMap["ui-number-input"] =>
+  h(
+    "ui-number-input",
+    { min: field.min, max: field.max, step: field.step, "large-step": largeStep(field), wheel: true, "default-value": value },
+    h(
+      "ui-number-input-group",
+      { class: "stepper" },
+      h(
+        "ui-number-input-scrub-area",
+        { class: "scrub", title: m.scrub, "pixels-per-step": 4 },
+        h("span", { "aria-hidden": "true" }, field.prefix ?? "⇔")
+      ),
+      h("ui-number-input-decrement", {}, h("button", { type: "button", class: "step", "aria-label": m.decrease(field.label) }, "−")),
+      h("ui-number-input-control", {}, input),
+      h("ui-number-input-increment", {}, h("button", { type: "button", class: "step", "aria-label": m.increase(field.label) }, "+"))
+    )
+  )
+
 const choiceControl = (multiple: boolean, value: string, labelledBy: string, describedBy: ReadonlyArray<string | undefined>): HTMLElement =>
   h(
     multiple ? "ui-checkbox" : "ui-radio",
@@ -616,28 +639,22 @@ export class FormApp {
     const input = h("input", {
       class: "exact",
       inputmode: "decimal",
+      role: "spinbutton",
+      "aria-valuemin": field.min,
+      "aria-valuemax": field.max,
       "aria-label": [field.label, field.prefix, field.suffix].filter((part) => part !== undefined).join(" "),
       "aria-describedby": describedBy
     })
-    const large = largeStep(field)
-    const exact = h(
-      "ui-number-input",
-      { min: field.min, max: field.max, step: field.step, "large-step": large, wheel: true, "default-value": unset ? undefined : value },
-      h(
-        "ui-number-input-group",
-        { class: "stepper" },
-        h(
-          "ui-number-input-scrub-area",
-          { class: "scrub", title: this.m.scrub, "pixels-per-step": 4 },
-          h("span", { "aria-hidden": "true" }, field.prefix ?? "⇔")
-        ),
-        h("ui-number-input-decrement", {}, h("button", { type: "button", class: "step", "aria-label": this.m.decrease(field.label) }, "−")),
-        h("ui-number-input-control", {}, input),
-        h("ui-number-input-increment", {}, h("button", { type: "button", class: "step", "aria-label": this.m.increase(field.label) }, "+"))
-      )
-    )
+    const exact = numberInput(field, input, unset ? undefined : value, this.m)
     const spoken = (next: number | null) => {
       slider.format = () => (next === null ? this.m.notAnswered : text(next))
+      if (next === null) {
+        input.removeAttribute("aria-valuenow")
+        input.setAttribute("aria-valuetext", this.m.notAnswered)
+      } else {
+        input.setAttribute("aria-valuenow", String(next))
+        input.setAttribute("aria-valuetext", text(next))
+      }
     }
     spoken(unset ? null : value)
     const show = (next: number) => {
@@ -717,7 +734,7 @@ export class FormApp {
       multiple ? "ui-checkbox-group" : "ui-radio-group",
       {
         class: "options",
-        "aria-labelledby": labelId
+        "aria-labelledby": multiple ? undefined : labelId
       },
       options,
       unselect
@@ -757,7 +774,7 @@ export class FormApp {
     })
     const element = collapsible("note", this.noteOpen, this.m.note, h("p", { class: "q-desc", id: hintId }, this.m.noteHint), input)
     element.addEventListener("openchange", (event) => {
-      this.noteOpen = (event as CustomEvent<{ readonly open: boolean }>).detail.open
+      this.noteOpen = (event as CustomEvent<{ readonly value: boolean }>).detail.value
     })
     return element
   }
