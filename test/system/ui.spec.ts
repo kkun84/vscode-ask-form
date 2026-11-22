@@ -678,6 +678,8 @@ test.describe("SPEC-UI-015 並べ替え", () => {
     expect(await rankedLabels(frame, "優先順位")).toEqual(["ログイン", "API", "画面"])
     await expect(frame.locator(".rec", { hasText: "依存の順" })).toContainText("ログイン → API → 画面")
     const grip = frame.getByRole("button", { name: "ログインを移動" })
+    await expect(grip).toHaveAccessibleDescription(/SpaceかEnterで持ち上げ/)
+    await expect(frame.getByText(/SpaceかEnterで持ち上げ/).first()).toBeHidden()
     await grip.focus()
     await grip.press("Space")
     await grip.press("ArrowDown")

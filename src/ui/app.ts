@@ -655,7 +655,7 @@ export class FormApp {
       arrange(value)
       this.setValue(field.id, value)
     })
-    return h("div", { class: "ranking-box" }, list, h("p", { class: "q-desc ranking-hint", id: hintId }, this.m.rankingHint))
+    return h("div", { class: "ranking-box" }, list, h("p", { id: hintId, hidden: true }, this.m.rankingHint))
   }
 
   private setFolded(id: string, folded: boolean): void {
