@@ -82,16 +82,32 @@ const NumberField = Schema.Struct({
   suffix: Schema.optionalKey(text(8))
 })
 
-const choiceFields = {
-  type: Schema.Literal("choice"),
+const pickFields = {
   ...commonFields,
   default: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
   multiple: Schema.optionalKey(Schema.Boolean)
 }
 
+const choiceFields = { type: Schema.Literal("choice"), ...pickFields }
+
 const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
 
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField])
+const SelectOption = Schema.Struct({
+  value: required(60),
+  label: shownRequired(60),
+  description: Schema.optionalKey(shown(60, "One sentence on what this option is. Shown under its label in the list."))
+})
+
+const SelectField = Schema.Struct({
+  type: Schema.Literal("select"),
+  ...pickFields,
+  options: Schema.Array(SelectOption).check(Schema.isMinLength(2), Schema.isMaxLength(100))
+}).annotate({
+  description:
+    "The user types to narrow a long list of options and picks one, or several with multiple. Use it instead of a choice when there are more than 6 options."
+})
+
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, SelectField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -105,7 +121,7 @@ const BranchOption = Schema.Struct({
 
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, SelectField])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -117,6 +133,7 @@ export const FormSpec = Schema.Struct({
 export type TextField = typeof TextField.Type
 export type NumberField = typeof NumberField.Type
 export type ChoiceField = typeof ChoiceField.Type
+export type SelectField = typeof SelectField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

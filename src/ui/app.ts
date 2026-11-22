@@ -8,6 +8,7 @@ import {
   formatNumber,
   heldFields,
   initialValues,
+  isMultiple,
   appendPreset,
   commentPresetsFrom,
   maxCommentLength,
@@ -19,12 +20,31 @@ import {
   type FieldValue,
   type Values
 } from "../core/form.ts"
-import { languageOf, messages, type Messages } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, TextField } from "../core/spec.ts"
+import { languageOf, messages, type Messages, type SelectAnnouncement } from "../core/messages.ts"
+import type { ChoiceField, Field, FormSpec, NumberField, SelectField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 
 type Action = "submit" | "chat"
+
+type SelectElement = HTMLElement & {
+  value: string | string[] | null
+  defaultValue: string | string[] | null
+  itemToLabel: (value: string) => string
+  announcement: (change: SelectAnnouncement) => string | null
+}
+
+const selectChipTemplate = (m: Messages): HTMLTemplateElement => {
+  const template = document.createElement("template")
+  template.content.append(
+    h(
+      "ui-combobox-chip",
+      { class: "chip" },
+      h("ui-combobox-chip-remove", {}, h("button", { type: "button", class: "chip-remove", "aria-label": m.removeChoice }, "×"))
+    )
+  )
+  return template
+}
 
 const onValue = <T>(element: HTMLElement, type: "valuechange" | "valuecommit", listener: (value: T, detail: ValueDetail) => void) =>
   element.addEventListener(type, (event) => {
@@ -577,7 +597,67 @@ export class FormApp {
         return this.numberView(field, labelId, describedBy)
       case "choice":
         return this.choiceView(field, labelId, describedBy)
+      case "select":
+        return this.selectView(field, labelId, describedBy)
     }
+  }
+
+  private selectView(field: SelectField, labelId: string, describedBy: string): HTMLElement {
+    const multiple = isMultiple(field)
+    const current = this.values[field.id]
+    const labels = new Map(field.options.map((option) => [option.value, option.label]))
+    const input = h("input", { "aria-labelledby": labelId, "aria-describedby": describedBy, placeholder: this.m.searchOptions })
+    const control = h("ui-combobox-input", {}, input)
+    const box = h(
+      "ui-combobox",
+      { class: "select", multiple, "auto-highlight": true, loop: true },
+      h(
+        "div",
+        { class: "select-row" },
+        multiple ? h("ui-combobox-chips", { class: "chips" }, control) : control,
+        multiple
+          ? null
+          : h("ui-combobox-clear", {}, h("button", { type: "button", class: "clear", "aria-label": this.m.clearOf(field.label) }, "×")),
+        h("ui-combobox-trigger", {}, h("button", { type: "button", class: "step", "aria-label": this.m.showOptionsOf(field.label) }, "⌄"))
+      ),
+      h(
+        "ui-combobox-content",
+        { class: "select-list", hidden: true },
+        h("ui-combobox-empty", {}, this.m.noMatches),
+        h(
+          "ui-combobox-list",
+          {},
+          field.options.map((option) =>
+            h(
+              "ui-combobox-item",
+              { value: option.value, label: option.label },
+              h("span", { class: "option-head" }, option.label),
+              option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
+              h("ui-combobox-item-indicator", { "aria-hidden": "true" }, "✓")
+            )
+          )
+        )
+      ),
+      multiple ? selectChipTemplate(this.m) : null
+    ) as SelectElement
+    box.itemToLabel = (value) => labels.get(value) ?? value
+    box.announcement = (change) => this.m.selectAnnouncement(change)
+    box.defaultValue = multiple ? (Array.isArray(current) ? [...current] : []) : typeof current === "string" ? current : null
+    box.addEventListener("valuechange", (event) => {
+      const next = (event as CustomEvent<{ readonly value: string | ReadonlyArray<string> | null }>).detail.value
+      if (Array.isArray(next)) {
+        this.setValue(field.id, [...next])
+      } else if (typeof next === "string") {
+        this.setValue(field.id, next)
+      } else {
+        this.unset(field.id)
+      }
+    })
+    this.live.setters.set(field.id, (next) => {
+      box.value = Array.isArray(next) ? [...next] : (next as string)
+      this.setValue(field.id, next)
+    })
+    return box
   }
 
   private setFolded(id: string, folded: boolean): void {

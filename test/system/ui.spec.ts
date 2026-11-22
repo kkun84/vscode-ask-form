@@ -641,3 +641,53 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
     await expect(none.getByRole("group", { name: "件数へのコメントの定型文" })).toHaveCount(0)
   })
 })
+
+const languages = ["TypeScript", "JavaScript", "Python", "Go", "Rust", "Java", "Kotlin", "Swift", "Ruby", "PHP"].map((label) => ({
+  value: label.toLowerCase(),
+  label
+}))
+
+const selectArgs = {
+  title: "言語",
+  fields: [
+    { type: "select", id: "lang", label: "主な言語", options: languages },
+    { type: "select", id: "more", label: "ほかの言語", multiple: true, default: ["go"], reason: "go.modより", options: languages }
+  ]
+}
+
+test.describe("SPEC-UI-016 候補の絞り込み", () => {
+  test("SPEC-UI-016 文字を打って絞り込み、キーボードで選ぶ。推奨のない単一は未回答で始める", async ({ page }) => {
+    const frame = await open(page, { args: selectArgs })
+    const lang = frame.getByRole("combobox", { name: "主な言語" })
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 主な言語")
+    await lang.click()
+    await lang.pressSequentially("ru")
+    await expect(frame.getByRole("option")).toHaveText([/^Rust/, /^Ruby/])
+    await lang.press("ArrowDown")
+    await lang.press("Enter")
+    await expect(lang).toHaveValue("Ruby")
+    expect(await axeViolations(frame)).toEqual([])
+    await send(frame)
+    expect((await singleOutcome(page))?.values).toEqual({ lang: "ruby", more: ["go"] })
+  })
+
+  test("SPEC-UI-016 複数の選択をチップで並べ、チップの「×」で外せる", async ({ page }) => {
+    const frame = await open(page, { args: selectArgs })
+    const more = frame.getByRole("combobox", { name: "ほかの言語" })
+    await expect(frame.locator(".rec", { hasText: "go.modより" })).toContainText("Go")
+    await more.click()
+    await more.pressSequentially("py")
+    await more.press("Enter")
+    await more.pressSequentially("sw")
+    await more.press("Enter")
+    await more.press("Escape")
+    await expect(frame.locator("ui-combobox-chip")).toHaveCount(3)
+    await frame.locator("ui-combobox-chip", { hasText: "Go" }).getByRole("button").click()
+    await expect(frame.locator("ui-combobox-chip")).toHaveCount(2)
+    await frame.getByRole("combobox", { name: "主な言語" }).click()
+    await frame.getByRole("option", { name: "Go" }).click()
+    await send(frame)
+    expect((await singleOutcome(page))?.values).toEqual({ lang: "go", more: ["python", "swift"] })
+  })
+})

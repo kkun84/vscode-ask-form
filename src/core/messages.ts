@@ -1,5 +1,9 @@
 export type Language = "ja" | "en"
 
+export type SelectAnnouncement =
+  | { readonly type: "results"; readonly count: number; readonly query: string; readonly loading?: boolean }
+  | { readonly type: "removed"; readonly label: string }
+
 export const languageOf = (locale: string | undefined): Language => (locale?.toLowerCase().startsWith("ja") === true ? "ja" : "en")
 
 const ja = {
@@ -16,6 +20,12 @@ const ja = {
   clear: "選択を解除",
   clearOf: (label: string) => `${label}の選択を解除`,
   clearTextOf: (label: string) => `${label}を空にする`,
+  searchOptions: "入力して絞り込む",
+  showOptionsOf: (label: string) => `${label}の候補を開く`,
+  noMatches: "当てはまる候補がありません",
+  removeChoice: "選択から外す",
+  selectAnnouncement: (change: SelectAnnouncement): string =>
+    change.type === "removed" ? `${change.label}を外しました` : change.count === 0 ? "候補なし" : `候補${change.count}件`,
   increase: (label: string) => `${label}を増やす`,
   decrease: (label: string) => `${label}を減らす`,
   scrub: "左右にドラッグして値を変える",
@@ -77,7 +87,13 @@ const en: typeof ja = {
   scrub: "Drag left or right to change the value",
   decrease: (label: string) => `Decrease ${label}`,
   increase: (label: string) => `Increase ${label}`,
-  clearTextOf: (label: string) => `Clear ${label}`
+  clearTextOf: (label: string) => `Clear ${label}`,
+  selectAnnouncement: (change: SelectAnnouncement): string =>
+    change.type === "removed" ? `${change.label} removed` : change.count === 0 ? "No results" : `${change.count} results`,
+  removeChoice: "Remove from selection",
+  noMatches: "No matching options",
+  showOptionsOf: (label: string) => `Show options for ${label}`,
+  searchOptions: "Type to search"
 }
 
 export type Messages = typeof ja

@@ -252,3 +252,61 @@ describe("SPEC-TOOL-003 回答を待つ", () => {
       })
     ))
 })
+
+const selectOptions = (count: number) => Array.from({ length: count }, (_, i) => ({ value: `v${i}`, label: `候補${i}` }))
+
+const selectSpec = {
+  title: "候補",
+  fields: [
+    { type: "select", id: "one", label: "1つ", options: selectOptions(12) },
+    { type: "select", id: "many", label: "複数", multiple: true, default: ["v1"], options: selectOptions(12) }
+  ],
+  computed: [{ id: "count", label: "数", expression: "many" }]
+}
+
+describe("SPEC-FORM-001 候補を絞り込む項目", () => {
+  it("SPEC-FORM-001 selectの項目を受け付け、選択肢が2〜100個でなければ拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        assert.equal(Result.isSuccess(compile(selectSpec)), true)
+        yield* rejected(h, { title: "t", fields: [{ type: "select", id: "s", label: "S", options: selectOptions(101) }] })
+        yield* rejected(h, { title: "t", fields: [{ type: "select", id: "s", label: "S", options: selectOptions(1) }] })
+      })
+    ))
+
+  it("SPEC-FORM-002 selectの選択肢の重複、選択肢に無い推奨、multipleと形の合わない推奨を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const message = yield* rejected(h, {
+          title: "t",
+          fields: [
+            { type: "select", id: "dup", label: "D", options: [...selectOptions(2), { value: "v0", label: "重複" }] },
+            { type: "select", id: "missing", label: "M", default: "zz", options: selectOptions(3) },
+            { type: "select", id: "shape", label: "S", multiple: true, default: "v0", options: selectOptions(3) }
+          ]
+        })
+        assert.match(message, /dup.*重複/)
+        assert.match(message, /missing.*zz.*選択肢にありません/)
+        assert.match(message, /shape.*配列/)
+      })
+    ))
+})
+
+describe("SPEC-TOOL-003 候補を絞り込む項目の回答", () => {
+  it("SPEC-TOOL-003 選択肢に無い値を拒否し、複数の選択は選んだ数で計算する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const form = compile(selectSpec).pipe(Result.getOrThrow)
+        const fiber = yield* Effect.forkChild(h.call("ask_form", selectSpec))
+        yield* h.waitUntil(1)
+        const bad = yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { one: "nope", many: [] } })
+        assert.equal(bad.isError, true)
+        assert.match(text(bad), /one/)
+        yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { one: "v7", many: ["v1", "v9"] } })
+        const outcome = structured(yield* Fiber.join(fiber))
+        assert.deepEqual(outcome["values"], { one: "v7", many: ["v1", "v9"] })
+        assert.deepEqual(outcome["computed"], { count: 2 })
+        assert.deepEqual(outcome["changedByUser"], ["one", "many"])
+      })
+    ))
+})

@@ -13,7 +13,7 @@ import {
   type CompiledForm,
   type Values
 } from "./form.ts"
-import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type NumberField, type SelectField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -70,7 +70,7 @@ const numberProblems = (field: NumberField): ReadonlyArray<string> => {
   return outside ? [`項目「${field.id}」のdefaultが${field.min}〜${field.max}の範囲外です`] : []
 }
 
-const choiceDefaultProblems = (field: ChoiceField, values: ReadonlySet<string>): ReadonlyArray<string> => {
+const choiceDefaultProblems = (field: ChoiceField | SelectField, values: ReadonlySet<string>): ReadonlyArray<string> => {
   if (field.default === undefined) {
     return []
   }
@@ -87,15 +87,18 @@ const choiceDefaultProblems = (field: ChoiceField, values: ReadonlySet<string>):
   ]
 }
 
-const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
+const optionProblems = (field: ChoiceField | SelectField): ReadonlyArray<string> => {
   const values = new Set(field.options.map((option) => option.value))
   const duplicated = values.size === field.options.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
-  const branched =
-    isMultiple(field) && field.options.some((option) => option.fields !== undefined)
-      ? [`項目「${field.id}」は複数選択なので、選択肢にfieldsを付けられません`]
-      : []
-  return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
+  return [...duplicated, ...choiceDefaultProblems(field, values)]
 }
+
+const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => [
+  ...(isMultiple(field) && field.options.some((option) => option.fields !== undefined)
+    ? [`項目「${field.id}」は複数選択なので、選択肢にfieldsを付けられません`]
+    : []),
+  ...optionProblems(field)
+]
 
 const reasonProblems = (field: Field): ReadonlyArray<string> =>
   field.default === undefined && (field.reason !== undefined || field.reasonDetails !== undefined)
@@ -108,6 +111,8 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return numberProblems(field)
     case "choice":
       return choiceProblems(field)
+    case "select":
+      return optionProblems(field)
     default:
       return []
   }
@@ -135,7 +140,7 @@ const numberProblem = (field: NumberField, value: unknown): string | undefined =
   return value < field.min || value > field.max ? `項目「${field.id}」が範囲外です` : undefined
 }
 
-const choiceProblem = (field: ChoiceField, value: unknown): string | undefined => {
+const choiceProblem = (field: ChoiceField | SelectField, value: unknown): string | undefined => {
   const allowed = new Set(field.options.map((option) => option.value))
   if (isMultiple(field)) {
     return Array.isArray(value) &&
@@ -154,6 +159,7 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
     case "number":
       return numberProblem(field, value)
     case "choice":
+    case "select":
       return choiceProblem(field, value)
   }
 }
