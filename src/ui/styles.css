@@ -1028,4 +1028,10 @@ af-ranking-item[data-list="pool"] button.rank-action::before {
 
 af-ranking-item[data-list="ranked"] button.rank-action::before {
   content: "×";
+.range > * + * {
+  margin-top: 8px;
+}
+
+.range-inputs {
+  flex-wrap: wrap;
 }

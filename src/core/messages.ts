@@ -40,6 +40,9 @@ const ja = {
         : message.type === "drop"
           ? `${message.label}を${message.list}の${message.position}番目に置きました。`
           : `${message.label}を元の位置に戻しました。`,
+  lowerOf: (label: string) => `${label}の下限`,
+  upperOf: (label: string) => `${label}の上限`,
+  rangeSeparator: "〜",
   increase: (label: string) => `${label}を増やす`,
   decrease: (label: string) => `${label}を減らす`,
   scrub: "左右にドラッグして値を変える",
@@ -118,6 +121,9 @@ const en: typeof ja = {
         : message.type === "drop"
           ? `Dropped ${message.label} at position ${message.position} of ${message.total} in ${message.list}.`
           : `Put ${message.label} back.`
+  rangeSeparator: " – ",
+  upperOf: (label: string) => `Maximum ${label}`,
+  lowerOf: (label: string) => `Minimum ${label}`
 }
 
 export type Messages = typeof ja

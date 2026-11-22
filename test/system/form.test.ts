@@ -62,6 +62,28 @@ describe("SPEC-FORM-001 設計図の形", () => {
     ))
 })
 
+const arraysWithoutItems = (node: unknown, path = "$"): ReadonlyArray<string> => {
+  if (Array.isArray(node)) {
+    return node.flatMap((item, index) => arraysWithoutItems(item, `${path}[${index}]`))
+  }
+  if (node === null || typeof node !== "object") {
+    return []
+  }
+  const record = node as Record<string, unknown>
+  const own = record["type"] === "array" && record["items"] === undefined ? [path] : []
+  return [...own, ...Object.entries(record).flatMap(([key, value]) => arraysWithoutItems(value, `${path}.${key}`))]
+}
+
+describe("SPEC-FORM-001 AIに示すスキーマの形", () => {
+  it("SPEC-FORM-001 VS Codeがツールの定義を拒否しないよう、配列にはすべてitemsを書く", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const tool = yield* h.tool("ask_form")
+        assert.deepEqual(arraysWithoutItems(tool.inputSchema), [])
+      })
+    ))
+})
+
 describe("SPEC-FORM-001 選択肢ごとの項目", () => {
   it("SPEC-FORM-001 選択肢がfieldsを持つ設計図を受け付ける", () =>
     withHarness((h) =>
@@ -339,6 +361,55 @@ describe("SPEC-TOOL-003 並べ替えの回答", () => {
         const outcome = structured(yield* Fiber.join(fiber))
         assert.deepEqual(outcome["values"], { order: ["ui", "auth"] })
         assert.deepEqual(outcome["changedByUser"], ["order"])
+const rangeSpec = {
+  title: "対応範囲",
+  fields: [{ type: "numberRange", id: "node", label: "Node.jsの版", min: 16, max: 24, step: 1, default: [18, 22] }]
+}
+
+describe("SPEC-FORM-001 範囲の項目", () => {
+  it("SPEC-FORM-001 範囲の項目を受け付け、minとmaxの無いものを拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        assert.equal(Result.isSuccess(compile(rangeSpec)), true)
+        yield* rejected(h, { title: "t", fields: [{ type: "numberRange", id: "r", label: "R", min: 0 }] })
+        yield* rejected(h, { title: "t", fields: [{ type: "numberRange", id: "r", label: "R", min: 0, max: 10, default: [1] }] })
+      })
+    ))
+
+  it("SPEC-FORM-002 範囲のminとmaxの逆転と、範囲外や下限が上限を超える推奨を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const message = yield* rejected(h, {
+          title: "t",
+          fields: [
+            { type: "numberRange", id: "flip", label: "F", min: 10, max: 0 },
+            { type: "numberRange", id: "outside", label: "O", min: 0, max: 10, default: [-1, 5] },
+            { type: "numberRange", id: "reversed", label: "R", min: 0, max: 10, default: [8, 2] }
+          ]
+        })
+        assert.match(message, /flip.*min/)
+        assert.match(message, /outside.*\[下限, 上限\]/)
+        assert.match(message, /reversed.*\[下限, 上限\]/)
+      })
+    ))
+})
+
+describe("SPEC-TOOL-003 範囲の回答", () => {
+  it("SPEC-TOOL-003 範囲は[下限, 上限]で届き、下限が上限を超える回答や範囲外の回答を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const form = compile(rangeSpec).pipe(Result.getOrThrow)
+        const fiber = yield* Effect.forkChild(h.call("ask_form", rangeSpec))
+        yield* h.waitUntil(1)
+        for (const node of [[22, 18], [10, 20], [18]]) {
+          const bad = yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { node } })
+          assert.equal(bad.isError, true)
+          assert.match(text(bad), /node.*\[下限, 上限\]/)
+        }
+        yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { node: [20, 24] } })
+        const outcome = structured(yield* Fiber.join(fiber))
+        assert.deepEqual(outcome["values"], { node: [20, 24] })
+        assert.deepEqual(outcome["changedByUser"], ["node"])
       })
     ))
 })

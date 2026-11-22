@@ -88,6 +88,7 @@
         "displayName": "Ask with a form",
         "userDescription": "Ask you through an interactive form with Copilot's recommendations and reasons.",
         "modelDescription": "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer. Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice. Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. To ask for an order, such as priorities, use a ranking field. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
+        "modelDescription": "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer. Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice. Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. To ask for a span with a lower and an upper bound, such as supported versions or a budget, use a numberRange field. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -557,6 +558,7 @@
                                         "type": "string",
                                         "enum": [
                                           "ranking"
+                                          "numberRange"
                                         ]
                                       },
                                       "id": {
@@ -643,6 +645,29 @@
                                         },
                                         "minItems": 2,
                                         "maxItems": 8
+                                          "type": "number"
+                                        },
+                                        "minItems": 2,
+                                        "maxItems": 2,
+                                        "description": "The recommended lower and upper bounds, as [lower, upper], within min and max."
+                                      },
+                                      "min": {
+                                        "type": "number"
+                                      },
+                                      "max": {
+                                        "type": "number"
+                                      },
+                                      "step": {
+                                        "type": "number",
+                                        "exclusiveMinimum": 0
+                                      },
+                                      "prefix": {
+                                        "type": "string",
+                                        "maxLength": 8
+                                      },
+                                      "suffix": {
+                                        "type": "string",
+                                        "maxLength": 8
                                       }
                                     },
                                     "required": [
@@ -653,6 +678,11 @@
                                     ],
                                     "additionalProperties": true,
                                     "description": "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
+                                      "min",
+                                      "max"
+                                    ],
+                                    "additionalProperties": true,
+                                    "description": "The user answers a span of numbers with a lower and an upper bound. The answer is [lower, upper]."
                                   }
                                 ]
                               },
@@ -686,6 +716,7 @@
                         "type": "string",
                         "enum": [
                           "ranking"
+                          "numberRange"
                         ]
                       },
                       "id": {
@@ -772,6 +803,29 @@
                         },
                         "minItems": 2,
                         "maxItems": 8
+                          "type": "number"
+                        },
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "description": "The recommended lower and upper bounds, as [lower, upper], within min and max."
+                      },
+                      "min": {
+                        "type": "number"
+                      },
+                      "max": {
+                        "type": "number"
+                      },
+                      "step": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "prefix": {
+                        "type": "string",
+                        "maxLength": 8
+                      },
+                      "suffix": {
+                        "type": "string",
+                        "maxLength": 8
                       }
                     },
                     "required": [
@@ -782,6 +836,11 @@
                     ],
                     "additionalProperties": true,
                     "description": "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
+                      "min",
+                      "max"
+                    ],
+                    "additionalProperties": true,
+                    "description": "The user answers a span of numbers with a lower and an upper bound. The answer is [lower, upper]."
                   }
                 ]
               },

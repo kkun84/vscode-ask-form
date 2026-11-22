@@ -71,15 +71,32 @@ const TextField = Schema.Struct({
   multiline: Schema.optionalKey(Schema.Boolean)
 })
 
-const NumberField = Schema.Struct({
-  type: Schema.Literal("number"),
-  ...commonFields,
-  default: Schema.optionalKey(Schema.Finite),
+const numericFields = {
   min: Schema.Finite,
   max: Schema.Finite,
   step: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0))),
   prefix: Schema.optionalKey(text(8)),
   suffix: Schema.optionalKey(text(8))
+}
+
+const NumberField = Schema.Struct({
+  type: Schema.Literal("number"),
+  ...commonFields,
+  default: Schema.optionalKey(Schema.Finite),
+  ...numericFields
+})
+
+const NumberRangeField = Schema.Struct({
+  type: Schema.Literal("numberRange"),
+  ...commonFields,
+  default: Schema.optionalKey(
+    Schema.Array(Schema.Finite).check(Schema.isMinLength(2), Schema.isMaxLength(2)).annotate({
+      description: "The recommended lower and upper bounds, as [lower, upper], within min and max."
+    })
+  ),
+  ...numericFields
+}).annotate({
+  description: "The user answers a span of numbers with a lower and an upper bound. The answer is [lower, upper]."
 })
 
 const choiceFields = {
@@ -116,6 +133,7 @@ const RankingField = Schema.Struct({
 })
 
 const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, RankingField])
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, NumberRangeField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -130,6 +148,7 @@ const BranchOption = Schema.Struct({
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
 const Field = Schema.Union([TextField, NumberField, ChoiceField, RankingField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, NumberRangeField])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -140,6 +159,7 @@ export const FormSpec = Schema.Struct({
 
 export type TextField = typeof TextField.Type
 export type NumberField = typeof NumberField.Type
+export type NumberRangeField = typeof NumberRangeField.Type
 export type ChoiceField = typeof ChoiceField.Type
 export type RankingField = typeof RankingField.Type
 export type Field = typeof Field.Type

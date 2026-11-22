@@ -2,8 +2,9 @@ import { evaluate, parse, type Expr, type Scope, type Value } from "./expression
 import { stableHash } from "./hash.ts"
 import type { Messages } from "./messages.ts"
 import type { ChoiceField, Computed, Field, FormSpec, RankingField } from "./spec.ts"
+import type { ChoiceField, Computed, Field, FormSpec, NumberRangeField } from "./spec.ts"
 
-export type FieldValue = string | number | ReadonlyArray<string>
+export type FieldValue = string | number | ReadonlyArray<string> | readonly [number, number]
 export type Values = Readonly<Record<string, FieldValue>>
 export type Comments = Readonly<Record<string, string>>
 export type ComputedValues = Readonly<Record<string, Value | null>>
@@ -70,6 +71,13 @@ const initialValue = (field: Field): FieldValue | undefined => {
       return field.default ?? (isMultiple(field) ? [] : undefined)
     case "ranking":
       return field.default
+    case "numberRange": {
+      if (field.default === undefined) {
+        return undefined
+      }
+      const [lower = field.min, upper = field.max] = field.default
+      return [lower, upper]
+    }
   }
 }
 
@@ -111,6 +119,7 @@ export const computeValues = (form: CompiledForm, values: Values): ComputedValue
 
 const sameValue = (field: Field, a: FieldValue | undefined, b: FieldValue | undefined): boolean => {
   if (field.type === "ranking" && Array.isArray(a) && Array.isArray(b)) {
+  if (field.type === "numberRange" && Array.isArray(a) && Array.isArray(b)) {
     return a.length === b.length && a.every((value, index) => value === b[index])
   }
   if (Array.isArray(a) && Array.isArray(b)) {
@@ -145,6 +154,8 @@ export const formatNumber = (value: number, decimals?: number): string =>
 
 const optionLabels = (field: ChoiceField | RankingField, value: FieldValue): ReadonlyArray<string> =>
   (Array.isArray(value) ? value : [value]).map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
+const describeRange = (field: NumberRangeField, value: FieldValue, m: Messages): string =>
+  Array.isArray(value) ? value.map((bound) => affixed(formatNumber(Number(bound)), field.prefix, field.suffix)).join(m.rangeSeparator) : "—"
 
 export const describeValue = (field: Field, value: FieldValue | undefined, m: Messages): string => {
   if (value === undefined) {
@@ -155,6 +166,8 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       return typeof value === "string" && value !== "" ? value : m.empty
     case "number":
       return typeof value === "number" ? affixed(formatNumber(value), field.prefix, field.suffix) : "—"
+    case "numberRange":
+      return describeRange(field, value, m)
     case "choice": {
       const labels = optionLabels(field, value)
       return labels.length === 0 ? m.none : labels.join(m.listSeparator)
