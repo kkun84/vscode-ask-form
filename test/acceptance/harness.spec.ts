@@ -190,6 +190,8 @@ const test = base.extend<object, { readonly harness: Session }>({
 
 test.describe.configure({ timeout: 600_000 })
 
+const downloadsSdk = { tag: "@downloads-sdk" }
+
 test.afterEach(async ({ harness: session }, testInfo) => {
   if (testInfo.status === testInfo.expectedStatus) {
     return
@@ -225,12 +227,15 @@ test.afterEach(async ({ harness: session }, testInfo) => {
 test("REQ-ASK-001 既定のCopilotハーネスでは、フォームがチャットの横のパネルに出て、回答がモデルに届く", ({ harness }) =>
   answeredInPanel("Copilot", (current) => openSession(current, "Copilot"))(harness))
 
-test("REQ-ENV-002 Codexのハーネスでも、フォームがチャットの横のパネルに出て、回答がモデルに届く", ({ harness }) =>
-  answeredInPanel("Codex", (current) => openSession(current, "Codex"))(harness))
+test("REQ-ENV-002 Codexのハーネスでも、フォームがチャットの横のパネルに出て、回答がモデルに届く", downloadsSdk, ({ harness }) =>
+  answeredInPanel("Codex", (current) => openSession(current, "Codex"))(harness)
+)
 
 test("REQ-ENV-003 AgentsウィンドウのCopilotハーネスでも、フォームがパネルに出て、回答がモデルに届く", ({ harness }) =>
   answeredInPanel("Copilot", inAgentsWindow("Copilot"))(harness))
 
-test("REQ-ENV-003 AgentsウィンドウのCodexハーネスでも、既定のモデルがコードモードでツールを呼んで、フォームがパネルに出て回答が届く", ({
-  harness
-}) => answeredInPanel("Codex", inAgentsWindow("Codex"))(harness))
+test(
+  "REQ-ENV-003 AgentsウィンドウのCodexハーネスでも、既定のモデルがコードモードでツールを呼んで、フォームがパネルに出て回答が届く",
+  downloadsSdk,
+  ({ harness }) => answeredInPanel("Codex", inAgentsWindow("Codex"))(harness)
+)
