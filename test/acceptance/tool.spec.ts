@@ -2,7 +2,7 @@ import { expect, type Frame } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { runCommand } from "./commands.ts"
 import { attachDiagnostics, test } from "./fixtures.ts"
-import { formFrame, until } from "./frames.ts"
+import { closedDuringClick, formFrame, until } from "./frames.ts"
 import type { Session } from "./session.ts"
 
 const invoke = async (session: Session): Promise<{ readonly frame: Frame; readonly result: () => Promise<string> }> => {
@@ -41,7 +41,7 @@ test("REQ-WEB-001 デスクトップ版でもweb版でも、ハーネスを通�
   await expect(frame.getByRole("textbox", { name: "イベント名" })).toHaveValue("技術交流会 2026")
   await frame.getByRole("spinbutton", { name: "参加者数" }).fill("150")
   await frame.getByRole("spinbutton", { name: "参加者数" }).press("Tab")
-  await frame.locator("form.card button.primary").click()
+  await frame.locator("form.card button.primary").dispatchEvent("click").catch(closedDuringClick)
   await closed(frame)
   const text = await result()
   expect(text).toContain('"status":"submitted"')
@@ -63,7 +63,7 @@ test("REQ-WAIT-001 フォームが別のタブに隠れても、待機の表示�
   await expect(tab).not.toHaveClass(/\bactive\b/)
   await session.window.locator(".statusbar-item", { hasText: /回答を待っています|waiting for your answer/ }).click()
   await expect(tab).toHaveClass(/\bactive\b/)
-  await frame.locator("form.card button.ghost").click()
+  await frame.locator("form.card button.ghost").dispatchEvent("click").catch(closedDuringClick)
   await closed(frame)
   expect(await result()).toContain('"status":"answer_in_chat"')
 })
