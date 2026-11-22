@@ -78,6 +78,8 @@ const initialValue = (field: Field): FieldValue | undefined => {
       const [lower = field.min, upper = field.max] = field.default
       return [lower, upper]
     }
+    case "textList":
+      return field.default ?? []
   }
 }
 
@@ -96,7 +98,7 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
   if (value === undefined) {
     return undefined
   }
-  if (field.type === "choice" && isMultiple(field)) {
+  if ((field.type === "choice" && isMultiple(field)) || field.type === "textList") {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -156,6 +158,7 @@ const optionLabels = (field: ChoiceField | RankingField, value: FieldValue): Rea
   (Array.isArray(value) ? value : [value]).map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
 const describeRange = (field: NumberRangeField, value: FieldValue, m: Messages): string =>
   Array.isArray(value) ? value.map((bound) => affixed(formatNumber(Number(bound)), field.prefix, field.suffix)).join(m.rangeSeparator) : "—"
+const joined = (labels: ReadonlyArray<string>, m: Messages): string => (labels.length === 0 ? m.none : labels.join(m.listSeparator))
 
 export const describeValue = (field: Field, value: FieldValue | undefined, m: Messages): string => {
   if (value === undefined) {
@@ -174,6 +177,15 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
     }
     case "ranking":
       return optionLabels(field, value).join(" → ")
+    case "textList":
+      return joined(Array.isArray(value) ? value : [], m)
+    case "choice":
+      return joined(
+        (Array.isArray(value) ? value : [value]).map(
+          (item) => field.options.find((option) => option.value === item)?.label ?? String(item)
+        ),
+        m
+      )
   }
 }
 
@@ -217,6 +229,10 @@ export type Outcome =
 export const maxNoteLength = 2000
 
 export const maxCommentLength = 500
+
+export const maxListItems = 20
+
+export const maxListItemLength = 200
 
 const maxCommentPresets = 8
 

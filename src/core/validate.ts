@@ -6,6 +6,8 @@ import {
   answerValues,
   isMultiple,
   maxCommentLength,
+  maxListItemLength,
+  maxListItems,
   maxNoteLength,
   prepare,
   heldFields,
@@ -15,6 +17,7 @@ import {
 } from "./form.ts"
 import { FormSpec, type ChoiceField, type Field, type NumberField, type RankingField } from "./spec.ts"
 import { FormSpec, type ChoiceField, type Field, type NumberField, type NumberRangeField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type TextListField, type NumberField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -138,6 +141,16 @@ const rangeProblems = (field: NumberRangeField): ReadonlyArray<string> => {
     ? []
     : [`項目「${field.id}」のdefaultは、${field.min}〜${field.max}の範囲で[下限, 上限]の順にしてください`]
 }
+const isList = (value: unknown): boolean =>
+  Array.isArray(value) &&
+  value.length <= maxListItems &&
+  new Set(value).size === value.length &&
+  value.every((item) => typeof item === "string" && item.trim() !== "" && item.length <= maxListItemLength)
+
+const listProblems = (field: TextListField): ReadonlyArray<string> =>
+  field.default === undefined || new Set(field.default).size === field.default.length
+    ? []
+    : [`項目「${field.id}」のdefaultが重複しています`]
 
 const reasonProblems = (field: Field): ReadonlyArray<string> =>
   field.default === undefined && (field.reason !== undefined || field.reasonDetails !== undefined)
@@ -154,6 +167,8 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return rankingProblems(field)
     case "numberRange":
       return rangeProblems(field)
+    case "textList":
+      return listProblems(field)
     default:
       return []
   }
@@ -207,6 +222,10 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
         : `項目「${field.id}」は、選択肢のvalueを重複なく${rankBounds(field).join("〜")}個並べた配列が必要です`
     case "numberRange":
       return isRangeValue(value, field) ? undefined : `項目「${field.id}」は、${field.min}〜${field.max}の範囲の[下限, 上限]が必要です`
+    case "textList":
+      return isList(value)
+        ? undefined
+        : `項目「${field.id}」は、${maxListItemLength}文字以下の空でない文字列を重複なく${maxListItems}個まで並べた配列が必要です`
   }
 }
 

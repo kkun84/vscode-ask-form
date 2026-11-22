@@ -43,6 +43,11 @@ const ja = {
   lowerOf: (label: string) => `${label}の下限`,
   upperOf: (label: string) => `${label}の上限`,
   rangeSeparator: "〜",
+  listPlaceholder: "書いてEnterで足す",
+  listHint: "1つ書くごとにEnterで足します。Backspaceか×で消します。",
+  listDuplicate: (text: string) => `「${text}」は既にあります`,
+  listTooLong: (max: number) => `1つは${max}文字までです`,
+  listFull: (max: number) => `${max}個まで足せます`,
   increase: (label: string) => `${label}を増やす`,
   decrease: (label: string) => `${label}を減らす`,
   scrub: "左右にドラッグして値を変える",
@@ -124,6 +129,11 @@ const en: typeof ja = {
   rangeSeparator: " – ",
   upperOf: (label: string) => `Maximum ${label}`,
   lowerOf: (label: string) => `Minimum ${label}`
+  listFull: (max: number) => `You can add up to ${max}`,
+  listTooLong: (max: number) => `Each entry can be up to ${max} characters`,
+  listDuplicate: (text: string) => `"${text}" is already in the list`,
+  listHint: "Press Enter after each entry. Remove one with Backspace or ×.",
+  listPlaceholder: "Type and press Enter"
 }
 
 export type Messages = typeof ja

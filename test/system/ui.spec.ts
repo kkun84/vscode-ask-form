@@ -770,5 +770,50 @@ test.describe("SPEC-UI-018 数値の範囲", () => {
     const outcome = await singleOutcome(page)
     expect(outcome?.values).toEqual({ node: [18, 22], budget: [20000, 100000] })
     expect(outcome?.changedByUser).toEqual(["budget"])
+const listArgs = {
+  title: "除外の設定",
+  fields: [
+    { type: "textList", id: "ignore", label: "除外するパス", default: ["dist", "node_modules"], reason: ".gitignoreより" },
+    { type: "textList", id: "tags", label: "タグ", placeholder: "タグを書く" }
+  ]
+}
+
+const listItems = (frame: Frame, index: number) =>
+  frame.locator("ui-token-input").nth(index).locator("[data-token-label]").allTextContents()
+
+test.describe("SPEC-UI-017 文字のリスト", () => {
+  test("SPEC-UI-017 Enterで足し、重複は足さずに知らせ、Backspaceで消す", async ({ page }) => {
+    const frame = await open(page, { args: listArgs })
+    expect(await listItems(frame, 0)).toEqual(["dist", "node_modules"])
+    const editor = frame.getByRole("textbox", { name: "除外するパス" })
+    await editor.click()
+    await editor.pressSequentially("coverage")
+    await editor.press("Enter")
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist", "node_modules", "coverage"])
+    await editor.pressSequentially("dist")
+    await editor.press("Enter")
+    await expect(frame.getByText("「dist」は既にあります")).toBeVisible()
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist", "node_modules", "coverage"])
+    for (let index = 0; index < 5; index += 1) {
+      await editor.press("Backspace")
+    }
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist", "node_modules"])
+    await editor.press("Backspace")
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist"])
+    await frame.getByRole("button", { name: "推奨に戻す" }).click()
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist", "node_modules"])
+    expect(await axeViolations(frame)).toEqual([])
+  })
+
+  test("SPEC-UI-017 推奨のないリストは空で始め、書きかけの文字は送信の前に足す", async ({ page }) => {
+    const frame = await open(page, { args: listArgs })
+    expect(await listItems(frame, 1)).toEqual([])
+    const tags = frame.getByRole("textbox", { name: "タグ" })
+    await tags.click()
+    await tags.pressSequentially("急ぎ")
+    await tags.press("ControlOrMeta+Enter")
+    const outcome = await singleOutcome(page)
+    expect(outcome?.values).toEqual({ ignore: ["dist", "node_modules"], tags: ["急ぎ"] })
+    expect(outcome?.changedByUser).toEqual(["tags"])
   })
 })

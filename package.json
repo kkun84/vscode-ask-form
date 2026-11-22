@@ -89,6 +89,7 @@
         "userDescription": "Ask you through an interactive form with Copilot's recommendations and reasons.",
         "modelDescription": "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer. Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice. Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. To ask for an order, such as priorities, use a ranking field. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
         "modelDescription": "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer. Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice. Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. To ask for a span with a lower and an upper bound, such as supported versions or a budget, use a numberRange field. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
+        "modelDescription": "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer. Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice. Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. To let the user write any number of free-form values, such as paths, tags or domains, use a textList field. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -559,6 +560,7 @@
                                         "enum": [
                                           "ranking"
                                           "numberRange"
+                                          "textList"
                                         ]
                                       },
                                       "id": {
@@ -668,6 +670,16 @@
                                       "suffix": {
                                         "type": "string",
                                         "maxLength": 8
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 200
+                                        },
+                                        "maxItems": 20
+                                      },
+                                      "placeholder": {
+                                        "type": "string",
+                                        "maxLength": 160,
+                                        "description": "Aim for 80 characters or fewer."
                                       }
                                     },
                                     "required": [
@@ -683,6 +695,10 @@
                                     ],
                                     "additionalProperties": true,
                                     "description": "The user answers a span of numbers with a lower and an upper bound. The answer is [lower, upper]."
+                                      "label"
+                                    ],
+                                    "additionalProperties": true,
+                                    "description": "The user writes any number of short free-form values, such as paths, tags or domains. The answer is an array of up to 20 distinct strings."
                                   }
                                 ]
                               },
@@ -717,6 +733,7 @@
                         "enum": [
                           "ranking"
                           "numberRange"
+                          "textList"
                         ]
                       },
                       "id": {
@@ -826,6 +843,16 @@
                       "suffix": {
                         "type": "string",
                         "maxLength": 8
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "maxItems": 20
+                      },
+                      "placeholder": {
+                        "type": "string",
+                        "maxLength": 160,
+                        "description": "Aim for 80 characters or fewer."
                       }
                     },
                     "required": [
@@ -841,6 +868,10 @@
                     ],
                     "additionalProperties": true,
                     "description": "The user answers a span of numbers with a lower and an upper bound. The answer is [lower, upper]."
+                      "label"
+                    ],
+                    "additionalProperties": true,
+                    "description": "The user writes any number of short free-form values, such as paths, tags or domains. The answer is an array of up to 20 distinct strings."
                   }
                 ]
               },
