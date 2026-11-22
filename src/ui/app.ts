@@ -597,14 +597,7 @@ export class FormApp {
     const element = h(
       "div",
       { class: "q", role: "group", "aria-labelledby": labelId, "aria-describedby": descId },
-      h(
-        "div",
-        { class: "q-head" },
-        toggle ?? h("span", { class: "fold-space" }),
-        h("span", { class: "q-label", id: labelId }, field.label),
-        answer,
-        comment.open
-      ),
+      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), toggle, answer, comment.open),
       field.description === undefined ? null : h("p", { class: "q-desc", id: descId }, field.description),
       h(
         "div",
