@@ -2,7 +2,6 @@ import { Result, Schema } from "effect"
 import { references, parse } from "./expression.ts"
 import {
   activeFields,
-  allFields,
   answerValues,
   isMultiple,
   maxCommentLength,
@@ -33,15 +32,13 @@ import {
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
-const maxTotalFields = 40
-
 const duplicateIds = (spec: FormSpec): ReadonlyArray<string> => {
-  const ids = [...allFields(spec).map((field) => field.id), ...(spec.computed ?? []).map((item) => item.id)]
+  const ids = [...spec.fields.map((field) => field.id), ...(spec.computed ?? []).map((item) => item.id)]
   return ids.filter((id, index) => ids.indexOf(id) !== index).map((id) => `id「${id}」が重複しています`)
 }
 
 const expressionProblems = (spec: FormSpec): ReadonlyArray<string> => {
-  const known = new Set(allFields(spec).map((field) => field.id))
+  const known = new Set(spec.fields.map((field) => field.id))
   return (spec.computed ?? []).flatMap((item) => {
     const result = parse(item.expression)
     const problems = result.ok
@@ -54,23 +51,36 @@ const expressionProblems = (spec: FormSpec): ReadonlyArray<string> => {
   })
 }
 
-const totalProblems = (spec: FormSpec): ReadonlyArray<string> => {
-  const total = allFields(spec).length
-  return total > maxTotalFields ? [`項目が入れ子も含めて${total}個あります。${maxTotalFields}個以下にしてください`] : []
-}
-
-const searchChoiceBranches = (input: unknown): ReadonlyArray<string> =>
-  everyField(input)
-    .filter((field) => field["type"] === "searchChoice" && records(field["options"]).some((option) => "fields" in option))
-    .map((field) => `項目「${String(field["id"])}」はsearchChoiceなので、選択肢にfieldsを付けられません`)
+const whenProblems = (spec: FormSpec): ReadonlyArray<string> =>
+  spec.fields.flatMap((field, index) => {
+    if (field.when === undefined) {
+      return []
+    }
+    const { field: id, anyOf } = field.when
+    if (id === field.id) {
+      return [`項目「${field.id}」のwhenが自分自身を参照しています`]
+    }
+    const source = spec.fields.slice(0, index).find((earlier) => earlier.id === id)
+    if (source === undefined) {
+      return [`項目「${field.id}」のwhenが未定義か後ろにある項目「${id}」を参照しています`]
+    }
+    if (source.type !== "choice" && source.type !== "searchChoice") {
+      return [`項目「${field.id}」のwhenが参照する項目「${id}」は、choiceかsearchChoiceではありません`]
+    }
+    const values = new Set(source.options.map((option) => option.value))
+    return [
+      ...(new Set(anyOf).size === anyOf.length ? [] : [`項目「${field.id}」のwhenのanyOfが重複しています`]),
+      ...anyOf
+        .filter((value) => !values.has(value))
+        .map((value) => `項目「${field.id}」のwhenのanyOfの「${value}」が、項目「${id}」の選択肢にありません`)
+    ]
+  })
 
 const semanticProblems = (spec: FormSpec, input: unknown): ReadonlyArray<string> => [
-  ...searchChoiceBranches(input),
-  ...totalProblems(spec),
   ...duplicateIds(spec),
-  ...deepBranches(input),
   ...deepTrees(input),
-  ...allFields(spec).flatMap((field) => fieldProblems(field)),
+  ...spec.fields.flatMap((field) => fieldProblems(field)),
+  ...whenProblems(spec),
   ...expressionProblems(spec)
 ]
 
@@ -79,23 +89,13 @@ const records = (value: unknown): ReadonlyArray<Readonly<Record<string, unknown>
 
 const topFields = (input: unknown) => records([input]).flatMap((spec) => records(spec["fields"]))
 
-const optionFields = (fields: ReadonlyArray<Readonly<Record<string, unknown>>>) =>
-  fields.flatMap((field) => records(field["options"])).flatMap((option) => records(option["fields"]))
-
-const everyField = (input: unknown) => [...topFields(input), ...optionFields(topFields(input))]
-
-const deepBranches = (input: unknown): ReadonlyArray<string> =>
-  optionFields(topFields(input))
-    .filter((nested) => records(nested["options"]).some((option) => "fields" in option))
-    .map((nested) => `項目「${String(nested["id"])}」の選択肢にfieldsがあります。選択肢の中の項目は、さらに入れ子にできません`)
-
 const maxTreeDepth = 4
 
 const treeDepth = (nodes: unknown): number =>
   records(nodes).reduce((deepest, node) => Math.max(deepest, 1 + treeDepth(node["children"])), 0)
 
 const deepTrees = (input: unknown): ReadonlyArray<string> =>
-  everyField(input)
+  topFields(input)
     .filter((field) => field["type"] === "treeChoice" && treeDepth(field["nodes"]) > maxTreeDepth)
     .map((field) => `項目「${String(field["id"])}」の木が${maxTreeDepth}段より深くなっています`)
 
@@ -132,13 +132,6 @@ const optionProblems = (field: ChoiceField | SearchChoiceField): ReadonlyArray<s
   const duplicated = values.size === field.options.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
   return [...duplicated, ...choiceDefaultProblems(field, values)]
 }
-
-const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => [
-  ...(isMultiple(field) && field.options.some((option) => option.fields !== undefined)
-    ? [`項目「${field.id}」は複数選択なので、選択肢にfieldsを付けられません`]
-    : []),
-  ...optionProblems(field)
-]
 
 const rankBounds = (field: RankingField): readonly [number, number] => [field.min ?? 1, field.max ?? field.options.length]
 
@@ -294,7 +287,6 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
     case "number":
       return numberProblems(field)
     case "choice":
-      return choiceProblems(field)
     case "searchChoice":
       return optionProblems(field)
     case "ranking":
@@ -383,9 +375,7 @@ const checkHeld = (spec: FormSpec, values: Values, input: unknown): ReadonlyArra
   const actual = new Set(heldFields(spec, values))
   return [
     ...[...actual].filter((id) => !declared.has(id)).map((id) => `項目「${id}」は値か、heldが必要です`),
-    ...[...declared]
-      .filter((id) => !actual.has(id))
-      .map((id) => `項目「${id}」はheldにできません。値があるか、選ばれていない選択肢の項目です`)
+    ...[...declared].filter((id) => !actual.has(id)).map((id) => `項目「${id}」はheldにできません。値があるか、表示されていない項目です`)
   ]
 }
 
@@ -399,7 +389,7 @@ const checkComments = (spec: FormSpec, values: Values, input: unknown): Result.R
   const active = new Set(activeFields(spec, values).map((field) => field.id))
   const entries = Object.entries(input as Record<string, unknown>)
   const problems = entries.flatMap(([id, comment]) => [
-    ...(active.has(id) ? [] : [`項目「${id}」にはコメントを付けられません。有効な項目ではありません`]),
+    ...(active.has(id) ? [] : [`項目「${id}」にはコメントを付けられません。表示されている項目ではありません`]),
     ...(typeof comment === "string" && comment.length <= maxCommentLength
       ? []
       : [`項目「${id}」のコメントは${maxCommentLength}文字以下の文字列が必要です`])

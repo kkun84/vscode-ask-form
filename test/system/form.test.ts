@@ -46,7 +46,7 @@ describe("SPEC-FORM-001 設計図の形", () => {
       Effect.gen(function* () {
         yield* rejected(h, { title: "x".repeat(161), fields: [field()] })
         yield* rejected(h, { title: "t", fields: [] })
-        yield* rejected(h, { title: "t", fields: Array.from({ length: 21 }, (_, i) => field({ id: `f${i}` })) })
+        yield* rejected(h, { title: "t", fields: Array.from({ length: 41 }, (_, i) => field({ id: `f${i}` })) })
         yield* rejected(h, { title: "t", fields: [field({ id: "1st" })] })
         yield* rejected(h, { title: "t", fields: [field({ type: "slider" })] })
         yield* rejected(h, { title: "t", fields: [field({ default: "d", reason: "r".repeat(121) })] })
@@ -99,59 +99,51 @@ describe("SPEC-FORM-001 AIに示すスキーマの形", () => {
     ))
 })
 
-describe("SPEC-FORM-001 選択肢ごとの項目", () => {
-  it("SPEC-FORM-001 選択肢がfieldsを持つ設計図を受け付ける", () =>
+describe("SPEC-FORM-001 条件付きの項目", () => {
+  it("SPEC-FORM-001 前にある単一選択か複数選択の項目を参照するwhenを持つ設計図を受け付ける", () =>
     withHarness((h) =>
       Effect.gen(function* () {
+        assert.equal(
+          Result.isSuccess(
+            compile({
+              title: "t",
+              fields: [
+                { type: "searchChoice", id: "pkgs", label: "P", multiple: true, options: searchOptions(7) },
+                field({ when: { field: "pkgs", anyOf: ["v1", "v2"] } })
+              ]
+            })
+          ),
+          true
+        )
         const fiber = yield* Effect.forkChild(h.call("ask_form", storageSpec))
         yield* h.waitUntil(1)
         yield* Fiber.interrupt(fiber)
       })
     ))
 
-  it("SPEC-FORM-002 複数選択の枝、2段の入れ子、枝をまたぐidの重複、40個を超える項目を拒否する", () =>
+  it("SPEC-FORM-002 whenが後ろの項目、選択でない項目、選択肢に無い値を参照する設計図を拒否する", () =>
     withHarness((h) =>
-      Effect.gen(function* () {
-        const two = [{ value: "b", label: "B" }]
-        const message = yield* rejected(h, {
+      rejectedWith(
+        h,
+        {
           title: "t",
           fields: [
-            field(),
+            field({ id: "early", when: { field: "pick", anyOf: ["a"] } }),
             {
               type: "choice",
-              id: "m",
-              label: "M",
-              multiple: true,
-              options: [{ value: "a", label: "A", fields: [field({ id: "x" })] }, ...two]
-            },
-            {
-              type: "choice",
-              id: "d",
-              label: "D",
+              id: "pick",
+              label: "P",
               options: [
-                {
-                  value: "a",
-                  label: "A",
-                  fields: [
-                    { type: "choice", id: "inner", label: "I", options: [{ value: "a", label: "A", fields: [field({ id: "z" })] }, ...two] }
-                  ]
-                },
-                { value: "b", label: "B", fields: [field()] }
+                { value: "a", label: "A" },
+                { value: "b", label: "B" }
               ]
-            }
+            },
+            field({ id: "typed", when: { field: "early", anyOf: ["a"] } }),
+            field({ id: "stray", when: { field: "pick", anyOf: ["z"] } })
           ]
-        })
-        for (const expected of ["id「name」が重複しています", "項目「m」は複数選択なので", "項目「inner」の選択肢にfieldsがあります"]) {
-          assert.ok(message.includes(expected), `${expected} in ${message}`)
-        }
-        const wide = Array.from({ length: 5 }, (_, index) => ({
-          type: "choice",
-          id: `c${index}`,
-          label: "C",
-          options: [{ value: "a", label: "A", fields: Array.from({ length: 8 }, (_item, n) => field({ id: `f${index}_${n}` })) }, ...two]
-        }))
-        assert.match(yield* rejected(h, { title: "t", fields: wide }), /入れ子も含めて45個/)
-      })
+        },
+        [/early.*後ろにある.*pick/, /typed.*early.*choiceかsearchChoiceではありません/, /stray.*z.*選択肢にありません/]
+      )
     ))
 })
 
@@ -275,7 +267,7 @@ describe("SPEC-EXPR-001 計算式", () => {
 })
 
 describe("SPEC-TOOL-003 回答を待つ", () => {
-  it("SPEC-TOOL-003 選ばれていない選択肢の項目は回答に入れない", () =>
+  it("SPEC-TOOL-003 whenの条件を満たさず表示されていない項目は回答に入れない", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         const values = { ...initialValues(storageForm.spec), storage: "server", port: 3000 }
@@ -318,7 +310,7 @@ describe("SPEC-FORM-001 候補を絞り込む項目", () => {
       })
     ))
 
-  it("SPEC-FORM-002 searchChoiceの選択肢の重複、選択肢に無い推奨、multipleと形の合わない推奨、選択肢のfieldsを拒否する", () =>
+  it("SPEC-FORM-002 searchChoiceの選択肢の重複、選択肢に無い推奨、multipleと形の合わない推奨を拒否する", () =>
     withHarness((h) =>
       rejectedWith(
         h,
@@ -327,16 +319,10 @@ describe("SPEC-FORM-001 候補を絞り込む項目", () => {
           fields: [
             { type: "searchChoice", id: "dup", label: "D", options: [...searchOptions(7), { value: "v0", label: "重複" }] },
             { type: "searchChoice", id: "missing", label: "M", default: "zz", options: searchOptions(7) },
-            { type: "searchChoice", id: "shape", label: "S", multiple: true, default: "v0", options: searchOptions(7) },
-            {
-              type: "searchChoice",
-              id: "branch",
-              label: "B",
-              options: [...searchOptions(6), { value: "x", label: "X", fields: [{ type: "text", id: "t1", label: "T" }] }]
-            }
+            { type: "searchChoice", id: "shape", label: "S", multiple: true, default: "v0", options: searchOptions(7) }
           ]
         },
-        [/dup.*重複/, /missing.*zz.*選択肢にありません/, /shape.*配列/, /branch.*searchChoice.*fields/]
+        [/dup.*重複/, /missing.*zz.*選択肢にありません/, /shape.*配列/]
       )
     ))
 })

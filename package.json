@@ -87,7 +87,7 @@
         "toolReferenceName": "askForm",
         "displayName": "Ask with a form",
         "userDescription": "Ask you through an interactive form with Copilot's recommendations and reasons.",
-        "modelDescription": "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer. Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice. Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, which lets the user type to narrow them, and treeChoice when the candidates form a hierarchy, such as folders, files or modules. To ask for an order, such as priorities, use a ranking field. To ask for a span with a lower and an upper bound, such as supported versions or a budget, use a numberRange field. To let the user write any number of free-form values, such as paths, tags or domains, use a textList field. For a calendar date or a time of day, use a date or time field. When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
+        "modelDescription": "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer. Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice. Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, which lets the user type to narrow them, and treeChoice when the candidates form a hierarchy, such as folders, files or modules. To ask for an order, such as priorities, use a ranking field. To ask for a span with a lower and an upper bound, such as supported versions or a budget, use a numberRange field. To let the user write any number of free-form values, such as paths, tags or domains, use a textList field. For a calendar date or a time of day, use a date or time field. When some questions only matter for certain options of a choice or searchChoice, put them as ordinary fields right after that question and give each a when with the options it depends on, instead of asking separately; they are shown only while one of those options is selected, and the answer leaves out the hidden ones. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -145,6 +145,32 @@
                       "advanced": {
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
+                      },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
                         "type": "string",
@@ -204,6 +230,32 @@
                       "advanced": {
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
+                      },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
                         "type": "array",
@@ -266,6 +318,32 @@
                       "advanced": {
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
+                      },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
                         "type": "number"
@@ -336,6 +414,32 @@
                       "advanced": {
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
+                      },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
                         "type": "array",
@@ -414,6 +518,32 @@
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
                       },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
+                      },
                       "default": {
                         "type": "string",
                         "description": "A date as YYYY-MM-DD."
@@ -473,6 +603,32 @@
                       "advanced": {
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
+                      },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
                         "type": "string",
@@ -540,6 +696,32 @@
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
                       },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
+                      },
                       "default": {
                         "anyOf": [
                           {
@@ -581,901 +763,6 @@
                               "type": "string",
                               "maxLength": 600,
                               "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user. Aim for 300 characters or fewer."
-                            },
-                            "fields": {
-                              "type": "array",
-                              "items": {
-                                "anyOf": [
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "text"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "type": "string",
-                                        "maxLength": 500
-                                      },
-                                      "placeholder": {
-                                        "type": "string",
-                                        "maxLength": 160,
-                                        "description": "Aim for 80 characters or fewer."
-                                      },
-                                      "multiline": {
-                                        "type": "boolean"
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label"
-                                    ],
-                                    "additionalProperties": true
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "textList"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "string",
-                                          "minLength": 1,
-                                          "maxLength": 200
-                                        },
-                                        "maxItems": 20
-                                      },
-                                      "placeholder": {
-                                        "type": "string",
-                                        "maxLength": 160,
-                                        "description": "Aim for 80 characters or fewer."
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label"
-                                    ],
-                                    "additionalProperties": true,
-                                    "description": "The user writes any number of short free-form values, such as paths, tags or domains. The answer is an array of up to 20 distinct strings."
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "number"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "type": "number"
-                                      },
-                                      "min": {
-                                        "type": "number"
-                                      },
-                                      "max": {
-                                        "type": "number"
-                                      },
-                                      "step": {
-                                        "type": "number",
-                                        "exclusiveMinimum": 0
-                                      },
-                                      "prefix": {
-                                        "type": "string",
-                                        "maxLength": 8
-                                      },
-                                      "suffix": {
-                                        "type": "string",
-                                        "maxLength": 8
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label",
-                                      "min",
-                                      "max"
-                                    ],
-                                    "additionalProperties": true
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "numberRange"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "number"
-                                        },
-                                        "minItems": 2,
-                                        "maxItems": 2,
-                                        "description": "The recommended lower and upper bounds, as [lower, upper], within min and max."
-                                      },
-                                      "min": {
-                                        "type": "number"
-                                      },
-                                      "max": {
-                                        "type": "number"
-                                      },
-                                      "step": {
-                                        "type": "number",
-                                        "exclusiveMinimum": 0
-                                      },
-                                      "prefix": {
-                                        "type": "string",
-                                        "maxLength": 8
-                                      },
-                                      "suffix": {
-                                        "type": "string",
-                                        "maxLength": 8
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label",
-                                      "min",
-                                      "max"
-                                    ],
-                                    "additionalProperties": true,
-                                    "description": "The user answers a span of numbers with a lower and an upper bound. The answer is [lower, upper]."
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "date"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "type": "string",
-                                        "description": "A date as YYYY-MM-DD."
-                                      },
-                                      "min": {
-                                        "type": "string",
-                                        "description": "A date as YYYY-MM-DD."
-                                      },
-                                      "max": {
-                                        "type": "string",
-                                        "description": "A date as YYYY-MM-DD."
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label"
-                                    ],
-                                    "additionalProperties": true,
-                                    "description": "A calendar date. The answer is a YYYY-MM-DD string."
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "time"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "type": "string",
-                                        "description": "A time of day as 24-hour HH:MM."
-                                      },
-                                      "min": {
-                                        "type": "string",
-                                        "description": "A time of day as 24-hour HH:MM."
-                                      },
-                                      "max": {
-                                        "type": "string",
-                                        "description": "A time of day as 24-hour HH:MM."
-                                      },
-                                      "step": {
-                                        "type": "integer",
-                                        "minimum": 1,
-                                        "maximum": 720,
-                                        "description": "Minutes between allowed times, counted from min, or from 00:00 without min."
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label"
-                                    ],
-                                    "additionalProperties": true,
-                                    "description": "A time of day. The answer is a 24-hour HH:MM string."
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "choice"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "array",
-                                            "items": {
-                                              "type": "string"
-                                            }
-                                          }
-                                        ]
-                                      },
-                                      "multiple": {
-                                        "type": "boolean"
-                                      },
-                                      "options": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "value": {
-                                              "type": "string",
-                                              "minLength": 1,
-                                              "maxLength": 60
-                                            },
-                                            "label": {
-                                              "type": "string",
-                                              "minLength": 1,
-                                              "maxLength": 120,
-                                              "description": "Aim for 60 characters or fewer."
-                                            },
-                                            "description": {
-                                              "type": "string",
-                                              "maxLength": 120,
-                                              "description": "One sentence on what this option is or what happens if chosen. Always shown. Aim for 60 characters or fewer."
-                                            },
-                                            "details": {
-                                              "type": "string",
-                                              "maxLength": 600,
-                                              "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user. Aim for 300 characters or fewer."
-                                            }
-                                          },
-                                          "required": [
-                                            "value",
-                                            "label"
-                                          ],
-                                          "additionalProperties": true
-                                        },
-                                        "minItems": 2,
-                                        "maxItems": 6
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label",
-                                      "options"
-                                    ],
-                                    "additionalProperties": true
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "searchChoice"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "array",
-                                            "items": {
-                                              "type": "string"
-                                            }
-                                          }
-                                        ]
-                                      },
-                                      "multiple": {
-                                        "type": "boolean"
-                                      },
-                                      "options": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "value": {
-                                              "type": "string",
-                                              "minLength": 1,
-                                              "maxLength": 60
-                                            },
-                                            "label": {
-                                              "type": "string",
-                                              "minLength": 1,
-                                              "maxLength": 120,
-                                              "description": "Aim for 60 characters or fewer."
-                                            },
-                                            "description": {
-                                              "type": "string",
-                                              "maxLength": 120,
-                                              "description": "One sentence on what this option is or what happens if chosen. Always shown. Aim for 60 characters or fewer."
-                                            },
-                                            "details": {
-                                              "type": "string",
-                                              "maxLength": 600,
-                                              "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user. Aim for 300 characters or fewer."
-                                            }
-                                          },
-                                          "required": [
-                                            "value",
-                                            "label"
-                                          ],
-                                          "additionalProperties": true
-                                        },
-                                        "minItems": 7,
-                                        "maxItems": 100
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label",
-                                      "options"
-                                    ],
-                                    "additionalProperties": true,
-                                    "description": "The user finds options by name among 7 to 100 candidates, typing to narrow the list, and picks one, or several with multiple. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, and treeChoice when the candidates form a hierarchy."
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "treeChoice"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "array",
-                                            "items": {
-                                              "type": "string"
-                                            }
-                                          }
-                                        ]
-                                      },
-                                      "multiple": {
-                                        "type": "boolean"
-                                      },
-                                      "nodes": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "value": {
-                                              "type": "string",
-                                              "minLength": 1,
-                                              "maxLength": 200
-                                            },
-                                            "label": {
-                                              "type": "string",
-                                              "minLength": 1,
-                                              "maxLength": 120,
-                                              "description": "Aim for 60 characters or fewer."
-                                            },
-                                            "description": {
-                                              "type": "string",
-                                              "maxLength": 120,
-                                              "description": "One sentence on what this item is. Always shown. Aim for 60 characters or fewer."
-                                            },
-                                            "children": {
-                                              "type": "array",
-                                              "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                  "value": {
-                                                    "type": "string",
-                                                    "minLength": 1,
-                                                    "maxLength": 200
-                                                  },
-                                                  "label": {
-                                                    "type": "string",
-                                                    "minLength": 1,
-                                                    "maxLength": 120,
-                                                    "description": "Aim for 60 characters or fewer."
-                                                  },
-                                                  "description": {
-                                                    "type": "string",
-                                                    "maxLength": 120,
-                                                    "description": "One sentence on what this item is. Always shown. Aim for 60 characters or fewer."
-                                                  },
-                                                  "children": {
-                                                    "type": "array",
-                                                    "items": {
-                                                      "type": "object",
-                                                      "properties": {
-                                                        "value": {
-                                                          "type": "string",
-                                                          "minLength": 1,
-                                                          "maxLength": 200
-                                                        },
-                                                        "label": {
-                                                          "type": "string",
-                                                          "minLength": 1,
-                                                          "maxLength": 120,
-                                                          "description": "Aim for 60 characters or fewer."
-                                                        },
-                                                        "description": {
-                                                          "type": "string",
-                                                          "maxLength": 120,
-                                                          "description": "One sentence on what this item is. Always shown. Aim for 60 characters or fewer."
-                                                        },
-                                                        "children": {
-                                                          "type": "array",
-                                                          "items": {
-                                                            "type": "object",
-                                                            "properties": {
-                                                              "value": {
-                                                                "type": "string",
-                                                                "minLength": 1,
-                                                                "maxLength": 200
-                                                              },
-                                                              "label": {
-                                                                "type": "string",
-                                                                "minLength": 1,
-                                                                "maxLength": 120,
-                                                                "description": "Aim for 60 characters or fewer."
-                                                              },
-                                                              "description": {
-                                                                "type": "string",
-                                                                "maxLength": 120,
-                                                                "description": "One sentence on what this item is. Always shown. Aim for 60 characters or fewer."
-                                                              }
-                                                            },
-                                                            "required": [
-                                                              "value",
-                                                              "label"
-                                                            ],
-                                                            "additionalProperties": true
-                                                          },
-                                                          "minItems": 1
-                                                        }
-                                                      },
-                                                      "required": [
-                                                        "value",
-                                                        "label"
-                                                      ],
-                                                      "additionalProperties": true
-                                                    },
-                                                    "minItems": 1
-                                                  }
-                                                },
-                                                "required": [
-                                                  "value",
-                                                  "label"
-                                                ],
-                                                "additionalProperties": true
-                                              },
-                                              "minItems": 1
-                                            }
-                                          },
-                                          "required": [
-                                            "value",
-                                            "label"
-                                          ],
-                                          "additionalProperties": true
-                                        },
-                                        "minItems": 1,
-                                        "description": "Items in a hierarchy, up to 4 levels and 100 items in all, such as folders and files. Every value is unique in the whole tree. Any item, branch or leaf, can be chosen."
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label",
-                                      "nodes"
-                                    ],
-                                    "additionalProperties": true,
-                                    "description": "The user picks from a hierarchy, such as a folder, a file or a module. With multiple, checking a branch checks everything in it, and the answer lists the outermost fully checked items."
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": [
-                                          "ranking"
-                                        ]
-                                      },
-                                      "id": {
-                                        "type": "string",
-                                        "maxLength": 40,
-                                        "description": "Unique identifier: letters, digits and underscore, starting with a letter or underscore; true and false are reserved."
-                                      },
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 120,
-                                        "description": "Label shown to the user, in the user's language. Aim for 60 characters or fewer."
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "maxLength": 240,
-                                        "description": "What this question asks or what the value is used for, independent of your recommendation. Shown under the label. Aim for 120 characters or fewer."
-                                      },
-                                      "reason": {
-                                        "type": "string",
-                                        "maxLength": 120,
-                                        "description": "One sentence on why you recommend the default for this situation, citing what you found. Shown with the recommended value. Only allowed together with default. Aim for 60 characters or fewer."
-                                      },
-                                      "reasonDetails": {
-                                        "type": "string",
-                                        "maxLength": 600,
-                                        "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                                      },
-                                      "advanced": {
-                                        "type": "boolean",
-                                        "description": "Fold this field into the collapsed Details section."
-                                      },
-                                      "default": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "string"
-                                        },
-                                        "description": "The option values you recommend ranking, in your recommended order, first to last. Within min and max items."
-                                      },
-                                      "min": {
-                                        "type": "integer",
-                                        "minimum": 1,
-                                        "maximum": 8,
-                                        "description": "The fewest options the user must rank. Defaults to 1."
-                                      },
-                                      "max": {
-                                        "type": "integer",
-                                        "minimum": 1,
-                                        "maximum": 8,
-                                        "description": "The most options the user can rank, such as 3 for a top three. Defaults to every option."
-                                      },
-                                      "options": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "value": {
-                                              "type": "string",
-                                              "minLength": 1,
-                                              "maxLength": 60
-                                            },
-                                            "label": {
-                                              "type": "string",
-                                              "minLength": 1,
-                                              "maxLength": 120,
-                                              "description": "Aim for 60 characters or fewer."
-                                            },
-                                            "description": {
-                                              "type": "string",
-                                              "maxLength": 120,
-                                              "description": "One sentence on what this option is or what happens if chosen. Always shown. Aim for 60 characters or fewer."
-                                            },
-                                            "details": {
-                                              "type": "string",
-                                              "maxLength": 600,
-                                              "description": "More on this option in full sentences, such as its trade-offs or implications. Can be hidden by the user. Aim for 300 characters or fewer."
-                                            }
-                                          },
-                                          "required": [
-                                            "value",
-                                            "label"
-                                          ],
-                                          "additionalProperties": true
-                                        },
-                                        "minItems": 2,
-                                        "maxItems": 8
-                                      }
-                                    },
-                                    "required": [
-                                      "type",
-                                      "id",
-                                      "label",
-                                      "options"
-                                    ],
-                                    "additionalProperties": true,
-                                    "description": "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
-                                  }
-                                ]
-                              },
-                              "minItems": 1,
-                              "maxItems": 10,
-                              "description": "Follow-up fields asked only while this option is selected. Only for a single-select choice at the top level; the answer contains only the chosen option's fields."
                             }
                           },
                           "required": [
@@ -1534,6 +821,32 @@
                       "advanced": {
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
+                      },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
                         "anyOf": [
@@ -1635,6 +948,32 @@
                       "advanced": {
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
+                      },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
                         "anyOf": [
@@ -1822,6 +1161,32 @@
                         "type": "boolean",
                         "description": "Fold this field into the collapsed Details section."
                       },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "description": "The id of an earlier choice or searchChoice field, single or multiple."
+                          },
+                          "anyOf": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "minItems": 1,
+                            "description": "Option values of that field. The field is shown while one of them is selected."
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "anyOf"
+                        ],
+                        "additionalProperties": true,
+                        "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
+                      },
                       "default": {
                         "type": "array",
                         "items": {
@@ -1890,7 +1255,7 @@
                 ]
               },
               "minItems": 1,
-              "maxItems": 20
+              "maxItems": 40
             },
             "computed": {
               "type": "array",

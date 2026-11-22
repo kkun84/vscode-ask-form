@@ -81,21 +81,6 @@ body {
   gap: 16px;
 }
 
-.reveal {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin: 6px 0 10px 17px;
-  padding: 2px 0 2px 19px;
-  border-left: 2px solid color-mix(in srgb, var(--fg) 22%, transparent);
-}
-
-.reveal[hidden] {
-  display: none;
-  height: 0;
-  opacity: 0;
-}
-
 .q {
   display: flex;
   flex-direction: column;
@@ -104,9 +89,12 @@ body {
 }
 
 .option-details,
-.rec,
-.reveal {
+.rec {
   overflow: clip;
+}
+
+.q[hidden] {
+  display: none;
 }
 
 .motion {
@@ -114,8 +102,7 @@ body {
 }
 
 .motion .option-details,
-.motion .rec,
-.motion .reveal {
+.motion .rec {
   transition:
     height 200ms ease,
     opacity 200ms ease,
@@ -124,11 +111,18 @@ body {
     display 200ms allow-discrete;
 }
 
+.motion .q:not([hidden]) {
+  transition: opacity 200ms ease;
+}
+
 @starting-style {
   .motion .option-details,
-  .motion .rec,
-  .motion .reveal {
+  .motion .rec {
     height: 0;
+    opacity: 0;
+  }
+
+  .motion .q {
     opacity: 0;
   }
 }
@@ -161,7 +155,7 @@ body {
   margin-left: auto;
 }
 
-.fields > .q + .q {
+.fields > .q:not([hidden]) ~ .q:not([hidden]) {
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }

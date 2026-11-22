@@ -9,7 +9,7 @@
 | REQ-ASK-001 | フォームで質問できる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-001, SPEC-TOOL-004, SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, `test/acceptance/harness.spec.ts`, MAT-ASK-001 |
 | REQ-ASK-002 | 推奨と理由が見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.spec.ts`, MAT-ASK-001 |
 | REQ-ASK-003 | 結果がその場で変わる | - | SPEC-FORM-001, SPEC-EXPR-001, SPEC-UI-002 | MAT-ASK-001 |
-| REQ-ASK-004 | 選んだ選択肢に応じて続きを聞ける | - | SPEC-FORM-002, SPEC-TOOL-003, SPEC-UI-011 | MAT-ASK-002 |
+| REQ-ASK-004 | 選んだ選択肢に応じて続きを聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-003, SPEC-UI-011 | MAT-ASK-002 |
 | REQ-ASK-005 | 順位を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-015 | MAT-ASK-003 |
 | REQ-ASK-006 | 多くの候補から選べる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-016 | MAT-ASK-004 |
 | REQ-ASK-007 | 自由な値を複数書いてもらえる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-017 | MAT-ASK-005 |
@@ -39,7 +39,7 @@
 
 | ID | 名前 | 派生元 | 派生先 | 検証 |
 | --- | --- | --- | --- | --- |
-| SPEC-FORM-001 | 設計図の形 | REQ-ASK-001, REQ-ASK-002, REQ-ASK-003, REQ-ASK-005, REQ-ASK-006, REQ-ASK-007, REQ-ASK-008, REQ-ASK-009, REQ-ASK-010 | ARCH-LAYER-001, DES-SPEC-001, DES-FORM-002, DES-FORM-006 | `test/system/form.test.ts` |
+| SPEC-FORM-001 | 設計図の形 | REQ-ASK-001, REQ-ASK-002, REQ-ASK-003, REQ-ASK-004, REQ-ASK-005, REQ-ASK-006, REQ-ASK-007, REQ-ASK-008, REQ-ASK-009, REQ-ASK-010 | ARCH-LAYER-001, DES-SPEC-001, DES-FORM-002, DES-FORM-006 | `test/system/form.test.ts` |
 | SPEC-FORM-002 | 設計図の意味的な検査 | REQ-ASK-001, REQ-ASK-004, REQ-ASK-005, REQ-ASK-006, REQ-ASK-007, REQ-ASK-008, REQ-ASK-009, REQ-ASK-010 | ARCH-LAYER-001, DES-SPEC-001, DES-EXPR-001, DES-FORM-006 | `test/system/form.test.ts` |
 | SPEC-EXPR-001 | 計算式 | REQ-ASK-003 | ARCH-LAYER-001, ARCH-LAYER-006, DES-EXPR-001, DES-EXPR-002, DES-FORM-002 | `test/system/form.test.ts` |
 | SPEC-TOOL-001 | 質問のツール | REQ-ASK-001, REQ-ANS-001, REQ-ENV-002, REQ-ENV-003 | ARCH-CYCLE-001 | `test/system/extension.test.ts` |
@@ -56,7 +56,7 @@
 | SPEC-UI-007 | テーマ | REQ-LOOK-001 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-008 | アクセシビリティ | REQ-A11Y-001, REQ-ANS-004 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-009 | 表示の言語 | REQ-LOOK-001 | - | `test/system/ui.spec.ts` |
-| SPEC-UI-011 | 選択肢ごとの項目 | REQ-ASK-004 | DES-FORM-006 | `test/system/ui.spec.ts` |
+| SPEC-UI-011 | 条件付きの項目 | REQ-ASK-004 | DES-FORM-006 | `test/system/ui.spec.ts` |
 | SPEC-UI-012 | 値のない回答 | REQ-ANS-005 | DES-FORM-007 | `test/system/ui.spec.ts` |
 | SPEC-UI-013 | 補足 | REQ-ANS-006 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-014 | 項目ごとのコメント | REQ-ANS-007 | DES-FORM-009 | `test/system/ui.spec.ts` |
@@ -99,7 +99,7 @@
 | DES-FORM-002 | 計算結果の順序 | SPEC-FORM-001, SPEC-UI-002, SPEC-EXPR-001, ARCH-LAYER-006 | - | `test/unit/form-edge-cases.test.ts`, `test/unit/form.test.ts` |
 | DES-FORM-003 | 差分 | SPEC-TOOL-003, SPEC-UI-001, ARCH-LAYER-006 | - | `test/unit/form-edge-cases.test.ts`, `test/unit/form.test.ts` |
 | DES-FORM-004 | 値の検査 | SPEC-TOOL-005, ARCH-LAYER-001 | - | `test/unit/form-edge-cases.test.ts`, `test/unit/form.test.ts` |
-| DES-FORM-006 | 選択肢ごとの項目 | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-003, SPEC-UI-011 | - | `test/unit/branch.test.ts` |
+| DES-FORM-006 | 条件付きの項目 | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-003, SPEC-UI-011 | - | `test/unit/branch.test.ts` |
 | DES-FORM-007 | 値のない回答 | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-012, ARCH-LAYER-006 | - | `test/unit/form.test.ts` |
 | DES-FORM-008 | 補足 | SPEC-TOOL-003, SPEC-TOOL-005, ARCH-LAYER-001 | - | `test/unit/form.test.ts` |
 | DES-FORM-009 | 項目ごとのコメント | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-TOOL-010, SPEC-UI-014 | - | `test/unit/form.test.ts` |

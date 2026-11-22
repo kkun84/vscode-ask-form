@@ -33,14 +33,19 @@ export const treeAncestors = (nodes: ReadonlyArray<TreeNode>, values: ReadonlyAr
   return [...new Set(found)]
 }
 
-const branchFields = (field: Field, value: FieldValue | undefined): ReadonlyArray<Field> =>
-  field.type === "choice" && !isMultiple(field) ? (field.options.find((option) => option.value === value)?.fields ?? []) : []
+const selects = (value: FieldValue | undefined, anyOf: ReadonlyArray<string>): boolean =>
+  Array.isArray(value) ? value.some((item) => anyOf.includes(String(item))) : typeof value === "string" && anyOf.includes(value)
 
-export const allFields = (spec: FormSpec): ReadonlyArray<Field> =>
-  spec.fields.flatMap((field) => [field, ...(field.type === "choice" ? field.options.flatMap((option) => option.fields ?? []) : [])])
-
-export const activeFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> =>
-  spec.fields.flatMap((field) => [field, ...branchFields(field, values[field.id])])
+export const activeFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> => {
+  const shown = new Set<string>()
+  return spec.fields.filter((field) => {
+    const visible = field.when === undefined || (shown.has(field.when.field) && selects(values[field.when.field], field.when.anyOf))
+    if (visible) {
+      shown.add(field.id)
+    }
+    return visible
+  })
+}
 
 const filled = (fields: ReadonlyArray<Field>, values: Values): Values =>
   Object.fromEntries(fields.flatMap((field) => (values[field.id] === undefined ? [] : [[field.id, values[field.id] as FieldValue]])))
@@ -105,7 +110,7 @@ const initialValue = (field: Field): FieldValue | undefined => {
 
 export const initialValues = (spec: FormSpec): Values =>
   Object.fromEntries(
-    allFields(spec).flatMap((field) => {
+    spec.fields.flatMap((field) => {
       const value = initialValue(field)
       return value === undefined ? [] : [[field.id, value]]
     })
@@ -236,9 +241,13 @@ export interface HeldForm {
   readonly fields: ReadonlyArray<Field>
 }
 
+const withoutWhen = ({ when: _when, ...field }: Field): Field => field
+
 const heldForm = (spec: FormSpec, held: ReadonlyArray<string>): HeldForm => ({
   title: spec.title,
-  fields: allFields(spec).filter((field) => held.includes(field.id))
+  fields: spec.fields
+    .filter((field) => held.includes(field.id))
+    .map((field) => (field.when === undefined || held.includes(field.when.field) ? field : withoutWhen(field)))
 })
 
 export type Outcome =

@@ -307,8 +307,40 @@ for (const name of themes) {
   })
 }
 
-test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
-  test("SPEC-UI-011 選んだ選択肢の項目だけを表示し、切り替えても直した値を覚えておく", async ({ page }) => {
+const shownQuestions = (frame: Frame, fields: string) =>
+  frame
+    .locator(`${fields} > .q:not([hidden])`)
+    .evaluateAll((cards) => cards.map((card) => [card.querySelector(".q-label")?.textContent, getComputedStyle(card).borderTopStyle]))
+
+const detailSpec = {
+  title: "詳細",
+  fields: [
+    ...storageSpec.fields.slice(1, 2),
+    { type: "text", id: "host", label: "ホスト", advanced: true, when: { field: "storage", anyOf: ["server"] } },
+    { type: "text", id: "memo", label: "メモ", advanced: true },
+    { type: "text", id: "path", label: "パス", advanced: true, when: { field: "storage", anyOf: ["browser"] } }
+  ]
+}
+
+test.describe("SPEC-UI-011 条件付きの項目", () => {
+  test("SPEC-UI-011 条件付きの項目を設計図の位置に並べ、隠れた質問の分の区切り線を引かない", async ({ page }) => {
+    const frame = await openStorage(page)
+    await selectStorage(frame, "サーバー")
+    expect(await shownQuestions(frame, "form > .fields")).toEqual([
+      ["アプリ名", "none"],
+      ["保存先", "solid"],
+      ["ポート", "solid"],
+      ["ログイン", "solid"]
+    ])
+    const details = await open(page, { args: detailSpec })
+    await details.getByRole("button", { name: "詳細", exact: true }).click()
+    expect(await shownQuestions(details, "ui-collapsible .fields")).toEqual([
+      ["メモ", "none"],
+      ["パス", "solid"]
+    ])
+  })
+
+  test("SPEC-UI-011 選んだ選択肢を条件とする項目だけを表示し、切り替えても直した値を覚えておく", async ({ page }) => {
     const frame = await openStorage(page)
     const engine = frame.getByRole("group", { name: "保存方式" })
     const port = frame.getByRole("spinbutton", { name: "ポート" })
@@ -324,7 +356,15 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     expect(await axeViolations(frame)).toEqual([])
   })
 
-  test("SPEC-UI-011 回答には選んだ選択肢の項目だけを含める", async ({ page }) => {
+  test("SPEC-UI-011 フォーカスのある質問が隠れたら、条件の元の質問にフォーカスを移す", async ({ page }) => {
+    const frame = await openStorage(page)
+    await frame.getByRole("radio", { name: "IndexedDB" }).focus()
+    await frame.getByRole("radio", { name: "サーバー" }).evaluate((radio) => (radio as HTMLElement).click())
+    await expect(frame.getByRole("group", { name: "保存方式" })).toBeHidden()
+    await expect(frame.getByRole("group", { name: "保存先" }).locator(":focus")).toHaveCount(1)
+  })
+
+  test("SPEC-UI-011 回答には表示されている項目だけを含める", async ({ page }) => {
     const frame = await openStorage(page)
     await frame.getByRole("radio", { name: "サーバー" }).check()
     await frame.getByRole("spinbutton", { name: "ポート" }).fill("3000")

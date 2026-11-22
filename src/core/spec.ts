@@ -38,6 +38,19 @@ const commonFields = {
     Schema.Boolean.annotate({
       description: "Fold this field into the collapsed Details section."
     })
+  ),
+  when: Schema.optionalKey(
+    Schema.Struct({
+      field: Identifier.annotate({
+        description: "The id of an earlier choice or searchChoice field, single or multiple."
+      }),
+      anyOf: Schema.Array(required(60)).check(Schema.isMinLength(1)).annotate({
+        description: "Option values of that field. The field is shown while one of them is selected."
+      })
+    }).annotate({
+      description:
+        "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
+    })
   )
 }
 
@@ -132,9 +145,7 @@ const pickFields = {
   multiple: Schema.optionalKey(Schema.Boolean)
 }
 
-const choiceFields = { type: Schema.Literal("choice"), ...pickFields }
-
-const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
+const ChoiceField = Schema.Struct({ type: Schema.Literal("choice"), ...pickFields, options: options(ChoiceOption) })
 
 const SearchChoiceField = Schema.Struct({
   type: Schema.Literal("searchChoice"),
@@ -206,31 +217,6 @@ const RankingField = Schema.Struct({
     "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
 })
 
-const NestedField = Schema.Union([
-  TextField,
-  TextListField,
-  NumberField,
-  NumberRangeField,
-  DateField,
-  TimeField,
-  NestedChoiceField,
-  SearchChoiceField,
-  TreeChoiceField,
-  RankingField
-])
-
-const BranchOption = Schema.Struct({
-  ...ChoiceOption.fields,
-  fields: Schema.optionalKey(
-    Schema.Array(NestedField).check(Schema.isMinLength(1), Schema.isMaxLength(10)).annotate({
-      description:
-        "Follow-up fields asked only while this option is selected. Only for a single-select choice at the top level; the answer contains only the chosen option's fields."
-    })
-  )
-})
-
-const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
-
 const Field = Schema.Union([
   TextField,
   TextListField,
@@ -247,7 +233,7 @@ const Field = Schema.Union([
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
   description: Schema.optionalKey(shown(300)),
-  fields: Schema.Array(Field).check(Schema.isMinLength(1), Schema.isMaxLength(20)),
+  fields: Schema.Array(Field).check(Schema.isMinLength(1), Schema.isMaxLength(40)),
   computed: Schema.optionalKey(Schema.Array(Computed).check(Schema.isMaxLength(8)))
 })
 

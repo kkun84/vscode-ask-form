@@ -1,4 +1,5 @@
 import {
+  activeFields,
   answerValues,
   changedFields,
   commentsFor,
@@ -397,7 +398,6 @@ export class FormApp {
       readonly comment: HTMLElement
       readonly open: HTMLElement
     }>,
-    branches: [] as Array<{ readonly id: string; readonly value: string; readonly element: HTMLElement }>,
     computed: undefined as HTMLElement | undefined,
     status: undefined as HTMLElement | undefined,
     primary: undefined as HTMLButtonElement | undefined,
@@ -612,7 +612,6 @@ export class FormApp {
 
   private render(): void {
     this.live.cards.length = 0
-    this.live.branches.length = 0
     this.live.setters.clear()
     this.live.unselects.clear()
     this.live.pickedLists.clear()
@@ -686,19 +685,6 @@ export class FormApp {
         void this.answer("submit")
       }
     })
-    return element
-  }
-
-  private reveal(field: ChoiceField, option: ChoiceField["options"][number]): HTMLElement | null {
-    if (!("fields" in option) || option.fields === undefined) {
-      return null
-    }
-    const element = h(
-      "div",
-      { class: "reveal" },
-      option.fields.map((nested) => this.card(nested))
-    )
-    this.live.branches.push({ id: field.id, value: option.value, element })
     return element
   }
 
@@ -1204,7 +1190,7 @@ export class FormApp {
     const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
     const current = this.values[field.id]
     let pointing = false
-    const options = field.options.flatMap((option) => {
+    const options = field.options.map((option) => {
       const headId = uid("option")
       const textIds = [uid("summary"), uid("details"), uid("why")] as const
       const isRecommended = recommended.includes(option.value)
@@ -1218,9 +1204,7 @@ export class FormApp {
         why === null ? undefined : textIds[2],
         describedBy
       ])
-      const row = optionRow(input, option, [headId, ...textIds], isRecommended ? this.m.recommended : undefined, why)
-      const revealed = field.type === "choice" ? this.reveal(field, option) : null
-      return revealed === null ? [row] : [row, revealed]
+      return optionRow(input, option, [headId, ...textIds], isRecommended ? this.m.recommended : undefined, why)
     })
     const unselect = multiple
       ? null
@@ -1262,8 +1246,8 @@ export class FormApp {
     this.live.setters.set(field.id, (next) => {
       group.value = Array.isArray(next) ? [...next] : (next as string)
     })
-    on(group, "pointerdown", (event) => {
-      pointing = (event.target as HTMLElement).closest(".reveal") === null
+    on(group, "pointerdown", () => {
+      pointing = true
     })
     on(group, "keydown", () => {
       pointing = false
@@ -1360,6 +1344,23 @@ export class FormApp {
     )
   }
 
+  private refreshShown(form: CompiledForm): void {
+    const shown = new Set(activeFields(form.spec, this.current()).map((field) => field.id))
+    const focused = this.live.cards.find((card) => card.element.contains(document.activeElement))
+    for (const card of this.live.cards) {
+      card.element.hidden = !shown.has(card.field.id)
+    }
+    if (focused?.element.hidden !== true) {
+      return
+    }
+    const owner = (field: Field): Field | undefined => {
+      const source = form.spec.fields.find((item) => item.id === field.when?.field)
+      return source === undefined || shown.has(source.id) ? source : owner(source)
+    }
+    const target = owner(focused.field)
+    focusControl(this.live.cards.find((card) => card.field.id === target?.id)?.element)
+  }
+
   private refreshCards(): void {
     if (this.form === undefined) {
       return
@@ -1444,9 +1445,7 @@ export class FormApp {
     for (const reset of this.live.resets.values()) {
       reset.element.hidden = !reset.changed()
     }
-    for (const branch of this.live.branches) {
-      branch.element.hidden = this.values[branch.id] !== branch.value
-    }
+    this.refreshShown(form)
     this.refreshCards()
     this.refreshComputed(form)
     if (this.live.status !== undefined) {
