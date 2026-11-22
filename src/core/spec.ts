@@ -91,7 +91,17 @@ const choiceFields = {
 
 const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
 
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField])
+const ListField = Schema.Struct({
+  type: Schema.Literal("list"),
+  ...commonFields,
+  default: Schema.optionalKey(Schema.Array(required(200)).check(Schema.isMaxLength(20))),
+  placeholder: Schema.optionalKey(shown(80))
+}).annotate({
+  description:
+    "The user writes any number of short free-form values, such as paths, tags or domains. The answer is an array of up to 20 distinct strings."
+})
+
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, ListField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -105,7 +115,7 @@ const BranchOption = Schema.Struct({
 
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, ListField])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -117,6 +127,7 @@ export const FormSpec = Schema.Struct({
 export type TextField = typeof TextField.Type
 export type NumberField = typeof NumberField.Type
 export type ChoiceField = typeof ChoiceField.Type
+export type ListField = typeof ListField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

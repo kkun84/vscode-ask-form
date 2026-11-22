@@ -252,3 +252,53 @@ describe("SPEC-TOOL-003 回答を待つ", () => {
       })
     ))
 })
+
+const listSpec = {
+  title: "除外の設定",
+  fields: [{ type: "list", id: "ignore", label: "除外するパス", default: ["dist", "node_modules"] }],
+  computed: [{ id: "count", label: "除外の数", expression: "ignore" }]
+}
+
+const listWithDefault = (value: unknown) => ({ title: "t", fields: [{ type: "list", id: "l", label: "L", default: value }] })
+
+describe("SPEC-FORM-001 文字のリストの項目", () => {
+  it("SPEC-FORM-001 文字のリストの項目を受け付け、21個以上や201文字以上の推奨を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        assert.equal(Result.isSuccess(compile(listSpec)), true)
+        yield* rejected(h, listWithDefault(Array.from({ length: 21 }, (_, i) => `v${i}`)))
+        yield* rejected(h, listWithDefault(["x".repeat(201)]))
+        yield* rejected(h, listWithDefault([""]))
+      })
+    ))
+
+  it("SPEC-FORM-002 文字のリストの推奨の重複を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const message = yield* rejected(h, { title: "t", fields: [{ type: "list", id: "dup", label: "D", default: ["a", "a"] }] })
+        assert.match(message, /dup.*重複/)
+      })
+    ))
+})
+
+describe("SPEC-TOOL-003 文字のリストの回答", () => {
+  it("SPEC-TOOL-003 文字のリストは計算式で要素の数になり、重複や空の文字列を含む回答を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const form = compile(listSpec).pipe(Result.getOrThrow)
+        const fiber = yield* Effect.forkChild(h.call("ask_form", listSpec))
+        yield* h.waitUntil(1)
+        const answer = (ignore: unknown) => h.call("form_answer", { formKey: form.key, action: "submit", values: { ignore } })
+        for (const bad of [["a", "a"], ["  "], "dist", Array.from({ length: 21 }, (_, i) => `v${i}`)]) {
+          const result = yield* answer(bad)
+          assert.equal(result.isError, true)
+          assert.match(text(result), /ignore/)
+        }
+        yield* answer(["dist", "coverage", "out"])
+        const outcome = structured(yield* Fiber.join(fiber))
+        assert.deepEqual(outcome["values"], { ignore: ["dist", "coverage", "out"] })
+        assert.deepEqual(outcome["changedByUser"], ["ignore"])
+        assert.deepEqual(outcome["computed"], { count: 3 })
+      })
+    ))
+})

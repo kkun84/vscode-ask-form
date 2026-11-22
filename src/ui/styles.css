@@ -907,3 +907,76 @@ ui-number-input-scrub-area.scrub {
 ui-number-input-scrub-area.scrub:hover {
   color: var(--fg);
 }
+
+ui-token-input.list-input {
+  display: block;
+  min-height: 28px;
+  padding: 3px 6px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  cursor: text;
+}
+
+ui-token-input.list-input:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+
+ui-token-input-editor.list-editor {
+  display: block;
+  min-height: 20px;
+  outline: none;
+  white-space: pre-wrap;
+}
+
+ui-token-input-editor.list-editor[data-empty]::before {
+  content: attr(aria-placeholder);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+ui-token-input-token.list-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 1px 4px 1px 0;
+  padding: 0 2px 0 8px;
+  border: 1px solid var(--contrast-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  line-height: 20px;
+}
+
+ui-token-input-token.list-item[data-selected] {
+  outline: 2px solid var(--focus);
+}
+
+ui-token-input-token-remove.list-remove {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+ui-token-input-token-remove.list-remove:hover {
+  background: color-mix(in srgb, var(--fg) 15%, transparent);
+  color: var(--fg);
+}
+
+.list-hint {
+  margin: 4px 0 0;
+}
+
+.list-error {
+  margin: 2px 0 0;
+  color: var(--danger-text);
+  font-size: 12px;
+}
+
+.list-error:empty {
+  display: none;
+}

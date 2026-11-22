@@ -20,9 +20,10 @@ import {
   type Values
 } from "../core/form.ts"
 import { languageOf, messages, type Messages } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, TextField } from "../core/spec.ts"
+import type { ChoiceField, Field, FormSpec, ListField, NumberField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
+import { listControl } from "./list.ts"
 
 type Action = "submit" | "chat"
 
@@ -577,7 +578,23 @@ export class FormApp {
         return this.numberView(field, labelId, describedBy)
       case "choice":
         return this.choiceView(field, labelId, describedBy)
+      case "list":
+        return this.listView(field, labelId, describedBy)
     }
+  }
+
+  private listView(field: ListField, labelId: string, describedBy: string): HTMLElement {
+    const current = this.values[field.id]
+    const control = listControl({
+      items: Array.isArray(current) ? current : [],
+      labelId,
+      describedBy,
+      placeholder: field.placeholder,
+      m: this.m,
+      onChange: (items) => this.setValue(field.id, [...items])
+    })
+    this.live.setters.set(field.id, (next) => control.set(Array.isArray(next) ? next : []))
+    return control.element
   }
 
   private setFolded(id: string, folded: boolean): void {

@@ -6,6 +6,8 @@ import {
   answerValues,
   isMultiple,
   maxCommentLength,
+  maxListItemLength,
+  maxListItems,
   maxNoteLength,
   prepare,
   heldFields,
@@ -13,7 +15,7 @@ import {
   type CompiledForm,
   type Values
 } from "./form.ts"
-import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type ListField, type NumberField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -97,6 +99,17 @@ const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
   return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
 }
 
+const isList = (value: unknown): boolean =>
+  Array.isArray(value) &&
+  value.length <= maxListItems &&
+  new Set(value).size === value.length &&
+  value.every((item) => typeof item === "string" && item.trim() !== "" && item.length <= maxListItemLength)
+
+const listProblems = (field: ListField): ReadonlyArray<string> =>
+  field.default === undefined || new Set(field.default).size === field.default.length
+    ? []
+    : [`項目「${field.id}」のdefaultが重複しています`]
+
 const reasonProblems = (field: Field): ReadonlyArray<string> =>
   field.default === undefined && (field.reason !== undefined || field.reasonDetails !== undefined)
     ? [`項目「${field.id}」はdefaultがないので、reasonとreasonDetailsを付けられません。質問の説明はdescriptionに書いてください`]
@@ -108,6 +121,8 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return numberProblems(field)
     case "choice":
       return choiceProblems(field)
+    case "list":
+      return listProblems(field)
     default:
       return []
   }
@@ -155,6 +170,10 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
       return numberProblem(field, value)
     case "choice":
       return choiceProblem(field, value)
+    case "list":
+      return isList(value)
+        ? undefined
+        : `項目「${field.id}」は、${maxListItemLength}文字以下の空でない文字列を重複なく${maxListItems}個まで並べた配列が必要です`
   }
 }
 

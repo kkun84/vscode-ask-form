@@ -68,6 +68,8 @@ const initialValue = (field: Field): FieldValue | undefined => {
       return field.default
     case "choice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
+    case "list":
+      return field.default ?? []
   }
 }
 
@@ -86,7 +88,7 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
   if (value === undefined) {
     return undefined
   }
-  if (field.type === "choice" && isMultiple(field)) {
+  if ((field.type === "choice" && isMultiple(field)) || field.type === "list") {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -138,6 +140,8 @@ export const formatNumber = (value: number, decimals?: number): string =>
         }
   )
 
+const joined = (labels: ReadonlyArray<string>, m: Messages): string => (labels.length === 0 ? m.none : labels.join(m.listSeparator))
+
 export const describeValue = (field: Field, value: FieldValue | undefined, m: Messages): string => {
   if (value === undefined) {
     return m.held
@@ -147,11 +151,15 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       return typeof value === "string" && value !== "" ? value : m.empty
     case "number":
       return typeof value === "number" ? affixed(formatNumber(value), field.prefix, field.suffix) : "—"
-    case "choice": {
-      const selected = Array.isArray(value) ? value : value === undefined ? [] : [value]
-      const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
-      return labels.length === 0 ? m.none : labels.join(m.listSeparator)
-    }
+    case "list":
+      return joined(Array.isArray(value) ? value : [], m)
+    case "choice":
+      return joined(
+        (Array.isArray(value) ? value : [value]).map(
+          (item) => field.options.find((option) => option.value === item)?.label ?? String(item)
+        ),
+        m
+      )
   }
 }
 
@@ -195,6 +203,10 @@ export type Outcome =
 export const maxNoteLength = 2000
 
 export const maxCommentLength = 500
+
+export const maxListItems = 20
+
+export const maxListItemLength = 200
 
 const maxCommentPresets = 8
 
