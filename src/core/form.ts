@@ -1,10 +1,7 @@
 import { evaluate, parse, type Expr, type Scope, type Value } from "./expression.ts"
 import { stableHash } from "./hash.ts"
 import type { Messages } from "./messages.ts"
-import type { ChoiceField, Computed, Field, FormSpec, RankingField } from "./spec.ts"
-import type { ChoiceField, Computed, Field, FormSpec, NumberRangeField } from "./spec.ts"
-import type { ChoiceField, Computed, Field, FormSpec, TreeChoiceField, TreeNode } from "./spec.ts"
-import type { ChoiceField, Computed, Field, FormSpec, SearchChoiceField } from "./spec.ts"
+import type { ChoiceField, Computed, Field, FormSpec, NumberRangeField, SearchChoiceField, TreeChoiceField, TreeNode } from "./spec.ts"
 
 export type FieldValue = string | number | ReadonlyArray<string> | readonly [number, number]
 export type Values = Readonly<Record<string, FieldValue>>
@@ -17,7 +14,7 @@ export interface CompiledForm {
   readonly expressions: ReadonlyMap<string, Expr>
 }
 
-export const isMultiple = (field: ChoiceField | TreeChoiceField): boolean => field.multiple === true
+export const isMultiple = (field: ChoiceField | SearchChoiceField | TreeChoiceField): boolean => field.multiple === true
 
 export const treeNodes = (nodes: ReadonlyArray<TreeNode>): ReadonlyArray<TreeNode> =>
   nodes.flatMap((node) => [node, ...treeNodes(node.children ?? [])])
@@ -35,7 +32,6 @@ export const treeAncestors = (nodes: ReadonlyArray<TreeNode>, values: ReadonlyAr
   walk(nodes, [])
   return [...new Set(found)]
 }
-export const isMultiple = (field: ChoiceField | SearchChoiceField): boolean => field.multiple === true
 
 const branchFields = (field: Field, value: FieldValue | undefined): ReadonlyArray<Field> =>
   field.type === "choice" && !isMultiple(field) ? (field.options.find((option) => option.value === value)?.fields ?? []) : []
@@ -88,11 +84,11 @@ const initialValue = (field: Field): FieldValue | undefined => {
     case "number":
       return field.default
     case "choice":
-    case "treeChoice":
     case "searchChoice":
+    case "treeChoice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
-    case "ranking":
-      return field.default
+    case "textList":
+      return field.default ?? []
     case "numberRange": {
       if (field.default === undefined) {
         return undefined
@@ -100,10 +96,9 @@ const initialValue = (field: Field): FieldValue | undefined => {
       const [lower = field.min, upper = field.max] = field.default
       return [lower, upper]
     }
-    case "textList":
-      return field.default ?? []
     case "date":
     case "time":
+    case "ranking":
       return field.default
   }
 }
@@ -123,9 +118,10 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
   if (value === undefined) {
     return undefined
   }
-  if ((field.type === "choice" && isMultiple(field)) || field.type === "textList") {
-  if ((field.type === "choice" || field.type === "treeChoice") && isMultiple(field)) {
-  if ((field.type === "choice" || field.type === "searchChoice") && isMultiple(field)) {
+  if (
+    ((field.type === "choice" || field.type === "searchChoice" || field.type === "treeChoice") && isMultiple(field)) ||
+    field.type === "textList"
+  ) {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -147,8 +143,7 @@ export const computeValues = (form: CompiledForm, values: Values): ComputedValue
 }
 
 const sameValue = (field: Field, a: FieldValue | undefined, b: FieldValue | undefined): boolean => {
-  if (field.type === "ranking" && Array.isArray(a) && Array.isArray(b)) {
-  if (field.type === "numberRange" && Array.isArray(a) && Array.isArray(b)) {
+  if ((field.type === "ranking" || field.type === "numberRange") && Array.isArray(a) && Array.isArray(b)) {
     return a.length === b.length && a.every((value, index) => value === b[index])
   }
   if (Array.isArray(a) && Array.isArray(b)) {
@@ -181,10 +176,19 @@ export const formatNumber = (value: number, decimals?: number): string =>
         }
   )
 
-const optionLabels = (field: ChoiceField | RankingField, value: FieldValue): ReadonlyArray<string> =>
-  (Array.isArray(value) ? value : [value]).map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
 const describeRange = (field: NumberRangeField, value: FieldValue, m: Messages): string =>
   Array.isArray(value) ? value.map((bound) => affixed(formatNumber(Number(bound)), field.prefix, field.suffix)).join(m.rangeSeparator) : "—"
+
+const formatDate = (value: string, locale: string): string => {
+  const date = new Date(`${value}T00:00:00Z`)
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(locale, { timeZone: "UTC", year: "numeric", month: "short", day: "numeric", weekday: "short" })
+}
+
+const labelsOf = (known: ReadonlyArray<{ readonly value: string; readonly label: string }>, value: FieldValue): ReadonlyArray<string> =>
+  (Array.isArray(value) ? value : [value]).map((item) => known.find((node) => node.value === item)?.label ?? String(item))
+
 const joined = (labels: ReadonlyArray<string>, m: Messages): string => (labels.length === 0 ? m.none : labels.join(m.listSeparator))
 
 export const describeValue = (field: Field, value: FieldValue | undefined, m: Messages): string => {
@@ -196,47 +200,22 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       return typeof value === "string" && value !== "" ? value : m.empty
     case "number":
       return typeof value === "number" ? affixed(formatNumber(value), field.prefix, field.suffix) : "—"
+    case "textList":
+      return joined(Array.isArray(value) ? value.map(String) : [], m)
     case "numberRange":
       return describeRange(field, value, m)
-    case "choice": {
-      const labels = optionLabels(field, value)
     case "date":
       return formatDate(String(value), m.locale)
     case "time":
       return String(value)
-    case "choice": {
-      const selected = Array.isArray(value) ? value : [value]
     case "choice":
-    case "searchChoice": {
-      const selected = Array.isArray(value) ? value : value === undefined ? [] : [value]
-      const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
-    case "choice":
-    case "treeChoice": {
-      const known = field.type === "choice" ? field.options : treeNodes(field.nodes)
-      const labels = (Array.isArray(value) ? value : [value]).map(
-        (item) => known.find((node) => node.value === item)?.label ?? String(item)
-      )
-      return labels.length === 0 ? m.none : labels.join(m.listSeparator)
-    }
+    case "searchChoice":
+      return joined(labelsOf(field.options, value), m)
+    case "treeChoice":
+      return joined(labelsOf(treeNodes(field.nodes), value), m)
     case "ranking":
-      return optionLabels(field, value).join(" → ")
-    case "textList":
-      return joined(Array.isArray(value) ? value : [], m)
-    case "choice":
-      return joined(
-        (Array.isArray(value) ? value : [value]).map(
-          (item) => field.options.find((option) => option.value === item)?.label ?? String(item)
-        ),
-        m
-      )
+      return labelsOf(field.options, value).join(" → ")
   }
-}
-
-const formatDate = (value: string, locale: string): string => {
-  const date = new Date(`${value}T00:00:00Z`)
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString(locale, { timeZone: "UTC", year: "numeric", month: "short", day: "numeric", weekday: "short" })
 }
 
 export const describeComputed = (item: Computed, value: Value | null | undefined, m: Messages): string => {

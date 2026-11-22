@@ -107,7 +107,6 @@ const IsoTime = Schema.String.check(Schema.isPattern(/^(?:[01]\d|2[0-3]):[0-5]\d
 
 const DateField = Schema.Struct({
   type: Schema.Literal("date"),
-const pickFields = {
   ...commonFields,
   default: Schema.optionalKey(IsoDate),
   min: Schema.optionalKey(IsoDate),
@@ -126,18 +125,62 @@ const TimeField = Schema.Struct({
     })
   )
 }).annotate({ description: "A time of day. The answer is a 24-hour HH:MM string." })
-const selectionFields = {
+
+const pickFields = {
+  ...commonFields,
   default: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
   multiple: Schema.optionalKey(Schema.Boolean)
 }
 
-const choiceFields = {
-  type: Schema.Literal("choice"),
-  ...commonFields,
-  ...selectionFields
-}
+const choiceFields = { type: Schema.Literal("choice"), ...pickFields }
 
 const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
+
+const SearchChoiceField = Schema.Struct({
+  type: Schema.Literal("searchChoice"),
+  ...pickFields,
+  options: Schema.Array(ChoiceOption).check(Schema.isMinLength(7), Schema.isMaxLength(100))
+}).annotate({
+  description:
+    "The user finds options by name among 7 to 100 candidates, typing to narrow the list, and picks one, or several with multiple. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, and treeChoice when the candidates form a hierarchy."
+})
+
+const TextListField = Schema.Struct({
+  type: Schema.Literal("textList"),
+  ...commonFields,
+  default: Schema.optionalKey(Schema.Array(required(200)).check(Schema.isMaxLength(20))),
+  placeholder: Schema.optionalKey(shown(80))
+}).annotate({
+  description:
+    "The user writes any number of short free-form values, such as paths, tags or domains. The answer is an array of up to 20 distinct strings."
+})
+
+const treeNodeFields = {
+  value: required(200),
+  label: shownRequired(60),
+  description: Schema.optionalKey(shown(60, "One sentence on what this item is. Always shown."))
+}
+
+const treeChildren = <S extends Schema.Top>(node: S) => ({
+  children: Schema.optionalKey(Schema.Array(node).check(Schema.isMinLength(1)))
+})
+
+const TreeLeaf = Schema.Struct(treeNodeFields)
+const TreeNode3 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeLeaf) })
+const TreeNode2 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode3) })
+const TreeNode = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode2) })
+
+const TreeChoiceField = Schema.Struct({
+  type: Schema.Literal("treeChoice"),
+  ...pickFields,
+  nodes: Schema.Array(TreeNode).check(Schema.isMinLength(1)).annotate({
+    description:
+      "Items in a hierarchy, up to 4 levels and 100 items in all, such as folders and files. Every value is unique in the whole tree. Any item, branch or leaf, can be chosen."
+  })
+}).annotate({
+  description:
+    "The user picks from a hierarchy, such as a folder, a file or a module. With multiple, checking a branch checks everything in it, and the answer lists the outermost fully checked items."
+})
 
 const RankingField = Schema.Struct({
   type: Schema.Literal("ranking"),
@@ -163,63 +206,18 @@ const RankingField = Schema.Struct({
     "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
 })
 
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, RankingField])
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, NumberRangeField])
-const TextListField = Schema.Struct({
-  type: Schema.Literal("textList"),
-  ...commonFields,
-  default: Schema.optionalKey(Schema.Array(required(200)).check(Schema.isMaxLength(20))),
-  placeholder: Schema.optionalKey(shown(80))
-}).annotate({
-  description:
-    "The user writes any number of short free-form values, such as paths, tags or domains. The answer is an array of up to 20 distinct strings."
-})
-
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, TextListField])
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, DateField, TimeField])
-const treeNodeFields = {
-  value: required(200),
-  label: shownRequired(60),
-  description: Schema.optionalKey(shown(60, "One sentence on what this item is. Always shown."))
-}
-
-const treeChildren = <S extends Schema.Top>(node: S) => ({
-  children: Schema.optionalKey(Schema.Array(node).check(Schema.isMinLength(1)))
-})
-
-const TreeLeaf = Schema.Struct(treeNodeFields)
-const TreeNode3 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeLeaf) })
-const TreeNode2 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode3) })
-const TreeNode = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode2) })
-
-const TreeChoiceField = Schema.Struct({
-  type: Schema.Literal("treeChoice"),
-  ...commonFields,
-  ...selectionFields,
-  nodes: Schema.Array(TreeNode).check(Schema.isMinLength(1)).annotate({
-    description:
-      "Items in a hierarchy, up to 4 levels and 100 items in all, such as folders and files. Every value is unique in the whole tree. Any item, branch or leaf, can be chosen."
-  })
-}).annotate({
-  description:
-    "The user picks from a hierarchy, such as a folder, a file or a module. With multiple, checking a branch checks everything in it, and the answer lists the outermost fully checked items."
-})
-
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, TreeChoiceField])
-const choiceFields = { type: Schema.Literal("choice"), ...pickFields }
-
-const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
-
-const SearchChoiceField = Schema.Struct({
-  type: Schema.Literal("searchChoice"),
-  ...pickFields,
-  options: Schema.Array(ChoiceOption).check(Schema.isMinLength(7), Schema.isMaxLength(100))
-}).annotate({
-  description:
-    "The user finds options by name among 7 to 100 candidates, typing to narrow the list, and picks one, or several with multiple. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, and treeChoice when the candidates form a hierarchy."
-})
-
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, SearchChoiceField])
+const NestedField = Schema.Union([
+  TextField,
+  TextListField,
+  NumberField,
+  NumberRangeField,
+  DateField,
+  TimeField,
+  NestedChoiceField,
+  SearchChoiceField,
+  TreeChoiceField,
+  RankingField
+])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -233,12 +231,18 @@ const BranchOption = Schema.Struct({
 
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField, RankingField])
-const Field = Schema.Union([TextField, NumberField, ChoiceField, NumberRangeField])
-const Field = Schema.Union([TextField, NumberField, ChoiceField, TextListField])
-const Field = Schema.Union([TextField, NumberField, ChoiceField, DateField, TimeField])
-const Field = Schema.Union([TextField, NumberField, ChoiceField, TreeChoiceField])
-const Field = Schema.Union([TextField, NumberField, ChoiceField, SearchChoiceField])
+const Field = Schema.Union([
+  TextField,
+  TextListField,
+  NumberField,
+  NumberRangeField,
+  DateField,
+  TimeField,
+  ChoiceField,
+  SearchChoiceField,
+  TreeChoiceField,
+  RankingField
+])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -248,13 +252,13 @@ export const FormSpec = Schema.Struct({
 })
 
 export type TextField = typeof TextField.Type
+export type TextListField = typeof TextListField.Type
 export type NumberField = typeof NumberField.Type
 export type NumberRangeField = typeof NumberRangeField.Type
-export type ChoiceField = typeof ChoiceField.Type
-export type RankingField = typeof RankingField.Type
-export type TextListField = typeof TextListField.Type
 export type DateField = typeof DateField.Type
 export type TimeField = typeof TimeField.Type
+export type ChoiceField = typeof ChoiceField.Type
+export type SearchChoiceField = typeof SearchChoiceField.Type
 export type TreeChoiceField = typeof TreeChoiceField.Type
 export interface TreeNode {
   readonly value: string
@@ -262,7 +266,7 @@ export interface TreeNode {
   readonly description?: string
   readonly children?: ReadonlyArray<TreeNode>
 }
-export type SearchChoiceField = typeof SearchChoiceField.Type
+export type RankingField = typeof RankingField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

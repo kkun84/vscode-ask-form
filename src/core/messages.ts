@@ -26,6 +26,10 @@ const ja = {
   clear: "選択を解除",
   clearOf: (label: string) => `${label}の選択を解除`,
   clearTextOf: (label: string) => `${label}を空にする`,
+  searchOptions: "入力して絞り込む",
+  filterOf: (label: string) => `${label}を絞り込む`,
+  noMatches: "一致する選択肢がありません",
+  picked: "選んだもの：",
   rankOf: (label: string) => `${label}を順位に入れる`,
   unrankOf: (label: string) => `${label}を候補に戻す`,
   rankedOf: (label: string) => `${label}の順位`,
@@ -50,10 +54,6 @@ const ja = {
   listDuplicate: (text: string) => `「${text}」は既にあります`,
   listTooLong: (max: number) => `1つは${max}文字までです`,
   listFull: (max: number) => `${max}個まで足せます`,
-  searchOptions: "入力して絞り込む",
-  filterOf: (label: string) => `${label}を絞り込む`,
-  noMatches: "一致する選択肢がありません",
-  picked: "選んだもの：",
   increase: (label: string) => `${label}を増やす`,
   decrease: (label: string) => `${label}を減らす`,
   scrub: "左右にドラッグして値を変える",
@@ -118,6 +118,10 @@ const en: typeof ja = {
   decrease: (label: string) => `Decrease ${label}`,
   increase: (label: string) => `Increase ${label}`,
   clearTextOf: (label: string) => `Clear ${label}`,
+  picked: "Selected: ",
+  noMatches: "No matching options",
+  filterOf: (label: string) => `Filter ${label}`,
+  searchOptions: "Type to filter",
   reset: "Reset",
   rankEmpty: "Choose a candidate to rank it here",
   poolOf: (label: string) => `Candidates for ${label}`,
@@ -133,19 +137,15 @@ const en: typeof ja = {
         ? `Position ${message.position} of ${message.total} in ${message.list}.`
         : message.type === "drop"
           ? `Dropped ${message.label} at position ${message.position} of ${message.total} in ${message.list}.`
-          : `Put ${message.label} back.`
+          : `Put ${message.label} back.`,
   rangeSeparator: " – ",
   upperOf: (label: string) => `Maximum ${label}`,
-  lowerOf: (label: string) => `Minimum ${label}`
+  lowerOf: (label: string) => `Minimum ${label}`,
   listFull: (max: number) => `You can add up to ${max}`,
   listTooLong: (max: number) => `Each entry can be up to ${max} characters`,
   listDuplicate: (text: string) => `"${text}" is already in the list`,
   listHint: "Press Enter after each entry. Remove one with Backspace or ×.",
   listPlaceholder: "Type and press Enter"
-  picked: "Selected: ",
-  noMatches: "No matching options",
-  filterOf: (label: string) => `Filter ${label}`,
-  searchOptions: "Type to filter"
 }
 
 export type Messages = typeof ja

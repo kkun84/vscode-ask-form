@@ -22,20 +22,25 @@ import {
   type Values
 } from "../core/form.ts"
 import { languageOf, messages, type Messages } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, RankingField, TextField } from "../core/spec.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, NumberRangeField, TextField } from "../core/spec.ts"
-import type { ChoiceField, DateField, Field, FormSpec, NumberField, TextField, TimeField } from "../core/spec.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, SearchChoiceField, TextField } from "../core/spec.ts"
+import type {
+  ChoiceField,
+  DateField,
+  Field,
+  FormSpec,
+  NumberField,
+  NumberRangeField,
+  RankingField,
+  SearchChoiceField,
+  TextField,
+  TextListField,
+  TimeField,
+  TreeChoiceField,
+  TreeNode
+} from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 import type { TransferMessage } from "@ui-sdk/core"
-import type { ChoiceField, Field, FormSpec, TextListField, NumberField, TextField } from "../core/spec.ts"
-import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
-import { h, on, uid } from "./dom.ts"
 import { listControl } from "./list.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, TextField, TreeChoiceField, TreeNode } from "../core/spec.ts"
-import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
-import { h, on, uid } from "./dom.ts"
 import type { TreeItemData } from "@ui-sdk/core/tree"
 
 type Action = "submit" | "chat"
@@ -97,9 +102,8 @@ const invalidTargets = [
 ].join(", ")
 
 const focusControl = (card: HTMLElement | undefined): void => {
-  const control = card?.querySelector<HTMLElement>(":scope > .q-group :is(input, textarea, ui-radio, ui-checkbox, button.grip)")
   const control = card?.querySelector<HTMLElement>(
-    ":scope > .q-group :is(input, textarea, ui-radio, ui-checkbox, ui-tree-item[tabindex='0'])"
+    ":scope > .q-group :is(input, textarea, ui-radio, ui-checkbox, button.grip, ui-tree-item[tabindex='0'])"
   )
   control?.focus()
 }
@@ -400,8 +404,8 @@ export class FormApp {
     form: undefined as HTMLElement | undefined,
     setters: new Map<string, (value: FieldValue) => void>(),
     unselects: new Map<string, HTMLElement>(),
+    pickedLists: new Map<string, { readonly element: HTMLElement; readonly field: SearchChoiceField }>(),
     resets: new Map<string, { readonly element: HTMLElement; readonly changed: () => boolean }>()
-    pickedLists: new Map<string, { readonly element: HTMLElement; readonly field: SearchChoiceField }>()
   }
   private readonly folded = new Set<string>()
   private showMissing = false
@@ -611,8 +615,8 @@ export class FormApp {
     this.live.branches.length = 0
     this.live.setters.clear()
     this.live.unselects.clear()
-    this.live.resets.clear()
     this.live.pickedLists.clear()
+    this.live.resets.clear()
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
@@ -767,99 +771,20 @@ export class FormApp {
         return this.numberView(field, labelId, describedBy)
       case "choice":
         return this.choiceView(field, labelId, describedBy)
-      case "ranking":
-        return this.rankingView(field, labelId, describedBy)
       case "searchChoice":
         return this.searchChoiceView(field, labelId, describedBy)
-    }
-  }
-
-  private rankingView(field: RankingField, labelId: string, describedBy: string): HTMLElement {
-    const hintId = uid("hint")
-    const labels = Object.fromEntries(field.options.map((option) => [option.value, option.label]))
-    const all = field.options.map((option) => option.value)
-    const split = (ranked: ReadonlyArray<string>) => ({ ranked: [...ranked], pool: all.filter((value) => !ranked.includes(value)) })
-    const current = this.values[field.id]
-    const min = field.min ?? 1
-    const items = new Map(field.options.map((option) => [option.value, this.rankingItem(option, hintId, describedBy)] as const))
-    const ranked = h("af-ranking-list", { list: "ranked", class: "ranked", role: "list", "aria-label": this.m.rankedOf(field.label) })
-    const pool = h("af-ranking-list", { list: "pool", class: "pool", role: "list", "aria-label": this.m.poolOf(field.label) })
-    const empty = h("p", { class: "ranking-empty", "aria-hidden": "true" }, this.m.rankEmpty)
-    const root = h("af-ranking", { class: "ranking", "aria-labelledby": labelId }, ranked, empty, pool) as RankingElement
-    const draw = rankingDrawer(items, { ranked, pool, empty, root }, labels, this.m)
-    Object.assign(root, {
-      labels,
-      listLabels: { ranked: this.m.rankedOf(field.label), pool: this.m.poolOf(field.label) },
-      max: field.max ?? all.length,
-      all,
-      announce: (message: TransferMessage) => this.m.transferMessage(message),
-      render: draw
-    })
-    let rankedNow: ReadonlyArray<string> = Array.isArray(current) ? current : []
-    const apply = (next: ReadonlyArray<string>) => {
-      rankedNow = next
-      if (next.length >= min) {
-        this.setValue(field.id, [...next])
-      } else {
-        this.unset(field.id)
-      }
+      case "ranking":
+        return this.rankingView(field, labelId, describedBy)
+      case "numberRange":
+        return this.rangeView(field, labelId, describedBy)
+      case "textList":
+        return this.listView(field, labelId, describedBy)
       case "date":
         return this.dateView(field, labelId, describedBy)
       case "time":
         return this.timeView(field, labelId, describedBy)
-    }
-    root.lists = split(Array.isArray(current) ? current : [])
-    root.addEventListener("listschange", (event) => {
-      const lists = (event as CustomEvent<{ readonly value: RankingLists }>).detail.value
-      root.lists = lists
-      apply(lists.ranked)
-    })
-    wireRanking(items, root)
-    this.live.setters.set(field.id, (next) => {
-      const lists = split(Array.isArray(next) ? next : [])
-      root.lists = lists
-      draw(lists)
-      apply(lists.ranked)
-    })
-    const reset = on(h("button", { type: "button", class: "link reset" }, this.m.reset), "click", () => {
-      this.live.setters.get(field.id)?.(field.default ?? [])
-    })
-    const initial = field.default ?? []
-    this.live.resets.set(field.id, {
-      element: reset,
-      changed: () => rankedNow.length !== initial.length || rankedNow.some((value, index) => value !== initial[index])
-    })
-    return h(
-      "div",
-      { class: "ranking-box" },
-      root,
-      h("p", { id: hintId, hidden: true }, this.m.rankingHint),
-      field.default === undefined ? reset : null
-    )
-  }
-
-  private rankingItem(option: RankingField["options"][number], hintId: string, describedBy: string): HTMLElement {
-    const headId = uid("option")
-    return h(
-      "af-ranking-item",
-      {
-        value: option.value,
-        role: "listitem",
-        tabindex: 0,
-        "aria-labelledby": headId,
-        "aria-describedby": [hintId, describedBy].join(" ").trim()
-      },
-      h("span", { class: "rank", "aria-hidden": "true" }),
-      h(
-        "span",
-        { class: "option-text" },
-        h("span", { class: "option-head", id: headId }, option.label),
-        option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
-        option.details === undefined ? null : h("span", { class: "option-details" }, option.details)
-      ),
-      h("button", { type: "button", class: "rank-action", tabindex: -1 })
-      case "numberRange":
-        return this.rangeView(field, labelId, describedBy)
+      case "treeChoice":
+        return this.treeView(field, labelId, describedBy)
     }
   }
 
@@ -934,9 +859,89 @@ export class FormApp {
         affix(field.suffix)
       )
     )
-      case "textList":
-        return this.listView(field, labelId, describedBy)
+  }
+
+  private rankingView(field: RankingField, labelId: string, describedBy: string): HTMLElement {
+    const hintId = uid("hint")
+    const labels = Object.fromEntries(field.options.map((option) => [option.value, option.label]))
+    const all = field.options.map((option) => option.value)
+    const split = (ranked: ReadonlyArray<string>) => ({ ranked: [...ranked], pool: all.filter((value) => !ranked.includes(value)) })
+    const current = this.values[field.id]
+    const min = field.min ?? 1
+    const items = new Map(field.options.map((option) => [option.value, this.rankingItem(option, hintId, describedBy)] as const))
+    const ranked = h("af-ranking-list", { list: "ranked", class: "ranked", role: "list", "aria-label": this.m.rankedOf(field.label) })
+    const pool = h("af-ranking-list", { list: "pool", class: "pool", role: "list", "aria-label": this.m.poolOf(field.label) })
+    const empty = h("p", { class: "ranking-empty", "aria-hidden": "true" }, this.m.rankEmpty)
+    const root = h("af-ranking", { class: "ranking", "aria-labelledby": labelId }, ranked, empty, pool) as RankingElement
+    const draw = rankingDrawer(items, { ranked, pool, empty, root }, labels, this.m)
+    Object.assign(root, {
+      labels,
+      listLabels: { ranked: this.m.rankedOf(field.label), pool: this.m.poolOf(field.label) },
+      max: field.max ?? all.length,
+      all,
+      announce: (message: TransferMessage) => this.m.transferMessage(message),
+      render: draw
+    })
+    let rankedNow: ReadonlyArray<string> = Array.isArray(current) ? current : []
+    const apply = (next: ReadonlyArray<string>) => {
+      rankedNow = next
+      if (next.length >= min) {
+        this.setValue(field.id, [...next])
+      } else {
+        this.unset(field.id)
+      }
     }
+    root.lists = split(Array.isArray(current) ? current : [])
+    root.addEventListener("listschange", (event) => {
+      const lists = (event as CustomEvent<{ readonly value: RankingLists }>).detail.value
+      root.lists = lists
+      apply(lists.ranked)
+    })
+    wireRanking(items, root)
+    this.live.setters.set(field.id, (next) => {
+      const lists = split(Array.isArray(next) ? next : [])
+      root.lists = lists
+      draw(lists)
+      apply(lists.ranked)
+    })
+    const reset = on(h("button", { type: "button", class: "link reset" }, this.m.reset), "click", () => {
+      this.live.setters.get(field.id)?.(field.default ?? [])
+    })
+    const initial = field.default ?? []
+    this.live.resets.set(field.id, {
+      element: reset,
+      changed: () => rankedNow.length !== initial.length || rankedNow.some((value, index) => value !== initial[index])
+    })
+    return h(
+      "div",
+      { class: "ranking-box" },
+      root,
+      h("p", { id: hintId, hidden: true }, this.m.rankingHint),
+      field.default === undefined ? reset : null
+    )
+  }
+
+  private rankingItem(option: RankingField["options"][number], hintId: string, describedBy: string): HTMLElement {
+    const headId = uid("option")
+    return h(
+      "af-ranking-item",
+      {
+        value: option.value,
+        role: "listitem",
+        tabindex: 0,
+        "aria-labelledby": headId,
+        "aria-describedby": [hintId, describedBy].join(" ").trim()
+      },
+      h("span", { class: "rank", "aria-hidden": "true" }),
+      h(
+        "span",
+        { class: "option-text" },
+        h("span", { class: "option-head", id: headId }, option.label),
+        option.description === undefined ? null : h("span", { class: "option-summary" }, option.description),
+        option.details === undefined ? null : h("span", { class: "option-details" }, option.details)
+      ),
+      h("button", { type: "button", class: "rank-action", tabindex: -1 })
+    )
   }
 
   private listView(field: TextListField, labelId: string, describedBy: string): HTMLElement {
@@ -1020,9 +1025,6 @@ export class FormApp {
       this.setValue(field.id, String(next))
     })
     return time
-      case "treeChoice":
-        return this.treeView(field, labelId, describedBy)
-    }
   }
 
   private treeView(field: TreeChoiceField, labelId: string, describedBy: string): HTMLElement {
@@ -1268,6 +1270,7 @@ export class FormApp {
     })
     return group
   }
+
   private searchChoiceView(field: SearchChoiceField, labelId: string, describedBy: string): HTMLElement {
     const group = this.choiceView(field, labelId, describedBy)
     group.classList.add("search")
@@ -1432,13 +1435,14 @@ export class FormApp {
     for (const [id, unselect] of this.live.unselects) {
       unselect.hidden = this.values[id] === undefined
     }
-    for (const reset of this.live.resets.values()) {
-      reset.element.hidden = !reset.changed()
     for (const [id, picked] of this.live.pickedLists) {
       const value = this.values[id]
       const chosen = picked.field.options.filter((option) => (Array.isArray(value) ? value.includes(option.value) : value === option.value))
       picked.element.textContent =
         this.m.picked + (chosen.length === 0 ? this.m.none : chosen.map((option) => option.label).join(this.m.listSeparator))
+    }
+    for (const reset of this.live.resets.values()) {
+      reset.element.hidden = !reset.changed()
     }
     for (const branch of this.live.branches) {
       branch.element.hidden = this.values[branch.id] !== branch.value
