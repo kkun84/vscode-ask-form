@@ -451,6 +451,64 @@ describe("SPEC-TOOL-003 文字のリストの回答", () => {
         assert.deepEqual(outcome["values"], { ignore: ["dist", "coverage", "out"] })
         assert.deepEqual(outcome["changedByUser"], ["ignore"])
         assert.deepEqual(outcome["computed"], { count: 3 })
+const scheduleSpec = {
+  title: "リリースの予定",
+  fields: [
+    { type: "date", id: "release", label: "リリース日", default: "2026-12-01", min: "2026-11-25", max: "2027-03-31" },
+    { type: "time", id: "deploy", label: "デプロイの時刻", min: "09:00", max: "18:00", step: 30 }
+  ],
+  computed: [{ id: "christmas", label: "クリスマス", expression: "release == '2026-12-24' && deploy == '10:30'" }]
+}
+
+describe("SPEC-FORM-001 日付と時刻の項目", () => {
+  it("SPEC-FORM-001 日付と時刻の項目を受け付け、形の合わない値を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        assert.equal(Result.isSuccess(compile(scheduleSpec)), true)
+        yield* rejected(h, { title: "t", fields: [{ type: "date", id: "d", label: "D", default: "2026/12/01" }] })
+        yield* rejected(h, { title: "t", fields: [{ type: "time", id: "t", label: "T", default: "24:00" }] })
+        yield* rejected(h, { title: "t", fields: [{ type: "time", id: "t", label: "T", step: 0 }] })
+      })
+    ))
+
+  it("SPEC-FORM-002 存在しない日付、逆の範囲、範囲外と刻みに合わない推奨を拒否する", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const message = yield* rejected(h, {
+          title: "t",
+          fields: [
+            { type: "date", id: "feb", label: "A", default: "2026-02-30" },
+            { type: "date", id: "rev", label: "B", min: "2026-12-01", max: "2026-11-01" },
+            { type: "date", id: "out", label: "C", min: "2026-12-01", default: "2026-11-01" },
+            { type: "time", id: "off", label: "D", min: "09:00", step: 30, default: "09:10" }
+          ]
+        })
+        assert.match(message, /feb.*存在する日付/)
+        assert.match(message, /rev.*min/)
+        assert.match(message, /out.*範囲外/)
+        assert.match(message, /off.*30分刻み/)
+      })
+    ))
+})
+
+describe("SPEC-TOOL-005 日付と時刻の回答", () => {
+  it("SPEC-TOOL-005 範囲外や刻みに合わない日付と時刻を拒否し、計算式では文字列として使える", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const form = compile(scheduleSpec).pipe(Result.getOrThrow)
+        const fiber = yield* Effect.forkChild(h.call("ask_form", scheduleSpec))
+        yield* h.waitUntil(1)
+        const answer = (values: Record<string, unknown>) => h.call("form_answer", { formKey: form.key, action: "submit", values })
+        const outside = yield* answer({ release: "2027-04-01", deploy: "10:00" })
+        assert.match(text(outside), /release.*範囲外/)
+        const off = yield* answer({ release: "2026-12-24", deploy: "10:15" })
+        assert.match(text(off), /deploy.*30分刻み/)
+        const late = yield* answer({ release: "2026-12-24", deploy: "18:30" })
+        assert.match(text(late), /deploy.*範囲外/)
+        yield* answer({ release: "2026-12-24", deploy: "10:30" })
+        const outcome = structured(yield* Fiber.join(fiber))
+        assert.deepEqual(outcome["values"], { release: "2026-12-24", deploy: "10:30" })
+        assert.deepEqual(outcome["computed"], { christmas: true })
       })
     ))
 })

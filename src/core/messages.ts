@@ -11,6 +11,8 @@ interface TransferMessageLike {
 export const languageOf = (locale: string | undefined): Language => (locale?.toLowerCase().startsWith("ja") === true ? "ja" : "en")
 
 const ja = {
+  locale: "ja-JP",
+  openCalendar: (label: string) => `${label}のカレンダーを開く`,
   submit: "送信",
   dismiss: "キャンセル",
   held: "回答なし",
@@ -106,6 +108,8 @@ const en: typeof ja = {
   listSeparator: ", ",
   yes: "Yes",
   no: "No",
+  openCalendar: (label: string) => `Open the calendar for ${label}`,
+  locale: "en-US",
   scrub: "Drag left or right to change the value",
   decrease: (label: string) => `Decrease ${label}`,
   increase: (label: string) => `Increase ${label}`,

@@ -22,6 +22,7 @@ import {
 import { languageOf, messages, type Messages } from "../core/messages.ts"
 import type { ChoiceField, Field, FormSpec, NumberField, RankingField, TextField } from "../core/spec.ts"
 import type { ChoiceField, Field, FormSpec, NumberField, NumberRangeField, TextField } from "../core/spec.ts"
+import type { ChoiceField, DateField, Field, FormSpec, NumberField, TextField, TimeField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 import type { TransferMessage } from "@ui-sdk/core"
@@ -234,6 +235,26 @@ const choiceControl = (multiple: boolean, value: string, labelledBy: string, des
     },
     h(multiple ? "ui-checkbox-indicator" : "ui-radio-indicator", { "aria-hidden": "true" })
   )
+
+const calendarIcon = (): HTMLElement => {
+  const element = h("span", { "aria-hidden": "true", class: "calendar-icon" })
+  element.innerHTML =
+    '<svg viewBox="0 0 16 16" width="14" height="14" focusable="false"><path fill="currentColor" d="M5 1h1v2h4V1h1v2h2.5A1.5 1.5 0 0 1 15 4.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 13.5v-9A1.5 1.5 0 0 1 2.5 3H5V1ZM2 7v6.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5V7H2Zm0-1h12V4.5a.5.5 0 0 0-.5-.5h-11a.5.5 0 0 0-.5.5V6Z"/></svg>'
+  return element
+}
+
+const clockMinutes = (value: string): number => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5))
+
+const snapTime = (value: string, field: TimeField): string => {
+  if (field.step === undefined) {
+    return value
+  }
+  const min = field.min === undefined ? 0 : clockMinutes(field.min)
+  const max = field.max === undefined ? 24 * 60 - 1 : clockMinutes(field.max)
+  const steps = Math.min(Math.floor((max - min) / field.step), Math.max(0, Math.round((clockMinutes(value) - min) / field.step)))
+  const fitted = min + steps * field.step
+  return `${String(Math.floor(fitted / 60)).padStart(2, "0")}:${String(fitted % 60).padStart(2, "0")}`
+}
 
 const collapsible = (name: string, open: boolean, label: string, ...content: ReadonlyArray<HTMLElement>): HTMLElement =>
   h(
@@ -732,6 +753,10 @@ export class FormApp {
       } else {
         this.unset(field.id)
       }
+      case "date":
+        return this.dateView(field, labelId, describedBy)
+      case "time":
+        return this.timeView(field, labelId, describedBy)
     }
     root.lists = split(Array.isArray(current) ? current : [])
     root.addEventListener("listschange", (event) => {
@@ -876,6 +901,75 @@ export class FormApp {
     })
     this.live.setters.set(field.id, (next) => control.set(Array.isArray(next) ? next : []))
     return control.element
+  }
+
+  private dateView(field: DateField, labelId: string, describedBy: string): HTMLElement {
+    const current = this.values[field.id]
+    const input = h("input", { class: "date-text", "aria-labelledby": labelId, "aria-describedby": describedBy, autocomplete: "off" })
+    const picker = h(
+      "ui-date-picker",
+      {
+        class: "date-picker",
+        min: field.min,
+        max: field.max,
+        locale: this.m.locale,
+        "default-value": typeof current === "string" ? current : undefined,
+        "close-on-select": true
+      },
+      h("ui-date-picker-input", {}, input),
+      h(
+        "ui-date-picker-trigger",
+        {},
+        h("button", { type: "button", class: "step calendar", "aria-label": this.m.openCalendar(field.label) }, calendarIcon())
+      ),
+      h("ui-date-picker-content", { hidden: true, class: "calendar-popup" })
+    )
+    picker.addEventListener("valuechange", (event) => {
+      const next = (event as CustomEvent<{ readonly value: unknown }>).detail.value
+      if (typeof next === "string") {
+        this.setValue(field.id, next)
+      } else {
+        this.unset(field.id)
+      }
+    })
+    this.live.setters.set(field.id, (next) => {
+      ;(picker as HTMLElement & { value: string | null }).value = String(next)
+      this.setValue(field.id, String(next))
+    })
+    return picker
+  }
+
+  private timeView(field: TimeField, labelId: string, describedBy: string): HTMLElement {
+    const current = this.values[field.id]
+    const time = h("ui-time-input", {
+      class: "time-input",
+      min: field.min,
+      max: field.max,
+      "hour-cycle": 24,
+      locale: this.m.locale,
+      "default-value": typeof current === "string" ? current : undefined,
+      "aria-labelledby": labelId,
+      "aria-describedby": describedBy
+    }) as HTMLElement & { value: string | null }
+    time.addEventListener("valuechange", (event) => {
+      const next = (event as CustomEvent<{ readonly value: unknown }>).detail.value
+      if (typeof next !== "string") {
+        this.unset(field.id)
+        return
+      }
+      const snapped = snapTime(next.slice(0, 5), field)
+      if (snapped !== next.slice(0, 5)) {
+        queueMicrotask(() => {
+          time.value = snapped
+        })
+      }
+      this.setValue(field.id, snapped)
+    })
+    this.live.setters.set(field.id, (next) => {
+      time.value = String(next)
+      this.setValue(field.id, String(next))
+    })
+    return time
   }
 
   private setFolded(id: string, folded: boolean): void {

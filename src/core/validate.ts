@@ -18,6 +18,7 @@ import {
 import { FormSpec, type ChoiceField, type Field, type NumberField, type RankingField } from "./spec.ts"
 import { FormSpec, type ChoiceField, type Field, type NumberField, type NumberRangeField } from "./spec.ts"
 import { FormSpec, type ChoiceField, type Field, type TextListField, type NumberField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type DateField, type Field, type NumberField, type TimeField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -151,6 +152,76 @@ const listProblems = (field: TextListField): ReadonlyArray<string> =>
   field.default === undefined || new Set(field.default).size === field.default.length
     ? []
     : [`項目「${field.id}」のdefaultが重複しています`]
+const isDate = (value: unknown): value is string => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false
+  }
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value)
+}
+
+const minutesOf = (value: unknown): number | undefined => {
+  const match = typeof value === "string" ? /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value) : null
+  return match === null ? undefined : Number(match[1]) * 60 + Number(match[2])
+}
+
+const dateProblem = (field: DateField, value: unknown): string | undefined => {
+  if (!isDate(value)) {
+    return `項目「${field.id}」はYYYY-MM-DDの形の、存在する日付が必要です`
+  }
+  return (field.min !== undefined && value < field.min) || (field.max !== undefined && value > field.max)
+    ? `項目「${field.id}」が範囲外です`
+    : undefined
+}
+
+const timeProblem = (field: TimeField, value: unknown): string | undefined => {
+  const minutes = minutesOf(value)
+  if (minutes === undefined) {
+    return `項目「${field.id}」は24時間のHH:MMの形の時刻が必要です`
+  }
+  const min = minutesOf(field.min) ?? 0
+  const max = minutesOf(field.max) ?? 24 * 60 - 1
+  if (minutes < min || minutes > max) {
+    return `項目「${field.id}」が範囲外です`
+  }
+  return field.step !== undefined && (minutes - min) % field.step !== 0
+    ? `項目「${field.id}」は${field.step}分刻みの時刻が必要です`
+    : undefined
+}
+
+const bounded = (
+  id: string,
+  min: string | undefined,
+  max: string | undefined,
+  valid: (value: string) => boolean
+): ReadonlyArray<string> => [
+  ...[min, max]
+    .filter((value): value is string => value !== undefined && !valid(value))
+    .map((value) => `項目「${id}」の「${value}」は存在しません`),
+  ...(min !== undefined && max !== undefined && min >= max ? [`項目「${id}」のminがmax以上です`] : [])
+]
+
+const withDefault = (
+  range: ReadonlyArray<string>,
+  fallback: string | undefined,
+  check: () => string | undefined
+): ReadonlyArray<string> => {
+  if (range.length > 0 || fallback === undefined) {
+    return range
+  }
+  const problem = check()
+  return problem === undefined ? [] : [`${problem}(default)`]
+}
+
+const dateFieldProblems = (field: DateField): ReadonlyArray<string> =>
+  withDefault(bounded(field.id, field.min, field.max, isDate), field.default, () => dateProblem(field, field.default))
+
+const timeFieldProblems = (field: TimeField): ReadonlyArray<string> =>
+  withDefault(
+    bounded(field.id, field.min, field.max, (value) => minutesOf(value) !== undefined),
+    field.default,
+    () => timeProblem(field, field.default)
+  )
 
 const reasonProblems = (field: Field): ReadonlyArray<string> =>
   field.default === undefined && (field.reason !== undefined || field.reasonDetails !== undefined)
@@ -169,6 +240,10 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return rangeProblems(field)
     case "textList":
       return listProblems(field)
+    case "date":
+      return dateFieldProblems(field)
+    case "time":
+      return timeFieldProblems(field)
     default:
       return []
   }
@@ -226,6 +301,10 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
       return isList(value)
         ? undefined
         : `項目「${field.id}」は、${maxListItemLength}文字以下の空でない文字列を重複なく${maxListItems}個まで並べた配列が必要です`
+    case "date":
+      return dateProblem(field, value)
+    case "time":
+      return timeProblem(field, value)
   }
 }
 

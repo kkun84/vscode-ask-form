@@ -33,6 +33,7 @@ export const askFormDescription = [
   "For a yes/no question, use a choice with two options. To ask for an order, such as priorities, use a ranking field.",
   "For a yes/no question, use a choice with two options. To ask for a span with a lower and an upper bound, such as supported versions or a budget, use a numberRange field.",
   "For a yes/no question, use a choice with two options. To let the user write any number of free-form values, such as paths, tags or domains, use a textList field.",
+  "For a yes/no question, use a choice with two options. For a calendar date or a time of day, use a date or time field.",
   "When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields.",
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",

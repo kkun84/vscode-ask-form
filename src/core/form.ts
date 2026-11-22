@@ -80,6 +80,9 @@ const initialValue = (field: Field): FieldValue | undefined => {
     }
     case "textList":
       return field.default ?? []
+    case "date":
+    case "time":
+      return field.default
   }
 }
 
@@ -173,6 +176,13 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       return describeRange(field, value, m)
     case "choice": {
       const labels = optionLabels(field, value)
+    case "date":
+      return formatDate(String(value), m.locale)
+    case "time":
+      return String(value)
+    case "choice": {
+      const selected = Array.isArray(value) ? value : [value]
+      const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
       return labels.length === 0 ? m.none : labels.join(m.listSeparator)
     }
     case "ranking":
@@ -187,6 +197,13 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
         m
       )
   }
+}
+
+const formatDate = (value: string, locale: string): string => {
+  const date = new Date(`${value}T00:00:00Z`)
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(locale, { timeZone: "UTC", year: "numeric", month: "short", day: "numeric", weekday: "short" })
 }
 
 export const describeComputed = (item: Computed, value: Value | null | undefined, m: Messages): string => {

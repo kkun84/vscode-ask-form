@@ -1105,4 +1105,166 @@ ui-token-input-token-remove.list-remove:hover {
 
 .list-error:empty {
   display: none;
+ui-date-picker.date-picker {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  padding: 0 2px;
+}
+
+ui-date-picker.date-picker:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+
+ui-date-picker.date-picker input.date-text {
+  width: 16ch;
+  min-height: 26px;
+  border: 0;
+  padding: 2px 6px;
+  background: transparent;
+}
+
+ui-date-picker.date-picker input.date-text:focus-visible {
+  outline: none;
+}
+
+ui-date-picker.date-picker input[aria-invalid="true"] {
+  color: var(--danger-text);
+}
+
+ui-date-picker-hint {
+  display: none;
+}
+
+ui-date-picker-content.calendar-popup {
+  z-index: 10;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 6px 20px color-mix(in srgb, #000 30%, transparent);
+}
+
+ui-date-picker-content.calendar-popup > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+ui-date-picker-content.calendar-popup :is(ui-calendar-previous, ui-calendar-next) button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+ui-date-picker-content.calendar-popup :is(ui-calendar-previous, ui-calendar-next) button:hover {
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
+ui-calendar-heading {
+  font-weight: 600;
+}
+
+ui-calendar-grid,
+ui-calendar-weekdays,
+ui-calendar-weeks {
+  display: block;
+}
+
+[data-slot="calendar-weekdays"],
+ui-calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, 32px);
+}
+
+ui-calendar-weekday {
+  display: grid;
+  place-items: center;
+  height: 24px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+ui-calendar-day {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+ui-calendar-day:hover {
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
+ui-calendar-day:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+ui-calendar-day[data-outside] {
+  color: var(--muted);
+}
+
+ui-calendar-day[data-today] {
+  box-shadow: inset 0 0 0 1px var(--focus);
+}
+
+ui-calendar-day[data-selected] {
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: 0 0 0 1px var(--contrast-border);
+}
+
+ui-calendar-day:is([data-disabled], [data-unavailable], [aria-disabled="true"]) {
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: default;
+}
+
+ui-time-input.time-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  font-variant-numeric: tabular-nums;
+}
+
+ui-time-input.time-input:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+
+ui-time-input-segment input {
+  width: 2.2ch;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: center;
+}
+
+ui-time-input-segment input:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 2px;
 }
