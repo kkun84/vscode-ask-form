@@ -143,7 +143,7 @@ test("REQ-ANS-007 質問へのコメントは、commentsとしてモデルに届
 
 test("REQ-ANS-006 補足を書いて送信すると、noteとしてモデルに届く", async ({ session }) => {
   const asked = await settledForm(session)
-  await asked.frame.locator("details.note summary").click()
+  await asked.frame.getByRole("button", { name: "Add a note" }).click()
   await asked.frame.getByRole("textbox", { name: "Add a note" }).fill("The venue is not decided yet.")
   const result = await answer(session, asked)
   expect(result).toContain('"status":"submitted"')
