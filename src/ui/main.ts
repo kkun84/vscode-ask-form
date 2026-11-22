@@ -1,10 +1,12 @@
 import "@ui-sdk/web/button"
 import "@ui-sdk/web/checkbox"
 import "@ui-sdk/web/collapsible"
+import "@ui-sdk/web/date-picker"
 import "@ui-sdk/web/input"
 import "@ui-sdk/web/number-input"
 import "@ui-sdk/web/radio"
 import "@ui-sdk/web/slider"
+import "@ui-sdk/web/time-input"
 import { FormApp } from "./app.ts"
 import { connect } from "./bridge.ts"
 

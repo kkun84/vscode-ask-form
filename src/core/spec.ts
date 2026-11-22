@@ -82,6 +82,33 @@ const NumberField = Schema.Struct({
   suffix: Schema.optionalKey(text(8))
 })
 
+const IsoDate = Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)).annotate({ description: "A date as YYYY-MM-DD." })
+
+const IsoTime = Schema.String.check(Schema.isPattern(/^(?:[01]\d|2[0-3]):[0-5]\d$/)).annotate({
+  description: "A time of day as 24-hour HH:MM."
+})
+
+const DateField = Schema.Struct({
+  type: Schema.Literal("date"),
+  ...commonFields,
+  default: Schema.optionalKey(IsoDate),
+  min: Schema.optionalKey(IsoDate),
+  max: Schema.optionalKey(IsoDate)
+}).annotate({ description: "A calendar date. The answer is a YYYY-MM-DD string." })
+
+const TimeField = Schema.Struct({
+  type: Schema.Literal("time"),
+  ...commonFields,
+  default: Schema.optionalKey(IsoTime),
+  min: Schema.optionalKey(IsoTime),
+  max: Schema.optionalKey(IsoTime),
+  step: Schema.optionalKey(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 720 })).annotate({
+      description: "Minutes between allowed times, counted from min, or from 00:00 without min."
+    })
+  )
+}).annotate({ description: "A time of day. The answer is a 24-hour HH:MM string." })
+
 const choiceFields = {
   type: Schema.Literal("choice"),
   ...commonFields,
@@ -91,7 +118,7 @@ const choiceFields = {
 
 const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
 
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField])
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, DateField, TimeField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -105,7 +132,7 @@ const BranchOption = Schema.Struct({
 
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, DateField, TimeField])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -117,6 +144,8 @@ export const FormSpec = Schema.Struct({
 export type TextField = typeof TextField.Type
 export type NumberField = typeof NumberField.Type
 export type ChoiceField = typeof ChoiceField.Type
+export type DateField = typeof DateField.Type
+export type TimeField = typeof TimeField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

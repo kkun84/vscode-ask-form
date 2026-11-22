@@ -68,6 +68,9 @@ const initialValue = (field: Field): FieldValue | undefined => {
       return field.default
     case "choice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
+    case "date":
+    case "time":
+      return field.default
   }
 }
 
@@ -147,12 +150,23 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       return typeof value === "string" && value !== "" ? value : m.empty
     case "number":
       return typeof value === "number" ? affixed(formatNumber(value), field.prefix, field.suffix) : "—"
+    case "date":
+      return formatDate(String(value), m.locale)
+    case "time":
+      return String(value)
     case "choice": {
-      const selected = Array.isArray(value) ? value : value === undefined ? [] : [value]
+      const selected = Array.isArray(value) ? value : [value]
       const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
       return labels.length === 0 ? m.none : labels.join(m.listSeparator)
     }
   }
+}
+
+const formatDate = (value: string, locale: string): string => {
+  const date = new Date(`${value}T00:00:00Z`)
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(locale, { timeZone: "UTC", year: "numeric", month: "short", day: "numeric", weekday: "short" })
 }
 
 export const describeComputed = (item: Computed, value: Value | null | undefined, m: Messages): string => {

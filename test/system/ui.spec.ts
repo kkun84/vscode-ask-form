@@ -641,3 +641,58 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
     await expect(none.getByRole("group", { name: "件数へのコメントの定型文" })).toHaveCount(0)
   })
 })
+
+const scheduleArgs = {
+  title: "リリースの予定",
+  fields: [
+    {
+      type: "date",
+      id: "release",
+      label: "リリース日",
+      default: "2026-12-01",
+      min: "2026-11-25",
+      max: "2027-03-31",
+      reason: "スプリントの終わり"
+    },
+    { type: "time", id: "deploy", label: "デプロイの時刻", min: "09:00", max: "18:00", step: 30 }
+  ]
+}
+
+const openSchedule = async (page: Page) => {
+  const frame = await open(page, { args: scheduleArgs })
+  return { frame, date: frame.getByRole("textbox", { name: "リリース日" }) }
+}
+
+test.describe("SPEC-UI-019 日付と時刻", () => {
+  test("SPEC-UI-019 日付はカレンダーで選べ、範囲外の日は選べない", async ({ page }) => {
+    const { frame, date } = await openSchedule(page)
+    await expect(date).toHaveValue("2026/12/01")
+    await frame.getByRole("button", { name: "リリース日のカレンダーを開く" }).click()
+    const grid = frame.getByRole("grid")
+    await expect(grid.getByRole("gridcell", { name: /2026年12月1日/ })).toBeFocused()
+    await page.keyboard.press("ArrowRight")
+    await page.keyboard.press("Enter")
+    await expect(grid).toBeHidden()
+    await expect(date).toHaveValue("2026/12/02")
+    await frame.getByRole("button", { name: "リリース日のカレンダーを開く" }).click()
+    await page.keyboard.press("PageUp")
+    await expect(grid.getByRole("gridcell", { name: /2026年11月24日/ })).toHaveAttribute("aria-disabled", "true")
+    await page.keyboard.press("Escape")
+    await expect(frame.getByRole("button", { name: "推奨に戻す" })).toBeVisible()
+    expect(await axeViolations(frame)).toEqual([])
+  })
+
+  test("SPEC-UI-019 日付は入力でき、時刻は未回答で始めてキーボードで入れると刻みに丸める", async ({ page }) => {
+    const { frame, date } = await openSchedule(page)
+    await date.fill("2027/01/15")
+    await date.press("Enter")
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: デプロイの時刻")
+    await frame.getByRole("spinbutton", { name: "時" }).click()
+    await page.keyboard.type("1012")
+    await expect(frame.getByRole("spinbutton", { name: "分" })).toHaveValue("00")
+    await send(frame)
+    const outcome = await singleOutcome(page)
+    expect(outcome?.values).toEqual({ release: "2027-01-15", deploy: "10:00" })
+  })
+})
