@@ -22,6 +22,7 @@ export interface LaunchOptions {
   readonly env?: Readonly<Record<string, string>>
   readonly folder?: string
   readonly args?: ReadonlyArray<string>
+  readonly extensions?: ReadonlyArray<string>
   readonly settings?: Readonly<Record<string, unknown>>
   readonly draft?: boolean
   readonly autostart?: boolean
@@ -52,6 +53,22 @@ export const localHarness = { "chat.defaultToCopilotHarness": false, "chat.edito
 
 const agentVariable = /^(CLAUDE|ANTHROPIC|OPENAI|CODEX|CCR)_|^CLAUDECODE$/
 
+const install = (paths: VscodePaths, options: LaunchOptions, env: Readonly<Record<string, string>>): void => {
+  for (const packaged of [...(paths.vsix === undefined ? [] : [paths.vsix]), ...(options.extensions ?? [])]) {
+    execFileSync(
+      paths.executable,
+      [
+        join(dirname(paths.executable), "resources/app/out/cli.js"),
+        "--install-extension",
+        packaged,
+        `--extensions-dir=${join(options.profile, "extensions")}`,
+        `--user-data-dir=${join(options.profile, "user")}`
+      ],
+      { env: { ...env, ELECTRON_RUN_AS_NODE: "1" }, stdio: "inherit", timeout: 120_000 }
+    )
+  }
+}
+
 export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): Promise<ElectronApplication> => {
   const user = join(options.profile, "user")
   await prepareProfile(user, options.settings ?? {})
@@ -61,19 +78,7 @@ export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): 
       env[key] = value
     }
   }
-  if (paths.vsix !== undefined) {
-    execFileSync(
-      paths.executable,
-      [
-        join(dirname(paths.executable), "resources/app/out/cli.js"),
-        "--install-extension",
-        paths.vsix,
-        `--extensions-dir=${join(options.profile, "extensions")}`,
-        `--user-data-dir=${user}`
-      ],
-      { env: { ...env, ELECTRON_RUN_AS_NODE: "1" }, stdio: "inherit", timeout: 120_000 }
-    )
-  }
+  install(paths, options, env)
   return electron.launch({
     executablePath: paths.executable,
     args: [

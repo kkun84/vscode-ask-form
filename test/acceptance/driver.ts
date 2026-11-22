@@ -14,9 +14,11 @@ const sleep = (ms: number) =>
     setTimeout(resolve, ms)
   })
 
+const stub = { vendor: "customendpoint", id: "stub-model" }
+
 const waitForModel = async (): Promise<vscode.LanguageModelChat | undefined> => {
   for (let i = 0; i < 300; i++) {
-    const [model] = await vscode.lm.selectChatModels({ vendor: "customendpoint" })
+    const [model] = await vscode.lm.selectChatModels({ vendor: stub.vendor })
     if (model !== undefined) {
       return model
     }
@@ -44,19 +46,19 @@ const addGroup = async (group: Readonly<Record<string, unknown>>, attempt = 1): 
   }
 }
 
-const registerModel = async (url: string): Promise<vscode.LanguageModelChat> => {
+const registerModel = async (url: string): Promise<void> => {
   const copilot = vscode.extensions.all
     .filter((item) => /copilot/i.test(item.id))
     .map((item) => `${item.id}@${String(item.packageJSON?.version)} active=${String(item.isActive)}`)
   log(`copilot extensions: ${copilot.join(", ") || "none"}`)
   await addGroup({
     name: "Stub",
-    vendor: "customendpoint",
+    vendor: stub.vendor,
     apiKey: "stub-key",
     apiType: "chat-completions",
     models: [
       {
-        id: "stub-model",
+        id: stub.id,
         name: "Stub Model",
         url,
         toolCalling: true,
@@ -68,12 +70,14 @@ const registerModel = async (url: string): Promise<vscode.LanguageModelChat> => 
     ]
   })
   log("provider group added")
+}
+
+const modelListed = async (): Promise<void> => {
   const model = await waitForModel()
   log(`model ${model === undefined ? "missing" : `${model.vendor}/${model.id}`}`)
   if (model === undefined) {
     throw new Error("the stub model is unavailable")
   }
-  return model
 }
 
 const toggleAutoReply = async (): Promise<void> => {
@@ -91,7 +95,10 @@ const applySettings = async (): Promise<void> => {
 
 const drive = async (context: vscode.ExtensionContext, url: string, query: string): Promise<void> => {
   await applySettings()
-  const model = await registerModel(url)
+  await registerModel(url)
+  if (vscode.env.remoteName === undefined || context.extension.extensionKind === vscode.ExtensionKind.Workspace) {
+    await modelListed()
+  }
   const draft = process.env["ASK_FORM_E2E_DRAFT"] === "1"
   let scenario = 0
   const openChat = async (): Promise<void> => {
@@ -105,7 +112,7 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
       query: draft ? "" : scenario === 1 ? query : `${query} Scenario ${scenario}.`,
       isPartialQuery: draft,
       mode: "agent",
-      modelSelector: { vendor: model.vendor, id: model.id }
+      modelSelector: stub
     })
     log(`chat ${scenario} opened`)
   }

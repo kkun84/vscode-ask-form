@@ -4,12 +4,12 @@ import { join } from "node:path"
 import type { Page } from "@playwright/test"
 import { eventSpec } from "../fixtures/event.ts"
 import { until } from "./frames.ts"
-import { driver, electron, extension, vsix } from "./paths.ts"
 import { startStubModel, type StubModel } from "./stub-model.ts"
-import { closeApp, fitWindow, launchVscode, localHarness } from "./vscode.ts"
-import { lines, size, webSession, type Running } from "./web-session.ts"
+import { desktopSession, sshSession } from "./desktop-session.ts"
+import { localHarness } from "./vscode.ts"
+import { webSession, type Running } from "./web-session.ts"
 
-export type Platform = "desktop" | "web"
+export type Platform = "desktop" | "web" | "ssh"
 
 export interface Session {
   readonly window: Page
@@ -31,19 +31,12 @@ const driverReady = (session: Running, marker: string): Promise<true> =>
     180_000
   )
 
-const desktopSession = async (llm: StubModel, profile: string, log: string): Promise<Running> => {
-  const app = await launchVscode(
-    { executable: electron(), extension, driver, vsix },
-    { llm, log, profile, locale: "en", query, settings: localHarness, autostart: false }
-  )
-  const window = await fitWindow(app, size)
-  window.context().setDefaultTimeout(30_000)
-  return { window, events: lines(log), close: () => closeApp(app) }
-}
-
 const launch = (platform: Platform, llm: StubModel, profile: string, log: string): Promise<Running> => {
   if (platform === "desktop") {
-    return desktopSession(llm, profile, log)
+    return desktopSession(llm, profile, log, query)
+  }
+  if (platform === "ssh") {
+    return sshSession(llm, profile, log, query)
   }
   return webSession(profile, log, {
     ASK_FORM_E2E_LLM_URL: llm.url,
@@ -66,9 +59,11 @@ export const openSession = async (platform: Platform, results: string, name: str
     await llm.close()
     await rm(profile, { recursive: true, force: true, maxRetries: 3 })
   }
-  await driverReady(session, "chat ready").catch(async (error: unknown) => {
-    await close()
-    throw error
-  })
+  await driverReady(session, "chat ready")
+    .then(() => session.ready?.())
+    .catch(async (error: unknown) => {
+      await close()
+      throw error
+    })
   return { ...session, llm, close }
 }

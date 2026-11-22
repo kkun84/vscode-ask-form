@@ -85,6 +85,7 @@
               base.env
               // {
                 VSCODE_EXECUTABLE = "${vscode}/bin/code";
+                ASK_FORM_OPENSSH = "${pkgs.openssh}";
                 VSCODE_ELECTRON =
                   if pkgs.stdenv.hostPlatform.isDarwin then
                     "${vscode}/Applications/Visual Studio Code.app/Contents/MacOS/Code"

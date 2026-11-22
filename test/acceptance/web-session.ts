@@ -6,6 +6,7 @@ import { desktopCommit, ensureServer, startServer } from "./server.ts"
 export interface Running {
   readonly window: Page
   readonly events: () => Promise<ReadonlyArray<string>>
+  readonly ready?: () => Promise<unknown>
   readonly close: () => Promise<void>
 }
 
