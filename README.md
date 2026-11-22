@@ -343,17 +343,18 @@ pnpm build
 
 受け入れテストは、実際のVS CodeとビルトインのCopilot Chatを動かし、[Playwright Test](https://playwright.dev/docs/test-intro)で画面を操作して確かめます(設定は`playwright.acceptance.config.ts`)。チャットのモデルには、決まった応答を返すLLM APIのスタブをBYOK(Custom Endpoint)としてつなぎ、フォームの表示、回答、中断までを通します。テストは1件ずつ新しいチャットを開くので、互いに依存しません。READMEの画像と動画も、同じスタブと起動のしくみで撮っています。
 
-テストは、動かす環境ごとに2つのプロジェクトに分かれ、確かめる内容ごとのファイルを環境の間で共有します。
+テストは、動かす環境ごとに3つのプロジェクトに分かれ、確かめる内容ごとのファイルを環境の間で共有します。
 
-| ファイル          | 確かめること                                                         | `desktop` | `web` |
-| ----------------- | -------------------------------------------------------------------- | --------- | ----- |
-| `startup.spec.ts` | 起動が済むと、ツールが呼ばれなくても有効になる                       | ○         | ○     |
-| `tool.spec.ts`    | ハーネスを通さずにツールを呼んでも、フォームで回答や取り消しができる | ○         | ○     |
-| `chat.spec.ts`    | Copilotのチャットから、フォームで聞いて回答が届く                    | ○         | ○     |
-| `harness.spec.ts` | CopilotとCodexのハーネスとAgentsウィンドウで、フォームで回答が届く   | ○         | -     |
+| ファイル          | 確かめること                                                         | `desktop` | `web` | `ssh` |
+| ----------------- | -------------------------------------------------------------------- | --------- | ----- | ----- |
+| `startup.spec.ts` | 起動が済むと、ツールが呼ばれなくても有効になる                       | ○         | ○     | ○     |
+| `tool.spec.ts`    | ハーネスを通さずにツールを呼んでも、フォームで回答や取り消しができる | ○         | ○     | ○     |
+| `chat.spec.ts`    | Copilotのチャットから、フォームで聞いて回答が届く                    | ○         | ○     | ○     |
+| `harness.spec.ts` | CopilotとCodexのハーネスとAgentsウィンドウで、フォームで回答が届く   | ○         | -     | -     |
 
 - `desktop`は、デスクトップ版のVS Code(Electron)です。
 - `web`は、サーバーにつないだweb版です。GitHub Codespacesなどと同じく、拡張機能とCopilotがサーバーの側で動きます。VS Codeのサーバーは、デスクトップ版と同じコミットの物を初回にダウンロードし、`node_modules/.cache/ask-form-vscode-server`に置きます。
+- `ssh`は、デスクトップ版をSSHでリモートにつないだ状態です。同じマシンにSSHのサーバーを立て、Microsoftの拡張機能Remote - SSHでつなぎます。Ask Formは手元の側で、Copilotはリモートの側で動きます。Remote - SSHは、版とSHA-256を固定してMarketplaceから初回にダウンロードし、`node_modules/.cache/ask-form-remote-ssh`に置きます。Copilotのハーネスは、リモートの側ではスタブに向けられないので、`harness.spec.ts`は動かしません。
 - 利用者と同じ状態で確かめるために、Ask FormはVSIXにまとめてインストールしてから起動します。開発用のパスで読み込んだ拡張機能は、Agentsウィンドウの制限を受けないなど、インストールした拡張機能と扱いが違うためです。
 - `pnpm test:acceptance chat`のようにファイル名の一部を渡すと、そのテストだけを動かせます。`pnpm test:acceptance --project=desktop`で、プロジェクトを選べます。
 

@@ -14,6 +14,7 @@ export default defineConfig<object, PlatformOptions>({
   reporter: process.env["CI"] === undefined ? [["list"]] : [["list"], ["github"]],
   projects: [
     { name: "web", testMatch: /(startup|tool|chat)\.spec\.ts$/, use: { platform: "web" } },
+    { name: "ssh", testMatch: /(startup|tool|chat)\.spec\.ts$/, use: { platform: "ssh" } },
     { name: "desktop", testMatch: /(startup|tool|chat|harness)\.spec\.ts$/, use: { platform: "desktop" } }
   ]
 })

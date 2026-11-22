@@ -14,6 +14,7 @@ export const buildDriver = async (root: string, driver: string): Promise<void> =
       version: "0.0.0",
       engines: { vscode: "^1.110.0" },
       main: "./driver.cjs",
+      extensionKind: ["ui", "workspace"],
       activationEvents: ["onStartupFinished"],
       contributes: {
         commands: [
