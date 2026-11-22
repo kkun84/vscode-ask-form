@@ -62,6 +62,28 @@ describe("SPEC-FORM-001 設計図の形", () => {
     ))
 })
 
+const arraysWithoutItems = (node: unknown, path = "$"): ReadonlyArray<string> => {
+  if (Array.isArray(node)) {
+    return node.flatMap((item, index) => arraysWithoutItems(item, `${path}[${index}]`))
+  }
+  if (node === null || typeof node !== "object") {
+    return []
+  }
+  const record = node as Record<string, unknown>
+  const own = record["type"] === "array" && record["items"] === undefined ? [path] : []
+  return [...own, ...Object.entries(record).flatMap(([key, value]) => arraysWithoutItems(value, `${path}.${key}`))]
+}
+
+describe("SPEC-FORM-001 AIに示すスキーマの形", () => {
+  it("SPEC-FORM-001 VS Codeがツールの定義を拒否しないよう、配列にはすべてitemsを書く", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const tool = yield* h.tool("ask_form")
+        assert.deepEqual(arraysWithoutItems(tool.inputSchema), [])
+      })
+    ))
+})
+
 describe("SPEC-FORM-001 選択肢ごとの項目", () => {
   it("SPEC-FORM-001 選択肢がfieldsを持つ設計図を受け付ける", () =>
     withHarness((h) =>

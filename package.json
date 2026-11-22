@@ -591,16 +591,11 @@
                                       },
                                       "default": {
                                         "type": "array",
-                                        "prefixItems": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "number"
-                                          }
-                                        ],
-                                        "maxItems": 2,
+                                        "items": {
+                                          "type": "number"
+                                        },
                                         "minItems": 2,
+                                        "maxItems": 2,
                                         "description": "The recommended lower and upper bounds, as [lower, upper], within min and max."
                                       },
                                       "min": {
@@ -698,16 +693,11 @@
                       },
                       "default": {
                         "type": "array",
-                        "prefixItems": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "number"
-                          }
-                        ],
-                        "maxItems": 2,
+                        "items": {
+                          "type": "number"
+                        },
                         "minItems": 2,
+                        "maxItems": 2,
                         "description": "The recommended lower and upper bounds, as [lower, upper], within min and max."
                       },
                       "min": {

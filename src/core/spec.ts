@@ -90,7 +90,7 @@ const RangeField = Schema.Struct({
   type: Schema.Literal("range"),
   ...commonFields,
   default: Schema.optionalKey(
-    Schema.Tuple([Schema.Finite, Schema.Finite]).annotate({
+    Schema.Array(Schema.Finite).check(Schema.isMinLength(2), Schema.isMaxLength(2)).annotate({
       description: "The recommended lower and upper bounds, as [lower, upper], within min and max."
     })
   ),

@@ -68,8 +68,13 @@ const initialValue = (field: Field): FieldValue | undefined => {
       return field.default
     case "choice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
-    case "range":
-      return field.default
+    case "range": {
+      if (field.default === undefined) {
+        return undefined
+      }
+      const [lower = field.min, upper = field.max] = field.default
+      return [lower, upper]
+    }
   }
 }
 
