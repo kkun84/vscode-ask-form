@@ -20,7 +20,7 @@ import {
   type Values
 } from "../core/form.ts"
 import { languageOf, messages, type Messages } from "../core/messages.ts"
-import type { ChoiceField, Field, FormSpec, NumberField, RangeField, TextField } from "../core/spec.ts"
+import type { ChoiceField, Field, FormSpec, NumberField, NumberRangeField, TextField } from "../core/spec.ts"
 import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 
@@ -101,7 +101,13 @@ const numberInput = (
     )
   )
 
-const rangeParts = (field: RangeField, labelId: string, describedBy: string, pair: readonly [number, number] | undefined, m: Messages) => {
+const rangeParts = (
+  field: NumberRangeField,
+  labelId: string,
+  describedBy: string,
+  pair: readonly [number, number] | undefined,
+  m: Messages
+) => {
   const names = [m.lowerOf(field.label), m.upperOf(field.label)] as const
   const slider = h(
     "ui-slider",
@@ -612,12 +618,12 @@ export class FormApp {
         return this.numberView(field, labelId, describedBy)
       case "choice":
         return this.choiceView(field, labelId, describedBy)
-      case "range":
+      case "numberRange":
         return this.rangeView(field, labelId, describedBy)
     }
   }
 
-  private rangeView(field: RangeField, labelId: string, describedBy: string): HTMLElement {
+  private rangeView(field: NumberRangeField, labelId: string, describedBy: string): HTMLElement {
     const current = this.values[field.id]
     let pair: readonly [number, number] | undefined = Array.isArray(current) ? [Number(current[0]), Number(current[1])] : undefined
     const text = (next: number) => `${field.prefix ?? ""}${formatNumber(next)}${field.suffix ?? ""}`

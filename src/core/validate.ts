@@ -13,7 +13,7 @@ import {
   type CompiledForm,
   type Values
 } from "./form.ts"
-import { FormSpec, type ChoiceField, type Field, type NumberField, type RangeField } from "./spec.ts"
+import { FormSpec, type ChoiceField, type Field, type NumberField, type NumberRangeField } from "./spec.ts"
 
 const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
 
@@ -97,7 +97,7 @@ const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
   return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
 }
 
-const isRangeValue = (value: unknown, field: RangeField): boolean =>
+const isRangeValue = (value: unknown, field: NumberRangeField): boolean =>
   Array.isArray(value) &&
   value.length === 2 &&
   value.every((bound) => typeof bound === "number" && Number.isFinite(bound)) &&
@@ -105,7 +105,7 @@ const isRangeValue = (value: unknown, field: RangeField): boolean =>
   value[0] <= value[1] &&
   value[1] <= field.max
 
-const rangeProblems = (field: RangeField): ReadonlyArray<string> => {
+const rangeProblems = (field: NumberRangeField): ReadonlyArray<string> => {
   if (field.min >= field.max) {
     return [`項目「${field.id}」のminがmax以上です`]
   }
@@ -125,7 +125,7 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
       return numberProblems(field)
     case "choice":
       return choiceProblems(field)
-    case "range":
+    case "numberRange":
       return rangeProblems(field)
     default:
       return []
@@ -174,7 +174,7 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
       return numberProblem(field, value)
     case "choice":
       return choiceProblem(field, value)
-    case "range":
+    case "numberRange":
       return isRangeValue(value, field) ? undefined : `項目「${field.id}」は、${field.min}〜${field.max}の範囲の[下限, 上限]が必要です`
   }
 }

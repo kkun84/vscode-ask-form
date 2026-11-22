@@ -277,7 +277,7 @@ describe("SPEC-TOOL-003 回答を待つ", () => {
 
 const rangeSpec = {
   title: "対応範囲",
-  fields: [{ type: "range", id: "node", label: "Node.jsの版", min: 16, max: 24, step: 1, default: [18, 22] }]
+  fields: [{ type: "numberRange", id: "node", label: "Node.jsの版", min: 16, max: 24, step: 1, default: [18, 22] }]
 }
 
 describe("SPEC-FORM-001 範囲の項目", () => {
@@ -285,8 +285,8 @@ describe("SPEC-FORM-001 範囲の項目", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         assert.equal(Result.isSuccess(compile(rangeSpec)), true)
-        yield* rejected(h, { title: "t", fields: [{ type: "range", id: "r", label: "R", min: 0 }] })
-        yield* rejected(h, { title: "t", fields: [{ type: "range", id: "r", label: "R", min: 0, max: 10, default: [1] }] })
+        yield* rejected(h, { title: "t", fields: [{ type: "numberRange", id: "r", label: "R", min: 0 }] })
+        yield* rejected(h, { title: "t", fields: [{ type: "numberRange", id: "r", label: "R", min: 0, max: 10, default: [1] }] })
       })
     ))
 
@@ -296,9 +296,9 @@ describe("SPEC-FORM-001 範囲の項目", () => {
         const message = yield* rejected(h, {
           title: "t",
           fields: [
-            { type: "range", id: "flip", label: "F", min: 10, max: 0 },
-            { type: "range", id: "outside", label: "O", min: 0, max: 10, default: [-1, 5] },
-            { type: "range", id: "reversed", label: "R", min: 0, max: 10, default: [8, 2] }
+            { type: "numberRange", id: "flip", label: "F", min: 10, max: 0 },
+            { type: "numberRange", id: "outside", label: "O", min: 0, max: 10, default: [-1, 5] },
+            { type: "numberRange", id: "reversed", label: "R", min: 0, max: 10, default: [8, 2] }
           ]
         })
         assert.match(message, /flip.*min/)

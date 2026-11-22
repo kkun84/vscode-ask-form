@@ -645,8 +645,8 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
 const rangeArgs = {
   title: "対応範囲",
   fields: [
-    { type: "range", id: "node", label: "Node.jsの版", min: 16, max: 24, step: 1, default: [18, 22], reason: "LTSのため" },
-    { type: "range", id: "budget", label: "予算", min: 0, max: 100000, step: 1000, prefix: "¥" }
+    { type: "numberRange", id: "node", label: "Node.jsの版", min: 16, max: 24, step: 1, default: [18, 22], reason: "LTSのため" },
+    { type: "numberRange", id: "budget", label: "予算", min: 0, max: 100000, step: 1000, prefix: "¥" }
   ]
 }
 

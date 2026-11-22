@@ -86,8 +86,8 @@ const NumberField = Schema.Struct({
   ...numericFields
 })
 
-const RangeField = Schema.Struct({
-  type: Schema.Literal("range"),
+const NumberRangeField = Schema.Struct({
+  type: Schema.Literal("numberRange"),
   ...commonFields,
   default: Schema.optionalKey(
     Schema.Array(Schema.Finite).check(Schema.isMinLength(2), Schema.isMaxLength(2)).annotate({
@@ -108,7 +108,7 @@ const choiceFields = {
 
 const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
 
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, RangeField])
+const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField, NumberRangeField])
 
 const BranchOption = Schema.Struct({
   ...ChoiceOption.fields,
@@ -122,7 +122,7 @@ const BranchOption = Schema.Struct({
 
 const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField, RangeField])
+const Field = Schema.Union([TextField, NumberField, ChoiceField, NumberRangeField])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
@@ -133,7 +133,7 @@ export const FormSpec = Schema.Struct({
 
 export type TextField = typeof TextField.Type
 export type NumberField = typeof NumberField.Type
-export type RangeField = typeof RangeField.Type
+export type NumberRangeField = typeof NumberRangeField.Type
 export type ChoiceField = typeof ChoiceField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
