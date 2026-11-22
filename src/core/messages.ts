@@ -24,7 +24,6 @@ const ja = {
   clearOf: (label: string) => `${label}の選択を解除`,
   clearTextOf: (label: string) => `${label}を空にする`,
   moveOf: (label: string) => `${label}を移動`,
-  useOrder: "この順にする",
   rankingHint: "行をドラッグするか、つまみでSpaceかEnterを押して持ち上げ、↑↓で動かし、もう一度押して置きます。Escで元に戻します。",
   reorderMessage: (message: ReorderMessageLike): string =>
     message.type === "grab"
@@ -98,7 +97,6 @@ const en: typeof ja = {
   clearTextOf: (label: string) => `Clear ${label}`,
   rankingHint:
     "Drag a row, or press Space or Enter on its handle to pick it up, move it with the arrow keys, and press again to drop it. Escape puts it back.",
-  useOrder: "Use this order",
   moveOf: (label: string) => `Move ${label}`,
   reorderMessage: (message: ReorderMessageLike): string =>
     message.type === "grab"

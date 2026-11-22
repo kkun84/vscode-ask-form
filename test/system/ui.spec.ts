@@ -699,18 +699,15 @@ test.describe("SPEC-UI-015 並べ替え", () => {
     await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["ログイン", "API", "画面"])
   })
 
-  test("SPEC-UI-015 推奨のない並べ替えは未回答で始め、「この順にする」で答えて回答に順番が入る", async ({ page }) => {
+  test("SPEC-UI-015 推奨のない並べ替えは書かれた順で始め、並べ替えずにそのまま送信できる", async ({ page }) => {
     const frame = await open(page, { args: rankingArgs })
+    await expect(frame.getByRole("group", { name: "好きな順" })).not.toContainText("未回答")
     await frame.getByRole("button", { name: "画面を移動" }).dragTo(frame.getByRole("button", { name: "ログインを移動" }))
     await expect.poll(() => rankedLabels(frame, "優先順位")).toEqual(["画面", "ログイン", "API"])
-    await send(frame)
-    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 好きな順")
-    await frame.getByRole("button", { name: "この順にする" }).click()
-    await expect(frame.getByRole("button", { name: "この順にする" })).toBeHidden()
     expect(await axeViolations(frame)).toEqual([])
     await send(frame)
     const outcome = await singleOutcome(page)
     expect(outcome?.values).toEqual({ order: ["ui", "auth", "api"], fruit: ["a", "b"] })
-    expect(outcome?.changedByUser).toEqual(["order", "fruit"])
+    expect(outcome?.changedByUser).toEqual(["order"])
   })
 })

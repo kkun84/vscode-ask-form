@@ -213,8 +213,7 @@ export class FormApp {
     primary: undefined as HTMLButtonElement | undefined,
     form: undefined as HTMLElement | undefined,
     setters: new Map<string, (value: FieldValue) => void>(),
-    unselects: new Map<string, HTMLElement>(),
-    useOrders: new Map<string, HTMLElement>()
+    unselects: new Map<string, HTMLElement>()
   }
   private readonly folded = new Set<string>()
   private showMissing = false
@@ -424,7 +423,6 @@ export class FormApp {
     this.live.branches.length = 0
     this.live.setters.clear()
     this.live.unselects.clear()
-    this.live.useOrders.clear()
     this.live.computed = undefined
     this.live.status = undefined
     this.live.primary = undefined
@@ -657,11 +655,7 @@ export class FormApp {
       arrange(value)
       this.setValue(field.id, value)
     })
-    const use = on(h("button", { type: "button", class: "link use-order" }, this.m.useOrder), "click", () =>
-      this.setValue(field.id, [...order])
-    )
-    this.live.useOrders.set(field.id, use)
-    return h("div", { class: "ranking-box" }, list, h("p", { class: "q-desc ranking-hint", id: hintId }, this.m.rankingHint), use)
+    return h("div", { class: "ranking-box" }, list, h("p", { class: "q-desc ranking-hint", id: hintId }, this.m.rankingHint))
   }
 
   private setFolded(id: string, folded: boolean): void {
@@ -964,9 +958,6 @@ export class FormApp {
     }
     for (const [id, unselect] of this.live.unselects) {
       unselect.hidden = this.values[id] === undefined
-    }
-    for (const [id, use] of this.live.useOrders) {
-      use.hidden = this.values[id] !== undefined
     }
     for (const branch of this.live.branches) {
       branch.element.hidden = this.values[branch.id] !== branch.value

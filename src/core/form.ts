@@ -69,7 +69,7 @@ const initialValue = (field: Field): FieldValue | undefined => {
     case "choice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
     case "ranking":
-      return field.default
+      return field.default ?? field.options.map((option) => option.value)
   }
 }
 
