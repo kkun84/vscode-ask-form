@@ -3,8 +3,8 @@ name: Verify
 on:
   workflow_call:
     inputs:
-      ref:
-        description: The commit to verify. Defaults to the commit that started the workflow
+      sha:
+        description: The commit the caller expects to verify. The verification fails when the checkout is another commit
         type: string
         default: ""
       acceptance-args:
@@ -25,8 +25,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.ref }}
+      - name: Require the expected commit
+        if: inputs.sha != ''
+        shell: bash -euo pipefail {0}
+        env:
+          EXPECTED: ${{ inputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
       - uses: ./.github/actions/setup
       - name: Lint
         run: pnpm lint
@@ -53,8 +57,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.ref }}
+      - name: Require the expected commit
+        if: inputs.sha != ''
+        shell: bash -euo pipefail {0}
+        env:
+          EXPECTED: ${{ inputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
       - uses: ./.github/actions/setup
         with:
           environment: ui
@@ -80,8 +88,12 @@ jobs:
             shard: 1/1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.ref }}
+      - name: Require the expected commit
+        if: inputs.sha != ''
+        shell: bash -euo pipefail {0}
+        env:
+          EXPECTED: ${{ inputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
       - uses: ./.github/actions/setup
         with:
           environment: acceptance

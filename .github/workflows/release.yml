@@ -110,7 +110,7 @@ jobs:
     if: needs.detect.outputs.action == 'release'
     uses: ./.github/workflows/verify.yml
     with:
-      ref: ${{ needs.detect.outputs.sha }}
+      sha: ${{ needs.detect.outputs.sha }}
       acceptance-args: --grep-invert @downloads-sdk
   release:
     needs: [detect, verify]
