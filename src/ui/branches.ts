@@ -50,35 +50,40 @@ export interface Branches<R> {
   readonly revealing: ReadonlyArray<R>
 }
 
-const laneBase = 10
+const laneBase = 8
 
-const laneStep = 12
+const laneStep = 10
 
-const corner = 6
+const corner = 8
 
-const dotRadius = 3.5
+const dotRadius = 3
 
-export const gutterFor = (depth: number): number => laneBase + depth * laneStep + 16
+export const gutterFor = (depth: number): number => laneBase + depth * laneStep + 12
 
-const curve = (x: number, end: PlacedFollowUp): string => `V ${end.y - corner} Q ${x} ${end.y} ${x + corner} ${end.y} H ${end.x}`
+const turnRight = (x: number, end: PlacedFollowUp): string => `Q ${x} ${end.y} ${x + corner} ${end.y} H ${end.x}`
+
+const into = (x: number, end: PlacedFollowUp): string => `V ${end.y - corner} ${turnRight(x, end)}`
+
+const outOf = <R>(x: number, option: PlacedOption<R>): string =>
+  `M ${option.x} ${option.y} H ${x + corner} Q ${x} ${option.y} ${x} ${option.y + corner}`
 
 const railShapes = <R>(x: number, lane: PlacedLane<R>, firing: ReadonlyArray<PlacedOption<R>>): ReadonlyArray<Shape> => {
   const last = lane.followUps.at(-1)
   if (last === undefined) {
     return []
   }
-  const top = Math.min(...(firing.length === 0 ? [lane.anchorY] : firing.map((option) => option.y)))
+  const top = firing.length === 0 ? lane.anchorY : Math.min(...firing.map((option) => option.y)) + corner
   return [
-    { kind: "path", lit: false, d: `M ${x} ${top} ${curve(x, last)}` },
-    ...lane.followUps.slice(0, -1).map((end): Shape => ({ kind: "path", lit: false, d: `M ${x} ${end.y} H ${end.x}` })),
-    ...firing.map((option): Shape => ({ kind: "path", lit: false, d: `M ${x} ${option.y} H ${option.x}` }))
+    { kind: "path", lit: false, d: `M ${x} ${top} ${into(x, last)}` },
+    ...lane.followUps.slice(0, -1).map((end): Shape => ({ kind: "path", lit: false, d: `M ${x} ${end.y - corner} ${turnRight(x, end)}` })),
+    ...firing.map((option): Shape => ({ kind: "path", lit: false, d: outOf(x, option) }))
   ]
 }
 
 const litShapes = <R>(x: number, target: PlacedFollowUp, options: ReadonlyArray<PlacedOption<R>>): ReadonlyArray<Shape> =>
   options.flatMap((option): ReadonlyArray<Shape> => [
-    { kind: "path", lit: true, d: `M ${option.x} ${option.y} H ${x} ${curve(x, target)}` },
-    { kind: "dot", lit: true, filled: true, x, y: option.y }
+    { kind: "path", lit: true, d: `${outOf(x, option)} ${into(x, target)}` },
+    { kind: "dot", lit: true, filled: true, x: option.x, y: option.y }
   ])
 
 export const branchShapes = <R>(lanes: ReadonlyArray<PlacedLane<R>>, hot?: string): Branches<R> => {
@@ -92,7 +97,7 @@ export const branchShapes = <R>(lanes: ReadonlyArray<PlacedLane<R>>, hot?: strin
     )
     rails.push(
       ...railShapes(x, lane, firing),
-      ...lane.options.map((option): Shape => ({ kind: "dot", lit: false, filled: firing.includes(option), x, y: option.y }))
+      ...lane.options.map((option): Shape => ({ kind: "dot", lit: false, filled: firing.includes(option), x: option.x, y: option.y }))
     )
     const target = lane.followUps.find((followUp) => followUp.id === hot)
     if (target !== undefined) {
@@ -122,30 +127,49 @@ const shapeElement = (shape: Shape): SVGElement =>
     ? svgElement("path", { class: shape.lit ? "rail lit" : "rail", d: shape.d })
     : svgElement("circle", { class: dotClass(shape), cx: shape.x, cy: shape.y, r: dotRadius })
 
+const visibleIn = (row: HTMLElement): { readonly top: number; readonly bottom: number } | undefined => {
+  if (row.getClientRects().length === 0) {
+    return undefined
+  }
+  const scroller = row.closest<HTMLElement>(".options.search")
+  return scroller === null ? { top: -Infinity, bottom: Infinity } : scroller.getBoundingClientRect()
+}
+
+const middle = (element: Element): number => {
+  const rect = element.getBoundingClientRect()
+  return rect.top + rect.height / 2
+}
+
 const place = (container: HTMLElement, lanes: ReadonlyArray<BranchLane>): ReadonlyArray<PlacedLane<BranchOption>> => {
   const box = container.getBoundingClientRect()
-  const middle = (element: Element): number => {
-    const rect = element.getBoundingClientRect()
-    return rect.top + rect.height / 2 - box.top
-  }
   const left = (element: Element): number => element.getBoundingClientRect().left - box.left
   return lanes.map((lane) => ({
     depth: lane.depth,
-    anchorY: middle(lane.anchor),
-    options: lane.options
-      .filter((option) => option.row.getClientRects().length > 0)
-      .map((option) => ({
-        value: option.value,
-        selected: option.selected,
-        x: left(option.control) - 5,
-        y: middle(option.control),
-        ref: option
-      })),
+    anchorY: middle(lane.anchor) - box.top,
+    options: lane.options.flatMap((option) => {
+      const view = visibleIn(option.row)
+      const y = middle(option.control)
+      const inView = view !== undefined && y >= view.top && y <= view.bottom
+      const picked = option.row.closest(".search-choice")?.querySelector(".picked")
+      if (!inView && !(option.selected && picked !== null && picked !== undefined)) {
+        return []
+      }
+      const panel = option.row.closest(".q-group") ?? option.row
+      return [
+        {
+          value: option.value,
+          selected: option.selected,
+          x: left(panel),
+          y: (inView || picked === null || picked === undefined ? y : middle(picked)) - box.top,
+          ref: option
+        }
+      ]
+    }),
     followUps: lane.followUps.map((followUp) => ({
       id: followUp.id,
       anyOf: followUp.anyOf,
       x: left(followUp.label) - 6,
-      y: middle(followUp.label)
+      y: middle(followUp.label) - box.top
     }))
   }))
 }

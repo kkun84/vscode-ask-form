@@ -1359,7 +1359,11 @@ export class FormApp {
       count.textContent = `${shown} / ${total}`
       empty.hidden = shown > 0
     }
-    on(filter, "input", apply)
+    on(filter, "input", () => {
+      apply()
+      this.drawBranches()
+    })
+    on(group, "scroll", () => this.drawBranches())
     on(filter, "keydown", (event) => {
       if (event.key === "ArrowDown") {
         event.preventDefault()

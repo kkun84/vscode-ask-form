@@ -215,20 +215,19 @@ body {
   align-items: center;
   gap: 5px;
   min-width: 0;
-  padding: 0 7px 0 6px;
-  border: 1px solid var(--border);
+  padding: 0 8px 0 6px;
   border-radius: 9px;
-  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
   color: var(--muted);
   font-size: 11px;
-  line-height: 16px;
+  line-height: 18px;
   transition:
-    border-color 150ms ease,
+    background-color 150ms ease,
     color 150ms ease;
 }
 
 .q.hot .reveal-chip {
-  border-color: var(--rail-hot);
+  background: color-mix(in srgb, var(--rail-hot) 18%, transparent);
   color: var(--fg);
 }
 
