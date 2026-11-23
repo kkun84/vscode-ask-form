@@ -45,7 +45,7 @@ export const openAgentsSession = async (results: string): Promise<Session> => {
   const log = join(results, "driver-agents.log")
   await rm(log, { force: true })
   const agents = await startStubModel(trigger, eventSpec)
-  const profile = await mkdtemp(join(tmpdir(), "ask-form-agents-"))
+  const profile = await mkdtemp(join(tmpdir(), "ask-user-form-agents-"))
   const folder = join(profile, "workspace")
   await mkdir(join(profile, "home"), { recursive: true })
   await mkdir(folder, { recursive: true })

@@ -1,11 +1,11 @@
-<h1 align="center">Ask Form</h1>
+<h1 align="center">Ask User Form</h1>
 
 <p align="center">
   GitHub Copilotが、チャットの横に出るフォームであなたに質問できるようにするVS Codeの拡張機能
 </p>
 
 <p align="center">
-  <a href="https://github.com/kkun84/vscode-ask-form/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/kkun84/vscode-ask-form/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/kkun84/vscode-ask-user-form/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/kkun84/vscode-ask-user-form/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="VS Code 1.110+" src="https://img.shields.io/badge/VS%20Code-1.110%2B-007ACC.svg">
   <img alt="Desktop and Web" src="https://img.shields.io/badge/platform-desktop%20%7C%20web-555.svg">
@@ -17,7 +17,7 @@
 
 Copilotは、仕事を進める途中で利用者に確認したいことがよくあります。文章でやり取りすると、1つ答えるたびに次の質問が来て、何度も往復することになります。「保存先はサーバーで」と答えると「ではポート番号は？」と続く、という具合です。
 
-Ask Formを入れると、Copilotは聞きたいことを**1つのフォームにまとめて**聞けます。続きの質問も、**選んだ答えに応じて**同じフォームの中に現れます。各質問には、Copilotが勧める答えとその理由が最初から入っています。利用者は違うところだけを直し、ボタンを1回押せば答え終わり、Copilotは同じ作業の流れのまま、受け取った値で続きを進めます。
+Ask User Formを入れると、Copilotは聞きたいことを**1つのフォームにまとめて**聞けます。続きの質問も、**選んだ答えに応じて**同じフォームの中に現れます。各質問には、Copilotが勧める答えとその理由が最初から入っています。利用者は違うところだけを直し、ボタンを1回押せば答え終わり、Copilotは同じ作業の流れのまま、受け取った値で続きを進めます。
 
 ## 目次
 
@@ -41,7 +41,7 @@ Ask Formを入れると、Copilotは聞きたいことを**1つのフォーム�
 - **詳しい説明は畳める**: 選択肢の詳しい説明と推奨の理由は、最初から開いています。読み終えたら、見出しの右の「詳細」で畳めます。選んだり、ほかの質問へ移ったりしても、勝手に開閉しません。
 - **決める前に結果が分かる**: 選んだ値から計算される値を、フォームの中で示せます。たとえばメモの最大文字数を上げると、保存できる件数がどれだけ減るかがその場で分かります。
 - **答えない質問はコメントだけで返せる**: 単一選択は見出しの右の「選択を解除」で、数値は入力欄を空にして値を外し、「他の要件を先に決める。」「この質問の意味がわからない。説明が足りない。」のようなコメントを書けば、値を答えずに送信できます。推奨のない質問は、何も選ばずにコメントを書くだけで送れます。Copilotは値を決めつけず、コメントに従います。必要になれば、その質問をフォームで聞き直します。
-- **質問ごとにコメントを添えられる**: 見出しの右端の吹き出しのアイコンを押すと、その質問について伝えたいことを書けます。値だけ、コメントだけ、両方のどれでも送れます。よく使う文は定型文のボタンで入れられます。既定の定型文は「他の要件を先に決める。」「この質問の意味がわからない。説明が足りない。」「インターネットで調査した上でもう一度検討しよう。」の3つで、設定`askForm.commentPresets`で変えられます。
+- **質問ごとにコメントを添えられる**: 見出しの右端の吹き出しのアイコンを押すと、その質問について伝えたいことを書けます。値だけ、コメントだけ、両方のどれでも送れます。よく使う文は定型文のボタンで入れられます。既定の定型文は「他の要件を先に決める。」「この質問の意味がわからない。説明が足りない。」「インターネットで調査した上でもう一度検討しよう。」の3つで、設定`askUserForm.commentPresets`で変えられます。
 - **選択肢にない答えも1回で伝わる**: 「補足を書く」を開くと、選択肢にない答えや、Copilotに伝えたいことを文章で添えられます。答えが選択肢に合わないからといって、フォームをキャンセルして全部をチャットに書き直す必要はありません。
 - **ボタンは「送信」と「キャンセル」だけ**: フォームで答えたくないときは「キャンセル」を押し、チャットに文章で答えます。
 - **待っていることが分かる**: Copilotが回答を待っている間は、ステータスバーに「Copilotが回答を待っています」と表示されます。押すとフォームのパネルが前面に出ます。チャットを止めると、パネルも閉じます。
@@ -81,30 +81,30 @@ Ask Formを入れると、Copilotは聞きたいことを**1つのフォーム�
 
 ### GitHub Releasesから
 
-1. [Releases](https://github.com/kkun84/vscode-ask-form/releases)から`ask-form-<バージョン>.vsix`をダウンロードします。
+1. [Releases](https://github.com/kkun84/vscode-ask-user-form/releases)から`ask-user-form-<バージョン>.vsix`をダウンロードします。
 2. VS Codeのコマンドパレットで「拡張機能: VSIX からのインストール...」を実行し、ダウンロードしたファイルを選びます。
 
 コマンドラインからも入れられます。
 
 ```sh
-code --install-extension ask-form-<バージョン>.vsix
+code --install-extension ask-user-form-<バージョン>.vsix
 ```
 
 ### ソースから
 
 ```sh
-git clone https://github.com/kkun84/vscode-ask-form.git
-cd vscode-ask-form
+git clone https://github.com/kkun84/vscode-ask-user-form.git
+cd vscode-ask-user-form
 nix develop
 pnpm install
 pnpm package
-code --install-extension ask-form-*.vsix
+code --install-extension ask-user-form-*.vsix
 ```
 
 ## 使い方
 
 1. チャットを開き、モードを「エージェント」にします。
-2. ツールの一覧で「Ask Form」が有効になっていることを確かめます。
+2. ツールの一覧で「Ask User Form」が有効になっていることを確かめます。
 3. 確認が必要な作業を頼みます。Copilotが必要と判断したときにフォームが出ます。明示的に頼むこともできます。
 
 たとえば、次のように頼みます。
@@ -268,7 +268,7 @@ Copilotは、次のようなJSONでフォームを指定します。利用者が
 
 ## しくみ
 
-拡張機能は、VS Codeの言語モデルのツール`forms_ask_form`(チャットでは`#askForm`)を登録します。Copilotがこのツールを呼ぶと、Webviewのパネルにフォームを表示し、回答をツールの結果として返します。デスクトップ版とweb版で同じしくみです。
+拡張機能は、VS Codeの言語モデルのツール`ask_user_form`(チャットでは`#askUserForm`)を登録します。Copilotがこのツールを呼ぶと、Webviewのパネルにフォームを表示し、回答をツールの結果として返します。デスクトップ版とweb版で同じしくみです。
 
 - 以前はMCPサーバーとして動かし、フォームをチャットの中に描いていました。VS Codeのハーネス(Copilot、Claude、Codex)は、MCPのツールの呼び出しを1分から5分で打ち切ります。そのため、それより長く考えた利用者の回答がCopilotに届きませんでした。VS Codeのツールの呼び出しは、CopilotとCodexのハーネスでは打ち切られません。
 - 拡張機能はポートを開かず、外から回答を送る口を持ちません。
@@ -283,8 +283,8 @@ VS Codeのチャットでは、エージェントを動かすハーネスを選�
 | Codex    | 使える           | 使える           |
 | Claude   | 使えない         | 使えない         |
 
-- Claudeのハーネスは、Ask Formのツールを呼んでも、VS Codeがツールを実行せずに止まります。VS Codeの不具合とみています。
-- Codexは、モデルによってツールの渡し方が違います。GPT-5.5ではツールを直接呼び、GPT-6.1-Solなど新しいモデル(Agentsウィンドウの既定)では、JavaScriptを実行するツール`exec`の中から`tools.askForm(...)`として呼びます(コードモード)。どちらでも使えます。
+- Claudeのハーネスは、Ask User Formのツールを呼んでも、VS Codeがツールを実行せずに止まります。VS Codeの不具合とみています。
+- Codexは、モデルによってツールの渡し方が違います。GPT-5.5ではツールを直接呼び、GPT-6.1-Solなど新しいモデル(Agentsウィンドウの既定)では、JavaScriptを実行するツール`exec`の中から`tools.askUserForm(...)`として呼びます(コードモード)。どちらでも使えます。
 - 配布物が使う外部パッケージは[Effect](https://effect.website)だけです。
 
 ## よくある質問
@@ -292,14 +292,14 @@ VS Codeのチャットでは、エージェントを動かすハーネスを選�
 <details>
 <summary>フォームが出ません。</summary>
 
-チャットのモードが「エージェント」か、ツールの一覧で「Ask Form」が有効かを確かめてください。Copilotがフォームを使う必要がないと判断することもあるので、「フォームで聞いて」と頼むと確実です。
+チャットのモードが「エージェント」か、ツールの一覧で「Ask User Form」が有効かを確かめてください。Copilotがフォームを使う必要がないと判断することもあるので、「フォームで聞いて」と頼むと確実です。
 
 </details>
 
 <details>
 <summary>席を外している間に、フォームで作業が止まりませんか？</summary>
 
-VS Codeの設定`chat.autoReply`を有効にすると、Ask Formはフォームを出して待つ代わりに、利用者が不在であることをCopilotに伝えます。Copilotは推奨した値と自分の判断で進めます。この設定は、VS Codeの組み込みの質問にも同じように効きます。
+VS Codeの設定`chat.autoReply`を有効にすると、Ask User Formはフォームを出して待つ代わりに、利用者が不在であることをCopilotに伝えます。Copilotは推奨した値と自分の判断で進めます。この設定は、VS Codeの組み込みの質問にも同じように効きます。
 
 </details>
 
@@ -372,16 +372,16 @@ CIは、検査を次のジョブに分けて並列に動かします(`.github/wo
 
 - `desktop`は、デスクトップ版のVS Code(Electron)です。
 - `harness`は、デスクトップ版でCopilotとCodexのハーネスを動かします。
-- `web`は、サーバーにつないだweb版です。GitHub Codespacesなどと同じく、拡張機能とCopilotがサーバーの側で動きます。VS Codeのサーバーは、デスクトップ版と同じコミットの物を初回にダウンロードし、`node_modules/.cache/ask-form-vscode-server`に置きます。
-- `ssh`は、デスクトップ版をSSHでリモートにつないだ状態です。同じマシンにSSHのサーバーを立て、Microsoftの拡張機能Remote - SSHでつなぎます。Ask Formは手元の側で、Copilotはリモートの側で動きます。Remote - SSHは、版とSHA-256を固定してMarketplaceから初回にダウンロードし、`node_modules/.cache/ask-form-remote-ssh`に置きます。Copilotのハーネスは、リモートの側ではスタブに向けられないので、`harness.spec.ts`は動かしません。
-- 利用者と同じ状態で確かめるために、Ask FormはVSIXにまとめてインストールしてから起動します。開発用のパスで読み込んだ拡張機能は、Agentsウィンドウの制限を受けないなど、インストールした拡張機能と扱いが違うためです。
+- `web`は、サーバーにつないだweb版です。GitHub Codespacesなどと同じく、拡張機能とCopilotがサーバーの側で動きます。VS Codeのサーバーは、デスクトップ版と同じコミットの物を初回にダウンロードし、`node_modules/.cache/ask-user-form-vscode-server`に置きます。
+- `ssh`は、デスクトップ版をSSHでリモートにつないだ状態です。同じマシンにSSHのサーバーを立て、Microsoftの拡張機能Remote - SSHでつなぎます。Ask User Formは手元の側で、Copilotはリモートの側で動きます。Remote - SSHは、版とSHA-256を固定してMarketplaceから初回にダウンロードし、`node_modules/.cache/ask-user-form-remote-ssh`に置きます。Copilotのハーネスは、リモートの側ではスタブに向けられないので、`harness.spec.ts`は動かしません。
+- 利用者と同じ状態で確かめるために、Ask User FormはVSIXにまとめてインストールしてから起動します。開発用のパスで読み込んだ拡張機能は、Agentsウィンドウの制限を受けないなど、インストールした拡張機能と扱いが違うためです。
 - `pnpm test:acceptance chat`のようにファイル名の一部を渡すと、そのテストだけを動かせます。`pnpm test:acceptance --project=desktop`で、プロジェクトを選べます。
 
 CopilotとCodexのハーネスも、同じようにLLM APIのスタブで確かめます(`harness.spec.ts`)。スタブはOpenAI Chat CompletionsとOpenAI Responsesに答え、Codexのコードモードの`exec`の呼び出しも真似ます。Codexは環境変数`CODEX_HOME`の設定でスタブに向けます。Agentsウィンドウでも確かめます。
 
 Copilotのハーネスは、BYOKを使わず、Copilotの接続先そのものをスタブに向けます。GitHubにはサインインしません。VS Code本体のスモークテストと同じ方法で、環境変数`VSCODE_AGENT_HOST_CAPI_URL_OVERRIDE`や`IS_SCENARIO_AUTOMATION`などと、起動時の`--enable-smoke-test-driver`を使います。スタブは、モデルの一覧やトークンの発行など、Copilotが起動時に呼ぶAPIにも答えます(`stub-capi.ts`)。こうすると、スタブのモデルがCopilotのモデルとして扱われます。Copilotのハーネスは、多くのモデルで拡張機能のツールを最初の一覧に入れず、モデルが検索してから読み込みます。テストはこの経路を通ることも確かめます。検索の順位付けだけは、GitHubのAPIに固定で問い合わせる作りなので、テスト用の検索ツールで代えています。サーバーにつないだweb版では、この方法が使えません。Copilotの実行部分が利用者の情報を本物のGitHubに問い合わせ、その送り先を変える口が無いためです。そのため`harness.spec.ts`はデスクトップ版だけで動かします。
 
-各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、SDKをダウンロードするCodexのハーネスのテスト(タグ`@downloads-sdk`)だけを外して流します。Copilotのハーネスの実行部分はVS Codeに同梱されていて、何もダウンロードしません。
+各ハーネスのSDKはVS Codeが初回にダウンロードし、`node_modules/.cache/ask-user-form-agent-sdk`に置きます。Codexはbubblewrapでサンドボックスを作るので、Ubuntu 24.04では`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`が要ります。環境変数`ASK_USER_FORM_E2E_ANSWER_DELAY_MS`を与えると、フォームが出てからその時間だけ待ってから回答し、待つ間に回答が返っていないことも確かめます。リリースのワークフローは、版も中身も固定できないSDKを公開の権限のあるジョブで動かさないよう、SDKをダウンロードするCodexのハーネスのテスト(タグ`@downloads-sdk`)だけを外して流します。Copilotのハーネスの実行部分はVS Codeに同梱されていて、何もダウンロードしません。
 
 ### 文書とテストの対応
 
