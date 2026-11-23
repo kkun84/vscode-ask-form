@@ -67,7 +67,7 @@ const text = (value: unknown): string =>
         .map((part) => partText(part))
         .join("")
 
-const isAskForm = (name: string): boolean => name === "forms_ask_form" || /(^|[-_.])askForm$/.test(name)
+const isAskUserForm = (name: string): boolean => name === "ask_user_form" || /(^|[-_.])askUserForm$/.test(name)
 
 const readBody = async (req: IncomingMessage): Promise<Json> => {
   const chunks: Array<Buffer> = []
@@ -90,14 +90,14 @@ const decide = (script: Script, turn: Turn): Reply => {
   if (turn.answered) {
     return { kind: "text", text: script.done }
   }
-  const askForm = turn.names.find((name) => isAskForm(name))
-  if (askForm !== undefined) {
-    return { kind: "tool", name: askForm, input: script.args }
+  const askUserForm = turn.names.find((name) => isAskUserForm(name))
+  if (askUserForm !== undefined) {
+    return { kind: "tool", name: askUserForm, input: script.args }
   }
   if (turn.search !== undefined && !turn.searched) {
-    return { kind: "tool", name: turn.search, input: { query: "ask form", max_results: 5 } }
+    return { kind: "tool", name: turn.search, input: { query: "ask user form", max_results: 5 } }
   }
-  return { kind: "text", text: `NO_ASK_FORM ${turn.names.join(",")}` }
+  return { kind: "text", text: `NO_ASK_USER_FORM ${turn.names.join(",")}` }
 }
 
 const remember = (state: State, id: string, output: unknown): void => {
@@ -174,7 +174,7 @@ const responsesTurn = (state: State, script: Script, body: Json): Turn => {
     asked: start >= 0,
     answered: turn.some(
       (item) =>
-        (item["type"] === "function_call" && isAskForm(`${String(item["namespace"] ?? "")}.${String(item["name"])}`)) ||
+        (item["type"] === "function_call" && isAskUserForm(`${String(item["namespace"] ?? "")}.${String(item["name"])}`)) ||
         (item["type"] === "custom_tool_call" && item["name"] === "exec")
     ),
     searched: turn.some((item) => item["type"] === "tool_search_call"),
@@ -269,7 +269,7 @@ const chatTurn = (state: State, script: Script, body: Json): Turn => {
     .map((call) => String((call["function"] as Json | undefined)?.["name"]))
   return {
     asked: start >= 0,
-    answered: called.some((name) => isAskForm(name)),
+    answered: called.some((name) => isAskUserForm(name)),
     searched: called.includes("tool_search_tool"),
     names,
     search: names.includes("tool_search_tool") ? "tool_search_tool" : undefined
@@ -282,7 +282,7 @@ const chat = (state: State, script: Script, body: Json, res: ServerResponse): vo
     reply.kind === "tool"
       ? { id: state.nextId("call"), type: "function", function: { name: reply.name, arguments: JSON.stringify(reply.input) } }
       : undefined
-  if (call !== undefined && reply.kind === "tool" && isAskForm(reply.name)) {
+  if (call !== undefined && reply.kind === "tool" && isAskUserForm(reply.name)) {
     state.toolCalls.push({ api: "chat", id: call.id, name: reply.name })
   }
   const message =

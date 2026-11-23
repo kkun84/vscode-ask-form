@@ -10,7 +10,7 @@ interface Outcome {
   readonly changedByUser: ReadonlyArray<string>
 }
 
-const showKinds = (session: Session) => invokeForm(session, "Ask Form: Show every question type")
+const showKinds = (session: Session) => invokeForm(session, "Ask User Form: Show every question type")
 
 const outcomeOf = async (invoked: Invoked): Promise<Outcome> => {
   await closed(invoked.frame)
@@ -189,7 +189,7 @@ test("REQ-ANS-004 マウスを使わずに項目を移り、値を変えて⌘/C
 })
 
 test("REQ-ASK-002 推奨のない質問は何も選ばれずに始まり、答えるまで送信しても回答にならない", async ({ session }) => {
-  const invoked = await invokeForm(session, "Ask Form: Show a question without a recommendation")
+  const invoked = await invokeForm(session, "Ask User Form: Show a question without a recommendation")
   const { frame } = invoked
   await expect(frame.getByRole("radio", { name: "React" })).not.toBeChecked()
   await expect(frame.getByRole("radio", { name: "Vue" })).not.toBeChecked()

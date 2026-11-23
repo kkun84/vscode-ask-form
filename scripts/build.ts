@@ -16,7 +16,7 @@ await mkdir(path("dist"), { recursive: true })
 await writeFile(path("dist/form.html"), html)
 
 const define = {
-  ASK_FORM_HTML: JSON.stringify(html)
+  ASK_USER_FORM_HTML: JSON.stringify(html)
 }
 
 const node = await bundle({ input: path("src/extension/node/main.ts"), platform: "node", format: "cjs", minify: true, define })

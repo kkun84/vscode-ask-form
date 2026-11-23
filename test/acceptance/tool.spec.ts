@@ -29,7 +29,7 @@ test("REQ-WEB-001 デスクトップ版でもweb版でも、ハーネスを通�
 
 test("REQ-CANCEL-001 ツールの呼び出しが取り消されると、パネルが閉じて待機が終わる", async ({ session }) => {
   const { frame, result } = await invokeForm(session)
-  await runCommand(session.window, "Ask Form: Cancel acceptance form", false)
+  await runCommand(session.window, "Ask User Form: Cancel acceptance form", false)
   await closed(frame)
   expect(await result()).toMatch(/"status":"answer_in_chat"|Canceled/)
 })

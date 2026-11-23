@@ -24,7 +24,7 @@ const reverseKeys = (value: unknown): unknown => {
 
 const ask = (h: Harness, spec: unknown = eventSpec, count = 1) =>
   Effect.gen(function* () {
-    const fiber = yield* Effect.forkChild(h.call("ask_form", spec as Record<string, unknown>))
+    const fiber = yield* Effect.forkChild(h.call("ask_user_form", spec as Record<string, unknown>))
     yield* h.waitUntil(count)
     return fiber
   })
@@ -120,7 +120,7 @@ describe("SPEC-TOOL-004 設計図の誤り", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         yield* expectError(
-          h.call("ask_form", { title: "t", fields: [{ type: "number", id: "n", label: "N", min: 9, max: 1 }] }),
+          h.call("ask_user_form", { title: "t", fields: [{ type: "number", id: "n", label: "N", min: 9, max: 1 }] }),
           /minがmax以上/
         )
         yield* h.waitUntil(0)
@@ -130,7 +130,7 @@ describe("SPEC-TOOL-004 設計図の誤り", () => {
   it("SPEC-TOOL-004 型の合わない設計図も誤りとして返す", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const result = yield* h.call("ask_form", { title: "t", fields: "none" })
+        const result = yield* h.call("ask_user_form", { title: "t", fields: "none" })
         assert.equal(result.isError, true)
       })
     ))

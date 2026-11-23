@@ -185,7 +185,7 @@ export const captureMedia = async (paths: MediaPaths): Promise<Capture> => {
   const frames = join(paths.work, "frames")
   await rm(frames, { recursive: true, force: true })
   await mkdir(frames, { recursive: true })
-  const profile = await mkdtemp(join(tmpdir(), "ask-form-media-"))
+  const profile = await mkdtemp(join(tmpdir(), "ask-user-form-media-"))
   const llm = await startStubModel(trigger, todoSpec, reply)
   const options = { llm, log: join(profile, "driver.log"), profile, locale: "ja", query, settings, draft: true, scale: density }
   let app: ElectronApplication | undefined
