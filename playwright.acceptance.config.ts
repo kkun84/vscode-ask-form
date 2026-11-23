@@ -13,8 +13,8 @@ export default defineConfig<object, PlatformOptions>({
   timeout: 240_000,
   reporter: process.env["CI"] === undefined ? [["list"]] : [["list"], ["github"]],
   projects: [
-    { name: "web", testMatch: /(startup|tool|chat)\.spec\.ts$/, use: { platform: "web" } },
-    { name: "ssh", testMatch: /(startup|tool|chat)\.spec\.ts$/, use: { platform: "ssh" } },
-    { name: "desktop", testMatch: /(startup|tool|chat|harness)\.spec\.ts$/, use: { platform: "desktop" } }
+    { name: "web", testMatch: /(startup|tool|chat|kinds)\.spec\.ts$/, use: { platform: "web" } },
+    { name: "ssh", testMatch: /(startup|tool|chat|kinds)\.spec\.ts$/, use: { platform: "ssh" } },
+    { name: "desktop", testMatch: /(startup|tool|chat|harness|kinds)\.spec\.ts$/, use: { platform: "desktop" } }
   ]
 })

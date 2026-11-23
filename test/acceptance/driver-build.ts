@@ -26,6 +26,7 @@ export const buildDriver = async (root: string, driver: string): Promise<void> =
           { command: "ask-form-e2e.agentsWindow", title: "Ask Form: Open acceptance Agents window" },
           { command: "ask-form-e2e.state", title: "Ask Form: Report acceptance state" },
           { command: "ask-form-e2e.invoke", title: "Ask Form: Invoke acceptance form" },
+          { command: "ask-form-e2e.invokeKinds", title: "Ask Form: Show every question type" },
           { command: "ask-form-e2e.cancel", title: "Ask Form: Cancel acceptance form" }
         ],
         languageModelTools: [
