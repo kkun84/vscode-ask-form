@@ -370,12 +370,12 @@ Copilotのハーネスは、BYOKを使わず、Copilotの接続先そのもの�
 
 V字モデルに沿って、要求から設計までを段階ごとの文書に書き、各段階に対応するテストで検証します。
 
-| 文書                          | ID     | 検証                                                |
-| ----------------------------- | ------ | --------------------------------------------------- |
-| `docs/spec/requirements.md`   | `REQ`  | 受け入れテスト(`test/acceptance`)、手動受け入れ手順 |
-| `docs/spec/system.md`         | `SPEC` | システムテスト(`test/system`)                       |
-| `docs/design/architecture.md` | `ARCH` | アーキテクチャテスト(`test/architecture`)           |
-| `docs/design/detailed.md`     | `DES`  | 単体テスト(`test/unit`)                             |
+| 文書                          | ID     | 検証                                      |
+| ----------------------------- | ------ | ----------------------------------------- |
+| `docs/spec/requirements.md`   | `REQ`  | 受け入れテスト(`test/acceptance`)         |
+| `docs/spec/system.md`         | `SPEC` | システムテスト(`test/system`)             |
+| `docs/design/architecture.md` | `ARCH` | アーキテクチャテスト(`test/architecture`) |
+| `docs/design/detailed.md`     | `DES`  | 単体テスト(`test/unit`)                   |
 
 テストの名前はIDで始めます。`scripts/traceability.ts`が、すべての項目に派生元と検証があることを確かめ、`docs/traceability.md`を作ります。
 
