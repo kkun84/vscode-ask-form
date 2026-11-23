@@ -414,6 +414,7 @@ export class FormApp {
     }>,
     computed: undefined as HTMLElement | undefined,
     status: undefined as HTMLElement | undefined,
+    remaining: undefined as HTMLElement | undefined,
     primary: undefined as HTMLButtonElement | undefined,
     form: undefined as HTMLElement | undefined,
     setters: new Map<string, (value: FieldValue) => void>(),
@@ -636,6 +637,7 @@ export class FormApp {
     this.live.resets.clear()
     this.live.computed = undefined
     this.live.status = undefined
+    this.live.remaining = undefined
     this.live.primary = undefined
     this.live.form = undefined
     this.live.fields = undefined
@@ -1428,8 +1430,17 @@ export class FormApp {
       this.m.submit,
       () => void this.answer("submit"),
       [this.ghost(this.m.dismiss, () => void this.answer("chat"))],
-      [h("kbd", { class: "shortcut", "aria-hidden": "true" }, /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘⏎" : "Ctrl+⏎")]
+      [
+        this.remainingView(),
+        h("kbd", { class: "shortcut", "aria-hidden": "true" }, /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘⏎" : "Ctrl+⏎")
+      ]
     )
+  }
+
+  private remainingView(): HTMLElement {
+    const element = h("span", { class: "remaining" })
+    this.live.remaining = element
+    return element
   }
 
   private refreshShown(form: CompiledForm): void {
@@ -1523,6 +1534,10 @@ export class FormApp {
     const current = this.current()
     const sinceRecommended = changedFields(this.form.spec, this.initial, current)
     const missing = new Set(unansweredFields(this.form.spec, current, this.commented()).map((field) => field.id))
+    if (this.live.remaining !== undefined) {
+      this.live.remaining.textContent = missing.size === 0 ? "" : this.m.remaining(missing.size)
+      this.live.remaining.classList.toggle("alert", this.showMissing)
+    }
     for (const card of this.live.cards) {
       const unanswered = missing.has(card.field.id)
       const unset = current[card.field.id] === undefined
