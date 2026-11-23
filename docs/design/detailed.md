@@ -6,7 +6,7 @@
 
 ### DES-SPEC-001 設計図の読み取り
 
-設計図はEffect Schemaで読み取る(`src/core/validate.ts`)。未知のキーは捨てる。画面はEffectを使わないため、読み取りと検査は拡張機能の側だけで行う。読み取りの誤りと意味的な検査の誤りは、どちらも「どこが」「なぜ」を含む文の一覧にまとめる。
+設計図はEffect Schemaで読み取る(`src/core/validate.ts`)。未知のキーは捨てずに誤りにし、`fields[0].when.anyof`の形の場所とキーの名前を日本語の文で示す。AIに示すJSON Schemaも、同じSchemaから未知のキーを許さない形で作る。画面はEffectを使わないため、読み取りと検査は拡張機能の側だけで行う。読み取りの誤りと意味的な検査の誤りは、どちらも「どこが」「なぜ」を含む文の一覧にまとめる。
 
 - 項目と計算結果で共通の`id`のSchemaから、予約語と完全に一致する`true`と`false`を拒否する。`trueValue`や`True`など異なる名前は受け付ける。
 - `default`のない項目に`reason`か`reasonDetails`があれば、項目の`id`を含む誤りを返す。画面は推奨のない項目の理由を表示しないので、AIに`description`へ書き直させる。

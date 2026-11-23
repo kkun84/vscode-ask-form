@@ -35,7 +35,7 @@ describe("SPEC-FORM-001 設計図の形", () => {
   it("SPEC-FORM-001 すべての種類の項目と計算結果を持つ設計図を受け付ける", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const fiber = yield* Effect.forkChild(h.call("ask_form", { ...eventSpec, unknownKey: true }))
+        const fiber = yield* Effect.forkChild(h.call("ask_form", eventSpec))
         yield* h.waitUntil(1)
         yield* Fiber.interrupt(fiber)
       })
@@ -77,19 +77,31 @@ describe("SPEC-FORM-001 設計図の形", () => {
     ))
 })
 
-const arraysWithoutItems = (node: unknown, path = "$"): ReadonlyArray<string> => {
+const schemaPaths = (node: unknown, bad: (record: Record<string, unknown>) => boolean, path = "$"): ReadonlyArray<string> => {
   if (Array.isArray(node)) {
-    return node.flatMap((item, index) => arraysWithoutItems(item, `${path}[${index}]`))
+    return node.flatMap((item, index) => schemaPaths(item, bad, `${path}[${index}]`))
   }
   if (node === null || typeof node !== "object") {
     return []
   }
   const record = node as Record<string, unknown>
-  const own = record["type"] === "array" && record["items"] === undefined ? [path] : []
-  return [...own, ...Object.entries(record).flatMap(([key, value]) => arraysWithoutItems(value, `${path}.${key}`))]
+  return [...(bad(record) ? [path] : []), ...Object.entries(record).flatMap(([key, value]) => schemaPaths(value, bad, `${path}.${key}`))]
 }
 
+const arraysWithoutItems = (schema: unknown) => schemaPaths(schema, (record) => record["type"] === "array" && record["items"] === undefined)
+
+const openObjects = (schema: unknown) =>
+  schemaPaths(schema, (record) => record["type"] === "object" && record["additionalProperties"] !== false)
+
 describe("SPEC-FORM-001 AIに示すスキーマの形", () => {
+  it("SPEC-FORM-001 表にないキーを許すオブジェクトを書かない", () =>
+    withHarness((h) =>
+      Effect.gen(function* () {
+        const tool = yield* h.tool("ask_form")
+        assert.deepEqual(openObjects(tool.inputSchema), [])
+      })
+    ))
+
   it("SPEC-FORM-001 VS Codeがツールの定義を拒否しないよう、配列にはすべてitemsを書く", () =>
     withHarness((h) =>
       Effect.gen(function* () {
@@ -148,6 +160,11 @@ describe("SPEC-FORM-001 条件付きの項目", () => {
 })
 
 describe("SPEC-FORM-002 設計図の意味的な検査", () => {
+  it("SPEC-FORM-002 表にないキーを持つ設計図を、場所を示して拒否する", () =>
+    withHarness((h) =>
+      rejectedWith(h, { title: "t", fields: [field({ when: { field: "c", anyof: ["a"] } })] }, [/fields\[0\]\.when\.anyof/])
+    ))
+
   it("SPEC-FORM-002 意味の誤りをすべて列挙して返す", () =>
     withHarness((h) =>
       Effect.gen(function* () {

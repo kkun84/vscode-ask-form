@@ -1,4 +1,4 @@
-import { Result, Schema } from "effect"
+import { Result, Schema, SchemaIssue } from "effect"
 import { references, parse } from "./expression.ts"
 import {
   activeFields,
@@ -30,7 +30,26 @@ import {
   type TreeChoiceField
 } from "./spec.ts"
 
-const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
+const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "error" })
+
+const unknownKey = "unknown key"
+
+const listIssues = SchemaIssue.makeFormatterStandardSchemaV1({
+  leafHook: (issue) => (issue instanceof SchemaIssue.UnexpectedKey ? unknownKey : SchemaIssue.defaultLeafHook(issue))
+})
+
+const dotted = (path: ReadonlyArray<PropertyKey>): string =>
+  path.length === 0
+    ? "設計図"
+    : path.map((key, index) => (typeof key === "number" ? `[${key}]` : `${index === 0 ? "" : "."}${String(key)}`)).join("")
+
+const decodeProblems = (issue: SchemaIssue.Issue): ReadonlyArray<string> =>
+  listIssues(issue).issues.map(({ message, path = [] }) => {
+    const keys = path as ReadonlyArray<PropertyKey>
+    return message === unknownKey
+      ? `「${dotted(keys)}」は設計図にないキーです。キー「${String(keys.at(-1))}」の綴りと置く場所を直すか、消してください`
+      : `「${dotted(keys)}」: ${message}`
+  })
 
 const duplicateIds = (spec: FormSpec): ReadonlyArray<string> => {
   const ids = [...spec.fields.map((field) => field.id), ...(spec.computed ?? []).map((item) => item.id)]
@@ -311,7 +330,7 @@ const fieldProblems = (field: Field): ReadonlyArray<string> => [...reasonProblem
 export const compile = (input: unknown): Result.Result<CompiledForm, ReadonlyArray<string>> => {
   const decoded = decodeSpec(input)
   if (Result.isFailure(decoded)) {
-    return Result.fail([decoded.failure.message])
+    return Result.fail(decodeProblems(decoded.failure.issue))
   }
   const spec = decoded.success
   const problems = semanticProblems(spec, input)

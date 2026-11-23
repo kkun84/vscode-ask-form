@@ -16,7 +16,7 @@ const inlineRefs = (value: unknown, definitions: Readonly<Record<string, unknown
   return value
 }
 
-const document = Schema.toJsonSchemaDocument(FormSpec)
+const document = Schema.toJsonSchemaDocument(FormSpec, { onExcessProperty: "error" })
 
 export const formSpecJsonSchema = inlineRefs(document.schema, document.definitions) as {
   readonly type: "object"

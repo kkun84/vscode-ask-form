@@ -169,7 +169,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -190,7 +190,7 @@
                       "id",
                       "label"
                     ],
-                    "additionalProperties": true
+                    "additionalProperties": false
                   },
                   {
                     "type": "object",
@@ -254,7 +254,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -277,7 +277,7 @@
                       "id",
                       "label"
                     ],
-                    "additionalProperties": true,
+                    "additionalProperties": false,
                     "description": "The user writes any number of short free-form values, such as paths, tags or domains. The answer is an array of up to 20 distinct strings."
                   },
                   {
@@ -342,7 +342,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -374,7 +374,7 @@
                       "min",
                       "max"
                     ],
-                    "additionalProperties": true
+                    "additionalProperties": false
                   },
                   {
                     "type": "object",
@@ -438,7 +438,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -476,7 +476,7 @@
                       "min",
                       "max"
                     ],
-                    "additionalProperties": true,
+                    "additionalProperties": false,
                     "description": "The user answers a span of numbers with a lower and an upper bound. The answer is [lower, upper]."
                   },
                   {
@@ -541,7 +541,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -562,7 +562,7 @@
                       "id",
                       "label"
                     ],
-                    "additionalProperties": true,
+                    "additionalProperties": false,
                     "description": "A calendar date. The answer is a YYYY-MM-DD string."
                   },
                   {
@@ -627,7 +627,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -654,7 +654,7 @@
                       "id",
                       "label"
                     ],
-                    "additionalProperties": true,
+                    "additionalProperties": false,
                     "description": "A time of day. The answer is a 24-hour HH:MM string."
                   },
                   {
@@ -719,7 +719,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -769,7 +769,7 @@
                             "value",
                             "label"
                           ],
-                          "additionalProperties": true
+                          "additionalProperties": false
                         },
                         "minItems": 2,
                         "maxItems": 6
@@ -781,7 +781,7 @@
                       "label",
                       "options"
                     ],
-                    "additionalProperties": true
+                    "additionalProperties": false
                   },
                   {
                     "type": "object",
@@ -845,7 +845,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -895,7 +895,7 @@
                             "value",
                             "label"
                           ],
-                          "additionalProperties": true
+                          "additionalProperties": false
                         },
                         "minItems": 7,
                         "maxItems": 100
@@ -907,7 +907,7 @@
                       "label",
                       "options"
                     ],
-                    "additionalProperties": true,
+                    "additionalProperties": false,
                     "description": "The user finds options by name among 7 to 100 candidates, typing to narrow the list, and picks one, or several with multiple. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, and treeChoice when the candidates form a hierarchy."
                   },
                   {
@@ -972,7 +972,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -1080,7 +1080,7 @@
                                               "value",
                                               "label"
                                             ],
-                                            "additionalProperties": true
+                                            "additionalProperties": false
                                           },
                                           "minItems": 1
                                         }
@@ -1089,7 +1089,7 @@
                                         "value",
                                         "label"
                                       ],
-                                      "additionalProperties": true
+                                      "additionalProperties": false
                                     },
                                     "minItems": 1
                                   }
@@ -1098,7 +1098,7 @@
                                   "value",
                                   "label"
                                 ],
-                                "additionalProperties": true
+                                "additionalProperties": false
                               },
                               "minItems": 1
                             }
@@ -1107,7 +1107,7 @@
                             "value",
                             "label"
                           ],
-                          "additionalProperties": true
+                          "additionalProperties": false
                         },
                         "minItems": 1,
                         "description": "Items in a hierarchy, up to 4 levels and 100 items in all, such as folders and files. Every value is unique in the whole tree. Any item, branch or leaf, can be chosen."
@@ -1119,7 +1119,7 @@
                       "label",
                       "nodes"
                     ],
-                    "additionalProperties": true,
+                    "additionalProperties": false,
                     "description": "The user picks from a hierarchy, such as a folder, a file or a module. With multiple, checking a branch checks everything in it, and the answer lists the outermost fully checked items."
                   },
                   {
@@ -1184,7 +1184,7 @@
                           "field",
                           "anyOf"
                         ],
-                        "additionalProperties": true,
+                        "additionalProperties": false,
                         "description": "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
                       },
                       "default": {
@@ -1237,7 +1237,7 @@
                             "value",
                             "label"
                           ],
-                          "additionalProperties": true
+                          "additionalProperties": false
                         },
                         "minItems": 2,
                         "maxItems": 8
@@ -1249,7 +1249,7 @@
                       "label",
                       "options"
                     ],
-                    "additionalProperties": true,
+                    "additionalProperties": false,
                     "description": "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
                   }
                 ]
@@ -1301,7 +1301,7 @@
                   "label",
                   "expression"
                 ],
-                "additionalProperties": true
+                "additionalProperties": false
               },
               "maxItems": 8
             }
@@ -1310,7 +1310,7 @@
             "title",
             "fields"
           ],
-          "additionalProperties": true
+          "additionalProperties": false
         }
       }
     ]

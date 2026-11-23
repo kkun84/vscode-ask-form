@@ -189,7 +189,7 @@ describe("SPEC-TOOL-006 フォームの鍵", () => {
   it("SPEC-TOOL-006 画面が受け取った引数から計算した鍵で回答できる", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const args = { computed: eventSpec.computed, fields: eventSpec.fields, title: eventSpec.title, extra: { nested: true } }
+        const args = { computed: eventSpec.computed, fields: eventSpec.fields, title: "鍵を確かめるフォーム" }
         const fiber = yield* ask(h, args)
         const reordered = reverseKeys(args)
         assert.notEqual(stableHash(args), form.key)

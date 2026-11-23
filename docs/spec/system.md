@@ -63,6 +63,8 @@ AIは根拠を持って勧められるときだけ`default`を付ける。`reaso
 
 AIは文字数を正確に数えられず、英語は同じ内容に日本語より多くの文字を使う。目安を少し超えただけの設計図を誤りとして返すと、AIが作り直す間、利用者が待たされる。
 
+AIに示すJSON Schemaのオブジェクトには、すべて`additionalProperties: false`を書き、表にないキーを許さない。
+
 AIに示すJSON Schemaには、これらのキーの`maxLength`として受け付ける上限を書き、目安は`description`に「Aim for 60 characters or fewer.」の形で書く。VS CodeのCopilotは、ツールを呼ぶ前にAIの入力をこのJSON Schemaで検査する。`maxLength`に目安を書くと、目安を1文字超えた設計図はAsk Formに届く前に拒否される。
 
 `id`、選択肢の`value`、`default`、`expression`、`prefix`と`suffix`の文字数は目安ではなく上限であり、超えたら誤りとして返す。
@@ -78,6 +80,7 @@ AIに示すJSON Schemaには、これらのキーの`maxLength`として受け�
 
 次のいずれかに当たる設計図は受け付けず、問題をすべて列挙して返す。
 
+- SPEC-FORM-001 の表にないキーがある。設計図、項目、選択肢、木の項目、`when`、計算結果のどの階層でも受け付けず、`fields[0].options[0].fields`の形の場所とキーの名前を示す
 - 項目と計算結果の`id`が重複している
 - 数値項目で`min`が`max`以上、または`default`が範囲外
 - 選択項目の選択肢の`value`が重複している
