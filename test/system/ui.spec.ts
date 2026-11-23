@@ -298,20 +298,27 @@ for (const name of themes) {
 }
 
 const shownQuestions = (frame: Frame, fields: string) =>
-  frame
-    .locator(`${fields} > .q:not([hidden])`)
-    .evaluateAll((cards) => cards.map((card) => [card.querySelector(".q-label")?.textContent, getComputedStyle(card).borderTopStyle]))
+  frame.locator(`${fields} > .q:not([hidden])`).evaluateAll((cards) => cards.map((card) => [card.querySelector(".q-label")?.textContent]))
+
+const questionFrames = (frame: Frame, fields: string) =>
+  frame.locator(`${fields} > .q`).evaluateAll((cards) =>
+    cards.map((card) => {
+      const style = getComputedStyle(card)
+      return [card.querySelector(".q-label")?.textContent, style.display === "none" ? "hidden" : style.borderStyle]
+    })
+  )
 
 test.describe("SPEC-UI-011 条件付きの項目", () => {
-  test("SPEC-UI-011 隠れた質問の分の区切り線を引かない", async ({ page }) => {
+  test("SPEC-UI-011 表示されている質問だけを枠で囲み、隠れた質問は番号の数に入れない", async ({ page }) => {
     const frame = await openStorage(page)
     await selectStorage(frame, "サーバー")
-    expect(await shownQuestions(frame, "form > .fields")).toEqual([
-      ["アプリ名", "none"],
+    expect((await questionFrames(frame, "form > .fields")).filter(([, state]) => state !== "hidden")).toEqual([
+      ["アプリ名", "solid"],
       ["保存先", "solid"],
       ["ポート", "solid"],
       ["ログイン", "solid"]
     ])
+    expect(await questionFrames(frame, "form > .fields")).toContainEqual(["保存方式", "hidden"])
   })
 
   test("SPEC-UI-011 選んだ選択肢を条件とする項目だけを表示し、切り替えても直した値を覚えておく", async ({ page }) => {
