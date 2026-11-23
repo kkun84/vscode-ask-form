@@ -402,6 +402,11 @@ textarea {
   transition: border-color 120ms ease;
 }
 
+::placeholder {
+  color: var(--vscode-input-placeholderForeground, color-mix(in srgb, var(--fg) 62%, transparent));
+  opacity: 1;
+}
+
 textarea {
   display: block;
   resize: vertical;
