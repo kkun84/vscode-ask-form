@@ -22,7 +22,9 @@ test("DES-REL-001 mainのCIの成功と手動実行で検出し、版数を上�
     "TAG: ${{ needs.detect.outputs.tag }}",
     "SHA: ${{ needs.detect.outputs.sha }}",
     'node scripts/release-check.ts "$TAG" "$RUNNER_TEMP/release-notes.md"',
-    "pnpm test:acceptance --grep-invert @downloads-sdk"
+    "uses: ./.github/workflows/verify.yml",
+    "ref: ${{ needs.detect.outputs.sha }}",
+    "acceptance-args: --grep-invert @downloads-sdk"
   ]) {
     assert.ok(workflow.includes(expected), expected)
   }

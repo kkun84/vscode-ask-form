@@ -10,7 +10,8 @@ const workflow = await readFile(new URL("../../.github/workflows/release.yml", i
 test("ARCH-REL-001 GITHUB_TOKENの書き込みは公開だけに使い、版数はAppのPRで上げ、ワークフロー全体を直列化する", () => {
   assert.match(workflow, /concurrency:\n  group: release\n  cancel-in-progress: false/)
   const [detect = "", rest = ""] = workflow.split("  bump:\n")
-  const [bump = "", release = ""] = rest.split("  release:\n")
+  const [bump = "", verified = ""] = rest.split("  verify:\n")
+  const [verify = "", release = ""] = verified.split("  release:\n")
   assert.match(detect, /jobs:\n  detect:/)
   assert.match(detect, /    permissions:\n      contents: read/)
   assert.doesNotMatch(detect, /contents: write/)
@@ -18,7 +19,9 @@ test("ARCH-REL-001 GITHUB_TOKENの書き込みは公開だけに使い、版数�
   assert.match(bump, /    permissions:\n      contents: read\n/)
   assert.doesNotMatch(bump, /(?<!-)contents: write|GITHUB_TOKEN|github.token/)
   assert.match(bump, /permission-contents: write\n          permission-pull-requests: write/)
-  assert.match(release, /^    needs: detect\n    if: needs.detect.outputs.action == 'release'/)
+  assert.match(verify, /^    needs: detect\n    if: needs.detect.outputs.action == 'release'\n    uses: /)
+  assert.doesNotMatch(verify, /permissions:|secrets:/)
+  assert.match(release, /^    needs: \[detect, verify\]\n/)
   assert.match(release, /      contents: write/)
 })
 
