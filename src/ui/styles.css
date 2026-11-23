@@ -1343,9 +1343,13 @@ ui-tree {
 }
 
 ui-tree-item {
+  --tree-indent: calc((var(--tree-level, 1) - 1) * 23px);
   display: block;
+  padding-left: var(--tree-indent);
   border-radius: 6px;
   outline: none;
+  background: repeating-linear-gradient(to right, transparent 0 14px, var(--border) 14px 15px, transparent 15px 23px) no-repeat;
+  background-size: var(--tree-indent) 100%;
 }
 
 ui-tree-item-label {
@@ -1373,14 +1377,7 @@ ui-tree-item:focus-visible > ui-tree-item-label {
   outline-offset: -2px;
 }
 
-ui-tree-group {
-  display: block;
-  margin-left: 14px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border);
-}
-
-ui-tree-group[hidden] {
+ui-tree-item[hidden] {
   display: none;
 }
 

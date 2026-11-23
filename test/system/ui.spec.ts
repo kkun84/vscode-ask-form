@@ -37,9 +37,9 @@ const selectStorage = async (frame: Frame, name: string) => {
   await frame.getByRole("radio", { name }).check()
 }
 
-const axeViolations = async (frame: Frame, disabled: ReadonlyArray<string> = []): Promise<ReadonlyArray<string>> => {
+const axeViolations = async (frame: Frame): Promise<ReadonlyArray<string>> => {
   await expect.poll(() => frame.evaluate(() => document.getAnimations().length)).toBe(0)
-  const results = await new AxeBuilder(frame).disableRules([...disabled]).analyze()
+  const results = await new AxeBuilder(frame).analyze()
   return results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
 }
 
@@ -470,8 +470,8 @@ interface Answered extends OutcomeLike {
 
 const send = (frame: Frame) => frame.getByRole("button", { name: "送信", exact: true }).click()
 
-const sendAccessible = async (page: Page, frame: Frame, disabled: ReadonlyArray<string> = []): Promise<OutcomeLike | undefined> => {
-  expect(await axeViolations(frame, disabled)).toEqual([])
+const sendAccessible = async (page: Page, frame: Frame): Promise<OutcomeLike | undefined> => {
+  expect(await axeViolations(frame)).toEqual([])
   await send(frame)
   return singleOutcome(page)
 }
@@ -1066,7 +1066,7 @@ test.describe("SPEC-UI-020 木から選ぶ", () => {
     await expect(scope.getByRole("treeitem", { name: "src" })).toHaveAttribute("aria-checked", "true")
     await scope.getByRole("treeitem", { name: "README.md" }).focus()
     await page.keyboard.press("Space")
-    const outcome = await sendAccessible(page, frame, ["label-content-name-mismatch"])
+    const outcome = await sendAccessible(page, frame)
     expect(outcome?.values).toEqual({ target: "src/ui/app.ts", scope: ["src", "README.md"], place: "docs" })
   })
 

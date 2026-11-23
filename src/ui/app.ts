@@ -250,10 +250,15 @@ const treeData = (nodes: ReadonlyArray<TreeNode>): Array<TreeItemData> =>
     ...(node.children === undefined ? {} : { children: treeData(node.children) })
   }))
 
-const treeRow = (node: TreeNode, multiple: boolean): HTMLElement =>
+interface TreeRow {
+  readonly row: HTMLElement
+  readonly ancestors: ReadonlyArray<string>
+}
+
+const treeRow = (node: TreeNode, multiple: boolean, parent: string | undefined): HTMLElement =>
   h(
     "ui-tree-item",
-    { value: node.value },
+    { value: node.value, parent, branch: node.children !== undefined },
     h(
       "ui-tree-item-label",
       {},
@@ -267,15 +272,21 @@ const treeRow = (node: TreeNode, multiple: boolean): HTMLElement =>
         h("span", { class: "tree-label" }, node.label),
         node.description === undefined ? null : h("span", { class: "option-summary" }, node.description)
       )
-    ),
-    node.children === undefined
-      ? null
-      : h(
-          "ui-tree-group",
-          {},
-          node.children.map((child) => treeRow(child, multiple))
-        )
+    )
   )
+
+const treeRows = (nodes: ReadonlyArray<TreeNode>, multiple: boolean, ancestors: ReadonlyArray<string> = []): ReadonlyArray<TreeRow> =>
+  nodes.flatMap((node) => [
+    { row: treeRow(node, multiple, ancestors.at(-1)), ancestors },
+    ...treeRows(node.children ?? [], multiple, [...ancestors, node.value])
+  ])
+
+const foldTreeRows = (tree: HTMLElement, rows: ReadonlyArray<TreeRow>): void => {
+  const expanded = new Set([...tree.querySelectorAll("ui-tree-item[aria-expanded='true']")].map((item) => item.getAttribute("value")))
+  for (const { row, ancestors } of rows) {
+    row.hidden = !ancestors.every((ancestor) => expanded.has(ancestor))
+  }
+}
 
 const choiceControl = (multiple: boolean, value: string, labelledBy: string, describedBy: ReadonlyArray<string | undefined>): HTMLElement =>
   h(
@@ -1023,7 +1034,10 @@ export class FormApp {
       "aria-describedby": describedBy === "" ? undefined : describedBy,
       "expand-on-press": "false"
     })
-    tree.append(...field.nodes.map((node) => treeRow(node, multiple)))
+    const rows = treeRows(field.nodes, multiple)
+    tree.append(...rows.map(({ row }) => row))
+    foldTreeRows(tree, rows)
+    new MutationObserver(() => foldTreeRows(tree, rows)).observe(tree, { subtree: true, attributeFilter: ["aria-expanded"] })
     tree.items = treeData(field.nodes)
     tree.defaultExpanded = [...treeAncestors(field.nodes, selected)]
     if (multiple) {
