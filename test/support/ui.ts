@@ -43,7 +43,7 @@ export const startServer = async (): Promise<HarnessServer> => {
     res
       .writeHead(200, { "content-type": "text/html; charset=utf-8" })
       .end(
-        '<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:16px;}iframe{width:100%;height:1400px;border:0}</style></head><body><script src="/host.js"></script></body></html>'
+        '<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:16px;}iframe{width:100%;height:1800px;border:0}</style></head><body><script src="/host.js"></script></body></html>'
       )
   })
   const { origin, close } = await listenLocally(server)

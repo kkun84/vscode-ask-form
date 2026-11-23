@@ -142,10 +142,6 @@
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
                       },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
-                      },
                       "when": {
                         "type": "object",
                         "properties": {
@@ -226,10 +222,6 @@
                         "type": "string",
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                      },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
                       },
                       "when": {
                         "type": "object",
@@ -314,10 +306,6 @@
                         "type": "string",
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                      },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
                       },
                       "when": {
                         "type": "object",
@@ -410,10 +398,6 @@
                         "type": "string",
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                      },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
                       },
                       "when": {
                         "type": "object",
@@ -514,10 +498,6 @@
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
                       },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
-                      },
                       "when": {
                         "type": "object",
                         "properties": {
@@ -599,10 +579,6 @@
                         "type": "string",
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                      },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
                       },
                       "when": {
                         "type": "object",
@@ -691,10 +667,6 @@
                         "type": "string",
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                      },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
                       },
                       "when": {
                         "type": "object",
@@ -818,10 +790,6 @@
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
                       },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
-                      },
                       "when": {
                         "type": "object",
                         "properties": {
@@ -944,10 +912,6 @@
                         "type": "string",
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                      },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
                       },
                       "when": {
                         "type": "object",
@@ -1156,10 +1120,6 @@
                         "type": "string",
                         "maxLength": 600,
                         "description": "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default. Aim for 300 characters or fewer."
-                      },
-                      "advanced": {
-                        "type": "boolean",
-                        "description": "Fold this field into the collapsed Details section."
                       },
                       "when": {
                         "type": "object",

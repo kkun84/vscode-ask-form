@@ -120,16 +120,6 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await expect(frame.getByRole("radiogroup", { name: "色" })).toHaveAttribute("aria-invalid", "true")
     expect(await recorded(page, "outcomes")).toHaveLength(0)
   })
-
-  test("SPEC-UI-001 advancedの項目は閉じた「詳細」の中にある", async ({ page }) => {
-    const frame = await open(page)
-    const details = frame.locator("ui-collapsible.advanced")
-    const trigger = details.getByRole("button", { name: "詳細" })
-    await expect(trigger).toHaveAttribute("aria-expanded", "false")
-    await expect(details.getByRole("group", { name: "配布物" })).toBeHidden()
-    await trigger.click()
-    await expect(details.getByRole("group", { name: "配布物" })).toBeVisible()
-  })
 })
 
 test.describe("SPEC-UI-001 数値と文字列の入力", () => {
@@ -301,7 +291,6 @@ for (const name of themes) {
     })
     test(`SPEC-UI-008 ${name}テーマでaxeの違反がない`, async ({ page }) => {
       const frame = await open(page, { context: themeContext(name) })
-      await frame.getByRole("button", { name: "詳細", exact: true }).click()
       expect(await axeViolations(frame)).toEqual([])
     })
   })
@@ -312,16 +301,6 @@ const shownQuestions = (frame: Frame, fields: string) =>
     .locator(`${fields} > .q:not([hidden])`)
     .evaluateAll((cards) => cards.map((card) => [card.querySelector(".q-label")?.textContent, getComputedStyle(card).borderTopStyle]))
 
-const detailSpec = {
-  title: "詳細",
-  fields: [
-    ...storageSpec.fields.slice(1, 2),
-    { type: "text", id: "host", label: "ホスト", advanced: true, when: { field: "storage", anyOf: ["server"] } },
-    { type: "text", id: "memo", label: "メモ", advanced: true },
-    { type: "text", id: "path", label: "パス", advanced: true, when: { field: "storage", anyOf: ["browser"] } }
-  ]
-}
-
 test.describe("SPEC-UI-011 条件付きの項目", () => {
   test("SPEC-UI-011 条件付きの項目を設計図の位置に並べ、隠れた質問の分の区切り線を引かない", async ({ page }) => {
     const frame = await openStorage(page)
@@ -331,12 +310,6 @@ test.describe("SPEC-UI-011 条件付きの項目", () => {
       ["保存先", "solid"],
       ["ポート", "solid"],
       ["ログイン", "solid"]
-    ])
-    const details = await open(page, { args: detailSpec })
-    await details.getByRole("button", { name: "詳細", exact: true }).click()
-    expect(await shownQuestions(details, "ui-collapsible .fields")).toEqual([
-      ["メモ", "none"],
-      ["パス", "solid"]
     ])
   })
 

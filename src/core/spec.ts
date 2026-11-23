@@ -34,11 +34,6 @@ const commonFields = {
   reasonDetails: Schema.optionalKey(
     shown(300, "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default.")
   ),
-  advanced: Schema.optionalKey(
-    Schema.Boolean.annotate({
-      description: "Fold this field into the collapsed Details section."
-    })
-  ),
   when: Schema.optionalKey(
     Schema.Struct({
       field: Identifier.annotate({

@@ -507,10 +507,6 @@ export class FormApp {
     this.showMissing = true
     this.refresh()
     const first = this.live.cards.find((card) => card.field.id === unanswered[0]?.id)
-    const details = first?.element.closest<HTMLElement & { open: boolean }>("ui-collapsible")
-    if (details !== null && details !== undefined) {
-      details.open = true
-    }
     focusControl(first?.element)
     return true
   }
@@ -649,8 +645,6 @@ export class FormApp {
       return h("p", { class: "notice", role: "status" }, this.m.waiting)
     }
     const spec = form.spec
-    const basic = spec.fields.filter((field) => field.advanced !== true)
-    const advanced = spec.fields.filter((field) => field.advanced === true)
     const titleId = uid("title")
     const element = h(
       "form",
@@ -664,20 +658,8 @@ export class FormApp {
       h(
         "div",
         { class: "fields" },
-        basic.map((field) => this.card(field))
+        spec.fields.map((field) => this.card(field))
       ),
-      advanced.length === 0
-        ? null
-        : collapsible(
-            "advanced",
-            false,
-            this.m.details,
-            h(
-              "div",
-              { class: "fields" },
-              advanced.map((field) => this.card(field))
-            )
-          ),
       (spec.computed ?? []).length === 0 ? null : this.computedView(),
       this.noteView(),
       this.answerFooter()
