@@ -115,7 +115,7 @@ export const connect = (handlers: BridgeHandlers, target: Window = window.parent
   listen(onMessage)
 
   return request("ui/initialize", {
-    appInfo: { name: "ask-form", version: "1" },
+    appInfo: { name: "ask-user-form", version: "1" },
     appCapabilities: {},
     protocolVersion
   }).then((result) => {

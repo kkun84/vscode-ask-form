@@ -105,7 +105,7 @@ export const stubbedCopilot = (origin: string, profile: string) => ({
   },
   env: {
     HOME: join(profile, "home"),
-    ASK_FORM_E2E_TOOL_SEARCH: "1",
+    ASK_USER_FORM_E2E_TOOL_SEARCH: "1",
     GITHUB_PAT: "stub-pat",
     IS_SCENARIO_AUTOMATION: "1",
     VSCODE_COPILOT_CHAT_TOKEN: chatToken(origin),
@@ -116,6 +116,6 @@ export const stubbedCopilot = (origin: string, profile: string) => ({
     XDG_STATE_HOME: join(profile, "state"),
     COPILOT_HOME: join(profile, "state", ".copilot"),
     ...(process.getuid?.() === 0 ? { IS_SANDBOX: "1" } : {}),
-    ...(process.env["ASK_FORM_OPENSSL_LIB"] === undefined ? {} : { LD_LIBRARY_PATH: process.env["ASK_FORM_OPENSSL_LIB"] })
+    ...(process.env["ASK_USER_FORM_OPENSSL_LIB"] === undefined ? {} : { LD_LIBRARY_PATH: process.env["ASK_USER_FORM_OPENSSL_LIB"] })
   }
 })

@@ -20,7 +20,7 @@ const idle = async (window: Page): Promise<void> => {
 
 const startChat = async (session: Session): Promise<string> => {
   const callIndex = session.llm.toolCalls.length
-  await runCommand(session.window, "Ask Form: New acceptance chat", false)
+  await runCommand(session.window, "Ask User Form: New acceptance chat", false)
   const call = await until(() => Promise.resolve(session.llm.toolCalls[callIndex]), "the model asks with a form", 120_000)
   return call.id
 }
@@ -57,7 +57,7 @@ const pressKey = async (button: Locator): Promise<void> => {
   await button.press("Enter")
 }
 
-const toggleAutoReply = (session: Session) => runCommand(session.window, "Ask Form: Toggle acceptance auto reply", false)
+const toggleAutoReply = (session: Session) => runCommand(session.window, "Ask User Form: Toggle acceptance auto reply", false)
 
 const openForms = async (window: Page): Promise<ReadonlyArray<Frame>> => {
   const found: Array<Frame> = []

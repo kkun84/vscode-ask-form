@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises"
-import { askFormDescription, formSpecJsonSchema } from "../src/core/tool.ts"
+import { askUserFormDescription, formSpecJsonSchema } from "../src/core/tool.ts"
 
 const file = new URL("../package.json", import.meta.url)
 const check = process.argv.includes("--check")
@@ -14,7 +14,7 @@ const tool = pkg.contributes.languageModelTools[0]
 if (tool === undefined) {
   throw new Error("languageModelTools[0] is missing")
 }
-tool["modelDescription"] = askFormDescription
+tool["modelDescription"] = askUserFormDescription
 tool["inputSchema"] = inputSchema
 const next = `${JSON.stringify(pkg, undefined, 2)}\n`
 
