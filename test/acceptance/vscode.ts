@@ -101,10 +101,10 @@ export const launchVscode = async (paths: VscodePaths, options: LaunchOptions): 
       ...env,
       ...(options.llm === undefined || options.query === undefined
         ? {}
-        : { ASK_FORM_E2E_LLM_URL: options.llm.url, ASK_FORM_E2E_QUERY: options.query }),
-      ASK_FORM_E2E_LOG: options.log,
-      ASK_FORM_E2E_DRAFT: options.draft === true ? "1" : "0",
-      ASK_FORM_E2E_AUTOSTART: options.autostart === false ? "0" : "1",
+        : { ASK_USER_FORM_E2E_LLM_URL: options.llm.url, ASK_USER_FORM_E2E_QUERY: options.query }),
+      ASK_USER_FORM_E2E_LOG: options.log,
+      ASK_USER_FORM_E2E_DRAFT: options.draft === true ? "1" : "0",
+      ASK_USER_FORM_E2E_AUTOSTART: options.autostart === false ? "0" : "1",
       ...options.env
     },
     ...(options.video === undefined ? {} : { recordVideo: options.video })

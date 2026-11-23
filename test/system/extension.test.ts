@@ -7,7 +7,7 @@ import { eventForm, eventSpec } from "../fixtures/event.ts"
 import { cancellation, createVscode, fakeContext, loadBundle, type FakePanel, type Recorder } from "../support/vscode-stub.ts"
 
 const nodeBundle = fileURLToPath(new URL("../../dist/node/extension.cjs", import.meta.url))
-const toolName = "forms_ask_form"
+const toolName = "forms_ask_user_form"
 
 const readManifest = async <T>(): Promise<T> => JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as T
 
@@ -65,7 +65,7 @@ describe("SPEC-TOOL-001 質問のツール", () => {
       assert.ok(declared?.modelDescription.includes(builtIn), builtIn)
     }
     assert.equal("mcpServerDefinitionProviders" in manifest.contributes, false)
-    assert.equal("askForm.mcp.enabled" in manifest.contributes.configuration.properties, false)
+    assert.equal("askUserForm.mcp.enabled" in manifest.contributes.configuration.properties, false)
   })
 })
 
@@ -242,7 +242,7 @@ describe("SPEC-EXT-004 回答後のパネル", () => {
 const settingsOf = (presets: unknown) => {
   const { recorder, tool } = loaded()
   if (presets !== undefined) {
-    recorder.changeSetting("askForm.commentPresets", presets)
+    recorder.changeSetting("askUserForm.commentPresets", presets)
   }
   void tool.invoke({ input: eventSpec }, cancellation().token)
   const panel = recorder.panels[0]

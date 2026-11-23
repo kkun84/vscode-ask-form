@@ -1,6 +1,6 @@
 # 紹介動画
 
-`ask-form-pv.mp4`は、Ask Formの紹介動画です。`pnpm media`で、実際のVS Codeを動かして作り直します。
+`ask-user-form-pv.mp4`は、Ask User Formの紹介動画です。`pnpm media`で、実際のVS Codeを動かして作り直します。
 
 GitHubはリポジトリに置いた動画をREADMEの中で再生しないため、今はREADMEからリンクしていません。GitHub Pagesで再生できるページを公開するまでの置き場所です。
 

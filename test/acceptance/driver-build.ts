@@ -9,7 +9,7 @@ export const buildDriver = async (root: string, driver: string): Promise<void> =
   await writeFile(
     join(driver, "package.json"),
     JSON.stringify({
-      name: "ask-form-e2e-driver",
+      name: "ask-user-form-e2e-driver",
       publisher: "kkun84",
       version: "0.0.0",
       engines: { vscode: "^1.110.0" },
@@ -18,15 +18,15 @@ export const buildDriver = async (root: string, driver: string): Promise<void> =
       activationEvents: ["onStartupFinished"],
       contributes: {
         commands: [
-          { command: "ask-form-e2e.newChat", title: "Ask Form: New acceptance chat" },
-          { command: "ask-form-e2e.autoReply", title: "Ask Form: Toggle acceptance auto reply" },
-          { command: "ask-form-e2e.claude", title: "Ask Form: New acceptance Claude session" },
-          { command: "ask-form-e2e.codex", title: "Ask Form: New acceptance Codex session" },
-          { command: "ask-form-e2e.copilot", title: "Ask Form: New acceptance Copilot session" },
-          { command: "ask-form-e2e.agentsWindow", title: "Ask Form: Open acceptance Agents window" },
-          { command: "ask-form-e2e.state", title: "Ask Form: Report acceptance state" },
-          { command: "ask-form-e2e.invoke", title: "Ask Form: Invoke acceptance form" },
-          { command: "ask-form-e2e.cancel", title: "Ask Form: Cancel acceptance form" }
+          { command: "ask-user-form-e2e.newChat", title: "Ask User Form: New acceptance chat" },
+          { command: "ask-user-form-e2e.autoReply", title: "Ask User Form: Toggle acceptance auto reply" },
+          { command: "ask-user-form-e2e.claude", title: "Ask User Form: New acceptance Claude session" },
+          { command: "ask-user-form-e2e.codex", title: "Ask User Form: New acceptance Codex session" },
+          { command: "ask-user-form-e2e.copilot", title: "Ask User Form: New acceptance Copilot session" },
+          { command: "ask-user-form-e2e.agentsWindow", title: "Ask User Form: Open acceptance Agents window" },
+          { command: "ask-user-form-e2e.state", title: "Ask User Form: Report acceptance state" },
+          { command: "ask-user-form-e2e.invoke", title: "Ask User Form: Invoke acceptance form" },
+          { command: "ask-user-form-e2e.cancel", title: "Ask User Form: Cancel acceptance form" }
         ],
         languageModelTools: [
           {

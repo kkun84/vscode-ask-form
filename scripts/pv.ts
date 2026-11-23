@@ -8,7 +8,7 @@ import { renderAudio, type Cue } from "./pv-audio.ts"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const work = join(root, "test-results/media/pv")
-const output = join(root, "docs/media/ask-form-pv.mp4")
+const output = join(root, "docs/media/ask-user-form-pv.mp4")
 const poster = join(root, "docs/images/pv-poster.png")
 const frame = { width: 1920, height: 1080 }
 const fade = 0.25
@@ -81,7 +81,7 @@ const problemCard = `<div class="center">
 </div>`
 
 const pointsCard = `<div class="center">
-  <div class="tagline">Ask Formがすること</div>
+  <div class="tagline">Ask User Formがすること</div>
   <div class="grid points">
     <div class="tile"><b>1回で聞き切る</b><span>聞きたいことを、1つのフォームにまとめて聞く</span></div>
     <div class="tile"><b>答えで質問が変わる</b><span>選んだ答えに応じて、続きの質問だけが出てくる</span></div>
@@ -101,7 +101,7 @@ const featureCard = `<div class="center">
 const endCard = `<div class="center">
   <div class="logo">Ask <span>Form</span></div>
   <div class="tagline">選んだ答えで、続きの質問が変わる。</div>
-  <div class="url">github.com/kkun84/vscode-ask-form</div>
+  <div class="url">github.com/kkun84/vscode-ask-user-form</div>
   <div class="sub">VS Code 1.110以降 ・ MIT License</div>
 </div>`
 

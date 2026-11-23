@@ -8,7 +8,7 @@ import type { Session } from "./session.ts"
 const invoke = async (session: Session): Promise<{ readonly frame: Frame; readonly result: () => Promise<string> }> => {
   const previous = session.window.frames()
   const index = (await session.events()).filter((line) => / invoked \d+$/.test(` ${line}`)).length + 1
-  await runCommand(session.window, "Ask Form: Invoke acceptance form")
+  await runCommand(session.window, "Ask User Form: Invoke acceptance form")
   const frame = await formFrame(session.window, previous)
   const marker = `result ${index} `
   return {
@@ -31,7 +31,7 @@ test.afterEach(async ({ session }, testInfo) => {
   if (testInfo.status !== testInfo.expectedStatus) {
     await attachDiagnostics(session, testInfo)
   }
-  await runCommand(session.window, "Ask Form: Cancel acceptance form")
+  await runCommand(session.window, "Ask User Form: Cancel acceptance form")
 })
 
 test("REQ-WEB-001 デスクトップ版でもweb版でも、ハーネスを通さずにツールが呼ばれると、フォームを横のパネルに表示し、そこで回答するとツールの結果になる", async ({
@@ -50,7 +50,7 @@ test("REQ-WEB-001 デスクトップ版でもweb版でも、ハーネスを通�
 
 test("REQ-CANCEL-001 ツールの呼び出しが取り消されると、パネルが閉じて待機が終わる", async ({ session }) => {
   const { frame, result } = await invoke(session)
-  await runCommand(session.window, "Ask Form: Cancel acceptance form", false)
+  await runCommand(session.window, "Ask User Form: Cancel acceptance form", false)
   await closed(frame)
   expect(await result()).toMatch(/"status":"answer_in_chat"|Canceled/)
 })

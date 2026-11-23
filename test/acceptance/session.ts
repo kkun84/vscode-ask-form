@@ -20,7 +20,7 @@ export interface Session {
 
 export const askedSpec = { ...eventSpec, description: `${eventSpec.description}${"The form explains itself at length. ".repeat(9)}` }
 
-export const trigger = "ASK_FORM_E2E"
+export const trigger = "ASK_USER_FORM_E2E"
 
 const query = `${trigger} Please ask me with a form.`
 
@@ -39,11 +39,11 @@ const launch = (platform: Platform, llm: StubModel, profile: string, log: string
     return sshSession(llm, profile, log, query)
   }
   return webSession(profile, log, {
-    ASK_FORM_E2E_LLM_URL: llm.url,
-    ASK_FORM_E2E_QUERY: query,
-    ASK_FORM_E2E_LOG: log,
-    ASK_FORM_E2E_AUTOSTART: "0",
-    ASK_FORM_E2E_SETTINGS: JSON.stringify({ ...localHarness, "workbench.startupEditor": "none" })
+    ASK_USER_FORM_E2E_LLM_URL: llm.url,
+    ASK_USER_FORM_E2E_QUERY: query,
+    ASK_USER_FORM_E2E_LOG: log,
+    ASK_USER_FORM_E2E_AUTOSTART: "0",
+    ASK_USER_FORM_E2E_SETTINGS: JSON.stringify({ ...localHarness, "workbench.startupEditor": "none" })
   })
 }
 
@@ -52,7 +52,7 @@ export const openSession = async (platform: Platform, results: string, name: str
   const log = join(results, `driver-${platform}-${name}.log`)
   await rm(log, { force: true })
   const llm = await startStubModel(trigger, askedSpec)
-  const profile = await mkdtemp(join(tmpdir(), `ask-form-${platform}-`))
+  const profile = await mkdtemp(join(tmpdir(), `ask-user-form-${platform}-`))
   const session = await launch(platform, llm, profile, log)
   const close = async (): Promise<void> => {
     await session.close()

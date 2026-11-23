@@ -1,5 +1,5 @@
 {
-  description = "ask-form development environment";
+  description = "ask-user-form development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -89,7 +89,7 @@
               base.env
               // {
                 VSCODE_EXECUTABLE = "${vscode}/bin/code";
-                ASK_FORM_OPENSSH = "${pkgs.openssh}";
+                ASK_USER_FORM_OPENSSH = "${pkgs.openssh}";
                 VSCODE_ELECTRON =
                   if pkgs.stdenv.hostPlatform.isDarwin then
                     "${vscode}/Applications/Visual Studio Code.app/Contents/MacOS/Code"
@@ -97,7 +97,7 @@
                     "${vscode}/lib/vscode/code";
               }
               // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
-                ASK_FORM_OPENSSL_LIB = pkgs.lib.makeLibraryPath [ pkgs.openssl ];
+                ASK_USER_FORM_OPENSSL_LIB = pkgs.lib.makeLibraryPath [ pkgs.openssl ];
               };
           };
         }

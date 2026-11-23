@@ -18,9 +18,9 @@ const remoteSshVersion = "0.129.2026100915"
 const remoteSshDigest = "11b085290fea80fb486f67679802b47dc52cb1107bd1f1f91f888b5ae33287d5"
 
 const openssh = (): string => {
-  const directory = process.env["ASK_FORM_OPENSSH"]
+  const directory = process.env["ASK_USER_FORM_OPENSSH"]
   if (directory === undefined) {
-    throw new Error("ASK_FORM_OPENSSH is not set. Run inside `nix develop .#acceptance`.")
+    throw new Error("ASK_USER_FORM_OPENSSH is not set. Run inside `nix develop .#acceptance`.")
   }
   return directory
 }
@@ -86,7 +86,7 @@ const startSshHost = async (directory: string): Promise<SshHost> => {
       ""
     ].join("\n")
   )
-  const name = "ask-form-acceptance"
+  const name = "ask-user-form-acceptance"
   await writeFile(
     file("ssh_config"),
     [

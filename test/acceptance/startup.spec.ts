@@ -8,10 +8,10 @@ test("REQ-PERF-001 起動完了後に、ツールが呼ばれなくても自動�
   try {
     await until(
       async () => {
-        await runCommand(session.window, "Ask Form: Report acceptance state")
+        await runCommand(session.window, "Ask User Form: Report acceptance state")
         return (await session.events()).some((line) => line.endsWith("state active=true tool=true")) ? true : null
       },
-      "Ask Form is active and its tool is registered without being called",
+      "Ask User Form is active and its tool is registered without being called",
       60_000
     )
   } finally {

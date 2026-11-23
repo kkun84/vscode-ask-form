@@ -13,7 +13,7 @@ test("SPEC-REL-001 未リリースの項目があれば版数と変更履歴を�
   const env = { ...process.env }
   delete env["GITHUB_OUTPUT"]
   try {
-    const manifest = '{\n  "name": "ask-form",\n  "version": "0.3.0",\n  "dependencies": { "x": "0.3.0" }\n}\n'
+    const manifest = '{\n  "name": "ask-user-form",\n  "version": "0.3.0",\n  "dependencies": { "x": "0.3.0" }\n}\n'
     await writeFile(join(cwd, "package.json"), manifest)
     await writeFile(join(cwd, "CHANGELOG.md"), "# 変更履歴\n\n## 未リリース\n\n### 追加\n\n- 新機能\n\n## 0.3.0\n\n- 過去\n")
     assert.equal(execFileSync(process.execPath, [entry], { cwd, env, encoding: "utf8" }), "version=0.3.1\n")
