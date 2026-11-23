@@ -3,7 +3,7 @@ import * as vscode from "vscode"
 import { registerCommands } from "./driver-commands.ts"
 
 const log = (line: string): void => {
-  const file = process.env["ASK_FORM_E2E_LOG"]
+  const file = process.env["ASK_USER_FORM_E2E_LOG"]
   if (file !== undefined) {
     appendFileSync(file, `${new Date().toISOString()} ${line}\n`)
   }
@@ -87,7 +87,7 @@ const toggleAutoReply = async (): Promise<void> => {
 }
 
 const applySettings = async (): Promise<void> => {
-  const settings = JSON.parse(process.env["ASK_FORM_E2E_SETTINGS"] ?? "{}") as Readonly<Record<string, unknown>>
+  const settings = JSON.parse(process.env["ASK_USER_FORM_E2E_SETTINGS"] ?? "{}") as Readonly<Record<string, unknown>>
   for (const [key, value] of Object.entries(settings)) {
     await vscode.workspace.getConfiguration().update(key, value, vscode.ConfigurationTarget.Global)
   }
@@ -99,11 +99,11 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
   if (vscode.env.remoteName === undefined || context.extension.extensionKind === vscode.ExtensionKind.Workspace) {
     await modelListed()
   }
-  const draft = process.env["ASK_FORM_E2E_DRAFT"] === "1"
+  const draft = process.env["ASK_USER_FORM_E2E_DRAFT"] === "1"
   let scenario = 0
   const openChat = async (): Promise<void> => {
     scenario++
-    if (process.env["ASK_FORM_E2E_SETTINGS"] === undefined) {
+    if (process.env["ASK_USER_FORM_E2E_SETTINGS"] === undefined) {
       await vscode.commands.executeCommand("workbench.action.chat.newChat")
     } else {
       await vscode.commands.executeCommand("workbench.action.chat.openNewChatSessionInPlace.local", "sidebar")
@@ -117,11 +117,11 @@ const drive = async (context: vscode.ExtensionContext, url: string, query: strin
     log(`chat ${scenario} opened`)
   }
   context.subscriptions.push(
-    vscode.commands.registerCommand("ask-form-e2e.newChat", openChat),
-    vscode.commands.registerCommand("ask-form-e2e.autoReply", toggleAutoReply)
+    vscode.commands.registerCommand("ask-user-form-e2e.newChat", openChat),
+    vscode.commands.registerCommand("ask-user-form-e2e.autoReply", toggleAutoReply)
   )
   log("chat ready")
-  if (process.env["ASK_FORM_E2E_AUTOSTART"] !== "0") {
+  if (process.env["ASK_USER_FORM_E2E_AUTOSTART"] !== "0") {
     await openChat()
   }
 }
@@ -133,20 +133,22 @@ const fail = (error: unknown): void => log(`error ${error instanceof Error ? (er
 export const activate = (context: vscode.ExtensionContext): void => {
   for (const harness of harnesses) {
     context.subscriptions.push(
-      vscode.commands.registerCommand(`ask-form-e2e.${harness}`, async () => {
+      vscode.commands.registerCommand(`ask-user-form-e2e.${harness}`, async () => {
         await vscode.commands.executeCommand("workbench.action.chat.agentHost.downloadAgentSdk", harness)
         await vscode.commands.executeCommand(`workbench.action.chat.openNewChatSessionInPlace.agent-host-${harness}`, "sidebar")
       })
     )
   }
   context.subscriptions.push(
-    vscode.commands.registerCommand("ask-form-e2e.copilot", () =>
+    vscode.commands.registerCommand("ask-user-form-e2e.copilot", () =>
       vscode.commands.executeCommand("workbench.action.chat.openNewChatSessionInPlace.agent-host-copilotcli", "sidebar")
     ),
-    vscode.commands.registerCommand("ask-form-e2e.agentsWindow", () => vscode.commands.executeCommand("workbench.action.openAgentsWindow"))
+    vscode.commands.registerCommand("ask-user-form-e2e.agentsWindow", () =>
+      vscode.commands.executeCommand("workbench.action.openAgentsWindow")
+    )
   )
   registerCommands(context, log)
-  if (process.env["ASK_FORM_E2E_TOOL_SEARCH"] !== undefined) {
+  if (process.env["ASK_USER_FORM_E2E_TOOL_SEARCH"] !== undefined) {
     context.subscriptions.push(
       vscode.lm.registerTool<{ query: string; candidateTools?: ReadonlyArray<{ name: string; description: string }> }>("e2e_tool_search", {
         invoke: (options) => {
@@ -160,8 +162,8 @@ export const activate = (context: vscode.ExtensionContext): void => {
       })
     )
   }
-  const url = process.env["ASK_FORM_E2E_LLM_URL"]
-  const query = process.env["ASK_FORM_E2E_QUERY"]
+  const url = process.env["ASK_USER_FORM_E2E_LLM_URL"]
+  const query = process.env["ASK_USER_FORM_E2E_QUERY"]
   if (url === undefined || query === undefined) {
     return
   }

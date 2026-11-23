@@ -19,7 +19,7 @@ interface Report {
 type Edit = readonly [file: string, code: string]
 
 const analyze = (edits: ReadonlyArray<Edit>): Report => {
-  const workspace = mkdtempSync(join(tmpdir(), "ask-form-architecture-"))
+  const workspace = mkdtempSync(join(tmpdir(), "ask-user-form-architecture-"))
   try {
     for (const entry of copied) {
       cpSync(join(root, entry), join(workspace, entry), { recursive: true })

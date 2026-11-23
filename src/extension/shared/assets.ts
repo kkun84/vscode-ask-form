@@ -1,3 +1,3 @@
-declare const ASK_FORM_HTML: string
+declare const ASK_USER_FORM_HTML: string
 
-export const formHtml: string = ASK_FORM_HTML
+export const formHtml: string = ASK_USER_FORM_HTML

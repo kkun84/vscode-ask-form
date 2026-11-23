@@ -11,8 +11,8 @@ export interface ToolResult {
 }
 
 export interface Harness {
-  readonly call: (name: "ask_form" | "form_answer", args: Record<string, unknown>) => Effect.Effect<ToolResult>
-  readonly tool: (name: "ask_form") => Effect.Effect<{ readonly inputSchema: unknown }>
+  readonly call: (name: "ask_user_form" | "form_answer", args: Record<string, unknown>) => Effect.Effect<ToolResult>
+  readonly tool: (name: "ask_user_form") => Effect.Effect<{ readonly inputSchema: unknown }>
   readonly waitUntil: (count: number) => Effect.Effect<void>
 }
 
@@ -78,7 +78,7 @@ const harness = (): Harness => {
       return entry.replies.get(id) as ToolResult
     })
   return {
-    call: (name, args) => (name === "ask_form" ? ask(args) : answer(args)),
+    call: (name, args) => (name === "ask_user_form" ? ask(args) : answer(args)),
     tool: () => Effect.succeed({ inputSchema: formSpecJsonSchema }),
     waitUntil: (count) =>
       Effect.suspend(() => (waiting.length === count ? Effect.void : Effect.fail("not yet"))).pipe(

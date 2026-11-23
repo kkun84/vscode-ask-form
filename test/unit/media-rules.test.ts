@@ -12,7 +12,7 @@ test("DES-REL-003 画面や振る舞いに関わるファイルを変えて、�
 
 test("DES-REL-003 画像か動画を撮り直していれば、または見た目に関わらない変更なら問題を返さない", () => {
   assert.deepEqual(checkMedia(["src/ui/app.ts", "docs/images/form.png"]), [])
-  assert.deepEqual(checkMedia(["src/ui/app.ts", "docs/media/ask-form-pv.mp4"]), [])
+  assert.deepEqual(checkMedia(["src/ui/app.ts", "docs/media/ask-user-form-pv.mp4"]), [])
   assert.deepEqual(checkMedia(["src/core/validate.ts", "docs/spec/system.md", "test/system/tool.test.ts"]), [])
   assert.deepEqual(checkMedia([]), [])
 })

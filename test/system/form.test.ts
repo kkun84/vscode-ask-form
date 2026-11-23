@@ -9,7 +9,7 @@ import { structured, text, withHarness, type Harness } from "../support/host.ts"
 
 const rejected = (h: Harness, spec: Record<string, unknown>) =>
   Effect.gen(function* () {
-    const result = yield* h.call("ask_form", spec)
+    const result = yield* h.call("ask_user_form", spec)
     assert.equal(result.isError, true)
     return text(result)
   })
@@ -35,7 +35,7 @@ describe("SPEC-FORM-001 設計図の形", () => {
   it("SPEC-FORM-001 すべての種類の項目と計算結果を持つ設計図を受け付ける", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const fiber = yield* Effect.forkChild(h.call("ask_form", eventSpec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", eventSpec))
         yield* h.waitUntil(1)
         yield* Fiber.interrupt(fiber)
       })
@@ -57,7 +57,7 @@ describe("SPEC-FORM-001 設計図の形", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const fiber = yield* Effect.forkChild(
-          h.call("ask_form", {
+          h.call("ask_user_form", {
             title: "x".repeat(160),
             fields: [field({ label: "l".repeat(120), description: "d".repeat(240), default: "d", reason: "r".repeat(120) })]
           })
@@ -70,7 +70,7 @@ describe("SPEC-FORM-001 設計図の形", () => {
   it("SPEC-FORM-001 AIに示すスキーマには、受け付ける上限を書き、目安は説明に書く", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const tool = yield* h.tool("ask_form")
+        const tool = yield* h.tool("ask_user_form")
         const title = (tool.inputSchema as { readonly properties: Record<string, unknown> }).properties["title"]
         assert.deepEqual(title, { type: "string", minLength: 1, maxLength: 160, description: "Aim for 80 characters or fewer." })
       })
@@ -97,7 +97,7 @@ describe("SPEC-FORM-001 AIに示すスキーマの形", () => {
   it("SPEC-FORM-001 表にないキーを許すオブジェクトを書かない", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const tool = yield* h.tool("ask_form")
+        const tool = yield* h.tool("ask_user_form")
         assert.deepEqual(openObjects(tool.inputSchema), [])
       })
     ))
@@ -105,7 +105,7 @@ describe("SPEC-FORM-001 AIに示すスキーマの形", () => {
   it("SPEC-FORM-001 VS Codeがツールの定義を拒否しないよう、配列にはすべてitemsを書く", () =>
     withHarness((h) =>
       Effect.gen(function* () {
-        const tool = yield* h.tool("ask_form")
+        const tool = yield* h.tool("ask_user_form")
         assert.deepEqual(arraysWithoutItems(tool.inputSchema), [])
       })
     ))
@@ -127,7 +127,7 @@ describe("SPEC-FORM-001 条件付きの項目", () => {
           ),
           true
         )
-        const fiber = yield* Effect.forkChild(h.call("ask_form", storageSpec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", storageSpec))
         yield* h.waitUntil(1)
         yield* Fiber.interrupt(fiber)
       })
@@ -277,7 +277,7 @@ describe("SPEC-EXPR-001 計算式", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const { key } = compile(expressionSpec).pipe(Result.getOrThrow)
-        const fiber = yield* Effect.forkChild(h.call("ask_form", expressionSpec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", expressionSpec))
         yield* h.waitUntil(1)
         yield* h.call("form_answer", {
           formKey: key,
@@ -295,7 +295,7 @@ describe("SPEC-TOOL-003 回答を待つ", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const values = { ...initialValues(storageForm.spec), storage: "server", port: 3000 }
-        const fiber = yield* Effect.forkChild(h.call("ask_form", storageSpec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", storageSpec))
         yield* h.waitUntil(1)
         yield* h.call("form_answer", { formKey: storageForm.key, action: "submit", values })
         const outcome = structured(yield* Fiber.join(fiber))
@@ -356,7 +356,7 @@ describe("SPEC-TOOL-003 候補を絞り込む項目の回答", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const form = compile(searchSpec).pipe(Result.getOrThrow)
-        const fiber = yield* Effect.forkChild(h.call("ask_form", searchSpec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", searchSpec))
         yield* h.waitUntil(1)
         yield* refused(h, form.key, { one: "nope", many: [] }, /one/)
         yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { one: "v7", many: ["v1", "v9"] } })
@@ -443,7 +443,7 @@ describe("SPEC-TOOL-003 並べ替えの回答", () => {
       Effect.gen(function* () {
         const spec = { ...rankingSpec, fields: [{ ...rankingSpec.fields[0], max: 2, default: ["auth", "api"] }] }
         const form = compile(spec).pipe(Result.getOrThrow)
-        const fiber = yield* Effect.forkChild(h.call("ask_form", spec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", spec))
         yield* h.waitUntil(1)
         const over = yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { order: ["ui", "api", "auth"] } })
         assert.equal(over.isError, true)
@@ -495,7 +495,7 @@ describe("SPEC-TOOL-003 範囲の回答", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const form = compile(rangeSpec).pipe(Result.getOrThrow)
-        const fiber = yield* Effect.forkChild(h.call("ask_form", rangeSpec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", rangeSpec))
         yield* h.waitUntil(1)
         for (const node of [[22, 18], [10, 20], [18]]) {
           const bad = yield* h.call("form_answer", { formKey: form.key, action: "submit", values: { node } })
@@ -543,7 +543,7 @@ describe("SPEC-TOOL-003 文字のリストの回答", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const form = compile(listSpec).pipe(Result.getOrThrow)
-        const fiber = yield* Effect.forkChild(h.call("ask_form", listSpec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", listSpec))
         yield* h.waitUntil(1)
         const answer = (ignore: unknown) => h.call("form_answer", { formKey: form.key, action: "submit", values: { ignore } })
         for (const bad of [["a", "a"], ["  "], "dist", Array.from({ length: 21 }, (_, i) => `v${i}`)]) {
@@ -603,7 +603,7 @@ describe("SPEC-TOOL-005 日付と時刻の回答", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const form = compile(scheduleSpec).pipe(Result.getOrThrow)
-        const fiber = yield* Effect.forkChild(h.call("ask_form", scheduleSpec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", scheduleSpec))
         yield* h.waitUntil(1)
         const answer = (values: Record<string, unknown>) => h.call("form_answer", { formKey: form.key, action: "submit", values })
         const outside = yield* answer({ release: "2027-04-01", deploy: "10:00" })
@@ -686,7 +686,7 @@ describe("SPEC-TOOL-003 木の回答", () => {
     withHarness((h) =>
       Effect.gen(function* () {
         const form = compile(treeSpec).pipe(Result.getOrThrow)
-        const fiber = yield* Effect.forkChild(h.call("ask_form", treeSpec))
+        const fiber = yield* Effect.forkChild(h.call("ask_user_form", treeSpec))
         yield* h.waitUntil(1)
         yield* refused(h, form.key, { target: "lib", scope: [] }, /target/)
         yield* h.call("form_answer", {

@@ -9,7 +9,7 @@ export interface Invoked {
   readonly result: () => Promise<string>
 }
 
-export const invokeForm = async (session: Session, title = "Ask Form: Invoke acceptance form"): Promise<Invoked> => {
+export const invokeForm = async (session: Session, title = "Ask User Form: Invoke acceptance form"): Promise<Invoked> => {
   const previous = session.window.frames()
   const index = (await session.events()).filter((line) => / invoked \d+$/.test(` ${line}`)).length + 1
   await runCommand(session.window, title)
@@ -35,5 +35,5 @@ export const cancelForm = async (session: Session, testInfo: TestInfo): Promise<
   if (testInfo.status !== testInfo.expectedStatus) {
     await attachDiagnostics(session, testInfo)
   }
-  await runCommand(session.window, "Ask Form: Cancel acceptance form")
+  await runCommand(session.window, "Ask User Form: Cancel acceptance form")
 }
