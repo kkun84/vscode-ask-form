@@ -24,6 +24,7 @@
   --tint: color-mix(in srgb, var(--focus) 12%, transparent);
   --tint-edge: var(--vscode-contrastActiveBorder, color-mix(in srgb, var(--focus) 60%, transparent));
   --rec: color-mix(in srgb, var(--link) 78%, var(--fg));
+  --mark: var(--vscode-contrastActiveBorder, var(--accent));
   --pad: 20px;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   color-scheme: light dark;
@@ -937,7 +938,8 @@ ui-slider-track {
   width: 100%;
   height: 4px;
   border-radius: 2px;
-  background: var(--vscode-contrastBorder, color-mix(in srgb, var(--fg) 20%, transparent));
+  background: color-mix(in srgb, var(--fg) 20%, transparent);
+  box-shadow: inset 0 0 0 1px var(--contrast-border);
 }
 
 ui-slider-indicator {
@@ -945,8 +947,7 @@ ui-slider-indicator {
   display: block;
   height: 100%;
   border-radius: 2px;
-  background: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--contrast-border);
+  background: var(--mark);
 }
 
 ui-slider-thumb {
@@ -957,7 +958,7 @@ ui-slider-thumb {
   height: 16px;
   border: 2px solid var(--surface);
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--mark);
   box-shadow:
     0 0 0 1px var(--contrast-border),
     0 0 0 0 transparent;
