@@ -1,11 +1,11 @@
 import { execFileSync, spawn } from "node:child_process"
 import { createHash } from "node:crypto"
-import { access, chmod, copyFile, cp, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises"
+import { access, chmod, copyFile, cp, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { userInfo } from "node:os"
 import { join } from "node:path"
 import { until } from "./frames.ts"
-import { remoteSshCache } from "./paths.ts"
-import { freePort } from "./server.ts"
+import { electron, remoteSshCache } from "./paths.ts"
+import { desktopCommit, freePort } from "./server.ts"
 
 interface SshHost {
   readonly name: string
@@ -138,40 +138,40 @@ interface RemoteWindow {
   readonly close: () => Promise<void>
 }
 
-const serverSeed = join(remoteSshCache, "server")
-
 const exists = (path: string): Promise<boolean> =>
   access(path).then(
     () => true,
     () => false
   )
 
-const seedServer = async (installed: string): Promise<void> => {
-  if (await exists(serverSeed)) {
-    await cp(serverSeed, installed, { recursive: true, verbatimSymlinks: true })
+const seedServer = async (seed: string, installed: string): Promise<void> => {
+  if (await exists(seed)) {
+    await cp(seed, installed, { recursive: true, verbatimSymlinks: true })
   }
 }
 
-const keepServer = async (installed: string): Promise<void> => {
-  if ((await exists(serverSeed)) || !(await exists(join(installed, "cli", "servers")))) {
+const keepServer = async (seed: string, installed: string, commit: string): Promise<void> => {
+  const servers = join(installed, "cli", "servers")
+  const names = await readdir(servers).catch(() => [])
+  if ((await exists(seed)) || !names.some((name) => name.endsWith(commit))) {
     return
   }
-  const staging = `${serverSeed}.partial`
-  await rm(staging, { recursive: true, force: true })
-  await mkdir(join(staging, "cli"), { recursive: true })
-  await cp(join(installed, "cli", "servers"), join(staging, "cli", "servers"), { recursive: true, verbatimSymlinks: true })
+  const staging = await mkdtemp(`${seed}.partial-`)
+  await cp(servers, join(staging, "cli", "servers"), { recursive: true, verbatimSymlinks: true })
   for (const name of await readdir(installed)) {
     if (name.startsWith("code-")) {
       await cp(join(installed, name), join(staging, name))
     }
   }
-  await rename(staging, serverSeed)
+  await rename(staging, seed).catch(() => rm(staging, { recursive: true, force: true }))
 }
 
 export const sshWindow = async (profile: string): Promise<RemoteWindow> => {
   const host = await startSshHost(join(profile, "ssh"))
   const installed = join(profile, "remote", ".vscode-server")
-  await seedServer(installed)
+  const commit = await desktopCommit(electron())
+  const seed = join(remoteSshCache, `server-${commit}`)
+  await seedServer(seed, installed)
   const folder = join(profile, "remote", "workspace")
   await mkdir(folder, { recursive: true })
   await writeFile(join(folder, "README.md"), "acceptance\n")
@@ -186,7 +186,7 @@ export const sshWindow = async (profile: string): Promise<RemoteWindow> => {
     extensions: [await ensureRemoteSsh()],
     close: async () => {
       await host.close()
-      await keepServer(installed).catch(() => null)
+      await keepServer(seed, installed, commit).catch(() => null)
     }
   }
 }

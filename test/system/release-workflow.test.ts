@@ -22,6 +22,7 @@ test("ARCH-REL-001 GITHUB_TOKENの書き込みは公開だけに使い、版数�
   assert.match(verify, /^    needs: detect\n    if: needs.detect.outputs.action == 'release'\n    uses: /)
   assert.doesNotMatch(verify, /permissions:|secrets:/)
   assert.match(release, /^    needs: \[detect, verify\]\n/)
+  assert.doesNotMatch(release, /\n    if:|always\(\)|cancelled\(\)|continue-on-error/)
   assert.match(release, /      contents: write/)
 })
 
