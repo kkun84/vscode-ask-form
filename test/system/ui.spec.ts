@@ -369,6 +369,48 @@ test.describe("SPEC-UI-011 条件付きの項目", () => {
   })
 })
 
+test.describe("SPEC-UI-011 続きの質問を出した答え", () => {
+  test("SPEC-UI-011 続きの質問の横に、その質問を出している答えを示し、選び直すと変える", async ({ page }) => {
+    const frame = await open(page, { args: branchSpec })
+    const chip = frame.getByRole("group", { name: "通知を止める時間帯" }).locator(".reveal-chip")
+    const notify = frame.getByRole("group", { name: "打刻漏れを知らせる方法" })
+    await expect(chip).toHaveText("メール")
+    await notify.getByRole("checkbox", { name: "SMS" }).check()
+    await expect(chip).toHaveText("メール・SMS")
+    await notify.getByRole("checkbox", { name: "メール" }).uncheck()
+    await expect(chip).toHaveText("SMS")
+    await expect(frame.getByRole("group", { name: "通知を止める時間帯" })).toHaveAccessibleDescription(
+      "「打刻漏れを知らせる方法」で「SMS」にチェックを入れたので表示"
+    )
+    await expect(frame.getByRole("group", { name: "二段階認証" })).toHaveAccessibleDescription(
+      "「ログインの方式」で「メールとパスワード」を選んだので表示"
+    )
+    await expect(frame.getByRole("radio", { name: "メールとパスワード" })).toHaveAccessibleDescription(/選ぶと質問が2個増えます/)
+    await expect(notify.getByRole("checkbox", { name: "Teams" })).not.toHaveAccessibleDescription(/増えます/)
+  })
+
+  test("SPEC-UI-011 続きの質問にカーソルかフォーカスを移すと、その質問を出している答えと線を強調する", async ({ page }) => {
+    const frame = await open(page, { args: branchSpec })
+    const notify = frame.getByRole("group", { name: "打刻漏れを知らせる方法" })
+    await notify.getByRole("checkbox", { name: "SMS" }).check()
+    const revealing = notify.locator(".option.revealing .option-head")
+    const lit = frame.locator(".branches .rail.lit")
+    await expect(lit).toHaveCount(0)
+    await frame.getByText("通知を止める時間帯", { exact: true }).hover()
+    await expect(revealing).toHaveText(["メール推奨", "SMS"])
+    await expect(lit).toHaveCount(2)
+    await expect(frame.locator(".branches")).toHaveClass(/dimmed/)
+    expect(await axeViolations(frame)).toEqual([])
+    await page.mouse.move(0, 0)
+    await expect(lit).toHaveCount(0)
+    await frame.getByRole("textbox", { name: "Slackのチャンネル" }).focus()
+    await expect(revealing).toHaveText(["Slack推奨"])
+    await expect(lit).toHaveCount(1)
+    await frame.getByRole("radio", { name: "ログインなし" }).focus()
+    await expect(lit).toHaveCount(0)
+  })
+})
+
 test.describe("SPEC-UI-009 表示の言語", () => {
   test("SPEC-UI-009 英語のロケールでは英語で表示する", async ({ page }) => {
     const frame = await open(page, { context: { locale: "en-US" } })

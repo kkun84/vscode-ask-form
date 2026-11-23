@@ -74,6 +74,10 @@ const ja = {
   none: "なし",
   empty: "(空欄)",
   listSeparator: "、",
+  revealSeparator: "・",
+  revealsMore: (count: number, checkbox: boolean) => `${checkbox ? "チェックを入れる" : "選ぶ"}と質問が${count}個増えます`,
+  revealedBy: (source: string, answers: ReadonlyArray<string>, checkbox: boolean) =>
+    `「${source}」で「${answers.join("」と「")}」${checkbox ? "にチェックを入れた" : "を選んだ"}ので表示`,
   yes: "はい",
   no: "いいえ"
 }
@@ -108,6 +112,11 @@ const en: typeof ja = {
   none: "None",
   empty: "(empty)",
   listSeparator: ", ",
+  revealSeparator: " · ",
+  revealsMore: (count: number, checkbox: boolean) =>
+    `${checkbox ? "Checking" : "Choosing"} this adds ${count} ${count === 1 ? "question" : "questions"}`,
+  revealedBy: (source: string, answers: ReadonlyArray<string>, checkbox: boolean) =>
+    `Shown because you ${checkbox ? "checked" : "chose"} ${answers.map((answer) => `"${answer}"`).join(" and ")} for "${source}"`,
   yes: "Yes",
   no: "No",
   openCalendar: (label: string) => `Open the calendar for ${label}`,

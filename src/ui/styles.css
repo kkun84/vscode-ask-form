@@ -16,6 +16,8 @@
   --focus: var(--color-ring-primary, var(--vscode-focusBorder, light-dark(#005fb8, #0078d4)));
   --radius: var(--border-radius-lg, 6px);
   --font: var(--font-sans, var(--vscode-font-family, system-ui, sans-serif));
+  --rail: var(--vscode-contrastBorder, color-mix(in srgb, var(--muted) 80%, transparent));
+  --rail-hot: var(--vscode-contrastActiveBorder, var(--focus));
   color-scheme: light dark;
 }
 
@@ -158,6 +160,105 @@ body {
 .fields > .q:not([hidden]) ~ .q:not([hidden]) {
   padding-top: 16px;
   border-top: 1px solid var(--border);
+}
+
+.fields.branching {
+  position: relative;
+  padding-left: var(--branch-gutter);
+}
+
+.branches {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.branches .rail {
+  fill: none;
+  stroke: var(--rail);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transition: opacity 150ms ease;
+}
+
+.branches .rail.lit {
+  stroke: var(--rail-hot);
+  stroke-width: 2;
+}
+
+.branches .dot {
+  fill: var(--rail);
+  transition: opacity 150ms ease;
+}
+
+.branches .dot.hollow {
+  fill: var(--surface);
+  stroke: var(--rail);
+  stroke-width: 1.5;
+}
+
+.branches .dot.lit {
+  fill: var(--rail-hot);
+}
+
+.branches.dimmed .rail:not(.lit),
+.branches.dimmed .dot:not(.lit) {
+  opacity: 0.35;
+}
+
+.reveal-chip {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 0 7px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.q.hot .reveal-chip {
+  border-color: var(--rail-hot);
+  color: var(--fg);
+}
+
+.reveal-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reveal-mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  background: radial-gradient(currentColor 0 1.5px, transparent 2px);
+}
+
+.reveal-mark.check {
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .q-desc {
@@ -544,6 +645,32 @@ summary:focus-visible {
     border: 1px solid CanvasText;
   }
 
+  .branches .rail,
+  .branches .dot.hollow {
+    stroke: CanvasText;
+  }
+
+  .branches .dot {
+    fill: CanvasText;
+  }
+
+  .branches .dot.hollow {
+    fill: Canvas;
+  }
+
+  .branches .rail.lit {
+    stroke: Highlight;
+  }
+
+  .branches .dot.lit {
+    fill: Highlight;
+  }
+
+  .option.revealing {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
   .option:has(input:checked) {
     outline: 2px solid Highlight;
     outline-offset: -2px;
@@ -764,6 +891,12 @@ ui-checkbox-indicator {
 
 .option:has(:is(ui-radio, ui-checkbox)[data-checked]) {
   background: color-mix(in srgb, var(--fg) 9%, transparent);
+}
+
+.options > .option.revealing {
+  background: color-mix(in srgb, var(--rail-hot) 16%, transparent);
+  outline: 1px solid var(--vscode-contrastActiveBorder, transparent);
+  outline-offset: -1px;
 }
 
 .option:has(:is(ui-radio, ui-checkbox):focus-visible) {

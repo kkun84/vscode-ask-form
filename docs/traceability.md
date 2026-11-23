@@ -53,10 +53,10 @@
 | SPEC-UI-002 | 計算結果 | REQ-ASK-003 | ARCH-LAYER-006, DES-FORM-002 | `test/system/ui.spec.ts` |
 | SPEC-UI-003 | 回答の操作 | REQ-ANS-001, REQ-ANS-003, REQ-ANS-004 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-006 | 受け付けられない回答 | REQ-CANCEL-001 | ARCH-UI-001, DES-HOST-001 | `test/system/ui.spec.ts` |
-| SPEC-UI-007 | テーマ | REQ-LOOK-001 | - | `test/system/ui.spec.ts` |
-| SPEC-UI-008 | アクセシビリティ | REQ-A11Y-001, REQ-ANS-004 | - | `test/system/ui.spec.ts` |
+| SPEC-UI-007 | テーマ | REQ-LOOK-001 | DES-UI-003 | `test/system/ui.spec.ts` |
+| SPEC-UI-008 | アクセシビリティ | REQ-A11Y-001, REQ-ANS-004 | DES-UI-003 | `test/system/ui.spec.ts` |
 | SPEC-UI-009 | 表示の言語 | REQ-LOOK-001 | - | `test/system/ui.spec.ts` |
-| SPEC-UI-011 | 条件付きの項目 | REQ-ASK-004 | DES-FORM-006 | `test/system/ui.spec.ts` |
+| SPEC-UI-011 | 条件付きの項目 | REQ-ASK-004 | DES-FORM-006, DES-UI-003 | `test/system/ui.spec.ts` |
 | SPEC-UI-012 | 値のない回答 | REQ-ANS-005 | DES-FORM-007 | `test/system/ui.spec.ts` |
 | SPEC-UI-013 | 補足 | REQ-ANS-006 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-014 | 項目ごとのコメント | REQ-ANS-007 | DES-FORM-009 | `test/system/ui.spec.ts` |
@@ -103,6 +103,7 @@
 | DES-FORM-007 | 値のない回答 | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-012, ARCH-LAYER-006 | - | `test/unit/form.test.ts` |
 | DES-FORM-008 | 補足 | SPEC-TOOL-003, SPEC-TOOL-005, ARCH-LAYER-001 | - | `test/unit/form.test.ts` |
 | DES-FORM-009 | 項目ごとのコメント | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-TOOL-010, SPEC-UI-014 | - | `test/unit/form.test.ts` |
+| DES-UI-003 | 続きの質問の線 | SPEC-UI-011, SPEC-UI-007, SPEC-UI-008 | - | `test/unit/branches.test.ts` |
 | DES-UI-002 | メッセージの送り主の検査 | SPEC-UI-010, SPEC-EXT-004, ARCH-UI-001 | - | `test/unit/bridge.test.ts`, `test/unit/panel-bridge.test.ts` |
 | DES-HOST-001 | 回答の受け付けの状態 | SPEC-TOOL-005, SPEC-TOOL-007, SPEC-EXT-004, SPEC-UI-006, ARCH-UI-001 | - | `test/unit/app-host.test.ts` |
 | DES-TOOLS-001 | 時間の予算による終了 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/process.test.ts` |

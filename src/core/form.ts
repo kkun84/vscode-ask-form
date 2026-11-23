@@ -36,7 +36,7 @@ export const treeAncestors = (nodes: ReadonlyArray<TreeNode>, values: ReadonlyAr
 const selects = (value: FieldValue | undefined, anyOf: ReadonlyArray<string>): boolean =>
   Array.isArray(value) ? value.some((item) => anyOf.includes(String(item))) : typeof value === "string" && anyOf.includes(value)
 
-const followUpsOf = (spec: FormSpec): ReadonlyMap<string, ReadonlyArray<Field>> => {
+export const followUpsOf = (spec: FormSpec): ReadonlyMap<string, ReadonlyArray<Field>> => {
   const groups = new Map<string, Array<Field>>()
   for (const field of spec.fields) {
     if (field.when !== undefined) {

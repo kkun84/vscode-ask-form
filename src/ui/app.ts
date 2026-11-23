@@ -7,6 +7,7 @@ import {
   describeComputed,
   describeValue,
   displayOrder,
+  followUpsOf,
   formatNumber,
   heldFields,
   initialValues,
@@ -43,6 +44,7 @@ import type { Bridge, HostContext, ToolResult } from "./bridge.ts"
 import { h, on, uid } from "./dom.ts"
 import type { TransferMessage } from "@ui-sdk/core"
 import { listControl } from "./list.ts"
+import { branchCanvas, drawBranches, gutterFor, type BranchLane } from "./branches.ts"
 import type { TreeItemData } from "@ui-sdk/core/tree"
 
 type Action = "submit" | "chat"
@@ -417,8 +419,15 @@ export class FormApp {
     setters: new Map<string, (value: FieldValue) => void>(),
     unselects: new Map<string, HTMLElement>(),
     pickedLists: new Map<string, { readonly element: HTMLElement; readonly field: SearchChoiceField }>(),
-    resets: new Map<string, { readonly element: HTMLElement; readonly changed: () => boolean }>()
+    resets: new Map<string, { readonly element: HTMLElement; readonly changed: () => boolean }>(),
+    fields: undefined as HTMLElement | undefined,
+    canvas: undefined as SVGElement | undefined,
+    optionRows: new Map<string, Map<string, { readonly row: HTMLElement; readonly control: HTMLElement }>>(),
+    reveals: new Map<string, { readonly chip: HTMLElement; readonly reason: HTMLElement }>()
   }
+  private followUps: ReadonlyMap<string, ReadonlyArray<Field>> = new Map()
+  private hot: string | undefined
+  private readonly resized = new ResizeObserver(() => this.drawBranches())
   private readonly folded = new Set<string>()
   private showMissing = false
   private keepFocus = false
@@ -428,6 +437,7 @@ export class FormApp {
   constructor(root: HTMLElement) {
     this.root = root
     this.render()
+    void document.fonts.ready.then(() => this.drawBranches())
   }
 
   attach(bridge: Bridge): void {
@@ -628,6 +638,11 @@ export class FormApp {
     this.live.status = undefined
     this.live.primary = undefined
     this.live.form = undefined
+    this.live.fields = undefined
+    this.live.canvas = undefined
+    this.live.optionRows.clear()
+    this.live.reveals.clear()
+    this.resized.disconnect()
     const hadFocus = this.keepFocus || this.root.contains(document.activeElement)
     this.keepFocus = false
     this.root.classList.remove("motion")
@@ -646,6 +661,7 @@ export class FormApp {
       return h("p", { class: "notice", role: "status" }, this.m.waiting)
     }
     const spec = form.spec
+    this.followUps = followUpsOf(spec)
     const titleId = uid("title")
     const element = h(
       "form",
@@ -656,11 +672,7 @@ export class FormApp {
         h("h1", { id: titleId, tabindex: -1, "data-focus": true }, spec.title),
         spec.description === undefined ? null : h("p", { class: "description" }, spec.description)
       ),
-      h(
-        "div",
-        { class: "fields" },
-        displayOrder(spec).map((field) => this.card(field))
-      ),
+      this.fieldsView(spec),
       (spec.computed ?? []).length === 0 ? null : this.computedView(),
       this.noteView(),
       this.answerFooter()
@@ -680,6 +692,63 @@ export class FormApp {
       }
     })
     return element
+  }
+
+  private fieldsView(spec: FormSpec): HTMLElement {
+    const element = h(
+      "div",
+      { class: "fields" },
+      displayOrder(spec).map((field) => this.card(field))
+    )
+    this.live.fields = element
+    const sources = [...this.followUps.keys()].map((id) => this.depthOf(id))
+    if (sources.length > 0) {
+      this.live.canvas = branchCanvas()
+      element.classList.add("branching")
+      element.style.setProperty("--branch-gutter", `${gutterFor(Math.max(...sources))}px`)
+      element.append(this.live.canvas)
+    }
+    this.resized.observe(element)
+    for (const card of element.querySelectorAll(":scope > .q")) {
+      this.resized.observe(card)
+    }
+    return element
+  }
+
+  private depthOf(id: string): number {
+    const field = this.form?.spec.fields.find((item) => item.id === id)
+    return field?.when === undefined ? 0 : 1 + this.depthOf(field.when.field)
+  }
+
+  private sourceOf(field: Field): ChoiceField | SearchChoiceField | undefined {
+    const source = this.form?.spec.fields.find((item) => item.id === field.when?.field)
+    return source?.type === "choice" || source?.type === "searchChoice" ? source : undefined
+  }
+
+  private revealView(field: Field, element: HTMLElement): HTMLElement | null {
+    if (field.when === undefined) {
+      return null
+    }
+    const chip = h("span", { class: "reveal-chip", "aria-hidden": "true" })
+    const reason = h("span", { class: "visually-hidden", id: uid("reason") })
+    this.live.reveals.set(field.id, { chip, reason })
+    element.setAttribute("aria-describedby", [element.getAttribute("aria-describedby"), reason.id].filter((id) => id !== null).join(" "))
+    element.append(reason)
+    const enter = () => {
+      this.hot = field.id
+      this.drawBranches()
+    }
+    const leave = () => {
+      if (this.hot === field.id && !element.matches(":hover") && !element.contains(document.activeElement)) {
+        this.hot = undefined
+        this.drawBranches()
+      }
+    }
+    on(element, "mouseenter", enter)
+    on(element, "focusin", enter)
+    on(element, "mouseleave", leave)
+    on(element, "focusout", () => requestAnimationFrame(leave))
+    return chip
   }
 
   private card(field: Field): HTMLElement {
@@ -713,6 +782,10 @@ export class FormApp {
       ),
       comment.box
     )
+    const chip = this.revealView(field, element)
+    if (chip !== null) {
+      element.querySelector(".q-label")?.after(chip)
+    }
     this.live.cards.push({ field, element, toggle, answer, back, comment: comment.box, open: comment.open })
     if (back !== null) {
       on(back, "click", () => {
@@ -1187,6 +1260,9 @@ export class FormApp {
     const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
     const current = this.values[field.id]
     let pointing = false
+    const rows = new Map<string, { readonly row: HTMLElement; readonly control: HTMLElement }>()
+    this.live.optionRows.set(field.id, rows)
+    const followUps = this.followUps.get(field.id) ?? []
     const options = field.options.map((option) => {
       const headId = uid("option")
       const textIds = [uid("summary"), uid("details"), uid("why")] as const
@@ -1195,13 +1271,21 @@ export class FormApp {
         isRecommended && (field.reason !== undefined || field.reasonDetails !== undefined)
           ? recView(field, this.m.whyRecommended, undefined, null, textIds[2])
           : null
+      const reveals = followUps.filter((followUp) => followUp.when?.anyOf.includes(option.value) === true).length
+      const more = reveals === 0 ? null : h("span", { class: "visually-hidden", id: uid("reveals") }, this.m.revealsMore(reveals, multiple))
       const input = choiceControl(multiple, option.value, headId, [
         option.description === undefined ? undefined : textIds[0],
         option.details === undefined ? undefined : textIds[1],
         why === null ? undefined : textIds[2],
+        more?.id,
         describedBy
       ])
-      return optionRow(input, option, [headId, ...textIds], isRecommended ? this.m.recommended : undefined, why)
+      const row = optionRow(input, option, [headId, ...textIds], isRecommended ? this.m.recommended : undefined, why)
+      if (more !== null) {
+        row.querySelector(".option-text")?.append(more)
+        rows.set(option.value, { row, control: input })
+      }
+      return row
     })
     const unselect = multiple
       ? null
@@ -1358,6 +1442,73 @@ export class FormApp {
     focusControl(this.live.cards.find((card) => card.field.id === target?.id)?.element)
   }
 
+  private refreshReveals(form: CompiledForm): void {
+    const current = this.current()
+    for (const card of this.live.cards) {
+      const reveal = this.live.reveals.get(card.field.id)
+      const source = this.sourceOf(card.field)
+      if (reveal === undefined || source === undefined || card.element.hidden) {
+        continue
+      }
+      const value = current[source.id]
+      const answers = source.options
+        .filter((option) => card.field.when?.anyOf.includes(option.value) === true)
+        .filter((option) => (Array.isArray(value) ? value.includes(option.value) : value === option.value))
+        .map((option) => option.label)
+      const checkbox = isMultiple(source)
+      reveal.chip.replaceChildren(
+        h("span", { class: checkbox ? "reveal-mark check" : "reveal-mark" }),
+        h("span", { class: "reveal-text" }, answers.join(this.m.revealSeparator))
+      )
+      reveal.reason.textContent = this.m.revealedBy(source.label, answers, checkbox)
+    }
+    if (this.hot !== undefined && !new Set(activeFields(form.spec, current).map((field) => field.id)).has(this.hot)) {
+      this.hot = undefined
+    }
+    this.drawBranches()
+  }
+
+  private drawBranches(): void {
+    const form = this.form
+    const container = this.live.fields
+    const canvas = this.live.canvas
+    if (form === undefined || container === undefined || canvas === undefined || !container.isConnected) {
+      return
+    }
+    const current = this.current()
+    const cards = new Map(this.live.cards.map((card) => [card.field.id, card.element]))
+    const visible = (id: string) => cards.get(id)?.hidden === false
+    const labelOf = (id: string) => cards.get(id)?.querySelector<HTMLElement>(".q-label") ?? undefined
+    const lanes = [...this.followUps].flatMap(([id, followUps]): ReadonlyArray<BranchLane> => {
+      const anchor = labelOf(id)
+      const rows = this.live.optionRows.get(id)
+      if (!visible(id) || anchor === undefined || rows === undefined) {
+        return []
+      }
+      const value = current[id]
+      return [
+        {
+          depth: this.depthOf(id),
+          anchor,
+          options: [...rows].map(([option, { row, control }]) => ({
+            value: option,
+            row,
+            control,
+            selected: Array.isArray(value) ? value.includes(option) : value === option
+          })),
+          followUps: followUps.flatMap((followUp) => {
+            const card = cards.get(followUp.id)
+            const label = labelOf(followUp.id)
+            return card === undefined || label === undefined || !visible(followUp.id)
+              ? []
+              : [{ id: followUp.id, card, label, anyOf: followUp.when?.anyOf ?? [] }]
+          })
+        }
+      ]
+    })
+    drawBranches(container, canvas, lanes, this.hot)
+  }
+
   private refreshCards(): void {
     if (this.form === undefined) {
       return
@@ -1444,6 +1595,7 @@ export class FormApp {
     }
     this.refreshShown(form)
     this.refreshCards()
+    this.refreshReveals(form)
     this.refreshComputed(form)
     if (this.live.status !== undefined) {
       this.live.status.textContent = this.statusText()
