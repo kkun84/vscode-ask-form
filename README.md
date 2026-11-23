@@ -348,12 +348,11 @@ CIは、検査を次のジョブに分けて並列に動かします(`.github/wo
 | ジョブ       | 内容                                                                                      | nixの環境    |
 | ------------ | ----------------------------------------------------------------------------------------- | ------------ |
 | `static`     | lint、型検査、単体・アーキテクチャ・システムのテスト、配布物の大きさの検査、`.vsix`の作成 | `check`      |
-| `ui`         | 画面のテスト                                                                              | `default`    |
+| `ui`         | 画面のテスト                                                                              | `ui`         |
 | `acceptance` | 実機での受け入れテスト。`harness`の他は、プロジェクトごとに2つに分けて動かす              | `acceptance` |
 
-- 各ジョブは、`flake.nix`の環境のうち必要な物だけを、GitHub Actionsのキャッシュから復元して使います(`.github/actions/setup`)。`flake.nix`か`flake.lock`を変えると、次の実行で環境を作り直してキャッシュに保存します。
-- `check`の環境はNode.jsとpnpmとgitだけです。手元でも`nix develop .#check`で使えます。
-- nixの環境のChromiumは、画面を表示しないヘッドレス専用です。
+- 各ジョブは、`flake.nix`のCI用の環境(`packages`の`check`、`ui`、`acceptance`)のうち必要な物だけを、GitHub Actionsのキャッシュから復元して使います(`.github/actions/setup`)。`flake.nix`か`flake.lock`を変えると、次の実行で環境を作り直してキャッシュに保存します。
+- 開発用の環境(`nix develop`と`nix develop .#acceptance`)は、CI用の環境と同じ定義から作ります。違いは、`--headed`や`--ui`で画面を表示するためのChromiumが、開発用にだけ入ることです。テストが使うヘッドレスのChromiumは同じ物です。
 - リリースの前の検査も、同じ`verify.yml`を呼びます。
 - ミューテーションテストは、別のワークフロー(Mutation)で動かします。
 - 画面のテストの基準画像は、ActionsのScreenshotsを対象のブランチで手動で実行すると、CIの環境で作り直してコミットします。このコミットではCIが動かないので、PRでは続けてコミットを積むか、CIを手動で実行します。

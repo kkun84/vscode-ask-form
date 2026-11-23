@@ -3,7 +3,7 @@ description: Restore the Nix environment and the dependencies, and provide them 
 
 inputs:
   environment:
-    description: The environment in flake.nix to enter (check, default or acceptance)
+    description: The environment in flake.nix to enter (check, ui or acceptance)
     default: check
   install:
     description: Whether to install the dependencies in package.json

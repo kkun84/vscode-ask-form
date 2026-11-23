@@ -24,7 +24,7 @@
           )
         );
       environments =
-        pkgs:
+        pkgs: headed:
         let
           vscode = pkgs.vscode.overrideAttrs (_: rec {
             version = "1.147.0";
@@ -61,7 +61,7 @@
           browsers = pkgs.playwright-driver.browsers.override {
             withFirefox = false;
             withWebkit = false;
-            withChromium = false;
+            withChromium = headed;
           };
           node = [
             pkgs.nodejs-slim_22
@@ -81,7 +81,7 @@
             packages = node;
             env = { };
           };
-          default = {
+          ui = {
             packages = node;
             env = browser;
           };
@@ -111,7 +111,16 @@
         };
     in
     {
-      devShells = forAll (pkgs: builtins.mapAttrs (_: pkgs.mkShellNoCC) (environments pkgs));
+      devShells = forAll (
+        pkgs:
+        let
+          development = builtins.mapAttrs (_: pkgs.mkShellNoCC) (environments pkgs true);
+        in
+        {
+          inherit (development) check acceptance;
+          default = development.ui;
+        }
+      );
 
       packages = forAll (
         pkgs:
@@ -126,7 +135,7 @@
             )}
             exec ${pkgs.bash}/bin/bash -euo pipefail "$@"
           ''
-        ) (environments pkgs)
+        ) (environments pkgs false)
       );
 
       formatter = forAll (pkgs: pkgs.nixfmt);
