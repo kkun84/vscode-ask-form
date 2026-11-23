@@ -4,6 +4,12 @@ import { runCommand } from "./commands.ts"
 import { test } from "./fixtures.ts"
 import { closedDuringClick } from "./frames.ts"
 import { cancelForm, closed, invokeForm } from "./invoke.ts"
+import type { Session } from "./session.ts"
+
+const formTab = (session: Session) => session.window.locator(".tabs-container .tab", { hasText: eventSpec.title })
+
+const waitingItem = (session: Session) =>
+  session.window.locator(".statusbar-item", { hasText: /回答を待っています|waiting for your answer/ })
 
 test.afterEach(({ session }, testInfo) => cancelForm(session, testInfo))
 
@@ -30,13 +36,25 @@ test("REQ-CANCEL-001 ツールの呼び出しが取り消されると、パネ�
 
 test("REQ-WAIT-001 フォームが別のタブに隠れても、待機の表示から前面に出せ、キャンセルを押すとパネルが閉じる", async ({ session }) => {
   const { frame, result } = await invokeForm(session)
-  const tab = session.window.locator(".tabs-container .tab", { hasText: eventSpec.title })
+  const tab = formTab(session)
   await expect(tab).toHaveClass(/\bactive\b/)
   await runCommand(session.window, "File: New Untitled Text File", false)
   await expect(tab).not.toHaveClass(/\bactive\b/)
-  await session.window.locator(".statusbar-item", { hasText: /回答を待っています|waiting for your answer/ }).click()
+  await waitingItem(session).click()
   await expect(tab).toHaveClass(/\bactive\b/)
   await frame.locator("form.card button.ghost").dispatchEvent("click").catch(closedDuringClick)
   await closed(frame)
   expect(await result()).toContain('"status":"answer_in_chat"')
+})
+
+test("REQ-ANS-003 送信せずにパネルのタブを閉じると、キャンセルと同じくチャットで答える結果になり、待機の表示が消える", async ({
+  session
+}) => {
+  const { frame, result } = await invokeForm(session)
+  const tab = formTab(session)
+  await tab.hover()
+  await tab.getByRole("button", { name: /^Close/ }).click()
+  await closed(frame)
+  expect(await result()).toContain('"status":"answer_in_chat"')
+  await expect(waitingItem(session)).toBeHidden()
 })
