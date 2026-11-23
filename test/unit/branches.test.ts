@@ -54,4 +54,9 @@ describe("DES-UI-003 続きの質問の線", () => {
     assert.deepEqual(revealing, ["mail", "sms"])
     assert.deepEqual(branchShapes([lane], "missing").revealing, [])
   })
+
+  it("DES-UI-003 続きの質問の見出しが角の丸みより筋に近くても、線を左へ折り返さずに角の終わりで止める", () => {
+    const near = { ...lane, options: [], followUps: [{ id: "from", anyOf: ["mail"], x: 14, y: 300 }] }
+    assert.deepEqual(paths(branchShapes([near]).shapes, false), ["M 8 10 V 292 Q 8 300 16 300 H 16"])
+  })
 })

@@ -311,6 +311,20 @@ const calendarIcon = (): HTMLElement => {
   return element
 }
 
+const plainCalendarText = (content: HTMLElement): void => {
+  for (const day of content.querySelectorAll("ui-calendar-day")) {
+    const digits = (day.textContent ?? "").replaceAll(/\D+/g, "")
+    if (digits !== "" && day.textContent !== digits) {
+      day.textContent = digits
+    }
+  }
+  const heading = content.querySelector("ui-calendar-heading")
+  const parts = /^(\d+)年(\d+)月$/.exec(heading?.textContent ?? "")
+  if (heading !== null && parts !== null) {
+    heading.textContent = `${parts[1]}/${(parts[2] ?? "").padStart(2, "0")}`
+  }
+}
+
 const clockMinutes = (value: string): number => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5))
 
 const snapTime = (value: string, field: TimeField): string => {
@@ -1002,6 +1016,7 @@ export class FormApp {
   private dateView(field: DateField, labelId: string, describedBy: string): HTMLElement {
     const current = this.values[field.id]
     const input = h("input", { class: "date-text", "aria-labelledby": labelId, "aria-describedby": describedBy, autocomplete: "off" })
+    const content = h("ui-date-picker-content", { hidden: true, class: "calendar-popup" })
     const picker = h(
       "ui-date-picker",
       {
@@ -1018,8 +1033,9 @@ export class FormApp {
         {},
         h("button", { type: "button", class: "step calendar", "aria-label": this.m.openCalendar(field.label) }, calendarIcon())
       ),
-      h("ui-date-picker-content", { hidden: true, class: "calendar-popup" })
+      content
     )
+    new MutationObserver(() => plainCalendarText(content)).observe(content, { subtree: true, childList: true, characterData: true })
     picker.addEventListener("valuechange", (event) => {
       const next = (event as CustomEvent<{ readonly value: unknown }>).detail.value
       if (typeof next === "string") {
