@@ -374,7 +374,7 @@ CIは、検査を次のジョブに分けて並列に動かします(`.github/wo
 - `desktop`は、デスクトップ版のVS Code(Electron)です。
 - `harness`は、デスクトップ版でCopilotとCodexのハーネスを動かします。
 - `web`は、サーバーにつないだweb版です。GitHub Codespacesなどと同じく、拡張機能とCopilotがサーバーの側で動きます。VS Codeのサーバーは、デスクトップ版と同じコミットの物を初回にダウンロードし、`node_modules/.cache/ask-form-vscode-server`に置きます。
-- `ssh`は、デスクトップ版をSSHでリモートにつないだ状態です。同じマシンにSSHのサーバーを立て、Microsoftの拡張機能Remote - SSHでつなぎます。Ask Formは手元の側で、Copilotはリモートの側で動きます。Remote - SSHは、版とSHA-256を固定してMarketplaceから初回にダウンロードし、`node_modules/.cache/ask-form-remote-ssh`に置きます。Copilotのハーネスは、リモートの側ではスタブに向けられないので、`harness.spec.ts`は動かしません。
+- `ssh`は、デスクトップ版をSSHでリモートにつないだ状態です。同じマシンにSSHのサーバーを立て、Microsoftの拡張機能Remote - SSHでつなぎます。Ask Formは手元の側で、Copilotはリモートの側で動きます。Remote - SSHは、版とSHA-256を固定してMarketplaceから初回にダウンロードし、`node_modules/.cache/ask-form-remote-ssh`に置きます。Remote - SSHがリモートの側に入れたVS Codeのサーバーも同じ場所に取っておき、次の起動から使い回します。Copilotのハーネスは、リモートの側ではスタブに向けられないので、`harness.spec.ts`は動かしません。
 - 利用者と同じ状態で確かめるために、Ask FormはVSIXにまとめてインストールしてから起動します。開発用のパスで読み込んだ拡張機能は、Agentsウィンドウの制限を受けないなど、インストールした拡張機能と扱いが違うためです。
 - `pnpm test:acceptance chat`のようにファイル名の一部を渡すと、そのテストだけを動かせます。`pnpm test:acceptance --project=desktop`で、プロジェクトを選べます。
 
