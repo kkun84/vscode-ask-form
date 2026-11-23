@@ -66,3 +66,18 @@ export const kindsSpec = {
     }
   ]
 } as const
+
+export const unrecommendedSpec = {
+  title: "推奨のない質問",
+  fields: [
+    {
+      type: "choice",
+      id: "framework",
+      label: "画面の作り方",
+      options: [
+        { value: "react", label: "React" },
+        { value: "vue", label: "Vue" }
+      ]
+    }
+  ]
+} as const

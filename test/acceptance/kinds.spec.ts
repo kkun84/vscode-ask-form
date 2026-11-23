@@ -187,3 +187,16 @@ test("REQ-ANS-004 マウスを使わずに項目を移り、値を変えて⌘/C
   expect(outcome.values["attendees"]).toBe(130)
   expect(outcome.changedByUser).toEqual(["attendees"])
 })
+
+test("REQ-ASK-002 推奨のない質問は何も選ばれずに始まり、答えるまで送信しても回答にならない", async ({ session }) => {
+  const invoked = await invokeForm(session, "Ask Form: Show a question without a recommendation")
+  const { frame } = invoked
+  await expect(frame.getByRole("radio", { name: "React" })).not.toBeChecked()
+  await expect(frame.getByRole("radio", { name: "Vue" })).not.toBeChecked()
+  await frame.getByRole("button", { name: "Send", exact: true }).click()
+  await expect(frame.getByText("Answer these or comment on them: 画面の作り方")).toBeVisible()
+  expect(frame.isDetached()).toBe(false)
+  await frame.getByRole("radio", { name: "Vue" }).check()
+  const outcome = await send(invoked)
+  expect(outcome.values).toEqual({ framework: "vue" })
+})
