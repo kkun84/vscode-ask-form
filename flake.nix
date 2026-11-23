@@ -23,10 +23,8 @@
             }
           )
         );
-    in
-    {
-      devShells = forAll (
-        pkgs:
+      environments =
+        pkgs: headed:
         let
           vscode = pkgs.vscode.overrideAttrs (_: rec {
             version = "1.147.0";
@@ -60,33 +58,43 @@
               <cachedir prefix="xdg">fontconfig</cachedir>
             </fontconfig>
           '';
-          base = {
-            packages = [
-              pkgs.nodejs_22
-              pkgs.pnpm_12
-              pkgs.git
-            ];
-            env = {
-              PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
-              PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
-              PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "1";
-              PLAYWRIGHT_NIX_VERSION = pkgs.playwright-driver.version;
-              FONTCONFIG_FILE = "${fonts}";
-            };
+          browsers = pkgs.playwright-driver.browsers.override {
+            withFirefox = false;
+            withWebkit = false;
+            withChromium = headed;
+          };
+          node = [
+            pkgs.nodejs-slim_22
+            pkgs.pnpm_12
+            pkgs.gitMinimal
+          ];
+          browser = {
+            PLAYWRIGHT_BROWSERS_PATH = "${browsers}";
+            PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+            PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "1";
+            PLAYWRIGHT_NIX_VERSION = pkgs.playwright-driver.version;
+            FONTCONFIG_FILE = "${fonts}";
           };
         in
         {
-          default = pkgs.mkShellNoCC base;
-          acceptance = pkgs.mkShellNoCC {
+          check = {
+            packages = node;
+            env = { };
+          };
+          ui = {
+            packages = node;
+            env = browser;
+          };
+          acceptance = {
             packages =
-              base.packages
+              node
               ++ [
                 vscode
                 pkgs.ffmpeg-headless
               ]
               ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.xvfb-run ];
             env =
-              base.env
+              browser
               // {
                 VSCODE_EXECUTABLE = "${vscode}/bin/code";
                 ASK_USER_FORM_OPENSSH = "${pkgs.openssh}";
@@ -100,7 +108,34 @@
                 ASK_USER_FORM_OPENSSL_LIB = pkgs.lib.makeLibraryPath [ pkgs.openssl ];
               };
           };
+        };
+    in
+    {
+      devShells = forAll (
+        pkgs:
+        let
+          development = builtins.mapAttrs (_: pkgs.mkShellNoCC) (environments pkgs true);
+        in
+        {
+          inherit (development) check acceptance;
+          default = development.ui;
         }
+      );
+
+      packages = forAll (
+        pkgs:
+        builtins.mapAttrs (
+          name: environment:
+          pkgs.writeShellScript "ask-form-${name}-shell" ''
+            export PATH=${pkgs.lib.makeBinPath environment.packages}:$PATH
+            ${pkgs.lib.concatStrings (
+              pkgs.lib.mapAttrsToList (
+                name: value: "export ${name}=${pkgs.lib.escapeShellArg value}\n"
+              ) environment.env
+            )}
+            exec ${pkgs.bash}/bin/bash -euo pipefail "$@"
+          ''
+        ) (environments pkgs false)
       );
 
       formatter = forAll (pkgs: pkgs.nixfmt);

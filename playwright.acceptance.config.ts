@@ -15,6 +15,7 @@ export default defineConfig<object, PlatformOptions>({
   projects: [
     { name: "web", testMatch: /(startup|tool|chat|kinds)\.spec\.ts$/, use: { platform: "web" } },
     { name: "ssh", testMatch: /(startup|tool|chat|kinds)\.spec\.ts$/, use: { platform: "ssh" } },
-    { name: "desktop", testMatch: /(startup|tool|chat|harness|kinds|desktop)\.spec\.ts$/, use: { platform: "desktop" } }
+    { name: "desktop", testMatch: /(startup|tool|chat|kinds|desktop)\.spec\.ts$/, use: { platform: "desktop" } },
+    { name: "harness", testMatch: /harness\.spec\.ts$/, use: { platform: "desktop" } }
   ]
 })

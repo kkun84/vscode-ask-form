@@ -2,6 +2,8 @@ minimumReleaseAge: 4320
 allowBuilds:
   lefthook: true
   "@playwright/browser-chromium": false
+  "@vscode/vsce-sign": false
 overrides:
   re2js: 2.8.8
   katex: 0.18.11
+  minimatch: 11.0.6
