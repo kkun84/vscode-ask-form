@@ -1,8 +1,18 @@
 export type Language = "ja" | "en"
 
+interface TransferMessageLike {
+  readonly type: "grab" | "move" | "drop" | "cancel"
+  readonly label: string
+  readonly list: string
+  readonly position: number
+  readonly total: number
+}
+
 export const languageOf = (locale: string | undefined): Language => (locale?.toLowerCase().startsWith("ja") === true ? "ja" : "en")
 
 const ja = {
+  locale: "ja-JP",
+  openCalendar: (label: string) => `${label}のカレンダーを開く`,
   submit: "送信",
   dismiss: "キャンセル",
   held: "回答なし",
@@ -15,10 +25,41 @@ const ja = {
   presetsOf: (label: string) => `${label}へのコメントの定型文`,
   clear: "選択を解除",
   clearOf: (label: string) => `${label}の選択を解除`,
+  clearTextOf: (label: string) => `${label}を空にする`,
+  searchOptions: "入力して絞り込む",
+  filterOf: (label: string) => `${label}を絞り込む`,
+  noMatches: "一致する選択肢がありません",
+  picked: "選んだもの：",
+  rankOf: (label: string) => `${label}を順位に入れる`,
+  unrankOf: (label: string) => `${label}を候補に戻す`,
+  rankedOf: (label: string) => `${label}の順位`,
+  poolOf: (label: string) => `${label}の候補`,
+  rankEmpty: "候補を押すと、ここに順に入ります",
+  reset: "リセット",
+  rankingHint:
+    "Enterで順位に入れます。SpaceかEnterで持ち上げ、上下の矢印キーで動かし、左右の矢印キーで順位と候補を移り、もう一度押して置きます。Escで元に戻し、Deleteで候補に戻します。",
+  transferMessage: (message: TransferMessageLike): string =>
+    message.type === "grab"
+      ? `${message.label}を持ち上げました。${message.list}の${message.total}個中${message.position}番目です。`
+      : message.type === "move"
+        ? `${message.list}の${message.position}番目`
+        : message.type === "drop"
+          ? `${message.label}を${message.list}の${message.position}番目に置きました。`
+          : `${message.label}を元の位置に戻しました。`,
+  lowerOf: (label: string) => `${label}の下限`,
+  upperOf: (label: string) => `${label}の上限`,
+  rangeSeparator: "〜",
+  listPlaceholder: "書いてEnterで足す",
+  listHint: "1つ書くごとにEnterで足します。Backspaceか×で消します。",
+  listDuplicate: (text: string) => `「${text}」は既にあります`,
+  listTooLong: (max: number) => `1つは${max}文字までです`,
+  listFull: (max: number) => `${max}個まで足せます`,
+  increase: (label: string) => `${label}を増やす`,
+  decrease: (label: string) => `${label}を減らす`,
+  scrub: "左右にドラッグして値を変える",
   commentOf: (label: string) => `${label}へのコメント`,
   commentHint: "この質問について、Copilotに伝えたいことを書けます。",
   unsetHint: "答えないときは、理由や、あとで聞いてほしいか、Copilotに決めてほしいかを書けます。",
-  details: "詳細",
   note: "補足を書く",
   noteHint: "選択肢にない答えや、Copilotに伝えたいことを書けます。回答と一緒に届きます。",
   results: "計算結果",
@@ -33,6 +74,10 @@ const ja = {
   none: "なし",
   empty: "(空欄)",
   listSeparator: "、",
+  revealSeparator: "・",
+  revealsMore: (count: number, checkbox: boolean) => `${checkbox ? "チェックを入れる" : "選ぶ"}と質問が${count}個増えます`,
+  revealedBy: (source: string, answers: ReadonlyArray<string>, checkbox: boolean) =>
+    `「${source}」で「${answers.join("」と「")}」${checkbox ? "にチェックを入れた" : "を選んだ"}ので表示`,
   yes: "はい",
   no: "いいえ"
 }
@@ -53,7 +98,6 @@ const en: typeof ja = {
   commentOf: (label: string) => `Comment on ${label}`,
   commentHint: "Write anything Copilot should know about this question.",
   unsetHint: "If you won't answer, say why, and whether Copilot should ask again later or decide for you.",
-  details: "Details",
   note: "Add a note",
   noteHint: "Write an answer that is not among the options, or anything else Copilot should know. It is sent with your answers.",
   results: "Results",
@@ -68,8 +112,47 @@ const en: typeof ja = {
   none: "None",
   empty: "(empty)",
   listSeparator: ", ",
+  revealSeparator: " · ",
+  revealsMore: (count: number, checkbox: boolean) =>
+    `${checkbox ? "Checking" : "Choosing"} this adds ${count} ${count === 1 ? "question" : "questions"}`,
+  revealedBy: (source: string, answers: ReadonlyArray<string>, checkbox: boolean) =>
+    `Shown because you ${checkbox ? "checked" : "chose"} ${answers.map((answer) => `"${answer}"`).join(" and ")} for "${source}"`,
   yes: "Yes",
-  no: "No"
+  no: "No",
+  openCalendar: (label: string) => `Open the calendar for ${label}`,
+  locale: "en-US",
+  scrub: "Drag left or right to change the value",
+  decrease: (label: string) => `Decrease ${label}`,
+  increase: (label: string) => `Increase ${label}`,
+  clearTextOf: (label: string) => `Clear ${label}`,
+  picked: "Selected: ",
+  noMatches: "No matching options",
+  filterOf: (label: string) => `Filter ${label}`,
+  searchOptions: "Type to filter",
+  reset: "Reset",
+  rankEmpty: "Choose a candidate to rank it here",
+  poolOf: (label: string) => `Candidates for ${label}`,
+  rankedOf: (label: string) => `Ranking for ${label}`,
+  unrankOf: (label: string) => `Move ${label} back to the candidates`,
+  rankOf: (label: string) => `Rank ${label}`,
+  rankingHint:
+    "Press Enter to rank it. Press Space or Enter to pick it up, move it with the up and down arrows, switch between the ranking and the candidates with the left and right arrows, and press again to drop it. Escape puts it back, and Delete returns it to the candidates.",
+  transferMessage: (message: TransferMessageLike): string =>
+    message.type === "grab"
+      ? `Picked up ${message.label}, position ${message.position} of ${message.total} in ${message.list}.`
+      : message.type === "move"
+        ? `Position ${message.position} of ${message.total} in ${message.list}.`
+        : message.type === "drop"
+          ? `Dropped ${message.label} at position ${message.position} of ${message.total} in ${message.list}.`
+          : `Put ${message.label} back.`,
+  rangeSeparator: " – ",
+  upperOf: (label: string) => `Maximum ${label}`,
+  lowerOf: (label: string) => `Minimum ${label}`,
+  listFull: (max: number) => `You can add up to ${max}`,
+  listTooLong: (max: number) => `Each entry can be up to ${max} characters`,
+  listDuplicate: (text: string) => `"${text}" is already in the list`,
+  listHint: "Press Enter after each entry. Remove one with Backspace or ×.",
+  listPlaceholder: "Type and press Enter"
 }
 
 export type Messages = typeof ja

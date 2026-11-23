@@ -40,10 +40,9 @@ export const eventSpec = {
         { value: "sticker", label: "ステッカー" },
         { value: "tshirt", label: "Tシャツ" }
       ],
-      default: ["sticker"],
-      advanced: true
+      default: ["sticker"]
     },
-    { type: "number", id: "venue", label: "会場費", default: 140000, min: 50000, max: 300000, step: 10000, prefix: "¥", advanced: true }
+    { type: "number", id: "venue", label: "会場費", default: 140000, min: 50000, max: 300000, step: 10000, prefix: "¥" }
   ],
   computed: [
     { id: "cost", label: "費用", expression: "venue + (stream == 'yes' ? 30000 : 0)", prefix: "¥" },

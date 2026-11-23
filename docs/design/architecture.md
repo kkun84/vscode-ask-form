@@ -51,7 +51,9 @@ extension/node ──▶ extension/shared ──▶ core ◀── ui
 
 ### ARCH-DEPS-001 配布物の依存は限られる
 
-`src`は`effect`と`vscode`のほかの外部パッケージ、開発用の依存、`test`と`scripts`に依存しない。解決できない依存を持たない。
+`src`は`effect`と`vscode`のほかの外部パッケージ、開発用の依存、`test`と`scripts`に依存しない。ただし`src/ui`は、画面の部品の振る舞いに`@ui-sdk/core`と`@ui-sdk/web`を使う。解決できない依存を持たない。
+
+- UI SDKはbetaなので、版数を固定し、上げる時はまとめて追従する。
 
 - 検査の時間制限とプロセスグループの終了は`scripts`に置き、Node.jsとOSの機能で行う。配布物の依存は増やさない。
 

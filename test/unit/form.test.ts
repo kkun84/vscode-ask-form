@@ -14,16 +14,16 @@ const withFields = (fields: ReadonlyArray<unknown>, computed: ReadonlyArray<unkn
 })
 
 describe("DES-SPEC-001 設計図の読み取り", () => {
-  it("DES-SPEC-001 正しい設計図を読み取り、未知のキーを捨てる", () => {
-    const form = compiled({ ...eventSpec, unknownKey: 1 })
-    assert.equal(form.spec.fields.length, 7)
-    assert.equal("unknownKey" in form.spec, false)
+  it("DES-SPEC-001 正しい設計図を読み取る", () => {
+    assert.equal(compiled(eventSpec).spec.fields.length, 7)
   })
 
   it("DES-SPEC-001 型の誤りを場所つきで返す", () => {
-    const [message] = problems({ title: "", fields: [] })
-    assert.match(message ?? "", /title/)
-    assert.match(message ?? "", /fields/)
+    assert.deepEqual(
+      problems({ title: "", fields: [{ type: "number", id: "n", label: "N", min: "0", max: 1 }] }).map((problem) => problem.split(":")[0]),
+      ["「title」", "「fields[0].min」"]
+    )
+    assert.match(problems("none").join("\n"), /^「設計図」: Expected object/)
   })
 
   it("DES-SPEC-001 重複したidを指摘する", () => {
@@ -74,6 +74,45 @@ const describedOptions = (description: string) => [
   { value: "a", label: "A", description },
   { value: "b", label: "B" }
 ]
+
+describe("DES-SPEC-001 未知のキーの拒否", () => {
+  it("DES-SPEC-001 選択肢の古い入れ子のfieldsを、場所とキーを示して拒否する", () => {
+    const options = [
+      { value: "a", label: "A", fields: [{ type: "text", id: "t", label: "T" }] },
+      { value: "b", label: "B" }
+    ]
+    assert.deepEqual(problems(withFields([{ type: "choice", id: "c", label: "C", options }])), [
+      "「fields[0].options[0].fields」は設計図にないキーです。キー「fields」の綴りと置く場所を直すか、消してください"
+    ])
+  })
+
+  it("DES-SPEC-001 綴りを誤ったキーを、型の誤りと一緒に拒否する", () => {
+    const found = problems({ ...withFields([{ type: "text", id: "a", label: "A", wehn: { field: "c", anyOf: ["x"] } }]), title: "" })
+    assert.equal(found.length, 2)
+    assert.match(found.join("\n"), /「title」: /)
+    assert.match(found.join("\n"), /「fields\[0\]\.wehn」.*キー「wehn」/)
+  })
+
+  it("DES-SPEC-001 入れ子の深い場所の未知のキーも拒否する", () => {
+    const tree = {
+      type: "treeChoice",
+      id: "t",
+      label: "T",
+      nodes: [{ value: "a", label: "A", children: [{ value: "b", label: "B", selected: true }] }]
+    }
+    const choice = { type: "choice", id: "c", label: "C", options: describedOptions("説明") }
+    const found = problems(
+      withFields(
+        [tree, choice, { type: "text", id: "x", label: "X", when: { field: "c", anyOf: ["a"], not: true } }],
+        [{ id: "s", label: "S", expression: "1", unit: "円" }]
+      )
+    )
+    assert.deepEqual(
+      found.map((problem) => /^「([^」]+)」/.exec(problem)?.[1]),
+      ["fields[0].nodes[0].children[0].selected", "fields[2].when.not", "computed[0].unit"]
+    )
+  })
+})
 
 describe("DES-SPEC-001 文字数の目安と上限", () => {
   const shownTexts: ReadonlyArray<readonly [string, number, (text: string) => unknown]> = [

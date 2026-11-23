@@ -2,6 +2,7 @@ import { expect, test, type Frame, type Page } from "@playwright/test"
 import AxeBuilder from "../support/axe.ts"
 import { eventSpec } from "../fixtures/event.ts"
 import { storageSpec } from "../fixtures/storage.ts"
+import { branchSpec } from "../fixtures/branches.ts"
 import { openForm, recorded, startServer, type HarnessServer, type PageOptions } from "../support/ui.ts"
 import { themeContext, type ThemeName } from "../support/themes.ts"
 
@@ -117,17 +118,34 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await frame.getByRole("button", { name: "送信", exact: true }).click()
     await expect(frame.getByText("答えるか、コメントを書いてください: 色")).toBeVisible()
     await expect(frame.getByRole("radio", { name: "赤" })).toBeFocused()
-    await expect(frame.getByRole("radio", { name: "赤" })).toHaveAttribute("aria-invalid", "true")
+    await expect(frame.getByRole("radiogroup", { name: "色" })).toHaveAttribute("aria-invalid", "true")
     expect(await recorded(page, "outcomes")).toHaveLength(0)
   })
+})
 
-  test("SPEC-UI-001 advancedの項目は閉じた「詳細」の中にある", async ({ page }) => {
+test.describe("SPEC-UI-001 数値と文字列の入力", () => {
+  test("SPEC-UI-001 数値は増減ボタンとShift付きの矢印キーで変えられ、スピンボタンとして読める", async ({ page }) => {
     const frame = await open(page)
-    const details = frame.locator("details.advanced")
-    await expect(details).not.toHaveAttribute("open", "")
-    await expect(details.getByRole("group", { name: "配布物" })).toBeHidden()
-    await details.locator("summary").click()
-    await expect(details.getByRole("group", { name: "配布物" })).toBeVisible()
+    const price = frame.getByRole("spinbutton", { name: "参加費" })
+    await frame.getByRole("button", { name: "参加費を増やす" }).click()
+    await expect(price).toHaveValue("2,500")
+    await expect(price).toHaveAttribute("aria-valuenow", "2500")
+    await frame.getByRole("button", { name: "参加費を減らす" }).click()
+    await frame.getByRole("button", { name: "参加費を減らす" }).click()
+    await expect(price).toHaveValue("1,500")
+    const attendees = frame.getByRole("spinbutton", { name: "参加者数" })
+    await attendees.press("Shift+ArrowUp")
+    await expect(attendees).toHaveValue("150")
+    await send(frame)
+    expect((await singleOutcome(page))?.values).toMatchObject({ price: 1500, attendees: 150 })
+  })
+
+  test("SPEC-UI-001 1行の文字列はボタンで空にでき、空欄という答えになる", async ({ page }) => {
+    const frame = await open(page)
+    await frame.getByRole("button", { name: "イベント名を空にする" }).click()
+    await expect(frame.getByRole("textbox", { name: "イベント名" })).toHaveValue("")
+    await send(frame)
+    expect((await singleOutcome(page))?.values).toMatchObject({ name: "" })
   })
 })
 
@@ -274,14 +292,29 @@ for (const name of themes) {
     })
     test(`SPEC-UI-008 ${name}テーマでaxeの違反がない`, async ({ page }) => {
       const frame = await open(page, { context: themeContext(name) })
-      await frame.locator("details.advanced summary").click()
       expect(await axeViolations(frame)).toEqual([])
     })
   })
 }
 
-test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
-  test("SPEC-UI-011 選んだ選択肢の項目だけを表示し、切り替えても直した値を覚えておく", async ({ page }) => {
+const shownQuestions = (frame: Frame, fields: string) =>
+  frame
+    .locator(`${fields} > .q:not([hidden])`)
+    .evaluateAll((cards) => cards.map((card) => [card.querySelector(".q-label")?.textContent, getComputedStyle(card).borderTopStyle]))
+
+test.describe("SPEC-UI-011 条件付きの項目", () => {
+  test("SPEC-UI-011 隠れた質問の分の区切り線を引かない", async ({ page }) => {
+    const frame = await openStorage(page)
+    await selectStorage(frame, "サーバー")
+    expect(await shownQuestions(frame, "form > .fields")).toEqual([
+      ["アプリ名", "none"],
+      ["保存先", "solid"],
+      ["ポート", "solid"],
+      ["ログイン", "solid"]
+    ])
+  })
+
+  test("SPEC-UI-011 選んだ選択肢を条件とする項目だけを表示し、切り替えても直した値を覚えておく", async ({ page }) => {
     const frame = await openStorage(page)
     const engine = frame.getByRole("group", { name: "保存方式" })
     const port = frame.getByRole("spinbutton", { name: "ポート" })
@@ -293,11 +326,39 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     await selectStorage(frame, "保存しない")
     await expect(port).toBeHidden()
     await selectStorage(frame, "サーバー")
-    await expect(port).toHaveValue("3000")
+    await expect(port).toHaveValue("3,000")
     expect(await axeViolations(frame)).toEqual([])
   })
 
-  test("SPEC-UI-011 回答には選んだ選択肢の項目だけを含める", async ({ page }) => {
+  test("SPEC-UI-011 フォーカスのある質問が隠れたら、条件の元の質問にフォーカスを移す", async ({ page }) => {
+    const frame = await openStorage(page)
+    await frame.getByRole("radio", { name: "IndexedDB" }).focus()
+    await frame.getByRole("radio", { name: "サーバー" }).evaluate((radio) => (radio as HTMLElement).click())
+    await expect(frame.getByRole("group", { name: "保存方式" })).toBeHidden()
+    await expect(frame.getByRole("group", { name: "保存先" }).locator(":focus")).toHaveCount(1)
+  })
+
+  test("SPEC-UI-011 続きの質問は、設計図のどこに書いても元の質問のすぐ後ろに並べる", async ({ page }) => {
+    const frame = await open(page, { args: branchSpec })
+    expect((await shownQuestions(frame, "form > .fields")).map(([label]) => label)).toEqual([
+      "ログインの方式",
+      "パスワードの最小文字数",
+      "二段階認証",
+      "使える認証の手段",
+      "打刻漏れを知らせる方法",
+      "送信元のメールアドレス",
+      "Slackのチャンネル",
+      "通知を止める時間帯",
+      "最初のリリース日"
+    ])
+    await frame.getByRole("radio", { name: "社内SSO" }).check()
+    expect((await shownQuestions(frame, "form > .fields")).map(([label]) => label).slice(0, 2)).toEqual([
+      "ログインの方式",
+      "テナントのドメイン"
+    ])
+  })
+
+  test("SPEC-UI-011 回答には表示されている項目だけを含める", async ({ page }) => {
     const frame = await openStorage(page)
     await frame.getByRole("radio", { name: "サーバー" }).check()
     await frame.getByRole("spinbutton", { name: "ポート" }).fill("3000")
@@ -305,6 +366,48 @@ test.describe("SPEC-UI-011 選択肢ごとの項目", () => {
     const outcome = await singleOutcome(page)
     expect(outcome?.values).toEqual({ name: "my-todo", storage: "server", port: 3000, auth: "no" })
     expect(outcome?.changedByUser).toEqual(["storage", "port"])
+  })
+})
+
+test.describe("SPEC-UI-011 続きの質問を出した答え", () => {
+  test("SPEC-UI-011 続きの質問の横に、その質問を出している答えを示し、選び直すと変える", async ({ page }) => {
+    const frame = await open(page, { args: branchSpec })
+    const chip = frame.getByRole("group", { name: "通知を止める時間帯" }).locator(".reveal-chip")
+    const notify = frame.getByRole("group", { name: "打刻漏れを知らせる方法" })
+    await expect(chip).toHaveText("メール")
+    await notify.getByRole("checkbox", { name: "SMS" }).check()
+    await expect(chip).toHaveText("メール・SMS")
+    await notify.getByRole("checkbox", { name: "メール" }).uncheck()
+    await expect(chip).toHaveText("SMS")
+    await expect(frame.getByRole("group", { name: "通知を止める時間帯" })).toHaveAccessibleDescription(
+      "「打刻漏れを知らせる方法」で「SMS」にチェックを入れたので表示"
+    )
+    await expect(frame.getByRole("group", { name: "二段階認証" })).toHaveAccessibleDescription(
+      "「ログインの方式」で「メールとパスワード」を選んだので表示"
+    )
+    await expect(frame.getByRole("radio", { name: "メールとパスワード" })).toHaveAccessibleDescription(/選ぶと質問が2個増えます/)
+    await expect(notify.getByRole("checkbox", { name: "Teams" })).not.toHaveAccessibleDescription(/増えます/)
+  })
+
+  test("SPEC-UI-011 続きの質問にカーソルかフォーカスを移すと、その質問を出している答えと線を強調する", async ({ page }) => {
+    const frame = await open(page, { args: branchSpec })
+    const notify = frame.getByRole("group", { name: "打刻漏れを知らせる方法" })
+    await notify.getByRole("checkbox", { name: "SMS" }).check()
+    const revealing = notify.locator(".option.revealing .option-head")
+    const lit = frame.locator(".branches .rail.lit")
+    await expect(lit).toHaveCount(0)
+    await frame.getByText("通知を止める時間帯", { exact: true }).hover()
+    await expect(revealing).toHaveText(["メール推奨", "SMS"])
+    await expect(lit).toHaveCount(2)
+    await expect(frame.locator(".branches")).toHaveClass(/dimmed/)
+    expect(await axeViolations(frame)).toEqual([])
+    await page.mouse.move(0, 0)
+    await expect(lit).toHaveCount(0)
+    await frame.getByRole("textbox", { name: "Slackのチャンネル" }).focus()
+    await expect(revealing).toHaveText(["Slack推奨"])
+    await expect(lit).toHaveCount(1)
+    await frame.getByRole("radio", { name: "ログインなし" }).focus()
+    await expect(lit).toHaveCount(0)
   })
 })
 
@@ -403,11 +506,17 @@ interface Answered extends OutcomeLike {
 
 const send = (frame: Frame) => frame.getByRole("button", { name: "送信", exact: true }).click()
 
+const sendAccessible = async (page: Page, frame: Frame): Promise<OutcomeLike | undefined> => {
+  expect(await axeViolations(frame)).toEqual([])
+  await send(frame)
+  return singleOutcome(page)
+}
+
 const note = (frame: Frame) => frame.getByRole("textbox", { name: "補足を書く" })
 
 const openWithNote = async (page: Page): Promise<Frame> => {
   const frame = await open(page)
-  await frame.locator("details.note summary").click()
+  await frame.getByRole("button", { name: "補足を書く" }).click()
   await note(frame).fill("会場は未定です")
   return frame
 }
@@ -421,13 +530,13 @@ test.describe("SPEC-UI-013 補足の入力", () => {
         ?.contentWindow?.postMessage({ jsonrpc: "2.0", method: "ui/notifications/host-context-changed", params: { theme: "light" } }, "*")
     })
     await expect(frame.locator("html")).toHaveAttribute("data-theme", "light")
-    await expect(frame.locator("details.note")).toHaveAttribute("open", "")
+    await expect(frame.getByRole("button", { name: "補足を書く" })).toHaveAttribute("aria-expanded", "true")
     await expect(note(frame)).toHaveValue("会場は未定です")
   })
 
   test("SPEC-UI-013 2000文字を超える入力は、貼り付けても画面で切り詰める", async ({ page }) => {
     const frame = await open(page)
-    await frame.locator("details.note summary").click()
+    await frame.getByRole("button", { name: "補足を書く" }).click()
     await note(frame).evaluate((element: HTMLTextAreaElement) => {
       element.value = `${"x".repeat(1999)}😀y`
       element.dispatchEvent(new Event("input", { bubbles: true }))
@@ -443,8 +552,8 @@ test.describe("SPEC-UI-013 補足", () => {
   test("SPEC-UI-013 閉じた補足を開いて書くと、前後の空白を除いて回答と一緒に届く", async ({ page }) => {
     const frame = await open(page)
     await expect(note(frame)).toBeHidden()
-    await frame.locator("details.note summary").click()
-    await expect(frame.locator("details.note")).toContainText("選択肢にない答えや、Copilotに伝えたいことを書けます")
+    await frame.getByRole("button", { name: "補足を書く" }).click()
+    await expect(frame.locator("ui-collapsible.note")).toContainText("選択肢にない答えや、Copilotに伝えたいことを書けます")
     await expect(note(frame)).toHaveAttribute("maxlength", "2000")
     await note(frame).fill(" 会場は未定です\n参加費は任せます ")
     expect(await axeViolations(frame)).toEqual([])
@@ -460,7 +569,7 @@ test.describe("SPEC-UI-013 補足", () => {
         fields: [{ type: "choice", id: "c", label: "方式", options: ["a", "b"].map((value) => ({ value, label: value })) }]
       }
     })
-    await frame.locator("details.note summary").click()
+    await frame.getByRole("button", { name: "補足を書く" }).click()
     await note(frame).fill("どちらでもない方式にしたい")
     await send(frame)
     await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 方式")
@@ -612,5 +721,398 @@ test.describe("SPEC-UI-014 コメントの定型文", () => {
     await openComment(none, "件数")
     await expect(comment(none, "件数")).toBeVisible()
     await expect(none.getByRole("group", { name: "件数へのコメントの定型文" })).toHaveCount(0)
+  })
+})
+
+const goDescription = "静的型付けでコンパイルが速く、並行処理を書きやすい。標準ライブラリが充実していて、配布も1つのバイナリで済む"
+
+const languages = ["TypeScript", "JavaScript", "Python", "Go", "Rust", "Java", "Kotlin", "Swift", "Ruby", "PHP"].map((label) =>
+  label === "Go" ? { value: "go", label, description: goDescription } : { value: label.toLowerCase(), label }
+)
+
+const searchArgs = {
+  title: "言語",
+  fields: [
+    { type: "searchChoice", id: "lang", label: "主な言語", options: languages },
+    { type: "searchChoice", id: "more", label: "ほかの言語", multiple: true, default: ["go"], reason: "go.modより", options: languages }
+  ]
+}
+
+const filterOf = (frame: Frame, name: string) => frame.getByRole("searchbox", { name: `${name}を絞り込む` })
+
+test.describe("SPEC-UI-016 候補の絞り込み", () => {
+  test("SPEC-UI-016 推奨のない単一は未回答で始め、キーボードだけで絞り込んで選び、隠れても選んだものが分かる", async ({ page }) => {
+    const frame = await open(page, { args: searchArgs })
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 主な言語")
+    const filter = filterOf(frame, "主な言語")
+    await filter.fill("ru")
+    await expect(frame.locator(".filter-count").first()).toHaveText("2 / 10")
+    await expect(frame.getByRole("radiogroup", { name: "主な言語" }).getByRole("radio").filter({ visible: true })).toHaveCount(2)
+    await filter.press("ArrowDown")
+    await expect(frame.getByRole("radio", { name: "Rust" })).toBeFocused()
+    await frame.getByRole("radio", { name: "Rust" }).press("ArrowDown")
+    await expect(frame.getByRole("radio", { name: "Ruby" })).toBeChecked()
+    await filter.fill("zzz")
+    await expect(frame.getByText("一致する選択肢がありません").first()).toBeVisible()
+    await expect(frame.locator(".picked").first()).toHaveText("選んだもの：Ruby")
+    expect(await axeViolations(frame)).toEqual([])
+    await filter.press("ControlOrMeta+Enter")
+    expect((await singleOutcome(page))?.values).toEqual({ lang: "ruby", more: ["go"] })
+  })
+
+  test("SPEC-UI-016 複数選択は選んだものが一覧に残ってチェックが付き、もう一度押すと外れる。説明は選ぶまで1行", async ({ page }) => {
+    const frame = await open(page, { args: searchArgs })
+    const go = frame.getByRole("checkbox", { name: /^Go/ })
+    await expect(go).toBeChecked()
+    await expect(frame.locator(".rec", { hasText: "go.modより" })).toBeVisible()
+    await go.click()
+    const summary = frame.getByRole("group", { name: "ほかの言語" }).locator(".option", { hasText: "Go" }).locator(".option-summary")
+    await expect(summary).toHaveCSS("white-space", "nowrap")
+    await go.click()
+    await expect(summary).toHaveCSS("white-space", "normal")
+    await filterOf(frame, "ほかの言語").fill("py")
+    await frame.getByRole("checkbox", { name: "Python" }).click()
+    await expect(frame.getByRole("checkbox", { name: "Python" })).toBeChecked()
+    await expect(frame.getByRole("checkbox", { name: "Python" })).toBeVisible()
+    await expect(frame.locator(".picked").nth(1)).toHaveText("選んだもの：Python、Go")
+    await frame.getByRole("radio", { name: "Go" }).check()
+    await send(frame)
+    expect((await singleOutcome(page))?.values).toEqual({ lang: "go", more: ["python", "go"] })
+  })
+})
+
+const rankingArgs = {
+  title: "作業の順番",
+  fields: [
+    {
+      type: "ranking",
+      id: "order",
+      label: "優先順位",
+      default: ["auth", "api"],
+      reason: "依存の順",
+      options: [
+        { value: "ui", label: "画面" },
+        { value: "api", label: "API", description: "外部連携" },
+        { value: "auth", label: "ログイン" },
+        { value: "docs", label: "文書" }
+      ]
+    },
+    {
+      type: "ranking",
+      id: "fruit",
+      label: "上位2つ",
+      max: 2,
+      options: [
+        { value: "a", label: "りんご" },
+        { value: "b", label: "みかん" },
+        { value: "c", label: "ぶどう" }
+      ]
+    }
+  ]
+}
+
+const placed = (frame: Frame, list: string) =>
+  frame.getByRole("list", { name: list }).getByRole("listitem").locator(".option-head").allTextContents()
+
+test.describe("SPEC-UI-015 並べ替え", () => {
+  test("SPEC-UI-015 推奨を順位に入れて始め、候補を押すと末尾に入り、×で元の位置に戻り、推奨に戻せる", async ({ page }) => {
+    const frame = await open(page, { args: rankingArgs })
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["ログイン", "API"])
+    expect(await placed(frame, "優先順位の候補")).toEqual(["画面", "文書"])
+    await expect(frame.locator(".rec", { hasText: "依存の順" })).toContainText("ログイン → API")
+    await frame.getByRole("listitem", { name: "文書" }).click()
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["ログイン", "API", "文書"])
+    await frame.getByRole("button", { name: "APIを候補に戻す" }).click()
+    await expect.poll(() => placed(frame, "優先順位の候補")).toEqual(["画面", "API"])
+    await frame.getByRole("button", { name: "推奨に戻す" }).click()
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["ログイン", "API"])
+  })
+
+  test("SPEC-UI-015 キーボードで持ち上げて動かし、Escで戻し、Deleteで候補に戻す。操作方法は読み上げにだけ渡す", async ({ page }) => {
+    const frame = await open(page, { args: rankingArgs })
+    const api = frame.getByRole("listitem", { name: "API" })
+    await expect(api).toHaveAccessibleDescription(/SpaceかEnterで持ち上げ/)
+    await expect(frame.getByText(/SpaceかEnterで持ち上げ/).first()).toBeHidden()
+    await api.focus()
+    await api.press("Space")
+    await api.press("ArrowUp")
+    await api.press("Space")
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["API", "ログイン"])
+    await api.press("Enter")
+    await api.press("ArrowDown")
+    await api.press("Escape")
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["API", "ログイン"])
+    await frame.getByRole("listitem", { name: "ログイン" }).press("Delete")
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["API"])
+  })
+
+  test("SPEC-UI-015 推奨のない並べ替えは空で始めて未回答になり、上限まで入れて送ると順位だけが届く", async ({ page }) => {
+    const frame = await open(page, { args: rankingArgs })
+    await expect(frame.getByText("候補を押すと、ここに順に入ります").last()).toBeVisible()
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 上位2つ")
+    for (const name of ["みかん", "りんご", "ぶどう"]) {
+      await frame.getByRole("listitem", { name }).click()
+    }
+    await expect.poll(() => placed(frame, "上位2つの順位")).toEqual(["みかん", "りんご"])
+    await frame.getByRole("listitem", { name: "文書" }).dragTo(frame.getByRole("listitem", { name: "ログイン" }))
+    await expect.poll(() => placed(frame, "優先順位の順位")).toEqual(["文書", "ログイン", "API"])
+    const outcome = await sendAccessible(page, frame)
+    expect(outcome?.values).toEqual({ order: ["docs", "auth", "api"], fruit: ["b", "a"] })
+    expect(outcome?.changedByUser).toEqual(["order", "fruit"])
+  })
+})
+
+const rangeArgs = {
+  title: "対応範囲",
+  fields: [
+    { type: "numberRange", id: "node", label: "Node.jsの版", min: 16, max: 24, step: 1, default: [18, 22], reason: "LTSのため" },
+    { type: "numberRange", id: "budget", label: "予算", min: 0, max: 100000, step: 1000, prefix: "¥" }
+  ]
+}
+
+test.describe("SPEC-UI-018 数値の範囲", () => {
+  test("SPEC-UI-018 推奨の範囲で始め、つまみはすれ違わず、欄と同期し、推奨に戻せる", async ({ page }) => {
+    const frame = await open(page, { args: rangeArgs })
+    const lower = frame.getByRole("spinbutton", { name: "Node.jsの版の下限" })
+    const upper = frame.getByRole("spinbutton", { name: "Node.jsの版の上限" })
+    await expect(lower).toHaveValue("18")
+    await expect(upper).toHaveAttribute("aria-valuenow", "22")
+    await expect(frame.locator(".rec", { hasText: "LTSのため" })).toContainText("18〜22")
+    const thumb = frame.getByRole("slider", { name: "Node.jsの版の下限" })
+    for (let step = 0; step < 6; step += 1) {
+      await thumb.press("ArrowRight")
+    }
+    await expect(lower).toHaveValue("22")
+    await expect(upper).toHaveValue("22")
+    await upper.fill("17")
+    await upper.press("Tab")
+    await expect(upper).toHaveValue("22")
+    await frame.getByRole("button", { name: "Node.jsの版の上限を増やす" }).click()
+    await expect(upper).toHaveValue("23")
+    await frame.getByRole("button", { name: "推奨に戻す" }).click()
+    await expect(lower).toHaveValue("18")
+    await expect(upper).toHaveValue("22")
+  })
+
+  test("SPEC-UI-018 推奨のない範囲は未回答で始め、欄に値を確定すると[下限, 上限]で届く", async ({ page }) => {
+    const frame = await open(page, { args: rangeArgs })
+    const lower = frame.getByRole("spinbutton", { name: "予算の下限" })
+    await expect(lower).toHaveValue("")
+    await expect(lower).toHaveAttribute("aria-valuetext", "未回答")
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 予算")
+    await lower.fill("20000")
+    await lower.press("Tab")
+    await expect(frame.getByRole("spinbutton", { name: "予算の上限" })).toHaveValue("100,000")
+    const outcome = await sendAccessible(page, frame)
+    expect(outcome?.values).toEqual({ node: [18, 22], budget: [20000, 100000] })
+    expect(outcome?.changedByUser).toEqual(["budget"])
+  })
+})
+
+const listArgs = {
+  title: "除外の設定",
+  fields: [
+    { type: "textList", id: "ignore", label: "除外するパス", default: ["dist", "node_modules"], reason: ".gitignoreより" },
+    { type: "textList", id: "tags", label: "タグ", placeholder: "タグを書く" }
+  ]
+}
+
+const listItems = (frame: Frame, index: number) =>
+  frame.locator("ui-token-input").nth(index).locator("[data-token-label]").allTextContents()
+
+test.describe("SPEC-UI-017 文字のリスト", () => {
+  test("SPEC-UI-017 Enterで足し、重複は足さずに知らせ、Backspaceで消す", async ({ page }) => {
+    const frame = await open(page, { args: listArgs })
+    expect(await listItems(frame, 0)).toEqual(["dist", "node_modules"])
+    const editor = frame.getByRole("textbox", { name: "除外するパス" })
+    await editor.click()
+    await editor.pressSequentially("coverage")
+    await editor.press("Enter")
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist", "node_modules", "coverage"])
+    await editor.pressSequentially("dist")
+    await editor.press("Enter")
+    await expect(frame.getByText("「dist」は既にあります")).toBeVisible()
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist", "node_modules", "coverage"])
+    for (let index = 0; index < 5; index += 1) {
+      await editor.press("Backspace")
+    }
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist", "node_modules"])
+    await editor.press("Backspace")
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist"])
+    await frame.getByRole("button", { name: "推奨に戻す" }).click()
+    await expect.poll(() => listItems(frame, 0)).toEqual(["dist", "node_modules"])
+    expect(await axeViolations(frame)).toEqual([])
+  })
+
+  test("SPEC-UI-017 推奨のないリストは空で始め、書きかけの文字は送信の前に足す", async ({ page }) => {
+    const frame = await open(page, { args: listArgs })
+    expect(await listItems(frame, 1)).toEqual([])
+    const tags = frame.getByRole("textbox", { name: "タグ" })
+    await tags.click()
+    await tags.pressSequentially("急ぎ")
+    await tags.press("ControlOrMeta+Enter")
+    const outcome = await singleOutcome(page)
+    expect(outcome?.values).toEqual({ ignore: ["dist", "node_modules"], tags: ["急ぎ"] })
+    expect(outcome?.changedByUser).toEqual(["tags"])
+  })
+})
+
+const scheduleArgs = {
+  title: "リリースの予定",
+  fields: [
+    {
+      type: "date",
+      id: "release",
+      label: "リリース日",
+      default: "2026-12-01",
+      min: "2026-11-25",
+      max: "2027-03-31",
+      reason: "スプリントの終わり"
+    },
+    { type: "time", id: "deploy", label: "デプロイの時刻", min: "09:00", max: "18:00", step: 30 }
+  ]
+}
+
+const openSchedule = async (page: Page) => {
+  const frame = await open(page, { args: scheduleArgs })
+  return { frame, date: frame.getByRole("textbox", { name: "リリース日" }) }
+}
+
+test.describe("SPEC-UI-019 日付と時刻", () => {
+  test("SPEC-UI-019 日付はカレンダーで選べ、範囲外の日は選べない", async ({ page }) => {
+    const { frame, date } = await openSchedule(page)
+    await expect(date).toHaveValue("2026/12/01")
+    await frame.getByRole("button", { name: "リリース日のカレンダーを開く" }).click()
+    const grid = frame.getByRole("grid")
+    await expect(grid.getByRole("gridcell", { name: /2026年12月1日/ })).toBeFocused()
+    await page.keyboard.press("ArrowRight")
+    await page.keyboard.press("Enter")
+    await expect(grid).toBeHidden()
+    await expect(date).toHaveValue("2026/12/02")
+    await frame.getByRole("button", { name: "リリース日のカレンダーを開く" }).click()
+    await page.keyboard.press("PageUp")
+    await expect(grid.getByRole("gridcell", { name: /2026年11月24日/ })).toHaveAttribute("aria-disabled", "true")
+    await page.keyboard.press("Escape")
+    await expect(frame.getByRole("button", { name: "推奨に戻す" })).toBeVisible()
+    expect(await axeViolations(frame)).toEqual([])
+  })
+
+  test("SPEC-UI-019 日付は入力でき、時刻は未回答で始めてキーボードで入れると刻みに丸める", async ({ page }) => {
+    const { frame, date } = await openSchedule(page)
+    await date.fill("2027/01/15")
+    await date.press("Enter")
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: デプロイの時刻")
+    await frame.getByRole("spinbutton", { name: "時" }).click()
+    await page.keyboard.type("1012")
+    await expect(frame.getByRole("spinbutton", { name: "分" })).toHaveValue("00")
+    await send(frame)
+    const outcome = await singleOutcome(page)
+    expect(outcome?.values).toEqual({ release: "2027-01-15", deploy: "10:00" })
+  })
+})
+
+const treeArgs = {
+  title: "対象",
+  fields: [
+    {
+      type: "treeChoice",
+      id: "target",
+      label: "直すファイル",
+      default: "src/ui/app.ts",
+      reason: "差分より",
+      nodes: [
+        {
+          value: "src",
+          label: "src",
+          children: [
+            {
+              value: "src/ui",
+              label: "ui",
+              description: "画面",
+              children: [
+                { value: "src/ui/app.ts", label: "app.ts" },
+                { value: "src/ui/main.ts", label: "main.ts" }
+              ]
+            },
+            { value: "src/core", label: "core", children: [{ value: "src/core/form.ts", label: "form.ts" }] }
+          ]
+        },
+        { value: "README.md", label: "README.md" }
+      ]
+    },
+    {
+      type: "treeChoice",
+      id: "scope",
+      label: "検査する範囲",
+      multiple: true,
+      nodes: [
+        {
+          value: "src",
+          label: "src",
+          children: [
+            { value: "src/ui", label: "ui" },
+            { value: "src/core", label: "core" }
+          ]
+        },
+        { value: "README.md", label: "README.md" }
+      ]
+    },
+    {
+      type: "treeChoice",
+      id: "place",
+      label: "置き場所",
+      nodes: [
+        { value: "lib", label: "lib", children: [{ value: "lib/util", label: "util" }] },
+        { value: "docs", label: "docs" }
+      ]
+    }
+  ]
+}
+
+test.describe("SPEC-UI-020 木から選ぶ", () => {
+  test("SPEC-UI-020 推奨の祖先を開いて始め、矢印キーで移動と開閉をして選べる", async ({ page }) => {
+    const frame = await open(page, { args: treeArgs })
+    const tree = frame.getByRole("tree", { name: "直すファイル" })
+    const app = tree.getByRole("treeitem", { name: "app.ts" })
+    await expect(app).toHaveAttribute("aria-selected", "true")
+    await expect(tree.getByRole("treeitem", { name: "form.ts" })).toBeHidden()
+    await app.focus()
+    await app.press("ArrowDown")
+    await expect(tree.getByRole("treeitem", { name: "main.ts" })).toBeFocused()
+    await page.keyboard.press("ArrowDown")
+    await page.keyboard.press("ArrowRight")
+    await expect(tree.getByRole("treeitem", { name: "form.ts" })).toBeVisible()
+    await page.keyboard.press("ArrowRight")
+    await page.keyboard.press("Space")
+    await expect(tree.getByRole("treeitem", { name: "form.ts" })).toHaveAttribute("aria-selected", "true")
+    await expect(frame.getByRole("button", { name: "推奨に戻す" })).toBeVisible()
+  })
+
+  test("SPEC-UI-020 推奨のない単一選択は未回答で始め、複数選択は枝をチェックすると最も外側の項目で答える", async ({ page }) => {
+    const frame = await open(page, { args: treeArgs })
+    await send(frame)
+    await expect(frame.locator(".status")).toHaveText("答えるか、コメントを書いてください: 置き場所")
+    await frame.getByRole("tree", { name: "置き場所" }).getByRole("treeitem", { name: "docs" }).click()
+    const scope = frame.getByRole("tree", { name: "検査する範囲" })
+    await scope.getByRole("treeitem", { name: "src" }).click()
+    await expect(scope.getByRole("treeitem", { name: "src" })).toHaveAttribute("aria-checked", "true")
+    await scope.getByRole("treeitem", { name: "README.md" }).focus()
+    await page.keyboard.press("Space")
+    const outcome = await sendAccessible(page, frame)
+    expect(outcome?.values).toEqual({ target: "src/ui/app.ts", scope: ["src", "README.md"], place: "docs" })
+  })
+
+  test("SPEC-UI-020 単一選択は「選択を解除」で選択を外し、コメント欄を開く", async ({ page }) => {
+    const frame = await open(page, { args: treeArgs })
+    await frame.getByRole("button", { name: "直すファイルの選択を解除" }).click()
+    await expect(frame.getByRole("tree", { name: "直すファイル" }).getByRole("treeitem", { name: "app.ts" })).toHaveAttribute(
+      "aria-selected",
+      "false"
+    )
+    await expect(frame.getByRole("textbox", { name: "直すファイルへのコメント" })).toBeFocused()
   })
 })

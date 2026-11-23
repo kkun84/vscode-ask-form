@@ -1,11 +1,17 @@
 type Child = Node | string | null | undefined | false
 type Attributes = Readonly<Record<string, string | number | boolean | undefined>>
 
-export const h = <K extends keyof HTMLElementTagNameMap>(
+export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
-  attributes: Attributes = {},
+  attributes?: Attributes,
   ...children: ReadonlyArray<Child | ReadonlyArray<Child>>
-): HTMLElementTagNameMap[K] => {
+): HTMLElementTagNameMap[K]
+export function h(
+  tag: `ui-${string}` | `af-${string}`,
+  attributes?: Attributes,
+  ...children: ReadonlyArray<Child | ReadonlyArray<Child>>
+): HTMLElement
+export function h(tag: string, attributes: Attributes = {}, ...children: ReadonlyArray<Child | ReadonlyArray<Child>>): HTMLElement {
   const element = document.createElement(tag)
   for (const [name, value] of Object.entries(attributes)) {
     if (value === undefined || value === false) {

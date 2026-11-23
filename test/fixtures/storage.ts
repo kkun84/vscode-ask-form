@@ -13,42 +13,43 @@ export const storageSpec = {
       default: "browser",
       reason: "README.mdに「まずは自分用」とあるため",
       options: [
-        {
-          value: "browser",
-          label: "ブラウザ",
-          fields: [
-            {
-              type: "choice",
-              id: "engine",
-              label: "保存方式",
-              default: "local",
-              reason: "件数が少ないため",
-              options: [
-                { value: "local", label: "localStorage" },
-                { value: "indexed", label: "IndexedDB" }
-              ]
-            }
-          ]
-        },
-        {
-          value: "server",
-          label: "サーバー",
-          fields: [
-            { type: "number", id: "port", label: "ポート", default: 8080, min: 1, max: 65535, reason: "package.jsonより" },
-            {
-              type: "choice",
-              id: "auth",
-              label: "ログイン",
-              default: "no",
-              options: [
-                { value: "yes", label: "必要" },
-                { value: "no", label: "不要" }
-              ]
-            }
-          ]
-        },
+        { value: "browser", label: "ブラウザ" },
+        { value: "server", label: "サーバー" },
         { value: "none", label: "保存しない" }
       ]
+    },
+    {
+      type: "choice",
+      id: "engine",
+      label: "保存方式",
+      default: "local",
+      reason: "件数が少ないため",
+      when: { field: "storage", anyOf: ["browser"] },
+      options: [
+        { value: "local", label: "localStorage" },
+        { value: "indexed", label: "IndexedDB" }
+      ]
+    },
+    {
+      type: "number",
+      id: "port",
+      label: "ポート",
+      default: 8080,
+      min: 1,
+      max: 65535,
+      reason: "package.jsonより",
+      when: { field: "storage", anyOf: ["server"] }
+    },
+    {
+      type: "choice",
+      id: "auth",
+      label: "ログイン",
+      options: [
+        { value: "yes", label: "必要" },
+        { value: "no", label: "不要" }
+      ],
+      default: "no",
+      when: { field: "storage", anyOf: ["server"] }
     }
   ],
   computed: [

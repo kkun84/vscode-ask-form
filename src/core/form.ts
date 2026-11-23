@@ -1,9 +1,9 @@
 import { evaluate, parse, type Expr, type Scope, type Value } from "./expression.ts"
 import { stableHash } from "./hash.ts"
 import type { Messages } from "./messages.ts"
-import type { ChoiceField, Computed, Field, FormSpec } from "./spec.ts"
+import type { ChoiceField, Computed, Field, FormSpec, NumberRangeField, SearchChoiceField, TreeChoiceField, TreeNode } from "./spec.ts"
 
-export type FieldValue = string | number | ReadonlyArray<string>
+export type FieldValue = string | number | ReadonlyArray<string> | readonly [number, number]
 export type Values = Readonly<Record<string, FieldValue>>
 export type Comments = Readonly<Record<string, string>>
 export type ComputedValues = Readonly<Record<string, Value | null>>
@@ -14,16 +14,54 @@ export interface CompiledForm {
   readonly expressions: ReadonlyMap<string, Expr>
 }
 
-export const isMultiple = (field: ChoiceField): boolean => field.multiple === true
+export const isMultiple = (field: ChoiceField | SearchChoiceField | TreeChoiceField): boolean => field.multiple === true
 
-const branchFields = (field: Field, value: FieldValue | undefined): ReadonlyArray<Field> =>
-  field.type === "choice" && !isMultiple(field) ? (field.options.find((option) => option.value === value)?.fields ?? []) : []
+export const treeNodes = (nodes: ReadonlyArray<TreeNode>): ReadonlyArray<TreeNode> =>
+  nodes.flatMap((node) => [node, ...treeNodes(node.children ?? [])])
 
-export const allFields = (spec: FormSpec): ReadonlyArray<Field> =>
-  spec.fields.flatMap((field) => [field, ...(field.type === "choice" ? field.options.flatMap((option) => option.fields ?? []) : [])])
+export const treeAncestors = (nodes: ReadonlyArray<TreeNode>, values: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const found: Array<string> = []
+  const walk = (list: ReadonlyArray<TreeNode>, path: ReadonlyArray<string>): void => {
+    for (const node of list) {
+      if (values.includes(node.value)) {
+        found.push(...path)
+      }
+      walk(node.children ?? [], [...path, node.value])
+    }
+  }
+  walk(nodes, [])
+  return [...new Set(found)]
+}
 
-export const activeFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> =>
-  spec.fields.flatMap((field) => [field, ...branchFields(field, values[field.id])])
+const selects = (value: FieldValue | undefined, anyOf: ReadonlyArray<string>): boolean =>
+  Array.isArray(value) ? value.some((item) => anyOf.includes(String(item))) : typeof value === "string" && anyOf.includes(value)
+
+export const followUpsOf = (spec: FormSpec): ReadonlyMap<string, ReadonlyArray<Field>> => {
+  const groups = new Map<string, Array<Field>>()
+  for (const field of spec.fields) {
+    if (field.when !== undefined) {
+      groups.set(field.when.field, [...(groups.get(field.when.field) ?? []), field])
+    }
+  }
+  return groups
+}
+
+export const displayOrder = (spec: FormSpec): ReadonlyArray<Field> => {
+  const followUps = followUpsOf(spec)
+  const placed = (field: Field): ReadonlyArray<Field> => [field, ...(followUps.get(field.id) ?? []).flatMap((followUp) => placed(followUp))]
+  return spec.fields.filter((field) => field.when === undefined).flatMap((field) => placed(field))
+}
+
+export const activeFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> => {
+  const shown = new Set<string>()
+  return displayOrder(spec).filter((field) => {
+    const visible = field.when === undefined || (shown.has(field.when.field) && selects(values[field.when.field], field.when.anyOf))
+    if (visible) {
+      shown.add(field.id)
+    }
+    return visible
+  })
+}
 
 const filled = (fields: ReadonlyArray<Field>, values: Values): Values =>
   Object.fromEntries(fields.flatMap((field) => (values[field.id] === undefined ? [] : [[field.id, values[field.id] as FieldValue]])))
@@ -67,13 +105,28 @@ const initialValue = (field: Field): FieldValue | undefined => {
     case "number":
       return field.default
     case "choice":
+    case "searchChoice":
+    case "treeChoice":
       return field.default ?? (isMultiple(field) ? [] : undefined)
+    case "textList":
+      return field.default ?? []
+    case "numberRange": {
+      if (field.default === undefined) {
+        return undefined
+      }
+      const [lower = field.min, upper = field.max] = field.default
+      return [lower, upper]
+    }
+    case "date":
+    case "time":
+    case "ranking":
+      return field.default
   }
 }
 
 export const initialValues = (spec: FormSpec): Values =>
   Object.fromEntries(
-    allFields(spec).flatMap((field) => {
+    spec.fields.flatMap((field) => {
       const value = initialValue(field)
       return value === undefined ? [] : [[field.id, value]]
     })
@@ -86,7 +139,10 @@ const scopeValue = (field: Field, value: FieldValue | undefined): Value | undefi
   if (value === undefined) {
     return undefined
   }
-  if (field.type === "choice" && isMultiple(field)) {
+  if (
+    ((field.type === "choice" || field.type === "searchChoice" || field.type === "treeChoice") && isMultiple(field)) ||
+    field.type === "textList"
+  ) {
     return Array.isArray(value) ? value.length : undefined
   }
   return Array.isArray(value) ? undefined : (value as Value)
@@ -107,7 +163,10 @@ export const computeValues = (form: CompiledForm, values: Values): ComputedValue
   )
 }
 
-const sameValue = (a: FieldValue | undefined, b: FieldValue | undefined): boolean => {
+const sameValue = (field: Field, a: FieldValue | undefined, b: FieldValue | undefined): boolean => {
+  if ((field.type === "ranking" || field.type === "numberRange") && Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((value, index) => value === b[index])
+  }
   if (Array.isArray(a) && Array.isArray(b)) {
     const sortedB = b.toSorted()
     return a.length === b.length && a.toSorted().every((value, index) => value === sortedB[index])
@@ -122,7 +181,7 @@ export interface Answered {
 
 export const changedFields = (spec: FormSpec, before: Values, after: Values): ReadonlyArray<string> =>
   activeFields(spec, after)
-    .filter((field) => !sameValue(before[field.id], after[field.id]))
+    .filter((field) => !sameValue(field, before[field.id], after[field.id]))
     .map((field) => field.id)
 
 const affixed = (text: string, prefix: string | undefined, suffix: string | undefined): string => `${prefix ?? ""}${text}${suffix ?? ""}`
@@ -138,6 +197,21 @@ export const formatNumber = (value: number, decimals?: number): string =>
         }
   )
 
+const describeRange = (field: NumberRangeField, value: FieldValue, m: Messages): string =>
+  Array.isArray(value) ? value.map((bound) => affixed(formatNumber(Number(bound)), field.prefix, field.suffix)).join(m.rangeSeparator) : "—"
+
+const formatDate = (value: string, locale: string): string => {
+  const date = new Date(`${value}T00:00:00Z`)
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(locale, { timeZone: "UTC", year: "numeric", month: "short", day: "numeric", weekday: "short" })
+}
+
+const labelsOf = (known: ReadonlyArray<{ readonly value: string; readonly label: string }>, value: FieldValue): ReadonlyArray<string> =>
+  (Array.isArray(value) ? value : [value]).map((item) => known.find((node) => node.value === item)?.label ?? String(item))
+
+const joined = (labels: ReadonlyArray<string>, m: Messages): string => (labels.length === 0 ? m.none : labels.join(m.listSeparator))
+
 export const describeValue = (field: Field, value: FieldValue | undefined, m: Messages): string => {
   if (value === undefined) {
     return m.held
@@ -147,11 +221,21 @@ export const describeValue = (field: Field, value: FieldValue | undefined, m: Me
       return typeof value === "string" && value !== "" ? value : m.empty
     case "number":
       return typeof value === "number" ? affixed(formatNumber(value), field.prefix, field.suffix) : "—"
-    case "choice": {
-      const selected = Array.isArray(value) ? value : value === undefined ? [] : [value]
-      const labels = selected.map((item) => field.options.find((option) => option.value === item)?.label ?? String(item))
-      return labels.length === 0 ? m.none : labels.join(m.listSeparator)
-    }
+    case "textList":
+      return joined(Array.isArray(value) ? value.map(String) : [], m)
+    case "numberRange":
+      return describeRange(field, value, m)
+    case "date":
+      return formatDate(String(value), m.locale)
+    case "time":
+      return String(value)
+    case "choice":
+    case "searchChoice":
+      return joined(labelsOf(field.options, value), m)
+    case "treeChoice":
+      return joined(labelsOf(treeNodes(field.nodes), value), m)
+    case "ranking":
+      return labelsOf(field.options, value).join(" → ")
   }
 }
 
@@ -173,9 +257,13 @@ export interface HeldForm {
   readonly fields: ReadonlyArray<Field>
 }
 
+const withoutWhen = ({ when: _when, ...field }: Field): Field => field
+
 const heldForm = (spec: FormSpec, held: ReadonlyArray<string>): HeldForm => ({
   title: spec.title,
-  fields: allFields(spec).filter((field) => held.includes(field.id))
+  fields: displayOrder(spec)
+    .filter((field) => held.includes(field.id))
+    .map((field) => (field.when === undefined || held.includes(field.when.field) ? field : withoutWhen(field)))
 })
 
 export type Outcome =
@@ -195,6 +283,10 @@ export type Outcome =
 export const maxNoteLength = 2000
 
 export const maxCommentLength = 500
+
+export const maxListItems = 20
+
+export const maxListItemLength = 200
 
 const maxCommentPresets = 8
 

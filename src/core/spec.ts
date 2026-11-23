@@ -34,9 +34,17 @@ const commonFields = {
   reasonDetails: Schema.optionalKey(
     shown(300, "More on why you recommend the default, in full sentences. Can be hidden by the user. Only allowed together with default.")
   ),
-  advanced: Schema.optionalKey(
-    Schema.Boolean.annotate({
-      description: "Fold this field into the collapsed Details section."
+  when: Schema.optionalKey(
+    Schema.Struct({
+      field: Identifier.annotate({
+        description: "The id of a choice or searchChoice field, single or multiple, anywhere in fields."
+      }),
+      anyOf: Schema.Array(required(60)).check(Schema.isMinLength(1)).annotate({
+        description: "Option values of that field. The field is shown while one of them is selected."
+      })
+    }).annotate({
+      description:
+        "Makes this field a follow-up question of a choice or searchChoice field: it is shown only while that field is shown and has one of anyOf selected. The form places follow-ups right after the question they depend on, in the order they appear in fields, wherever they are written. While hidden, the field is left out of the answer, and so are its own follow-ups."
     })
   )
 }
@@ -71,52 +79,175 @@ const TextField = Schema.Struct({
   multiline: Schema.optionalKey(Schema.Boolean)
 })
 
-const NumberField = Schema.Struct({
-  type: Schema.Literal("number"),
-  ...commonFields,
-  default: Schema.optionalKey(Schema.Finite),
+const numericFields = {
   min: Schema.Finite,
   max: Schema.Finite,
   step: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0))),
   prefix: Schema.optionalKey(text(8)),
   suffix: Schema.optionalKey(text(8))
+}
+
+const NumberField = Schema.Struct({
+  type: Schema.Literal("number"),
+  ...commonFields,
+  default: Schema.optionalKey(Schema.Finite),
+  ...numericFields
 })
 
-const choiceFields = {
-  type: Schema.Literal("choice"),
+const NumberRangeField = Schema.Struct({
+  type: Schema.Literal("numberRange"),
+  ...commonFields,
+  default: Schema.optionalKey(
+    Schema.Array(Schema.Finite).check(Schema.isMinLength(2), Schema.isMaxLength(2)).annotate({
+      description: "The recommended lower and upper bounds, as [lower, upper], within min and max."
+    })
+  ),
+  ...numericFields
+}).annotate({
+  description: "The user answers a span of numbers with a lower and an upper bound. The answer is [lower, upper]."
+})
+
+const IsoDate = Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)).annotate({ description: "A date as YYYY-MM-DD." })
+
+const IsoTime = Schema.String.check(Schema.isPattern(/^(?:[01]\d|2[0-3]):[0-5]\d$/)).annotate({
+  description: "A time of day as 24-hour HH:MM."
+})
+
+const DateField = Schema.Struct({
+  type: Schema.Literal("date"),
+  ...commonFields,
+  default: Schema.optionalKey(IsoDate),
+  min: Schema.optionalKey(IsoDate),
+  max: Schema.optionalKey(IsoDate)
+}).annotate({ description: "A calendar date. The answer is a YYYY-MM-DD string." })
+
+const TimeField = Schema.Struct({
+  type: Schema.Literal("time"),
+  ...commonFields,
+  default: Schema.optionalKey(IsoTime),
+  min: Schema.optionalKey(IsoTime),
+  max: Schema.optionalKey(IsoTime),
+  step: Schema.optionalKey(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 720 })).annotate({
+      description: "Minutes between allowed times, counted from min, or from 00:00 without min."
+    })
+  )
+}).annotate({ description: "A time of day. The answer is a 24-hour HH:MM string." })
+
+const pickFields = {
   ...commonFields,
   default: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
   multiple: Schema.optionalKey(Schema.Boolean)
 }
 
-const NestedChoiceField = Schema.Struct({ ...choiceFields, options: options(ChoiceOption) })
+const ChoiceField = Schema.Struct({ type: Schema.Literal("choice"), ...pickFields, options: options(ChoiceOption) })
 
-const NestedField = Schema.Union([TextField, NumberField, NestedChoiceField])
-
-const BranchOption = Schema.Struct({
-  ...ChoiceOption.fields,
-  fields: Schema.optionalKey(
-    Schema.Array(NestedField).check(Schema.isMinLength(1), Schema.isMaxLength(10)).annotate({
-      description:
-        "Follow-up fields asked only while this option is selected. Only for a single-select choice at the top level; the answer contains only the chosen option's fields."
-    })
-  )
+const SearchChoiceField = Schema.Struct({
+  type: Schema.Literal("searchChoice"),
+  ...pickFields,
+  options: Schema.Array(ChoiceOption).check(Schema.isMinLength(7), Schema.isMaxLength(100))
+}).annotate({
+  description:
+    "The user finds options by name among 7 to 100 candidates, typing to narrow the list, and picks one, or several with multiple. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, and treeChoice when the candidates form a hierarchy."
 })
 
-const ChoiceField = Schema.Struct({ ...choiceFields, options: options(BranchOption) })
+const TextListField = Schema.Struct({
+  type: Schema.Literal("textList"),
+  ...commonFields,
+  default: Schema.optionalKey(Schema.Array(required(200)).check(Schema.isMaxLength(20))),
+  placeholder: Schema.optionalKey(shown(80))
+}).annotate({
+  description:
+    "The user writes any number of short free-form values, such as paths, tags or domains. The answer is an array of up to 20 distinct strings."
+})
 
-const Field = Schema.Union([TextField, NumberField, ChoiceField])
+const treeNodeFields = {
+  value: required(200),
+  label: shownRequired(60),
+  description: Schema.optionalKey(shown(60, "One sentence on what this item is. Always shown."))
+}
+
+const treeChildren = <S extends Schema.Top>(node: S) => ({
+  children: Schema.optionalKey(Schema.Array(node).check(Schema.isMinLength(1)))
+})
+
+const TreeLeaf = Schema.Struct(treeNodeFields)
+const TreeNode3 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeLeaf) })
+const TreeNode2 = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode3) })
+const TreeNode = Schema.Struct({ ...treeNodeFields, ...treeChildren(TreeNode2) })
+
+const TreeChoiceField = Schema.Struct({
+  type: Schema.Literal("treeChoice"),
+  ...pickFields,
+  nodes: Schema.Array(TreeNode).check(Schema.isMinLength(1)).annotate({
+    description:
+      "Items in a hierarchy, up to 4 levels and 100 items in all, such as folders and files. Every value is unique in the whole tree. Any item, branch or leaf, can be chosen."
+  })
+}).annotate({
+  description:
+    "The user picks from a hierarchy, such as a folder, a file or a module. With multiple, checking a branch checks everything in it, and the answer lists the outermost fully checked items."
+})
+
+const RankingField = Schema.Struct({
+  type: Schema.Literal("ranking"),
+  ...commonFields,
+  default: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "The option values you recommend ranking, in your recommended order, first to last. Within min and max items."
+    })
+  ),
+  min: Schema.optionalKey(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 8 })).annotate({
+      description: "The fewest options the user must rank. Defaults to 1."
+    })
+  ),
+  max: Schema.optionalKey(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 8 })).annotate({
+      description: "The most options the user can rank, such as 3 for a top three. Defaults to every option."
+    })
+  ),
+  options: Schema.Array(ChoiceOption).check(Schema.isMinLength(2), Schema.isMaxLength(8))
+}).annotate({
+  description:
+    "The user moves options from the candidates into a ranked list, in order, such as priorities. The answer lists the ranked option values from first to last; unranked options are left out."
+})
+
+const Field = Schema.Union([
+  TextField,
+  TextListField,
+  NumberField,
+  NumberRangeField,
+  DateField,
+  TimeField,
+  ChoiceField,
+  SearchChoiceField,
+  TreeChoiceField,
+  RankingField
+])
 
 export const FormSpec = Schema.Struct({
   title: shownRequired(80),
   description: Schema.optionalKey(shown(300)),
-  fields: Schema.Array(Field).check(Schema.isMinLength(1), Schema.isMaxLength(20)),
+  fields: Schema.Array(Field).check(Schema.isMinLength(1), Schema.isMaxLength(40)),
   computed: Schema.optionalKey(Schema.Array(Computed).check(Schema.isMaxLength(8)))
 })
 
 export type TextField = typeof TextField.Type
+export type TextListField = typeof TextListField.Type
 export type NumberField = typeof NumberField.Type
+export type NumberRangeField = typeof NumberRangeField.Type
+export type DateField = typeof DateField.Type
+export type TimeField = typeof TimeField.Type
 export type ChoiceField = typeof ChoiceField.Type
+export type SearchChoiceField = typeof SearchChoiceField.Type
+export type TreeChoiceField = typeof TreeChoiceField.Type
+export interface TreeNode {
+  readonly value: string
+  readonly label: string
+  readonly description?: string
+  readonly children?: ReadonlyArray<TreeNode>
+}
+export type RankingField = typeof RankingField.Type
 export type Field = typeof Field.Type
 export type Computed = typeof Computed.Type
 export type FormSpec = typeof FormSpec.Type

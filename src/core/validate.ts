@@ -1,31 +1,63 @@
-import { Result, Schema } from "effect"
+import { Result, Schema, SchemaIssue } from "effect"
 import { references, parse } from "./expression.ts"
 import {
   activeFields,
-  allFields,
   answerValues,
   isMultiple,
   maxCommentLength,
+  maxListItemLength,
+  maxListItems,
   maxNoteLength,
   prepare,
   heldFields,
+  treeAncestors,
+  treeNodes,
   type Comments,
   type CompiledForm,
   type Values
 } from "./form.ts"
-import { FormSpec, type ChoiceField, type Field, type NumberField } from "./spec.ts"
+import {
+  FormSpec,
+  type ChoiceField,
+  type DateField,
+  type Field,
+  type NumberField,
+  type NumberRangeField,
+  type RankingField,
+  type SearchChoiceField,
+  type TextListField,
+  type TimeField,
+  type TreeChoiceField
+} from "./spec.ts"
 
-const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "ignore" })
+const decodeSpec = Schema.decodeUnknownResult(FormSpec, { errors: "all", onExcessProperty: "error" })
 
-const maxTotalFields = 40
+const unknownKey = "unknown key"
+
+const listIssues = SchemaIssue.makeFormatterStandardSchemaV1({
+  leafHook: (issue) => (issue instanceof SchemaIssue.UnexpectedKey ? unknownKey : SchemaIssue.defaultLeafHook(issue))
+})
+
+const dotted = (path: ReadonlyArray<PropertyKey>): string =>
+  path.length === 0
+    ? "設計図"
+    : path.map((key, index) => (typeof key === "number" ? `[${key}]` : `${index === 0 ? "" : "."}${String(key)}`)).join("")
+
+const decodeProblems = (issue: SchemaIssue.Issue): ReadonlyArray<string> =>
+  listIssues(issue).issues.map(({ message, path = [] }) => {
+    const keys = path as ReadonlyArray<PropertyKey>
+    return message === unknownKey
+      ? `「${dotted(keys)}」は設計図にないキーです。キー「${String(keys.at(-1))}」の綴りと置く場所を直すか、消してください`
+      : `「${dotted(keys)}」: ${message}`
+  })
 
 const duplicateIds = (spec: FormSpec): ReadonlyArray<string> => {
-  const ids = [...allFields(spec).map((field) => field.id), ...(spec.computed ?? []).map((item) => item.id)]
+  const ids = [...spec.fields.map((field) => field.id), ...(spec.computed ?? []).map((item) => item.id)]
   return ids.filter((id, index) => ids.indexOf(id) !== index).map((id) => `id「${id}」が重複しています`)
 }
 
 const expressionProblems = (spec: FormSpec): ReadonlyArray<string> => {
-  const known = new Set(allFields(spec).map((field) => field.id))
+  const known = new Set(spec.fields.map((field) => field.id))
   return (spec.computed ?? []).flatMap((item) => {
     const result = parse(item.expression)
     const problems = result.ok
@@ -38,29 +70,71 @@ const expressionProblems = (spec: FormSpec): ReadonlyArray<string> => {
   })
 }
 
-const totalProblems = (spec: FormSpec): ReadonlyArray<string> => {
-  const total = allFields(spec).length
-  return total > maxTotalFields ? [`項目が入れ子も含めて${total}個あります。${maxTotalFields}個以下にしてください`] : []
+const whenChain = (spec: FormSpec, field: Field): ReadonlyArray<string> | undefined => {
+  const chain = [field.id]
+  let current: Field | undefined = field
+  while (current?.when !== undefined) {
+    const id: string = current.when.field
+    if (chain.includes(id)) {
+      return [...chain, id]
+    }
+    chain.push(id)
+    current = spec.fields.find((item) => item.id === id)
+  }
+  return undefined
 }
 
+const whenProblems = (spec: FormSpec): ReadonlyArray<string> =>
+  spec.fields.flatMap((field) => {
+    if (field.when === undefined) {
+      return []
+    }
+    const { field: id, anyOf } = field.when
+    if (id === field.id) {
+      return [`項目「${field.id}」のwhenが自分自身を参照しています`]
+    }
+    const source = spec.fields.find((item) => item.id === id)
+    if (source === undefined) {
+      return [`項目「${field.id}」のwhenが未定義の項目「${id}」を参照しています`]
+    }
+    const loop = whenChain(spec, field)
+    const looped =
+      loop === undefined ? [] : [`項目「${field.id}」のwhenをたどると「${loop.join("」→「")}」と循環し、whenのない項目にたどり着きません`]
+    if (source.type !== "choice" && source.type !== "searchChoice") {
+      return [...looped, `項目「${field.id}」のwhenが参照する項目「${id}」は、choiceかsearchChoiceではありません`]
+    }
+    const values = new Set(source.options.map((option) => option.value))
+    return [
+      ...looped,
+      ...(new Set(anyOf).size === anyOf.length ? [] : [`項目「${field.id}」のwhenのanyOfが重複しています`]),
+      ...anyOf
+        .filter((value) => !values.has(value))
+        .map((value) => `項目「${field.id}」のwhenのanyOfの「${value}」が、項目「${id}」の選択肢にありません`)
+    ]
+  })
+
 const semanticProblems = (spec: FormSpec, input: unknown): ReadonlyArray<string> => [
-  ...totalProblems(spec),
   ...duplicateIds(spec),
-  ...deepBranches(input),
-  ...allFields(spec).flatMap((field) => fieldProblems(field)),
+  ...deepTrees(input),
+  ...spec.fields.flatMap((field) => fieldProblems(field)),
+  ...whenProblems(spec),
   ...expressionProblems(spec)
 ]
 
 const records = (value: unknown): ReadonlyArray<Readonly<Record<string, unknown>>> =>
   Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => item !== null && typeof item === "object") : []
 
-const deepBranches = (input: unknown): ReadonlyArray<string> =>
-  records([input])
-    .flatMap((spec) => records(spec["fields"]))
-    .flatMap((field) => records(field["options"]))
-    .flatMap((option) => records(option["fields"]))
-    .filter((nested) => records(nested["options"]).some((option) => "fields" in option))
-    .map((nested) => `項目「${String(nested["id"])}」の選択肢にfieldsがあります。選択肢の中の項目は、さらに入れ子にできません`)
+const topFields = (input: unknown) => records([input]).flatMap((spec) => records(spec["fields"]))
+
+const maxTreeDepth = 4
+
+const treeDepth = (nodes: unknown): number =>
+  records(nodes).reduce((deepest, node) => Math.max(deepest, 1 + treeDepth(node["children"])), 0)
+
+const deepTrees = (input: unknown): ReadonlyArray<string> =>
+  topFields(input)
+    .filter((field) => field["type"] === "treeChoice" && treeDepth(field["nodes"]) > maxTreeDepth)
+    .map((field) => `項目「${String(field["id"])}」の木が${maxTreeDepth}段より深くなっています`)
 
 const numberProblems = (field: NumberField): ReadonlyArray<string> => {
   if (field.min >= field.max) {
@@ -70,7 +144,10 @@ const numberProblems = (field: NumberField): ReadonlyArray<string> => {
   return outside ? [`項目「${field.id}」のdefaultが${field.min}〜${field.max}の範囲外です`] : []
 }
 
-const choiceDefaultProblems = (field: ChoiceField, values: ReadonlySet<string>): ReadonlyArray<string> => {
+const choiceDefaultProblems = (
+  field: ChoiceField | SearchChoiceField | TreeChoiceField,
+  values: ReadonlySet<string>
+): ReadonlyArray<string> => {
   if (field.default === undefined) {
     return []
   }
@@ -87,14 +164,154 @@ const choiceDefaultProblems = (field: ChoiceField, values: ReadonlySet<string>):
   ]
 }
 
-const choiceProblems = (field: ChoiceField): ReadonlyArray<string> => {
+const optionProblems = (field: ChoiceField | SearchChoiceField): ReadonlyArray<string> => {
   const values = new Set(field.options.map((option) => option.value))
   const duplicated = values.size === field.options.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
-  const branched =
-    isMultiple(field) && field.options.some((option) => option.fields !== undefined)
-      ? [`項目「${field.id}」は複数選択なので、選択肢にfieldsを付けられません`]
-      : []
-  return [...duplicated, ...branched, ...choiceDefaultProblems(field, values)]
+  return [...duplicated, ...choiceDefaultProblems(field, values)]
+}
+
+const rankBounds = (field: RankingField): readonly [number, number] => [field.min ?? 1, field.max ?? field.options.length]
+
+const isRanking = (value: unknown, field: RankingField): boolean => {
+  const allowed = new Set(field.options.map((option) => option.value))
+  const [min, max] = rankBounds(field)
+  return (
+    Array.isArray(value) &&
+    value.length >= min &&
+    value.length <= max &&
+    new Set(value).size === value.length &&
+    value.every((item) => typeof item === "string" && allowed.has(item))
+  )
+}
+
+const rankingProblems = (field: RankingField): ReadonlyArray<string> => {
+  const values = field.options.map((option) => option.value)
+  const [min, max] = rankBounds(field)
+  const duplicated = new Set(values).size === values.length ? [] : [`項目「${field.id}」の選択肢のvalueが重複しています`]
+  const bounds = min <= max && max <= values.length ? [] : [`項目「${field.id}」のminとmaxは、1≦min≦max≦選択肢の数にしてください`]
+  const order =
+    field.default === undefined || isRanking(field.default, field)
+      ? []
+      : [`項目「${field.id}」のdefaultは、選択肢のvalueを重複なく${min}〜${max}個並べた配列にしてください`]
+  return [...duplicated, ...bounds, ...order]
+}
+
+const isRangeValue = (value: unknown, field: NumberRangeField): boolean =>
+  Array.isArray(value) &&
+  value.length === 2 &&
+  value.every((bound) => typeof bound === "number" && Number.isFinite(bound)) &&
+  field.min <= value[0] &&
+  value[0] <= value[1] &&
+  value[1] <= field.max
+
+const rangeProblems = (field: NumberRangeField): ReadonlyArray<string> => {
+  if (field.min >= field.max) {
+    return [`項目「${field.id}」のminがmax以上です`]
+  }
+  return field.default === undefined || isRangeValue(field.default, field)
+    ? []
+    : [`項目「${field.id}」のdefaultは、${field.min}〜${field.max}の範囲で[下限, 上限]の順にしてください`]
+}
+
+const isList = (value: unknown): boolean =>
+  Array.isArray(value) &&
+  value.length <= maxListItems &&
+  new Set(value).size === value.length &&
+  value.every((item) => typeof item === "string" && item.trim() !== "" && item.length <= maxListItemLength)
+
+const listProblems = (field: TextListField): ReadonlyArray<string> =>
+  field.default === undefined || new Set(field.default).size === field.default.length
+    ? []
+    : [`項目「${field.id}」のdefaultが重複しています`]
+
+const isDate = (value: unknown): value is string => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false
+  }
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value)
+}
+
+const minutesOf = (value: unknown): number | undefined => {
+  const match = typeof value === "string" ? /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value) : null
+  return match === null ? undefined : Number(match[1]) * 60 + Number(match[2])
+}
+
+const dateProblem = (field: DateField, value: unknown): string | undefined => {
+  if (!isDate(value)) {
+    return `項目「${field.id}」はYYYY-MM-DDの形の、存在する日付が必要です`
+  }
+  return (field.min !== undefined && value < field.min) || (field.max !== undefined && value > field.max)
+    ? `項目「${field.id}」が範囲外です`
+    : undefined
+}
+
+const timeProblem = (field: TimeField, value: unknown): string | undefined => {
+  const minutes = minutesOf(value)
+  if (minutes === undefined) {
+    return `項目「${field.id}」は24時間のHH:MMの形の時刻が必要です`
+  }
+  const min = minutesOf(field.min) ?? 0
+  const max = minutesOf(field.max) ?? 24 * 60 - 1
+  if (minutes < min || minutes > max) {
+    return `項目「${field.id}」が範囲外です`
+  }
+  return field.step !== undefined && (minutes - min) % field.step !== 0
+    ? `項目「${field.id}」は${field.step}分刻みの時刻が必要です`
+    : undefined
+}
+
+const bounded = (
+  id: string,
+  min: string | undefined,
+  max: string | undefined,
+  valid: (value: string) => boolean
+): ReadonlyArray<string> => [
+  ...[min, max]
+    .filter((value): value is string => value !== undefined && !valid(value))
+    .map((value) => `項目「${id}」の「${value}」は存在しません`),
+  ...(min !== undefined && max !== undefined && min >= max ? [`項目「${id}」のminがmax以上です`] : [])
+]
+
+const withDefault = (
+  range: ReadonlyArray<string>,
+  fallback: string | undefined,
+  check: () => string | undefined
+): ReadonlyArray<string> => {
+  if (range.length > 0 || fallback === undefined) {
+    return range
+  }
+  const problem = check()
+  return problem === undefined ? [] : [`${problem}(default)`]
+}
+
+const dateFieldProblems = (field: DateField): ReadonlyArray<string> =>
+  withDefault(bounded(field.id, field.min, field.max, isDate), field.default, () => dateProblem(field, field.default))
+
+const timeFieldProblems = (field: TimeField): ReadonlyArray<string> =>
+  withDefault(
+    bounded(field.id, field.min, field.max, (value) => minutesOf(value) !== undefined),
+    field.default,
+    () => timeProblem(field, field.default)
+  )
+
+const maxTreeNodes = 100
+
+const treeProblems = (field: TreeChoiceField): ReadonlyArray<string> => {
+  const nodes = treeNodes(field.nodes)
+  const values = new Set(nodes.map((node) => node.value))
+  const defaults = field.default === undefined ? [] : typeof field.default === "string" ? [field.default] : field.default
+  const nested = isMultiple(field)
+    ? defaults.filter((value) => treeAncestors(field.nodes, [value]).some((ancestor) => defaults.includes(ancestor)))
+    : []
+  return [
+    ...(nodes.length > maxTreeNodes
+      ? [`項目「${field.id}」の木の項目が${nodes.length}個あります。${maxTreeNodes}個以下にしてください`]
+      : []),
+    ...(values.size === nodes.length ? [] : [`項目「${field.id}」の木のvalueが重複しています`]),
+    ...choiceDefaultProblems(field, values),
+    ...nested.map((value) => `項目「${field.id}」のdefault「${value}」は、祖先がdefaultにあるので要りません`)
+  ]
 }
 
 const reasonProblems = (field: Field): ReadonlyArray<string> =>
@@ -107,7 +324,20 @@ const typeProblems = (field: Field): ReadonlyArray<string> => {
     case "number":
       return numberProblems(field)
     case "choice":
-      return choiceProblems(field)
+    case "searchChoice":
+      return optionProblems(field)
+    case "ranking":
+      return rankingProblems(field)
+    case "numberRange":
+      return rangeProblems(field)
+    case "textList":
+      return listProblems(field)
+    case "date":
+      return dateFieldProblems(field)
+    case "time":
+      return timeFieldProblems(field)
+    case "treeChoice":
+      return treeProblems(field)
     default:
       return []
   }
@@ -118,7 +348,7 @@ const fieldProblems = (field: Field): ReadonlyArray<string> => [...reasonProblem
 export const compile = (input: unknown): Result.Result<CompiledForm, ReadonlyArray<string>> => {
   const decoded = decodeSpec(input)
   if (Result.isFailure(decoded)) {
-    return Result.fail([decoded.failure.message])
+    return Result.fail(decodeProblems(decoded.failure.issue))
   }
   const spec = decoded.success
   const problems = semanticProblems(spec, input)
@@ -135,8 +365,8 @@ const numberProblem = (field: NumberField, value: unknown): string | undefined =
   return value < field.min || value > field.max ? `項目「${field.id}」が範囲外です` : undefined
 }
 
-const choiceProblem = (field: ChoiceField, value: unknown): string | undefined => {
-  const allowed = new Set(field.options.map((option) => option.value))
+const choiceProblem = (field: ChoiceField | SearchChoiceField | TreeChoiceField, value: unknown): string | undefined => {
+  const allowed = new Set((field.type === "treeChoice" ? treeNodes(field.nodes) : field.options).map((option) => option.value))
   if (isMultiple(field)) {
     return Array.isArray(value) &&
       new Set(value).size === value.length &&
@@ -154,7 +384,23 @@ const valueProblem = (field: Field, value: unknown): string | undefined => {
     case "number":
       return numberProblem(field, value)
     case "choice":
+    case "searchChoice":
+    case "treeChoice":
       return choiceProblem(field, value)
+    case "ranking":
+      return isRanking(value, field)
+        ? undefined
+        : `項目「${field.id}」は、選択肢のvalueを重複なく${rankBounds(field).join("〜")}個並べた配列が必要です`
+    case "numberRange":
+      return isRangeValue(value, field) ? undefined : `項目「${field.id}」は、${field.min}〜${field.max}の範囲の[下限, 上限]が必要です`
+    case "textList":
+      return isList(value)
+        ? undefined
+        : `項目「${field.id}」は、${maxListItemLength}文字以下の空でない文字列を重複なく${maxListItems}個まで並べた配列が必要です`
+    case "date":
+      return dateProblem(field, value)
+    case "time":
+      return timeProblem(field, value)
   }
 }
 
@@ -166,9 +412,7 @@ const checkHeld = (spec: FormSpec, values: Values, input: unknown): ReadonlyArra
   const actual = new Set(heldFields(spec, values))
   return [
     ...[...actual].filter((id) => !declared.has(id)).map((id) => `項目「${id}」は値か、heldが必要です`),
-    ...[...declared]
-      .filter((id) => !actual.has(id))
-      .map((id) => `項目「${id}」はheldにできません。値があるか、選ばれていない選択肢の項目です`)
+    ...[...declared].filter((id) => !actual.has(id)).map((id) => `項目「${id}」はheldにできません。値があるか、表示されていない項目です`)
   ]
 }
 
@@ -182,7 +426,7 @@ const checkComments = (spec: FormSpec, values: Values, input: unknown): Result.R
   const active = new Set(activeFields(spec, values).map((field) => field.id))
   const entries = Object.entries(input as Record<string, unknown>)
   const problems = entries.flatMap(([id, comment]) => [
-    ...(active.has(id) ? [] : [`項目「${id}」にはコメントを付けられません。有効な項目ではありません`]),
+    ...(active.has(id) ? [] : [`項目「${id}」にはコメントを付けられません。表示されている項目ではありません`]),
     ...(typeof comment === "string" && comment.length <= maxCommentLength
       ? []
       : [`項目「${id}」のコメントは${maxCommentLength}文字以下の文字列が必要です`])

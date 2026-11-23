@@ -16,7 +16,7 @@ const inlineRefs = (value: unknown, definitions: Readonly<Record<string, unknown
   return value
 }
 
-const document = Schema.toJsonSchemaDocument(FormSpec)
+const document = Schema.toJsonSchemaDocument(FormSpec, { onExcessProperty: "error" })
 
 export const formSpecJsonSchema = inlineRefs(document.schema, document.definitions) as {
   readonly type: "object"
@@ -30,8 +30,8 @@ export const askFormDescription = [
   "Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose.",
   "Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description.",
   "Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious.",
-  "For a yes/no question, use a choice with two options.",
-  "When some fields only matter for one option of a single-select choice, put them in that option's fields instead of asking separately; the answer then contains only the chosen option's fields.",
+  "For a yes/no question, use a choice with two options. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, which lets the user type to narrow them, and treeChoice when the candidates form a hierarchy, such as folders, files or modules. To ask for an order, such as priorities, use a ranking field. To ask for a span with a lower and an upper bound, such as supported versions or a budget, use a numberRange field. To let the user write any number of free-form values, such as paths, tags or domains, use a textList field. For a calendar date or a time of day, use a date or time field.",
+  "When some questions only matter for certain options of a choice or searchChoice, add them as ordinary fields with a when naming that question and the options they depend on, instead of asking separately; the form shows them right after that question wherever they are written in fields, only while one of those options is selected, and the answer leaves out the hidden ones.",
   "Write labels in the user's language. Never ask for secrets or credentials.",
   "Do not use it when the user asked you to work autonomously.",
   "The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again.",
