@@ -36,9 +36,25 @@ export const treeAncestors = (nodes: ReadonlyArray<TreeNode>, values: ReadonlyAr
 const selects = (value: FieldValue | undefined, anyOf: ReadonlyArray<string>): boolean =>
   Array.isArray(value) ? value.some((item) => anyOf.includes(String(item))) : typeof value === "string" && anyOf.includes(value)
 
+const followUpsOf = (spec: FormSpec): ReadonlyMap<string, ReadonlyArray<Field>> => {
+  const groups = new Map<string, Array<Field>>()
+  for (const field of spec.fields) {
+    if (field.when !== undefined) {
+      groups.set(field.when.field, [...(groups.get(field.when.field) ?? []), field])
+    }
+  }
+  return groups
+}
+
+export const displayOrder = (spec: FormSpec): ReadonlyArray<Field> => {
+  const followUps = followUpsOf(spec)
+  const placed = (field: Field): ReadonlyArray<Field> => [field, ...(followUps.get(field.id) ?? []).flatMap((followUp) => placed(followUp))]
+  return spec.fields.filter((field) => field.when === undefined).flatMap((field) => placed(field))
+}
+
 export const activeFields = (spec: FormSpec, values: Values): ReadonlyArray<Field> => {
   const shown = new Set<string>()
-  return spec.fields.filter((field) => {
+  return displayOrder(spec).filter((field) => {
     const visible = field.when === undefined || (shown.has(field.when.field) && selects(values[field.when.field], field.when.anyOf))
     if (visible) {
       shown.add(field.id)
@@ -245,7 +261,7 @@ const withoutWhen = ({ when: _when, ...field }: Field): Field => field
 
 const heldForm = (spec: FormSpec, held: ReadonlyArray<string>): HeldForm => ({
   title: spec.title,
-  fields: spec.fields
+  fields: displayOrder(spec)
     .filter((field) => held.includes(field.id))
     .map((field) => (field.when === undefined || held.includes(field.when.field) ? field : withoutWhen(field)))
 })

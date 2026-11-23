@@ -112,7 +112,7 @@ describe("SPEC-FORM-001 AIに示すスキーマの形", () => {
 })
 
 describe("SPEC-FORM-001 条件付きの項目", () => {
-  it("SPEC-FORM-001 前にある単一選択か複数選択の項目を参照するwhenを持つ設計図を受け付ける", () =>
+  it("SPEC-FORM-001 前にも後ろにもある単一選択か複数選択の項目を参照するwhenを持つ設計図を受け付ける", () =>
     withHarness((h) =>
       Effect.gen(function* () {
         assert.equal(
@@ -120,8 +120,8 @@ describe("SPEC-FORM-001 条件付きの項目", () => {
             compile({
               title: "t",
               fields: [
-                { type: "searchChoice", id: "pkgs", label: "P", multiple: true, options: searchOptions(7) },
-                field({ when: { field: "pkgs", anyOf: ["v1", "v2"] } })
+                field({ when: { field: "pkgs", anyOf: ["v1", "v2"] } }),
+                { type: "searchChoice", id: "pkgs", label: "P", multiple: true, options: searchOptions(7) }
               ]
             })
           ),
@@ -133,18 +133,19 @@ describe("SPEC-FORM-001 条件付きの項目", () => {
       })
     ))
 
-  it("SPEC-FORM-002 whenが後ろの項目、選択でない項目、選択肢に無い値を参照する設計図を拒否する", () =>
+  it("SPEC-FORM-002 whenが未定義の項目、選択でない項目、選択肢に無い値を参照する設計図と、whenが循環する設計図を拒否する", () =>
     withHarness((h) =>
       rejectedWith(
         h,
         {
           title: "t",
           fields: [
-            field({ id: "early", when: { field: "pick", anyOf: ["a"] } }),
+            field({ id: "early", when: { field: "nothing", anyOf: ["a"] } }),
             {
               type: "choice",
               id: "pick",
               label: "P",
+              when: { field: "pick", anyOf: ["a"] },
               options: [
                 { value: "a", label: "A" },
                 { value: "b", label: "B" }
@@ -154,7 +155,13 @@ describe("SPEC-FORM-001 条件付きの項目", () => {
             field({ id: "stray", when: { field: "pick", anyOf: ["z"] } })
           ]
         },
-        [/early.*後ろにある.*pick/, /typed.*early.*choiceかsearchChoiceではありません/, /stray.*z.*選択肢にありません/]
+        [
+          /early.*未定義の項目「nothing」/,
+          /pick.*自分自身/,
+          /stray.*循環/,
+          /typed.*early.*choiceかsearchChoiceではありません/,
+          /stray.*z.*選択肢にありません/
+        ]
       )
     ))
 })

@@ -37,14 +37,14 @@ const commonFields = {
   when: Schema.optionalKey(
     Schema.Struct({
       field: Identifier.annotate({
-        description: "The id of an earlier choice or searchChoice field, single or multiple."
+        description: "The id of a choice or searchChoice field, single or multiple, anywhere in fields."
       }),
       anyOf: Schema.Array(required(60)).check(Schema.isMinLength(1)).annotate({
         description: "Option values of that field. The field is shown while one of them is selected."
       })
     }).annotate({
       description:
-        "Show this field only while an earlier choice or searchChoice field has one of anyOf selected. For a follow-up question, put it as an ordinary field right after the question it depends on and give it when. While hidden, the field is left out of the answer, and so are fields whose when refers to it."
+        "Makes this field a follow-up question of a choice or searchChoice field: it is shown only while that field is shown and has one of anyOf selected. The form places follow-ups right after the question they depend on, in the order they appear in fields, wherever they are written. While hidden, the field is left out of the answer, and so are its own follow-ups."
     })
   )
 }

@@ -2,6 +2,7 @@ import { expect, test, type Frame, type Page } from "@playwright/test"
 import AxeBuilder from "../support/axe.ts"
 import { eventSpec } from "../fixtures/event.ts"
 import { storageSpec } from "../fixtures/storage.ts"
+import { branchSpec } from "../fixtures/branches.ts"
 import { openForm, recorded, startServer, type HarnessServer, type PageOptions } from "../support/ui.ts"
 import { themeContext, type ThemeName } from "../support/themes.ts"
 
@@ -302,7 +303,7 @@ const shownQuestions = (frame: Frame, fields: string) =>
     .evaluateAll((cards) => cards.map((card) => [card.querySelector(".q-label")?.textContent, getComputedStyle(card).borderTopStyle]))
 
 test.describe("SPEC-UI-011 条件付きの項目", () => {
-  test("SPEC-UI-011 条件付きの項目を設計図の位置に並べ、隠れた質問の分の区切り線を引かない", async ({ page }) => {
+  test("SPEC-UI-011 隠れた質問の分の区切り線を引かない", async ({ page }) => {
     const frame = await openStorage(page)
     await selectStorage(frame, "サーバー")
     expect(await shownQuestions(frame, "form > .fields")).toEqual([
@@ -335,6 +336,26 @@ test.describe("SPEC-UI-011 条件付きの項目", () => {
     await frame.getByRole("radio", { name: "サーバー" }).evaluate((radio) => (radio as HTMLElement).click())
     await expect(frame.getByRole("group", { name: "保存方式" })).toBeHidden()
     await expect(frame.getByRole("group", { name: "保存先" }).locator(":focus")).toHaveCount(1)
+  })
+
+  test("SPEC-UI-011 続きの質問は、設計図のどこに書いても元の質問のすぐ後ろに並べる", async ({ page }) => {
+    const frame = await open(page, { args: branchSpec })
+    expect((await shownQuestions(frame, "form > .fields")).map(([label]) => label)).toEqual([
+      "ログインの方式",
+      "パスワードの最小文字数",
+      "二段階認証",
+      "使える認証の手段",
+      "打刻漏れを知らせる方法",
+      "送信元のメールアドレス",
+      "Slackのチャンネル",
+      "通知を止める時間帯",
+      "最初のリリース日"
+    ])
+    await frame.getByRole("radio", { name: "社内SSO" }).check()
+    expect((await shownQuestions(frame, "form > .fields")).map(([label]) => label).slice(0, 2)).toEqual([
+      "ログインの方式",
+      "テナントのドメイン"
+    ])
   })
 
   test("SPEC-UI-011 回答には表示されている項目だけを含める", async ({ page }) => {

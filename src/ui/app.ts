@@ -6,6 +6,7 @@ import {
   computeValues,
   describeComputed,
   describeValue,
+  displayOrder,
   formatNumber,
   heldFields,
   initialValues,
@@ -658,7 +659,7 @@ export class FormApp {
       h(
         "div",
         { class: "fields" },
-        spec.fields.map((field) => this.card(field))
+        displayOrder(spec).map((field) => this.card(field))
       ),
       (spec.computed ?? []).length === 0 ? null : this.computedView(),
       this.noteView(),

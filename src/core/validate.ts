@@ -70,8 +70,22 @@ const expressionProblems = (spec: FormSpec): ReadonlyArray<string> => {
   })
 }
 
+const whenChain = (spec: FormSpec, field: Field): ReadonlyArray<string> | undefined => {
+  const chain = [field.id]
+  let current: Field | undefined = field
+  while (current?.when !== undefined) {
+    const id: string = current.when.field
+    if (chain.includes(id)) {
+      return [...chain, id]
+    }
+    chain.push(id)
+    current = spec.fields.find((item) => item.id === id)
+  }
+  return undefined
+}
+
 const whenProblems = (spec: FormSpec): ReadonlyArray<string> =>
-  spec.fields.flatMap((field, index) => {
+  spec.fields.flatMap((field) => {
     if (field.when === undefined) {
       return []
     }
@@ -79,15 +93,19 @@ const whenProblems = (spec: FormSpec): ReadonlyArray<string> =>
     if (id === field.id) {
       return [`項目「${field.id}」のwhenが自分自身を参照しています`]
     }
-    const source = spec.fields.slice(0, index).find((earlier) => earlier.id === id)
+    const source = spec.fields.find((item) => item.id === id)
     if (source === undefined) {
-      return [`項目「${field.id}」のwhenが未定義か後ろにある項目「${id}」を参照しています`]
+      return [`項目「${field.id}」のwhenが未定義の項目「${id}」を参照しています`]
     }
+    const loop = whenChain(spec, field)
+    const looped =
+      loop === undefined ? [] : [`項目「${field.id}」のwhenをたどると「${loop.join("」→「")}」と循環し、whenのない項目にたどり着きません`]
     if (source.type !== "choice" && source.type !== "searchChoice") {
-      return [`項目「${field.id}」のwhenが参照する項目「${id}」は、choiceかsearchChoiceではありません`]
+      return [...looped, `項目「${field.id}」のwhenが参照する項目「${id}」は、choiceかsearchChoiceではありません`]
     }
     const values = new Set(source.options.map((option) => option.value))
     return [
+      ...looped,
       ...(new Set(anyOf).size === anyOf.length ? [] : [`項目「${field.id}」のwhenのanyOfが重複しています`]),
       ...anyOf
         .filter((value) => !values.has(value))

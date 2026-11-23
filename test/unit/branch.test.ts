@@ -4,6 +4,7 @@ import { Result } from "effect"
 import {
   heldFields,
   activeFields,
+  displayOrder,
   answerValues,
   changedFields,
   computeValues,
@@ -13,6 +14,7 @@ import {
 } from "../../src/core/form.ts"
 import { checkAnswer, checkValues, compile } from "../../src/core/validate.ts"
 import { storageForm, storageSpec } from "../fixtures/storage.ts"
+import { branchSpec } from "../fixtures/branches.ts"
 import { problems } from "../support/compile.ts"
 
 const choice = (id: string, options: ReadonlyArray<unknown>, extra: Record<string, unknown> = {}) => ({
@@ -26,6 +28,8 @@ const choice = (id: string, options: ReadonlyArray<unknown>, extra: Record<strin
 const text = (id: string) => ({ type: "text", id, label: id })
 
 const ids = (values: Values) => Object.keys(values)
+
+const fieldIds = (fields: ReadonlyArray<{ readonly id: string }>) => fields.map((field) => field.id)
 
 describe("DES-FORM-006 有効な項目と値", () => {
   it("DES-FORM-006 whenの選択肢が選ばれている項目だけを有効にする", () => {
@@ -109,7 +113,7 @@ describe("DES-FORM-006 差分と検査", () => {
     assert.equal(wrong.failure.length, 2)
   })
 
-  it("DES-FORM-006 whenの参照先と値が正しくない設計図を拒否する", () => {
+  it("DES-FORM-006 whenの参照先と値が正しくない設計図と、whenをたどると循環する設計図を拒否する", () => {
     const ab = [
       { value: "a", label: "A" },
       { value: "b", label: "B" }
@@ -118,25 +122,78 @@ describe("DES-FORM-006 差分と検査", () => {
       problems({
         title: "t",
         fields: [
-          { ...text("before"), when: { field: "later", anyOf: ["a"] } },
           text("plain"),
-          choice("later", ab),
+          choice("pick", ab),
           { ...text("self"), when: { field: "self", anyOf: ["a"] } },
           { ...text("unknown"), when: { field: "nothing", anyOf: ["a"] } },
           { ...text("notChoice"), when: { field: "plain", anyOf: ["a"] } },
-          { ...text("missing"), when: { field: "later", anyOf: ["a", "c"] } },
-          { ...text("twice"), when: { field: "later", anyOf: ["b", "b"] } }
+          { ...text("missing"), when: { field: "pick", anyOf: ["a", "c"] } },
+          { ...text("twice"), when: { field: "pick", anyOf: ["b", "b"] } },
+          { ...choice("ping", ab), when: { field: "pong", anyOf: ["a"] } },
+          { ...choice("pong", ab), when: { field: "ping", anyOf: ["a"] } },
+          { ...text("hanging"), when: { field: "ping", anyOf: ["b"] } }
         ]
       }),
       [
-        "項目「before」のwhenが未定義か後ろにある項目「later」を参照しています",
         "項目「self」のwhenが自分自身を参照しています",
-        "項目「unknown」のwhenが未定義か後ろにある項目「nothing」を参照しています",
+        "項目「unknown」のwhenが未定義の項目「nothing」を参照しています",
         "項目「notChoice」のwhenが参照する項目「plain」は、choiceかsearchChoiceではありません",
-        "項目「missing」のwhenのanyOfの「c」が、項目「later」の選択肢にありません",
-        "項目「twice」のwhenのanyOfが重複しています"
+        "項目「missing」のwhenのanyOfの「c」が、項目「pick」の選択肢にありません",
+        "項目「twice」のwhenのanyOfが重複しています",
+        "項目「ping」のwhenをたどると「ping」→「pong」→「ping」と循環し、whenのない項目にたどり着きません",
+        "項目「pong」のwhenをたどると「pong」→「ping」→「pong」と循環し、whenのない項目にたどり着きません",
+        "項目「hanging」のwhenをたどると「hanging」→「ping」→「pong」→「ping」と循環し、whenのない項目にたどり着きません"
       ]
     )
+  })
+})
+
+describe("DES-FORM-006 表示の順", () => {
+  it("DES-FORM-006 続きの質問は、設計図のどこに書いても元の質問のすぐ後ろに、兄弟の間では設計図の順に並ぶ", () => {
+    const form = compile(branchSpec).pipe(Result.getOrThrow)
+    assert.deepEqual(fieldIds(displayOrder(form.spec)), [
+      "auth",
+      "tenant",
+      "minLength",
+      "mfa",
+      "mfaApp",
+      "notify",
+      "from",
+      "channel",
+      "quiet",
+      "release"
+    ])
+    assert.deepEqual(fieldIds(activeFields(form.spec, initialValues(form.spec))), [
+      "auth",
+      "minLength",
+      "mfa",
+      "mfaApp",
+      "notify",
+      "from",
+      "channel",
+      "quiet",
+      "release"
+    ])
+    assert.deepEqual(fieldIds(activeFields(form.spec, { ...initialValues(form.spec), mfa: "off", notify: ["sms"] })), [
+      "auth",
+      "minLength",
+      "mfa",
+      "notify",
+      "quiet",
+      "release"
+    ])
+  })
+
+  it("DES-FORM-006 heldと聞き直しの設計図は、設計図の順ではなく表示の順に並べる", () => {
+    const form = compile(branchSpec).pipe(Result.getOrThrow)
+    const values = { auth: "password", mfa: "required", notify: ["sms"] }
+    assert.deepEqual(heldFields(form.spec, values), ["minLength", "mfaApp", "quiet", "release"])
+    const outcome = outcomeFor(form, "submit", {
+      values,
+      comments: { minLength: "任せる", mfaApp: "任せる", quiet: "任せる", release: "任せる" }
+    })
+    assert.ok(outcome.status === "submitted")
+    assert.deepEqual(fieldIds(outcome.heldForm?.fields ?? []), ["minLength", "mfaApp", "quiet", "release"])
   })
 })
 
