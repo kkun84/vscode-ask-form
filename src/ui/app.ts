@@ -765,13 +765,11 @@ export class FormApp {
     const answer = h("span", { class: "q-answer", id: uid("answer") })
     const comment = this.commentView(field)
     const toggle = hasDetails(field)
-      ? h("button", {
-          type: "button",
-          class: "fold",
-          "aria-label": this.m.detailsOf(field.label),
-          title: this.m.detailsOf(field.label),
-          "aria-controls": groupId
-        })
+      ? h(
+          "button",
+          { type: "button", class: "fold", "aria-label": this.m.detailsOf(field.label), "aria-controls": groupId },
+          this.m.details
+        )
       : null
     const back = picks(field) ? null : h("button", { type: "button", class: "link", hidden: true }, this.m.backToRecommended)
     const recommended = this.initialText(field)
@@ -781,7 +779,7 @@ export class FormApp {
     const element = h(
       "div",
       { class: "q", role: "group", "aria-labelledby": labelId, "aria-describedby": descId },
-      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), toggle, answer, unselect, comment.open),
+      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), answer, unselect, toggle, comment.open),
       field.description === undefined ? null : h("p", { class: "q-desc", id: descId }, field.description),
       h("div", { class: picks(field) ? "q-group choices" : "q-group", id: groupId }, control, rec),
       comment.box
@@ -802,23 +800,6 @@ export class FormApp {
     }
     if (toggle !== null) {
       on(toggle, "click", () => this.setFolded(field.id, !this.folded.has(field.id)))
-      const head = element.querySelector<HTMLElement>(".q-head")
-      if (head !== null) {
-        on(head, "click", (event) => {
-          if ((event.target as HTMLElement).closest("button") === null) {
-            this.setFolded(field.id, !this.folded.has(field.id))
-          }
-        })
-      }
-      const unfold = (event: Event) => {
-        const target = event.target as HTMLElement
-        const choosing = target.closest(".option") !== null && !(event.type === "focusin" && target.matches(":focus-visible"))
-        if (target.closest(".q-head") === null && !choosing && target.closest(".q") === element) {
-          this.setFolded(field.id, false)
-        }
-      }
-      on(element, "pointerdown", unfold)
-      on(element, "focusin", unfold)
     }
     return element
   }
@@ -1266,7 +1247,6 @@ export class FormApp {
     const multiple = field.multiple === true
     const recommended = field.default === undefined ? [] : Array.isArray(field.default) ? field.default : [field.default]
     const current = this.values[field.id]
-    let pointing = false
     const rows = new Map<string, { readonly row: HTMLElement; readonly control: HTMLElement }>()
     this.live.optionRows.set(field.id, rows)
     const followUps = this.followUps.get(field.id) ?? []
@@ -1324,20 +1304,10 @@ export class FormApp {
         this.setValue(field.id, Array.isArray(next) ? [...next] : [])
       } else if (typeof next === "string") {
         this.setValue(field.id, next)
-        if (pointing) {
-          this.setFolded(field.id, true)
-        }
       }
-      pointing = false
     })
     this.live.setters.set(field.id, (next) => {
       group.value = Array.isArray(next) ? [...next] : (next as string)
-    })
-    on(group, "pointerdown", () => {
-      pointing = true
-    })
-    on(group, "keydown", () => {
-      pointing = false
     })
     return group
   }
@@ -1433,7 +1403,7 @@ export class FormApp {
   private remainingView(): HTMLElement {
     const element = on(h("button", { type: "button", class: "remaining", hidden: true }), "click", () => this.focusNextUnanswered())
     this.live.remaining = element
-    return h("ui-button", { class: "remaining-box" }, element)
+    return h("ui-button", {}, element)
   }
 
   private focusNextUnanswered(): void {

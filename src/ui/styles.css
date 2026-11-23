@@ -339,44 +339,33 @@ html {
 
 .fold {
   flex: none;
-  display: grid;
-  place-items: center;
-  width: 20px;
-  min-height: 24px;
-  padding: 0;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 0 8px 0 6px;
+  border: 1px solid var(--contrast-border);
   background: transparent;
   color: var(--muted);
+  font-size: 12px;
 }
 
-.q-head:has(.fold) {
-  margin-inline: -6px;
-  padding-inline: 6px;
-  border-radius: 5px;
-  cursor: pointer;
-  user-select: none;
-  transition: background-color 120ms ease;
-}
-
-.q-head:has(.fold):hover {
+.fold:hover {
   background: var(--hover);
-}
-
-.q-head:hover .fold {
   color: var(--fg);
 }
 
-.fold::before {
+.fold::after {
   content: "";
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
   transform: translateX(-1px) rotate(-45deg);
   transition: transform 160ms var(--ease);
 }
 
-.fold[aria-expanded="true"]::before {
+.fold[aria-expanded="true"]::after {
   transform: translateY(-2px) rotate(45deg);
 }
 
@@ -608,15 +597,8 @@ input.exact {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
-.remaining-box {
-  margin-left: auto;
-}
-
-.remaining-box:has([hidden]) {
-  display: none;
-}
-
 button.remaining {
+  margin-left: auto;
   padding: 0 8px;
   border: 1px solid var(--contrast-border);
   background: transparent;
@@ -681,7 +663,7 @@ button.remaining.alert {
   font-size: 11px;
 }
 
-.remaining-box:not(:has([hidden])) + .shortcut {
+.actions:has(button.remaining:not([hidden])) .shortcut {
   margin-left: 0;
 }
 

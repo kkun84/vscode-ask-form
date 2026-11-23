@@ -72,21 +72,6 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await expect(back).toBeHidden()
   })
 
-  test("SPEC-UI-001 選択肢をポインターで選ぶと詳しい説明と推奨の理由を畳み、見出しで開き直せる", async ({ page }) => {
-    const frame = await open(page)
-    const why = frame.locator(".option .rec", { hasText: "依頼文より" })
-    await expect(why).toBeVisible()
-    await expect(frame.getByRole("radio", { name: "交流会 推奨" })).toHaveAccessibleDescription(/依頼文より/)
-    await frame.getByText("勉強会", { exact: true }).click()
-    await expect(why).toBeHidden()
-    await expect(frame.getByRole("radio", { name: "交流会 推奨" })).not.toHaveAccessibleDescription(/依頼文より/)
-    const toggle = frame.getByRole("button", { name: "形式の詳しい説明" })
-    await expect(toggle).toHaveAttribute("aria-expanded", "false")
-    await frame.getByText("形式", { exact: true }).click()
-    await expect(toggle).toHaveAttribute("aria-expanded", "true")
-    await expect(why).toBeVisible()
-  })
-
   test("SPEC-UI-001 理由のない推奨は、推奨のままの間は見出しの札だけで示し、変えたら推奨の値を出して戻せる", async ({ page }) => {
     const frame = await open(page, { args: { title: "t", fields: [{ type: "text", id: "word", label: "言葉", default: "hi" }] } })
     const word = frame.getByRole("textbox", { name: "言葉" })
@@ -94,7 +79,7 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await expect(badge).toHaveText("推奨")
     await expect(word).toHaveAccessibleDescription("推奨")
     await expect(frame.locator(".rec")).toBeHidden()
-    await expect(frame.getByRole("button", { name: "言葉の詳しい説明" })).toHaveCount(0)
+    await expect(frame.getByRole("button", { name: "言葉の詳細" })).toHaveCount(0)
     await word.fill("yo")
     await expect(badge).toHaveCount(0)
     await expect(frame.locator(".rec")).toBeVisible()
@@ -134,6 +119,31 @@ test.describe("SPEC-UI-001 初期表示", () => {
     expect(await recorded(page, "outcomes")).toHaveLength(0)
     await frame.getByRole("radio", { name: "青" }).check()
     await expect(remaining).toBeHidden()
+  })
+})
+
+test.describe("SPEC-UI-001 詳細の開閉", () => {
+  test("SPEC-UI-001 選択肢を選んでも質問名を押しても詳細を畳まず、「詳細」のボタンでだけ畳んで開き直せる", async ({ page }) => {
+    const frame = await open(page)
+    const why = frame.locator(".option .rec", { hasText: "依頼文より" })
+    const recommended = frame.getByRole("radio", { name: "交流会 推奨" })
+    const toggle = frame.getByRole("button", { name: "形式の詳細" })
+    await expect(toggle).toHaveText("詳細")
+    await expect(toggle).toHaveAttribute("aria-expanded", "true")
+    await frame.getByText("勉強会", { exact: true }).click()
+    await frame.getByText("形式", { exact: true }).click()
+    await expect(why).toBeVisible()
+    await expect(toggle).toHaveAttribute("aria-expanded", "true")
+    await expect(recommended).toHaveAccessibleDescription(/依頼文より/)
+    await toggle.click()
+    await expect(toggle).toHaveAttribute("aria-expanded", "false")
+    await expect(why).toBeHidden()
+    await expect(recommended).not.toHaveAccessibleDescription(/依頼文より/)
+    await recommended.focus()
+    await frame.getByText("ハッカソン", { exact: true }).click()
+    await expect(why).toBeHidden()
+    await toggle.click()
+    await expect(why).toBeVisible()
   })
 })
 
@@ -214,7 +224,7 @@ test.describe("SPEC-UI-001 推奨の示し方", () => {
       }
     })
     await expect(frame.locator(".option .rec")).toContainText("画面の他の部分と合わせました。")
-    await expect(frame.getByRole("button", { name: "色の詳しい説明" })).toBeVisible()
+    await expect(frame.getByRole("button", { name: "色の詳細" })).toBeVisible()
   })
 })
 
