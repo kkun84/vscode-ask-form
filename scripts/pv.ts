@@ -65,7 +65,7 @@ const page = (body: string) =>
 
 const titleCard = `<div class="center">
   <div class="pill">VS Code 拡張機能 for GitHub Copilot</div>
-  <div class="logo">Ask <span>Form</span></div>
+  <div class="logo">Ask User <span>Form</span></div>
   <div class="tagline">Copilotが、1回のフォームで聞き切る。</div>
 </div>`
 
@@ -99,7 +99,7 @@ const featureCard = `<div class="center">
 </div>`
 
 const endCard = `<div class="center">
-  <div class="logo">Ask <span>Form</span></div>
+  <div class="logo">Ask User <span>Form</span></div>
   <div class="tagline">選んだ答えで、続きの質問が変わる。</div>
   <div class="url">github.com/kkun84/vscode-ask-user-form</div>
   <div class="sub">VS Code 1.110以降 ・ MIT License</div>
