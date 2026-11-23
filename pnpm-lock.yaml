@@ -172,11 +172,11 @@ importers:
   .:
     dependencies:
       '@ui-sdk/core':
-        specifier: 0.1.0-beta.10
-        version: 0.1.0-beta.10
+        specifier: 0.1.0-beta.13
+        version: 0.1.0-beta.13
       '@ui-sdk/web':
         specifier: 0.1.0-beta.10
-        version: 0.1.0-beta.10(@ui-sdk/core@0.1.0-beta.10)
+        version: 0.1.0-beta.10(@ui-sdk/core@0.1.0-beta.13)
       effect:
         specifier: 4.1.4
         version: 4.1.4
@@ -1420,8 +1420,8 @@ packages:
     resolution: {integrity: sha512-KZlacW7zFdcIOAcpNiV5U9fy0Tfgw7xdEc4rVyuUtQS+UR1Sn32PXuAz+AJ70Y0yzTWh62/pEEpFmWUJl6YySw==}
     engines: {node: '>=22.0.0'}
 
-  '@ui-sdk/core@0.1.0-beta.10':
-    resolution: {integrity: sha512-Rtm3QtuRT9U5nAlhIwKf2TzNIDZeOq3VmPzIiy55K3nFGeZokpPmHdF5ryaZmsByImNhOdRv5P7TOMro48NB+Q==}
+  '@ui-sdk/core@0.1.0-beta.13':
+    resolution: {integrity: sha512-URjk9hqdc/cZKDtw6Gb9NqjY48U8l0EgoP4d5ghlooa3av+GrR0iSmsav133UU4oelcuKIO1ZPJ4j7gIPMr1Vg==}
 
   '@ui-sdk/web@0.1.0-beta.10':
     resolution: {integrity: sha512-YGSWDcLJmmNMWhfL1jWwwqcy8jTfyMWUFOZ3e0o91n+o/d+Y8iwoJDSlolMLQKqG3y0UyfbpkAYS9n7MmCIjug==}
@@ -3235,11 +3235,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ui-sdk/core@0.1.0-beta.10': {}
+  '@ui-sdk/core@0.1.0-beta.13': {}
 
-  '@ui-sdk/web@0.1.0-beta.10(@ui-sdk/core@0.1.0-beta.10)':
+  '@ui-sdk/web@0.1.0-beta.10(@ui-sdk/core@0.1.0-beta.13)':
     dependencies:
-      '@ui-sdk/core': 0.1.0-beta.10
+      '@ui-sdk/core': 0.1.0-beta.13
 
   '@vitest/mocker@5.1.0(vite@8.3.8(@types/node@22.20.5))':
     dependencies:
