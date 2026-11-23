@@ -7,7 +7,7 @@
 | ID | 名前 | 派生元 | 派生先 | 検証 |
 | --- | --- | --- | --- | --- |
 | REQ-ASK-001 | フォームで質問できる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-001, SPEC-TOOL-004, SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, `test/acceptance/harness.spec.ts` |
-| REQ-ASK-002 | 推奨と理由が見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.spec.ts` |
+| REQ-ASK-002 | 推奨と理由が見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.spec.ts`, `test/acceptance/kinds.spec.ts` |
 | REQ-ASK-003 | 結果がその場で変わる | - | SPEC-FORM-001, SPEC-EXPR-001, SPEC-UI-002 | `test/acceptance/kinds.spec.ts` |
 | REQ-ASK-004 | 選んだ選択肢に応じて続きを聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-003, SPEC-UI-011 | `test/acceptance/kinds.spec.ts` |
 | REQ-ASK-005 | 順位を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-015 | `test/acceptance/kinds.spec.ts` |
@@ -17,7 +17,7 @@
 | REQ-ASK-009 | 日付と時刻を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-019 | `test/acceptance/kinds.spec.ts` |
 | REQ-ASK-010 | 階層のある候補から選ばせられる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-020 | `test/acceptance/kinds.spec.ts` |
 | REQ-ANS-001 | 1回の操作で回答が届く | - | SPEC-TOOL-001, SPEC-TOOL-003, SPEC-TOOL-005, SPEC-TOOL-006, SPEC-UI-003 | `test/acceptance/chat.spec.ts` |
-| REQ-ANS-003 | キャンセルしてチャットで答えられる | - | SPEC-TOOL-003, SPEC-UI-003 | `test/acceptance/chat.spec.ts` |
+| REQ-ANS-003 | キャンセルしてチャットで答えられる | - | SPEC-TOOL-003, SPEC-UI-003 | `test/acceptance/chat.spec.ts`, `test/acceptance/tool.spec.ts` |
 | REQ-ANS-005 | 質問ごとに、値を答えずにコメントだけで返せる | - | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-012 | `test/acceptance/chat.spec.ts` |
 | REQ-ANS-006 | 補足を添えられる | - | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-013 | `test/acceptance/chat.spec.ts` |
 | REQ-ANS-007 | 質問ごとにコメントを添えられる | - | SPEC-TOOL-005, SPEC-TOOL-010, SPEC-UI-014 | `test/acceptance/chat.spec.ts` |
