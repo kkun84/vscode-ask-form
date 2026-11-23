@@ -58,9 +58,9 @@ const corner = 8
 
 const dotRadius = 3
 
-export const gutterFor = (depth: number): number => laneBase + depth * laneStep + 12
+export const gutterFor = (depth: number): number => laneBase + depth * laneStep + 16
 
-const turnRight = (x: number, end: PlacedFollowUp): string => `Q ${x} ${end.y} ${x + corner} ${end.y} H ${end.x}`
+const turnRight = (x: number, end: PlacedFollowUp): string => `Q ${x} ${end.y} ${x + corner} ${end.y} H ${Math.max(end.x, x + corner)}`
 
 const into = (x: number, end: PlacedFollowUp): string => `V ${end.y - corner} ${turnRight(x, end)}`
 

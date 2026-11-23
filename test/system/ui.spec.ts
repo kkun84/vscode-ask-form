@@ -72,28 +72,21 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await expect(back).toBeHidden()
   })
 
-  test("SPEC-UI-001 選択肢をポインターで選ぶと詳しい説明と推奨の理由を畳み、見出しで開き直せる", async ({ page }) => {
-    const frame = await open(page)
-    const why = frame.locator(".option .rec", { hasText: "依頼文より" })
-    await expect(why).toBeVisible()
-    await expect(frame.getByRole("radio", { name: "交流会 推奨" })).toHaveAccessibleDescription(/依頼文より/)
-    await frame.getByText("勉強会", { exact: true }).click()
-    await expect(why).toBeHidden()
-    await expect(frame.getByRole("radio", { name: "交流会 推奨" })).not.toHaveAccessibleDescription(/依頼文より/)
-    const toggle = frame.getByRole("button", { name: "形式の詳しい説明" })
-    await expect(toggle).toHaveAttribute("aria-expanded", "false")
-    await frame.getByText("形式", { exact: true }).click()
-    await expect(toggle).toHaveAttribute("aria-expanded", "true")
-    await expect(why).toBeVisible()
-  })
-
-  test("SPEC-UI-001 理由のない推奨の値も示し、推奨に戻せる", async ({ page }) => {
+  test("SPEC-UI-001 理由のない推奨は、推奨のままの間は見出しの札だけで示し、変えたら推奨の値を出して戻せる", async ({ page }) => {
     const frame = await open(page, { args: { title: "t", fields: [{ type: "text", id: "word", label: "言葉", default: "hi" }] } })
     const word = frame.getByRole("textbox", { name: "言葉" })
-    await expect(frame.locator(".rec")).toContainText("推奨hi")
+    const badge = frame.locator(".q-head .badge")
+    await expect(badge).toHaveText("推奨")
+    await expect(word).toHaveAccessibleDescription("推奨")
+    await expect(frame.locator(".rec")).toBeHidden()
+    await expect(frame.getByRole("button", { name: "言葉の詳細" })).toHaveCount(0)
     await word.fill("yo")
+    await expect(badge).toHaveCount(0)
+    await expect(frame.locator(".rec")).toBeVisible()
+    await expect(frame.locator(".rec")).toContainText("推奨hi")
     await frame.getByRole("button", { name: "推奨に戻す" }).click()
     await expect(word).toHaveValue("hi")
+    await expect(frame.locator(".rec")).toBeHidden()
   })
 
   test("SPEC-UI-001 推奨のない選択肢は何も選ばずに始め、答えるか保留にするまで送信できない", async ({ page }) => {
@@ -115,11 +108,85 @@ test.describe("SPEC-UI-001 初期表示", () => {
     })
     await expect(frame.getByRole("radio", { name: "赤" })).not.toBeChecked()
     await expect(frame.getByRole("radio", { name: "青" })).not.toBeChecked()
+    const remaining = frame.locator("footer .remaining")
+    await expect(remaining).toHaveText("未回答 1問")
+    await expect(remaining).not.toHaveClass(/alert/)
     await frame.getByRole("button", { name: "送信", exact: true }).click()
+    await expect(remaining).toHaveClass(/alert/)
     await expect(frame.getByText("答えるか、コメントを書いてください: 色")).toBeVisible()
     await expect(frame.getByRole("radio", { name: "赤" })).toBeFocused()
     await expect(frame.getByRole("radiogroup", { name: "色" })).toHaveAttribute("aria-invalid", "true")
     expect(await recorded(page, "outcomes")).toHaveLength(0)
+    await frame.getByRole("radio", { name: "青" }).check()
+    await expect(remaining).toBeHidden()
+  })
+})
+
+test.describe("SPEC-UI-001 詳細の開閉", () => {
+  test("SPEC-UI-001 選択肢を選んでも質問名を押しても詳細を畳まず、「詳細」のボタンでだけ畳んで開き直せる", async ({ page }) => {
+    const frame = await open(page)
+    const why = frame.locator(".option .rec", { hasText: "依頼文より" })
+    const recommended = frame.getByRole("radio", { name: "交流会 推奨" })
+    const toggle = frame.getByRole("button", { name: "形式の詳細" })
+    await expect(toggle).toHaveText("詳細")
+    await expect(toggle).toHaveAttribute("aria-expanded", "true")
+    await frame.getByText("勉強会", { exact: true }).click()
+    await frame.getByText("形式", { exact: true }).click()
+    await expect(why).toBeVisible()
+    await expect(toggle).toHaveAttribute("aria-expanded", "true")
+    await expect(recommended).toHaveAccessibleDescription(/依頼文より/)
+    await toggle.click()
+    await expect(toggle).toHaveAttribute("aria-expanded", "false")
+    await expect(why).toBeHidden()
+    await expect(recommended).not.toHaveAccessibleDescription(/依頼文より/)
+    await recommended.focus()
+    await frame.getByText("ハッカソン", { exact: true }).click()
+    await expect(why).toBeHidden()
+    await toggle.click()
+    await expect(why).toBeVisible()
+  })
+})
+
+const pickOne = (id: string, label: string) => ({
+  type: "choice",
+  id,
+  label,
+  options: [
+    { value: "a", label: `${label}A` },
+    { value: "b", label: `${label}B` }
+  ]
+})
+
+test.describe("SPEC-UI-001 狭い幅", () => {
+  test("SPEC-UI-001 幅が狭くても質問名を途中で細かく折り返さず、見出しの札とボタンをまとめて次の行へ回す", async ({ page }) => {
+    await page.setViewportSize({ width: 340, height: 900 })
+    const frame = await open(page, { context: { locale: "en-US" } })
+    const head = frame.locator(".q-head", { hasText: "イベント名" })
+    const label = await head.locator(".q-label").boundingBox()
+    const actions = await head.locator(".q-actions").boundingBox()
+    expect(label?.height).toBeLessThan(24)
+    expect(actions?.y).toBeGreaterThan((label?.y ?? 0) + (label?.height ?? 0) - 4)
+    expect(await frame.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBe(0)
+  })
+})
+
+test.describe("SPEC-UI-001 未回答の数", () => {
+  test("SPEC-UI-001 未回答の数を押すたびに、次の未回答の質問へフォーカスを移し、最後の次は最初へ戻る", async ({ page }) => {
+    const frame = await open(page, {
+      args: { title: "t", fields: [pickOne("one", "一"), { type: "text", id: "word", label: "言葉" }, pickOne("two", "二")] }
+    })
+    const next = frame.getByRole("button", { name: "未回答 2問" })
+    await expect(next).toHaveAttribute("title", "次の未回答の質問へ移る")
+    await next.click()
+    await expect(frame.getByRole("radio", { name: "一A" })).toBeFocused()
+    await next.click()
+    await expect(frame.getByRole("radio", { name: "二A" })).toBeFocused()
+    await next.click()
+    await expect(frame.getByRole("radio", { name: "一A" })).toBeFocused()
+    await frame.getByRole("radio", { name: "一B" }).check()
+    await frame.getByRole("button", { name: "未回答 1問" }).click()
+    await expect(frame.getByRole("radio", { name: "二A" })).toBeFocused()
+    expect(await axeViolations(frame)).toEqual([])
   })
 })
 
@@ -170,7 +237,7 @@ test.describe("SPEC-UI-001 推奨の示し方", () => {
       }
     })
     await expect(frame.locator(".option .rec")).toContainText("画面の他の部分と合わせました。")
-    await expect(frame.getByRole("button", { name: "色の詳しい説明" })).toBeVisible()
+    await expect(frame.getByRole("button", { name: "色の詳細" })).toBeVisible()
   })
 })
 
@@ -601,7 +668,7 @@ test.describe("SPEC-UI-012 値のない回答", () => {
     expect(outcome.changedByUser).toEqual([])
   })
 
-  test("SPEC-UI-012 単一選択は選択肢の下の「選択を解除」で選択を外し、コメント欄を開く", async ({ page }) => {
+  test("SPEC-UI-012 単一選択は見出しの「選択を解除」で選択を外し、コメント欄を開く", async ({ page }) => {
     const frame = await openStorage(page)
     await expect(unselect(frame, "保存先")).toBeVisible()
     await unselect(frame, "保存先").click()
@@ -988,6 +1055,8 @@ test.describe("SPEC-UI-019 日付と時刻", () => {
     await frame.getByRole("button", { name: "リリース日のカレンダーを開く" }).click()
     const grid = frame.getByRole("grid")
     await expect(grid.getByRole("gridcell", { name: /2026年12月1日/ })).toBeFocused()
+    await expect(grid.getByRole("gridcell", { name: /2026年12月1日/ })).toHaveText("1")
+    await expect(frame.locator("ui-calendar-heading")).toHaveText("2026/12")
     await page.keyboard.press("ArrowRight")
     await page.keyboard.press("Enter")
     await expect(grid).toBeHidden()
@@ -995,8 +1064,10 @@ test.describe("SPEC-UI-019 日付と時刻", () => {
     await frame.getByRole("button", { name: "リリース日のカレンダーを開く" }).click()
     await page.keyboard.press("PageUp")
     await expect(grid.getByRole("gridcell", { name: /2026年11月24日/ })).toHaveAttribute("aria-disabled", "true")
+    await expect(frame.locator("ui-calendar-heading")).toHaveText("2026/11")
     await page.keyboard.press("Escape")
     await expect(frame.getByRole("button", { name: "推奨に戻す" })).toBeVisible()
+    await expect(frame.locator(".rec", { hasText: "推奨に戻す" })).toContainText("2026/12/01(火)")
     expect(await axeViolations(frame)).toEqual([])
   })
 

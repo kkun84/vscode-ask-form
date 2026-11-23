@@ -204,7 +204,7 @@ const formatDate = (value: string, locale: string): string => {
   const date = new Date(`${value}T00:00:00Z`)
   return Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleDateString(locale, { timeZone: "UTC", year: "numeric", month: "short", day: "numeric", weekday: "short" })
+    : date.toLocaleDateString(locale, { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" })
 }
 
 const labelsOf = (known: ReadonlyArray<{ readonly value: string; readonly label: string }>, value: FieldValue): ReadonlyArray<string> =>

@@ -50,12 +50,16 @@
               .${pkgs.stdenv.hostPlatform.system};
             archive = if pkgs.stdenv.hostPlatform.isDarwin then "zip" else "tar.gz";
           });
-          fonts = pkgs.makeFontsConf {
-            fontDirectories = [
-              pkgs.noto-fonts
-              pkgs.noto-fonts-cjk-sans
-            ];
-          };
+          fonts = pkgs.writeText "fonts.conf" ''
+            <?xml version="1.0"?>
+            <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+            <fontconfig>
+              <include ignore_missing="yes">${pkgs.fontconfig.out}/etc/fonts/conf.d</include>
+              <dir>${pkgs.noto-fonts}</dir>
+              <dir>${pkgs.noto-fonts-cjk-sans}</dir>
+              <cachedir prefix="xdg">fontconfig</cachedir>
+            </fontconfig>
+          '';
           base = {
             packages = [
               pkgs.nodejs_22
