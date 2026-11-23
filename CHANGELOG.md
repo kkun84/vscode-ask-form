@@ -2,6 +2,8 @@
 
 ## 未リリース
 
+## 0.3.6
+
 ### 変更
 
 - 拡張機能の名前をAsk User Formに変えました。チャットのツールの一覧と実行中の表示も、これまでの「Ask with a form」から「Ask User Form」に変わります。IDも`kkun84.ask-user-form`に変わったので、これまでのAsk Formを入れている場合は、Ask User Formを入れ直してください。
