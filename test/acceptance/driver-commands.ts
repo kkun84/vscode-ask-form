@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { eventSpec } from "../fixtures/event.ts"
 
-const toolName = "forms_ask_user_form"
+const toolName = "ask_user_form"
 
 const sleep = (ms: number) =>
   new Promise((resolve) => {

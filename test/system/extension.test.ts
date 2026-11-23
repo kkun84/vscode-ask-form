@@ -7,7 +7,7 @@ import { eventForm, eventSpec } from "../fixtures/event.ts"
 import { cancellation, createVscode, fakeContext, loadBundle, type FakePanel, type Recorder } from "../support/vscode-stub.ts"
 
 const nodeBundle = fileURLToPath(new URL("../../dist/node/extension.cjs", import.meta.url))
-const toolName = "forms_ask_user_form"
+const toolName = "ask_user_form"
 
 const readManifest = async <T>(): Promise<T> => JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")) as T
 

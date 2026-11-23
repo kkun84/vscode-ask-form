@@ -395,7 +395,7 @@ const closePanel = (page: Page) =>
     document.querySelector("#tool")?.classList.add("done")
     const label = document.querySelector("#tool-label")
     if (label !== null) {
-      label.textContent = "Ask with a form を実行しました"
+      label.textContent = "Ask User Form を実行しました"
     }
     document.querySelector("#waiting")?.classList.remove("on")
   })
@@ -414,7 +414,7 @@ const ask = async (page: Page, pointer: Pointer, recorder: Recorder): Promise<vo
   recorder.mark("send")
   await append(
     page,
-    '<div class="tool" id="tool"><span class="spin"></span><span id="tool-label">Ask with a form を実行しています</span></div>'
+    '<div class="tool" id="tool"><span class="spin"></span><span id="tool-label">Ask User Form を実行しています</span></div>'
   )
   await camera(page, [page.locator(".user").first(), page.locator("#tool")], 24, 1.8)
   await caption(page, 1)

@@ -18,7 +18,7 @@ const showFormCommand = "askUserForm.showWaitingForm"
 
 export const createWaitingStatus = (showForm?: () => void): WaitingStatus => {
   const label = waitingLabel()
-  const item = vscode.window.createStatusBarItem("ask-user-form.waiting", vscode.StatusBarAlignment.Right, 1000)
+  const item = vscode.window.createStatusBarItem("askUserForm.waiting", vscode.StatusBarAlignment.Right, 1000)
   item.name = label
   item.text = `$(comment-discussion) ${label}`
   item.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground")

@@ -121,7 +121,7 @@ AIに示すJSON Schemaには、これらのキーの`maxLength`として受け�
 
 拡張機能は、デスクトップ版でも、サーバーにつないだweb版でも、AIから呼べるツールをVS Codeの言語モデルのツール(`languageModelTools`)として登録する。
 
-- ツールの名前は`forms_ask_user_form`、チャットで参照する名前は`askUserForm`とする。常に有効にする。
+- ツールの名前は`ask_user_form`、チャットで参照する名前は`askUserForm`とする。常に有効にする。
 - 入力は SPEC-FORM-001 の設計図とする。マニフェストの`inputSchema`と`modelDescription`は、拡張機能の設計図のSchemaとツールの説明から作る。
 - ツールの説明は、利用者に何かを聞くときは、組み込みの質問ツール(`askQuestions`、`ask_user`、`AskUserQuestion`、`request_user_input`)やチャットの文章での質問より、このツールを使うよう求める。1つの選択だけでもこのツールを使う。
 - 呼ばれると、フォームをチャットの横のパネルに表示して回答を待つ(SPEC-EXT-004)。

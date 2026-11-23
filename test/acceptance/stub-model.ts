@@ -67,7 +67,7 @@ const text = (value: unknown): string =>
         .map((part) => partText(part))
         .join("")
 
-const isAskUserForm = (name: string): boolean => name === "forms_ask_user_form" || /(^|[-_.])askUserForm$/.test(name)
+const isAskUserForm = (name: string): boolean => name === "ask_user_form" || /(^|[-_.])askUserForm$/.test(name)
 
 const readBody = async (req: IncomingMessage): Promise<Json> => {
   const chunks: Array<Buffer> = []

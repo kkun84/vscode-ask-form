@@ -8,7 +8,7 @@ import { autoReplies, createWaitingStatus, onAutoReply, type WaitingStatus } fro
 import { panelHtml } from "./panel.ts"
 import { commentPresets } from "./settings.ts"
 
-const toolName = "forms_ask_user_form"
+const toolName = "ask_user_form"
 
 const themeOf = (kind: vscode.ColorThemeKind): "light" | "dark" =>
   kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight ? "light" : "dark"
@@ -28,7 +28,7 @@ const askInPanel = (waiting: Waiting, args: Readonly<Record<string, unknown>>, t
   }
   const form = compiled.success
   const panel = vscode.window.createWebviewPanel(
-    "ask-user-form.form",
+    "askUserForm.form",
     form.spec.title,
     {
       viewColumn: vscode.ViewColumn.Beside,
