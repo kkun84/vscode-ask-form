@@ -1,0 +1,38 @@
+name: Screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: devshell {0}
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+        with:
+          environment: ui
+      - name: Regenerate the screenshot baselines
+        run: |
+          pnpm -s build
+          pnpm exec playwright test --update-snapshots=all
+      - name: Commit the baselines
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add test/system/__screenshots__
+          git diff --cached --quiet || git commit -m "画面の基準画像をCIの環境で作り直す"
+          git push

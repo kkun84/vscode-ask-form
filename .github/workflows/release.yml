@@ -16,7 +16,7 @@ permissions:
 
 defaults:
   run:
-    shell: nix develop --command bash -euo pipefail {0}
+    shell: devshell {0}
 
 jobs:
   detect:
@@ -76,8 +76,9 @@ jobs:
         with:
           ref: ${{ needs.detect.outputs.sha }}
           token: ${{ steps.app.outputs.token }}
-      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
-      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      - uses: ./.github/actions/setup
+        with:
+          install: "false"
       - name: Bump the prerelease version
         id: prepare
         run: node scripts/release-prepare.ts
@@ -104,9 +105,15 @@ jobs:
             gh pr edit "$NUMBER" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
           fi
           gh pr merge "$BRANCH" --auto --squash
-  release:
+  verify:
     needs: detect
     if: needs.detect.outputs.action == 'release'
+    uses: ./.github/workflows/verify.yml
+    with:
+      sha: ${{ needs.detect.outputs.sha }}
+      acceptance-args: --grep-invert @downloads-sdk
+  release:
+    needs: [detect, verify]
     env:
       TAG: ${{ needs.detect.outputs.tag }}
       SHA: ${{ needs.detect.outputs.sha }}
@@ -120,24 +127,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.SHA }}
-      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
-      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      - uses: ./.github/actions/setup
       - name: Check the release
         id: release
         run: node scripts/release-check.ts "$TAG" "$RUNNER_TEMP/release-notes.md"
-      - name: Install
-        run: |
-          pnpm check-env
-          pnpm install --frozen-lockfile
-      - name: Verify
-        run: |
-          pnpm lint
-          pnpm typecheck
-          pnpm test
-          pnpm budget
-      - name: Acceptance tests
-        shell: nix develop .#acceptance --command bash -euo pipefail {0}
-        run: xvfb-run -a -s "-screen 0 1600x1000x24" pnpm test:acceptance --grep-invert @downloads-sdk
       - name: Package
         env:
           PRERELEASE: ${{ steps.release.outputs.prerelease }}
@@ -174,7 +167,7 @@ jobs:
         run: |
           args=()
           if [[ "$PRERELEASE" == true ]]; then args+=(--pre-release); fi
-          pnpm dlx @vscode/vsce@4.0.0 publish --packagePath ./*.vsix "${args[@]}"
+          pnpm exec vsce publish --packagePath ./*.vsix "${args[@]}"
       - name: Publish to Open VSX
         if: steps.tokens.outputs.openvsx == 'yes'
         env:
