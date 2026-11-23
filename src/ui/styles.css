@@ -147,6 +147,15 @@ body {
   padding: 0 4px;
 }
 
+.q-title {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
 .q-label {
   flex: 0 1 auto;
   min-width: 0;
@@ -232,9 +241,8 @@ body {
 }
 
 .reveal-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .reveal-mark {

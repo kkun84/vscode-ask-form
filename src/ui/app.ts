@@ -783,8 +783,11 @@ export class FormApp {
       comment.box
     )
     const chip = this.revealView(field, element)
-    if (chip !== null) {
-      element.querySelector(".q-label")?.after(chip)
+    const label = element.querySelector(".q-label")
+    if (chip !== null && label !== null) {
+      const title = h("span", { class: "q-title" })
+      label.replaceWith(title)
+      title.append(label, chip)
     }
     this.live.cards.push({ field, element, toggle, answer, back, comment: comment.box, open: comment.open })
     if (back !== null) {
