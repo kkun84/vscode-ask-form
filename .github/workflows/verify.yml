@@ -1,0 +1,124 @@
+name: Verify
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        description: The commit the caller expects to verify. The verification fails when the checkout is another commit
+        type: string
+        default: ""
+      acceptance-args:
+        description: Extra arguments for the acceptance tests
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: devshell {0}
+
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Require the expected commit
+        if: inputs.sha != ''
+        shell: bash -euo pipefail {0}
+        env:
+          EXPECTED: ${{ inputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - uses: ./.github/actions/setup
+      - name: Lint
+        run: pnpm lint
+      - name: Type check
+        run: pnpm typecheck
+      - name: Unit tests
+        run: pnpm test:unit
+      - name: Architecture tests
+        run: pnpm test:architecture
+      - name: System tests
+        run: pnpm test:system
+      - name: Size budget
+        run: pnpm budget
+      - name: Package
+        run: pnpm package
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          archive: false
+          path: "*.vsix"
+          if-no-files-found: error
+
+  ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Require the expected commit
+        if: inputs.sha != ''
+        shell: bash -euo pipefail {0}
+        env:
+          EXPECTED: ${{ inputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - uses: ./.github/actions/setup
+        with:
+          environment: ui
+      - name: UI tests
+        run: pnpm test:ui
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: test-results-ui
+          path: test-results
+          if-no-files-found: ignore
+
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [web, ssh, desktop]
+        shard: [1/2, 2/2]
+        include:
+          - project: harness
+            shard: 1/1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Require the expected commit
+        if: inputs.sha != ''
+        shell: bash -euo pipefail {0}
+        env:
+          EXPECTED: ${{ inputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - uses: ./.github/actions/setup
+        with:
+          environment: acceptance
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules/.cache
+          key: acceptance-${{ matrix.project }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'test/acceptance/ssh-host.ts') }}
+      - name: Allow Codex's sandbox in the acceptance tests
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Acceptance tests
+        env:
+          PROJECT: ${{ matrix.project }}
+          SHARD: ${{ matrix.shard }}
+          ARGS: ${{ inputs.acceptance-args }}
+        run: |
+          read -r -a args <<< "$ARGS"
+          if ! xvfb-run -a -s "-screen 0 1600x1000x24" pnpm test:acceptance --project "$PROJECT" --shard "$SHARD" "${args[@]}" > acceptance.log 2>&1; then
+            cat acceptance.log
+            printf '::error title=Acceptance tests (%s %s)::%s\n' "$PROJECT" "$SHARD" "$(tr "\r" "\n" < acceptance.log | grep -v "^\s*at \|\"tools\":" | tail -n 40 | sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\r//g' -e 's/\n/%0A/g')"
+            exit 1
+          fi
+          cat acceptance.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: test-results-${{ matrix.project }}-${{ strategy.job-index }}
+          path: test-results
+          if-no-files-found: ignore

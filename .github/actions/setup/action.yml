@@ -1,0 +1,51 @@
+name: Set up the environment
+description: Restore the Nix environment and the dependencies, and provide them to later steps as the `devshell {0}` shell.
+
+inputs:
+  environment:
+    description: The environment in flake.nix to enter (check, ui or acceptance)
+    default: check
+  install:
+    description: Whether to install the dependencies in package.json
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: nixbuild/nix-quick-install-action@9f63be77f412a248c9d9a65a4c82cf066cdf8f0c # v35
+    - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+      id: nix
+      with:
+        primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ inputs.environment }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+        gc-max-store-size: 0
+    - name: Enter the environment
+      shell: bash -euo pipefail {0}
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        mkdir -p "$RUNNER_TEMP/nix-roots"
+        nix build ".#$ENVIRONMENT" --out-link "$RUNNER_TEMP/nix-roots/shell"
+        sudo ln -sf "$(readlink -f "$RUNNER_TEMP/nix-roots/shell")" /usr/local/bin/devshell
+    - name: Keep the flake inputs in the cache to be saved
+      if: steps.nix.outputs.hit-primary-key != 'true'
+      shell: bash -euo pipefail {0}
+      run: |
+        nix flake archive --json | jq -r '.inputs[].path' | while read -r input; do
+          nix build "$input" --out-link "$RUNNER_TEMP/nix-roots/input-$(basename "$input")"
+        done
+    - name: Find the package store
+      if: inputs.install == 'true'
+      id: store
+      shell: devshell {0}
+      run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: inputs.install == 'true'
+      with:
+        path: ${{ steps.store.outputs.path }}
+        key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+    - name: Install
+      if: inputs.install == 'true'
+      shell: devshell {0}
+      run: |
+        pnpm install --frozen-lockfile --prefer-offline
+        pnpm check-env
