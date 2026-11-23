@@ -92,8 +92,10 @@ const recView = (field: Field, title: string, value: string | undefined, action:
 
 const picks = (field: Field): boolean => field.type === "choice" || field.type === "searchChoice"
 
+const reasoned = (field: Field): boolean => field.reason !== undefined || field.reasonDetails !== undefined
+
 const hasDetails = (field: Field): boolean =>
-  (field.default !== undefined && (field.reason !== undefined || field.reasonDetails !== undefined || !picks(field))) ||
+  (field.default !== undefined && reasoned(field)) ||
   ((field.type === "choice" || field.type === "searchChoice") && field.options.some((option) => option.details !== undefined))
 
 const invalidTargets = [
@@ -351,7 +353,7 @@ const describeVisible = (card: HTMLElement, folded: boolean): void => {
     input.dataset["describedby"] ??= input.getAttribute("aria-describedby") ?? ""
     const ids = input.dataset["describedby"].split(" ").filter((id) => {
       const target = id === "" ? null : card.ownerDocument.querySelector(`#${CSS.escape(id)}`)
-      return target !== null && !(folded && target.matches(".option-details, .rec"))
+      return target !== null && !target.matches(".rec[hidden]") && !(folded && target.matches(".option-details, .rec"))
     })
     input.setAttribute("aria-describedby", ids.join(" "))
   }
@@ -409,12 +411,13 @@ export class FormApp {
       readonly toggle: HTMLElement | null
       readonly answer: HTMLElement
       readonly back: HTMLElement | null
+      readonly rec: HTMLElement | null
       readonly comment: HTMLElement
       readonly open: HTMLElement
     }>,
     computed: undefined as HTMLElement | undefined,
     status: undefined as HTMLElement | undefined,
-    remaining: undefined as HTMLElement | undefined,
+    remaining: undefined as HTMLButtonElement | undefined,
     primary: undefined as HTMLButtonElement | undefined,
     form: undefined as HTMLElement | undefined,
     setters: new Map<string, (value: FieldValue) => void>(),
@@ -428,6 +431,7 @@ export class FormApp {
   }
   private followUps: ReadonlyMap<string, ReadonlyArray<Field>> = new Map()
   private hot: string | undefined
+  private jumped: string | undefined
   private readonly resized = new ResizeObserver(() => this.drawBranches())
   private readonly folded = new Set<string>()
   private showMissing = false
@@ -486,6 +490,7 @@ export class FormApp {
     this.note = ""
     this.noteOpen = false
     this.comments = {}
+    this.jumped = undefined
     this.commenting.clear()
     this.folded.clear()
     this.showMissing = false
@@ -771,17 +776,14 @@ export class FormApp {
     const back = picks(field) ? null : h("button", { type: "button", class: "link", hidden: true }, this.m.backToRecommended)
     const recommended = this.initialText(field)
     const rec = picks(field) || recommended === undefined ? null : recView(field, this.m.recommended, recommended, back, uid("rec"))
+    const control = this.control(field, labelId, [answer.id, rec?.id].filter((id) => id !== undefined && id !== "").join(" "))
+    const unselect = this.live.unselects.get(field.id) ?? null
     const element = h(
       "div",
       { class: "q", role: "group", "aria-labelledby": labelId, "aria-describedby": descId },
-      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), toggle, answer, comment.open),
+      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), toggle, answer, unselect, comment.open),
       field.description === undefined ? null : h("p", { class: "q-desc", id: descId }, field.description),
-      h(
-        "div",
-        { class: picks(field) ? "q-group choices" : "q-group", id: groupId },
-        this.control(field, labelId, [answer.id, rec?.id].filter((id) => id !== undefined && id !== "").join(" ")),
-        rec
-      ),
+      h("div", { class: picks(field) ? "q-group choices" : "q-group", id: groupId }, control, rec),
       comment.box
     )
     const chip = this.revealView(field, element)
@@ -791,7 +793,7 @@ export class FormApp {
       label.replaceWith(title)
       title.append(label, chip)
     }
-    this.live.cards.push({ field, element, toggle, answer, back, comment: comment.box, open: comment.open })
+    this.live.cards.push({ field, element, toggle, answer, back, rec, comment: comment.box, open: comment.open })
     if (back !== null) {
       on(back, "click", () => {
         this.live.setters.get(field.id)?.(this.initial[field.id] as FieldValue)
@@ -803,7 +805,7 @@ export class FormApp {
       const head = element.querySelector<HTMLElement>(".q-head")
       if (head !== null) {
         on(head, "click", (event) => {
-          if (event.target !== toggle && (event.target as HTMLElement).closest(".head-action") === null) {
+          if ((event.target as HTMLElement).closest("button") === null) {
             this.setFolded(field.id, !this.folded.has(field.id))
           }
         })
@@ -1132,7 +1134,7 @@ export class FormApp {
       }
     })
     if (multiple) {
-      return h("div", { class: "tree-box" }, tree)
+      return tree
     }
     const unselect = on(
       h("button", { type: "button", class: "link unselect", "aria-label": this.m.clearOf(field.label) }, this.m.clear),
@@ -1146,7 +1148,7 @@ export class FormApp {
       }
     )
     this.live.unselects.set(field.id, unselect)
-    return h("div", { class: "tree-box" }, tree, unselect)
+    return tree
   }
 
   private setFolded(id: string, folded: boolean): void {
@@ -1314,8 +1316,7 @@ export class FormApp {
         class: "options",
         "aria-labelledby": multiple ? undefined : labelId
       },
-      options,
-      unselect
+      options
     )
     group.defaultValue = multiple ? (Array.isArray(current) ? [...current] : []) : typeof current === "string" ? current : null
     onValue<string | ReadonlyArray<string> | null>(group, "valuechange", (next) => {
@@ -1378,17 +1379,9 @@ export class FormApp {
           ?.focus()
       }
     })
-    const unselect = group.querySelector<HTMLElement>(":scope > .unselect")
     this.live.pickedLists.set(field.id, { element: picked, field })
     apply()
-    return h(
-      "div",
-      { class: "search-choice" },
-      h("div", { class: "filter-row" }, h("ui-input", {}, filter), count),
-      group,
-      empty,
-      h("div", { class: "picked-row" }, picked, unselect)
-    )
+    return h("div", { class: "search-choice" }, h("div", { class: "filter-row" }, h("ui-input", {}, filter), count), group, empty, picked)
   }
 
   private noteView(): HTMLElement {
@@ -1438,9 +1431,22 @@ export class FormApp {
   }
 
   private remainingView(): HTMLElement {
-    const element = h("span", { class: "remaining" })
+    const element = on(h("button", { type: "button", class: "remaining", hidden: true }), "click", () => this.focusNextUnanswered())
     this.live.remaining = element
-    return element
+    return h("ui-button", { class: "remaining-box" }, element)
+  }
+
+  private focusNextUnanswered(): void {
+    const form = this.form
+    if (form === undefined) {
+      return
+    }
+    const missing = new Set(unansweredFields(form.spec, this.current(), this.commented()).map((field) => field.id))
+    const cards = this.live.cards.filter((card) => missing.has(card.field.id))
+    const from = this.live.cards.findIndex((card) => card.field.id === this.jumped)
+    const next = cards.find((card) => this.live.cards.indexOf(card) > from) ?? cards[0]
+    this.jumped = next?.field.id
+    focusControl(next?.element)
   }
 
   private refreshShown(form: CompiledForm): void {
@@ -1527,6 +1533,43 @@ export class FormApp {
     drawBranches(container, canvas, lanes, this.hot)
   }
 
+  private refreshRemaining(count: number): void {
+    const button = this.live.remaining
+    if (button === undefined) {
+      return
+    }
+    button.hidden = count === 0
+    button.textContent = this.m.remaining(count)
+    button.title = this.m.nextUnanswered
+    button.classList.toggle("alert", this.showMissing)
+  }
+
+  private answerTag(state: "unanswered" | "unset" | "recommended" | "answered"): HTMLElement | string {
+    switch (state) {
+      case "unanswered":
+        return this.missingTag()
+      case "unset":
+        return h("span", { class: "muted" }, this.m.held)
+      case "recommended":
+        return h("span", { class: "badge" }, this.m.recommended)
+      case "answered":
+        return ""
+    }
+  }
+
+  private refreshRecommended(card: (typeof this.live.cards)[number], unset: boolean, changed: boolean): boolean {
+    const asRecommended = !picks(card.field) && card.field.default !== undefined && !changed && !unset
+    const hide = asRecommended && !reasoned(card.field)
+    if (card.rec !== null && card.rec.hidden !== hide) {
+      card.rec.hidden = hide
+      describeVisible(card.element, card.element.classList.contains("folded"))
+    }
+    if (card.back !== null) {
+      card.back.hidden = !changed
+    }
+    return asRecommended
+  }
+
   private refreshCards(): void {
     if (this.form === undefined) {
       return
@@ -1534,19 +1577,14 @@ export class FormApp {
     const current = this.current()
     const sinceRecommended = changedFields(this.form.spec, this.initial, current)
     const missing = new Set(unansweredFields(this.form.spec, current, this.commented()).map((field) => field.id))
-    if (this.live.remaining !== undefined) {
-      this.live.remaining.textContent = missing.size === 0 ? "" : this.m.remaining(missing.size)
-      this.live.remaining.classList.toggle("alert", this.showMissing)
-    }
+    this.refreshRemaining(missing.size)
     for (const card of this.live.cards) {
       const unanswered = missing.has(card.field.id)
       const unset = current[card.field.id] === undefined
       markInvalid(card.element, unanswered && this.showMissing)
-      card.answer.replaceChildren(unanswered ? this.missingTag() : unset ? h("span", { class: "muted" }, this.m.held) : "")
+      const asRecommended = this.refreshRecommended(card, unset, sinceRecommended.includes(card.field.id))
+      card.answer.replaceChildren(this.answerTag(unanswered ? "unanswered" : unset ? "unset" : asRecommended ? "recommended" : "answered"))
       this.refreshComment(card.field, card.comment, card.open, unset)
-      if (card.back !== null) {
-        card.back.hidden = !sinceRecommended.includes(card.field.id)
-      }
     }
   }
 

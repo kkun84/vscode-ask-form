@@ -87,13 +87,21 @@ test.describe("SPEC-UI-001 初期表示", () => {
     await expect(why).toBeVisible()
   })
 
-  test("SPEC-UI-001 理由のない推奨の値も示し、推奨に戻せる", async ({ page }) => {
+  test("SPEC-UI-001 理由のない推奨は、推奨のままの間は見出しの札だけで示し、変えたら推奨の値を出して戻せる", async ({ page }) => {
     const frame = await open(page, { args: { title: "t", fields: [{ type: "text", id: "word", label: "言葉", default: "hi" }] } })
     const word = frame.getByRole("textbox", { name: "言葉" })
-    await expect(frame.locator(".rec")).toContainText("推奨hi")
+    const badge = frame.locator(".q-head .badge")
+    await expect(badge).toHaveText("推奨")
+    await expect(word).toHaveAccessibleDescription("推奨")
+    await expect(frame.locator(".rec")).toBeHidden()
+    await expect(frame.getByRole("button", { name: "言葉の詳しい説明" })).toHaveCount(0)
     await word.fill("yo")
+    await expect(badge).toHaveCount(0)
+    await expect(frame.locator(".rec")).toBeVisible()
+    await expect(frame.locator(".rec")).toContainText("推奨hi")
     await frame.getByRole("button", { name: "推奨に戻す" }).click()
     await expect(word).toHaveValue("hi")
+    await expect(frame.locator(".rec")).toBeHidden()
   })
 
   test("SPEC-UI-001 推奨のない選択肢は何も選ばずに始め、答えるか保留にするまで送信できない", async ({ page }) => {
@@ -126,6 +134,36 @@ test.describe("SPEC-UI-001 初期表示", () => {
     expect(await recorded(page, "outcomes")).toHaveLength(0)
     await frame.getByRole("radio", { name: "青" }).check()
     await expect(remaining).toBeHidden()
+  })
+})
+
+const pickOne = (id: string, label: string) => ({
+  type: "choice",
+  id,
+  label,
+  options: [
+    { value: "a", label: `${label}A` },
+    { value: "b", label: `${label}B` }
+  ]
+})
+
+test.describe("SPEC-UI-001 未回答の数", () => {
+  test("SPEC-UI-001 未回答の数を押すたびに、次の未回答の質問へフォーカスを移し、最後の次は最初へ戻る", async ({ page }) => {
+    const frame = await open(page, {
+      args: { title: "t", fields: [pickOne("one", "一"), { type: "text", id: "word", label: "言葉" }, pickOne("two", "二")] }
+    })
+    const next = frame.getByRole("button", { name: "未回答 2問" })
+    await expect(next).toHaveAttribute("title", "次の未回答の質問へ移る")
+    await next.click()
+    await expect(frame.getByRole("radio", { name: "一A" })).toBeFocused()
+    await next.click()
+    await expect(frame.getByRole("radio", { name: "二A" })).toBeFocused()
+    await next.click()
+    await expect(frame.getByRole("radio", { name: "一A" })).toBeFocused()
+    await frame.getByRole("radio", { name: "一B" }).check()
+    await frame.getByRole("button", { name: "未回答 1問" }).click()
+    await expect(frame.getByRole("radio", { name: "二A" })).toBeFocused()
+    expect(await axeViolations(frame)).toEqual([])
   })
 })
 
@@ -607,7 +645,7 @@ test.describe("SPEC-UI-012 値のない回答", () => {
     expect(outcome.changedByUser).toEqual([])
   })
 
-  test("SPEC-UI-012 単一選択は選択肢の下の「選択を解除」で選択を外し、コメント欄を開く", async ({ page }) => {
+  test("SPEC-UI-012 単一選択は見出しの「選択を解除」で選択を外し、コメント欄を開く", async ({ page }) => {
     const frame = await openStorage(page)
     await expect(unselect(frame, "保存先")).toBeVisible()
     await unselect(frame, "保存先").click()

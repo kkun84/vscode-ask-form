@@ -608,20 +608,68 @@ input.exact {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
-.remaining {
+.remaining-box {
   margin-left: auto;
+}
+
+.remaining-box:has([hidden]) {
+  display: none;
+}
+
+button.remaining {
+  padding: 0 8px;
+  border: 1px solid var(--contrast-border);
+  background: transparent;
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
-.remaining:empty {
-  display: none;
+button.remaining::after {
+  content: "↑" / "";
+  margin-left: 4px;
 }
 
-.remaining.alert {
+button.remaining:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+button.remaining.alert {
   color: var(--danger-text);
   font-weight: 600;
+}
+
+.actions {
+  container-type: scroll-state;
+}
+
+.actions::before {
+  content: "";
+  position: absolute;
+  inset: -17px 0 100%;
+  background: linear-gradient(to top, color-mix(in srgb, #000 22%, transparent), transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+@container scroll-state(stuck: bottom) {
+  .actions::before {
+    opacity: 1;
+  }
+}
+
+.rec[hidden] {
+  display: none;
+  height: 0;
+  opacity: 0;
+}
+
+.q-answer > .badge {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--link) 15%, transparent);
+  color: var(--rec);
 }
 
 .shortcut {
@@ -633,7 +681,7 @@ input.exact {
   font-size: 11px;
 }
 
-.remaining:not(:empty) + .shortcut {
+.remaining-box:not(:has([hidden])) + .shortcut {
   margin-left: 0;
 }
 
@@ -827,8 +875,9 @@ button.unselect:hover {
   color: var(--fg);
 }
 
-.options .unselect {
-  margin: 4px 0 0 auto;
+.q-head .unselect {
+  flex: none;
+  margin-left: 0;
 }
 
 .presets {
@@ -1225,17 +1274,6 @@ ui-number-input-scrub-area.scrub:hover {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
-}
-
-.picked-row .unselect {
-  flex: none;
-}
-
-.picked-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
 }
 
 af-ranking {
@@ -1726,8 +1764,4 @@ ui-tree-item-checkbox[data-indeterminate]::before {
   display: flex;
   flex-direction: column;
   padding-top: 1px;
-}
-
-.tree-box > .unselect {
-  margin: 4px 0 0 auto;
 }
