@@ -1,7 +1,7 @@
 {
   "name": "ask-form",
   "displayName": "Ask Form",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "description": "Lets GitHub Copilot ask you through interactive forms beside the chat, with its recommendations and the reasons for them.",
   "categories": [
