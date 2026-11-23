@@ -157,6 +157,19 @@ const pickOne = (id: string, label: string) => ({
   ]
 })
 
+test.describe("SPEC-UI-001 狭い幅", () => {
+  test("SPEC-UI-001 幅が狭くても質問名を途中で細かく折り返さず、見出しの札とボタンをまとめて次の行へ回す", async ({ page }) => {
+    await page.setViewportSize({ width: 340, height: 900 })
+    const frame = await open(page, { context: { locale: "en-US" } })
+    const head = frame.locator(".q-head", { hasText: "イベント名" })
+    const label = await head.locator(".q-label").boundingBox()
+    const actions = await head.locator(".q-actions").boundingBox()
+    expect(label?.height).toBeLessThan(24)
+    expect(actions?.y).toBeGreaterThan((label?.y ?? 0) + (label?.height ?? 0) - 4)
+    expect(await frame.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBe(0)
+  })
+})
+
 test.describe("SPEC-UI-001 未回答の数", () => {
   test("SPEC-UI-001 未回答の数を押すたびに、次の未回答の質問へフォーカスを移し、最後の次は最初へ戻る", async ({ page }) => {
     const frame = await open(page, {

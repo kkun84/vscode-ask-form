@@ -169,9 +169,16 @@ html {
 
 .q-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 2px 4px;
   min-height: 24px;
+}
+
+.q-head > .q-label,
+.q-head > .q-title {
+  flex: 1 0 auto;
+  max-width: 100%;
 }
 
 .q-title {
@@ -189,7 +196,11 @@ html {
   font-weight: 600;
 }
 
-.q-head > .q-answer {
+.q-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
   margin-left: auto;
 }
 

@@ -793,7 +793,12 @@ export class FormApp {
     const element = h(
       "div",
       { class: "q", role: "group", "aria-labelledby": labelId, "aria-describedby": descId },
-      h("div", { class: "q-head" }, h("span", { class: "q-label", id: labelId }, field.label), answer, unselect, toggle, comment.open),
+      h(
+        "div",
+        { class: "q-head" },
+        h("span", { class: "q-label", id: labelId }, field.label),
+        h("span", { class: "q-actions" }, answer, unselect, toggle, comment.open)
+      ),
       field.description === undefined ? null : h("p", { class: "q-desc", id: descId }, field.description),
       h("div", { class: picks(field) ? "q-group choices" : "q-group", id: groupId }, control, rec),
       comment.box
