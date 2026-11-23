@@ -120,3 +120,18 @@ describe("ARCH-DEPS-001 配布物の依存は限られる", () => {
     assert.deepEqual(outside, [])
   })
 })
+
+describe("ARCH-NET-001 通信の口を開かない", () => {
+  it("ARCH-NET-001 拡張機能から通信の口を開くモジュールへの依存を見つける", () => {
+    const report = analyze([
+      [
+        "src/extension/shared/waiting.ts",
+        'import { createServer } from "node:http"\nimport { connect } from "net"\nexport const probe = [createServer, connect]'
+      ]
+    ])
+    assert.deepEqual(policies(report).toSorted(), [
+      "ARCH-NET-001 src/extension/shared/waiting.ts net",
+      "ARCH-NET-001 src/extension/shared/waiting.ts node:http"
+    ])
+  })
+})

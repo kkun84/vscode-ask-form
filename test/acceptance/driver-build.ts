@@ -27,6 +27,9 @@ export const buildDriver = async (root: string, driver: string): Promise<void> =
           { command: "ask-form-e2e.state", title: "Ask Form: Report acceptance state" },
           { command: "ask-form-e2e.invoke", title: "Ask Form: Invoke acceptance form" },
           { command: "ask-form-e2e.invokeKinds", title: "Ask Form: Show every question type" },
+          { command: "ask-form-e2e.theme.light", title: "Ask Form: Use the light theme for acceptance" },
+          { command: "ask-form-e2e.theme.dark", title: "Ask Form: Use the dark theme for acceptance" },
+          { command: "ask-form-e2e.theme.contrast", title: "Ask Form: Use the high contrast theme for acceptance" },
           { command: "ask-form-e2e.cancel", title: "Ask Form: Cancel acceptance form" }
         ],
         languageModelTools: [

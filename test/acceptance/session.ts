@@ -15,6 +15,7 @@ export interface Session {
   readonly window: Page
   readonly llm: StubModel
   readonly events: () => Promise<ReadonlyArray<string>>
+  readonly pid?: number | undefined
   readonly close: () => Promise<void>
 }
 

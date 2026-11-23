@@ -59,6 +59,12 @@ extension/node ──▶ extension/shared ──▶ core ◀── ui
 
 派生元: SPEC-EXT-005
 
+### ARCH-NET-001 通信の口を開かない
+
+`src`は、通信を待ち受けたり接続したりするNode.jsのモジュール(`net`、`http`、`https`、`http2`、`dgram`、`tls`)を読み込まない。回答はVS Codeのパネルの通信だけで受け取るので、同じPCのほかのプログラムやWebページが回答を送り込める口がない。
+
+派生元: SPEC-UI-010
+
 ## 層をまたぐ仕組み
 
 ### ARCH-UI-001 画面の通信は1種類

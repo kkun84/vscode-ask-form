@@ -30,9 +30,9 @@
 | REQ-ENV-002 | Codexのハーネスでも回答できる | - | SPEC-TOOL-001 | `test/acceptance/harness.spec.ts`, MAT-ENV-002 |
 | REQ-ENV-003 | Agentsウィンドウでも回答できる | - | SPEC-TOOL-001 | `test/acceptance/harness.spec.ts`, MAT-ENV-003 |
 | REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/startup.spec.ts`, MAT-PERF-001 |
-| REQ-SEC-001 | 回答を偽装されない | - | SPEC-UI-010 | MAT-SEC-001 |
-| REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | MAT-LOOK-001 |
-| REQ-A11Y-001 | 支援技術で使える | - | SPEC-UI-008 | MAT-LOOK-001 |
+| REQ-SEC-001 | 回答を偽装されない | - | SPEC-UI-010 | `test/acceptance/desktop.spec.ts`, MAT-SEC-001 |
+| REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | `test/acceptance/desktop.spec.ts`, MAT-LOOK-001 |
+| REQ-A11Y-001 | 支援技術で使える | - | SPEC-UI-008 | `test/acceptance/desktop.spec.ts`, MAT-LOOK-001 |
 | REQ-DIST-001 | リリースを配布する | - | SPEC-REL-001, SPEC-REL-002, SPEC-REL-003 | MAT-DIST-001 |
 
 ## システム仕様
@@ -66,7 +66,7 @@
 | SPEC-UI-018 | 数値の範囲 | REQ-ASK-008 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-019 | 日付と時刻 | REQ-ASK-009 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-020 | 木から選ぶ | REQ-ASK-010 | - | `test/system/ui.spec.ts` |
-| SPEC-UI-010 | 画面への通知の送り主 | REQ-SEC-001 | ARCH-UI-001, DES-UI-002 | `test/system/ui.spec.ts` |
+| SPEC-UI-010 | 画面への通知の送り主 | REQ-SEC-001 | ARCH-NET-001, ARCH-UI-001, DES-UI-002 | `test/system/ui.spec.ts` |
 | SPEC-EXT-002 | 待機の表示 | REQ-WAIT-001 | - | `test/system/extension.test.ts` |
 | SPEC-EXT-004 | パネルのフォーム | REQ-ASK-001, REQ-WEB-001, REQ-CANCEL-001, REQ-RES-001 | ARCH-LAYER-002, ARCH-UI-001, DES-UI-002, DES-HOST-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-007 | 利用者が不在の設定 | REQ-WAIT-002 | - | `test/system/extension.test.ts` |
@@ -84,6 +84,7 @@
 | ARCH-LAYER-002 | 画面はブラウザだけで動く | SPEC-UI-001, SPEC-EXT-004, SPEC-EXT-005 | - | `test/architecture/architecture.test.ts` |
 | ARCH-LAYER-006 | 画面が使う中核はEffectを使わない | SPEC-EXT-005, SPEC-UI-002, SPEC-EXPR-001, SPEC-TOOL-003 | DES-EXPR-002, DES-FORM-002, DES-FORM-003, DES-FORM-007 | `test/architecture/architecture.test.ts` |
 | ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | DES-TOOLS-001, DES-TOOLS-003 | `test/architecture/architecture.test.ts` |
+| ARCH-NET-001 | 通信の口を開かない | SPEC-UI-010 | - | `test/architecture/architecture.test.ts` |
 | ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001, SPEC-UI-006, SPEC-UI-010 | DES-UI-002, DES-HOST-001 | `test/system/ui.spec.ts` |
 | ARCH-REL-001 | 検出と公開の権限を分ける | SPEC-REL-001 | DES-REL-001 | `test/system/release-workflow.test.ts` |
 
