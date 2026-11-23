@@ -1,17 +1,23 @@
 {
-  "name": "ask-form",
-  "displayName": "Ask Form",
-  "version": "0.3.4",
+  "name": "ask-user-form",
+  "displayName": "Ask User Form",
+  "version": "0.3.5",
   "private": true,
   "description": "Lets GitHub Copilot ask you through interactive forms beside the chat, with its recommendations and the reasons for them.",
   "categories": [
     "AI",
     "Chat"
   ],
+  "keywords": [
+    "copilot",
+    "form",
+    "github copilot",
+    "question"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kkun84/vscode-ask-form"
+    "url": "https://github.com/kkun84/vscode-ask-user-form"
   },
   "publisher": "kkun84",
   "type": "module",
@@ -63,9 +69,9 @@
   },
   "contributes": {
     "configuration": {
-      "title": "Ask Form",
+      "title": "Ask User Form",
       "properties": {
-        "askForm.commentPresets": {
+        "askUserForm.commentPresets": {
           "type": "array",
           "items": {
             "type": "string",
@@ -83,9 +89,9 @@
     },
     "languageModelTools": [
       {
-        "name": "forms_ask_form",
-        "toolReferenceName": "askForm",
-        "displayName": "Ask with a form",
+        "name": "ask_user_form",
+        "toolReferenceName": "askUserForm",
+        "displayName": "Ask User Form",
         "userDescription": "Ask you through an interactive form with Copilot's recommendations and reasons.",
         "modelDescription": "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer. Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice. Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see. Set default only when the workspace or conversation gives you grounds to recommend a value; otherwise leave it out and the user must choose. Use reason only together with default: for a choice, why that option fits best here; for other fields, advice that helps the user decide. Without a default, reason is rejected; put the explanation in description. Give every option a description of what it is or what happens if chosen, and give a field a description when its meaning is not obvious. For a yes/no question, use a choice with two options. Use choice to compare 2 to 6 options with their explanations, searchChoice to find candidates by name among 7 or more, which lets the user type to narrow them, and treeChoice when the candidates form a hierarchy, such as folders, files or modules. To ask for an order, such as priorities, use a ranking field. To ask for a span with a lower and an upper bound, such as supported versions or a budget, use a numberRange field. To let the user write any number of free-form values, such as paths, tags or domains, use a textList field. For a calendar date or a time of day, use a date or time field. When some questions only matter for certain options of a choice or searchChoice, add them as ordinary fields with a when naming that question and the options they depend on, instead of asking separately; the form shows them right after that question wherever they are written in fields, only while one of those options is selected, and the answer leaves out the hidden ones. Write labels in the user's language. Never ask for secrets or credentials. Do not use it when the user asked you to work autonomously. The user can leave a question without a value by commenting on it instead; its id comes back in held, the comment says what to do, and heldForm holds those fields for asking again. The user can comment on each question; comments come back in comments, keyed by field id. The user can also add a free-form note to the answers, for example an answer that is not among your options; it comes back in note. The result tells you whether the user submitted values, cancelled the form to answer in chat, or is unavailable so the form was not shown or was withdrawn.",
         "canBeReferencedInPrompt": true,
@@ -1276,7 +1282,7 @@
     ]
   },
   "activationEvents": [
-    "onLanguageModelTool:forms_ask_form",
+    "onLanguageModelTool:ask_user_form",
     "onStartupFinished"
   ],
   "extensionKind": [

@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { eventSpec } from "../fixtures/event.ts"
 import { kindsSpec, unrecommendedSpec } from "../fixtures/kinds.ts"
 
-const toolName = "forms_ask_form"
+const toolName = "ask_user_form"
 
 const themes = { light: "Default Light Modern", dark: "Default Dark Modern", contrast: "Default High Contrast" } as const
 
@@ -36,17 +36,17 @@ export const registerCommands = (context: vscode.ExtensionContext, emit: (line: 
     emit(`result ${index} ${JSON.stringify(settled)}`)
   }
   context.subscriptions.push(
-    vscode.commands.registerCommand("ask-form-e2e.state", () => {
-      const target = vscode.extensions.getExtension("kkun84.ask-form")
+    vscode.commands.registerCommand("ask-user-form-e2e.state", () => {
+      const target = vscode.extensions.getExtension("kkun84.ask-user-form")
       const tool = vscode.lm.tools.some((item) => item.name === toolName)
       emit(`state active=${String(target?.isActive === true)} tool=${String(tool)}`)
     }),
-    vscode.commands.registerCommand("ask-form-e2e.invoke", () => invoke(eventSpec)),
-    vscode.commands.registerCommand("ask-form-e2e.invokeKinds", () => invoke(kindsSpec)),
-    vscode.commands.registerCommand("ask-form-e2e.invokeUnrecommended", () => invoke(unrecommendedSpec)),
-    vscode.commands.registerCommand("ask-form-e2e.cancel", () => source?.cancel()),
+    vscode.commands.registerCommand("ask-user-form-e2e.invoke", () => invoke(eventSpec)),
+    vscode.commands.registerCommand("ask-user-form-e2e.invokeKinds", () => invoke(kindsSpec)),
+    vscode.commands.registerCommand("ask-user-form-e2e.invokeUnrecommended", () => invoke(unrecommendedSpec)),
+    vscode.commands.registerCommand("ask-user-form-e2e.cancel", () => source?.cancel()),
     ...Object.entries(themes).map(([name, theme]) =>
-      vscode.commands.registerCommand(`ask-form-e2e.theme.${name}`, async () => {
+      vscode.commands.registerCommand(`ask-user-form-e2e.theme.${name}`, async () => {
         await vscode.workspace.getConfiguration("workbench").update("colorTheme", theme, vscode.ConfigurationTarget.Global)
         emit(`theme ${theme}`)
       })

@@ -82,7 +82,7 @@ const themes = { light: "vs", dark: "vs-dark", "high contrast": "hc-black" } as 
 type Theme = keyof typeof themes
 
 const useTheme = async (window: Page, frame: Frame, theme: Theme): Promise<string> => {
-  await runCommand(window, `Ask Form: Use the ${theme} theme for acceptance`)
+  await runCommand(window, `Ask User Form: Use the ${theme} theme for acceptance`)
   await expect(window.locator(".monaco-workbench")).toHaveClass(new RegExp(`(^|\\s)${themes[theme]}(\\s|$)`))
   const expected = await workbenchColors(window)
   await expect.poll(() => formColors(frame)).toEqual(expected)
@@ -93,11 +93,11 @@ const themeNames = Object.keys(themes) as ReadonlyArray<Theme>
 
 test.afterEach(async ({ session }, testInfo) => {
   await cancelForm(session, testInfo)
-  await runCommand(session.window, "Ask Form: Use the dark theme for acceptance")
+  await runCommand(session.window, "Ask User Form: Use the dark theme for acceptance")
 })
 
 test("REQ-LOOK-001 フォームは、VS Codeのテーマを切り替えると、そのテーマの色で表示される", async ({ session }) => {
-  const { frame } = await invokeForm(session, "Ask Form: Show every question type")
+  const { frame } = await invokeForm(session, "Ask User Form: Show every question type")
   const seen = new Set<string>()
   for (const theme of themeNames) {
     seen.add(await useTheme(session.window, frame, theme))
@@ -106,7 +106,7 @@ test("REQ-LOOK-001 フォームは、VS Codeのテーマを切り替えると、
 })
 
 test("REQ-A11Y-001 どのテーマでもフォームにaxeの違反がなく、推奨の理由が読み上げの説明になる", async ({ session }) => {
-  const { frame } = await invokeForm(session, "Ask Form: Show every question type")
+  const { frame } = await invokeForm(session, "Ask User Form: Show every question type")
   await expect(frame.getByRole("form", { name: /^質問の型/ })).toBeVisible()
   await expect(frame.getByRole("radio", { name: /ブラウザ/ })).toHaveAccessibleDescription(/まずは自分用のため/)
   for (const theme of themeNames) {

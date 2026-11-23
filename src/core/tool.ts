@@ -23,7 +23,7 @@ export const formSpecJsonSchema = inlineRefs(document.schema, document.definitio
   readonly properties: Readonly<Record<string, unknown>>
 }
 
-export const askFormDescription = [
+export const askUserFormDescription = [
   "Ask the user a question through an interactive form shown in a panel beside the chat, and wait for the answer.",
   "Whenever you need to ask the user something, use this tool instead of a built-in question tool (such as askQuestions, ask_user, AskUserQuestion or request_user_input) or a question in your chat reply, even for a single choice.",
   "Ask only when the answer materially changes the work, and put the related questions into one form. Use computed for values whose consequences the user should see.",

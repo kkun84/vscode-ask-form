@@ -29,7 +29,7 @@ const modelReady = async (page: Page, harness: Harness): Promise<void> => {
 }
 
 const openSession = async (session: Session, harness: Harness): Promise<Page> => {
-  await runCommand(session.window, `Ask Form: New acceptance ${harness} session`)
+  await runCommand(session.window, `Ask User Form: New acceptance ${harness} session`)
   await modelReady(session.window, harness)
   return session.window
 }
@@ -64,7 +64,7 @@ const ask = async (
   let page = await open()
   let previous = page.frames()
   const allow = () => page.locator(".monaco-button:visible", { hasText: "Allow in this Session" })
-  const missing = () => page.getByText(/^NO_ASK_FORM/)
+  const missing = () => page.getByText(/^NO_ASK_USER_FORM/)
   const called = () => session.agents.toolCalls.length > callIndex
   for (let attempt = 0; attempt < 5 && !(await allow().isVisible()) && !called(); attempt++) {
     if (attempt > 0 && (await missing().count()) > 0) {
@@ -76,11 +76,11 @@ const ask = async (
     await send(page)
     await until(
       async () => ((await allow().isVisible()) || called() || (await missing().count()) > before ? true : undefined),
-      `${harness} asks for permission, calls ask_form, or answers without ask_form`,
+      `${harness} asks for permission, calls ask_user_form, or answers without ask_user_form`,
       120_000
     )
   }
-  const call = await until(() => Promise.resolve(session.agents.toolCalls[callIndex]), `${harness} calls ask_form`, 120_000)
+  const call = await until(() => Promise.resolve(session.agents.toolCalls[callIndex]), `${harness} calls ask_user_form`, 120_000)
   let shown = false
   const approved = until(
     async () => {
@@ -91,7 +91,7 @@ const ask = async (
       }
       return shown ? true : undefined
     },
-    `${harness} runs ask_form`,
+    `${harness} runs ask_user_form`,
     150_000
   )
   const frame = await formFrame(page, previous).finally(() => {
@@ -120,10 +120,10 @@ const answer = async (session: Session, page: Page, frame: Frame, callId: string
   await page.getByText("STUB_MODEL_DONE", { exact: true }).waitFor({ timeout: 60_000 })
 }
 
-const answerDelay = Number(process.env["ASK_FORM_E2E_ANSWER_DELAY_MS"] ?? "0")
+const answerDelay = Number(process.env["ASK_USER_FORM_E2E_ANSWER_DELAY_MS"] ?? "0")
 
 const searchedForTheTool = (requests: ReadonlyArray<ReadonlyArray<string>>): boolean =>
-  requests.some((names) => names.includes("tool_search_tool") && !names.some((name) => name.endsWith("askForm")))
+  requests.some((names) => names.includes("tool_search_tool") && !names.some((name) => name.endsWith("askUserForm")))
 
 const answeredInPanel = (harness: Harness, open: (session: Session) => Promise<Page>) => async (session: Session) => {
   const requests = session.agents.toolNames.length
@@ -155,7 +155,7 @@ const agentsWindow = async (session: Session): Promise<Page> => {
     throw new Error("the Agents window needs the desktop app")
   }
   const opened = session.app.waitForEvent("window", { predicate: (page) => page.url().includes("sessions.html"), timeout: 180_000 })
-  await runCommand(session.window, "Ask Form: Open acceptance Agents window")
+  await runCommand(session.window, "Ask User Form: Open acceptance Agents window")
   const page = await opened
   return page
 }
