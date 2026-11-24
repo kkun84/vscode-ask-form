@@ -6,34 +6,34 @@
 
 | ID | 名前 | 派生元 | 派生先 | 検証 |
 | --- | --- | --- | --- | --- |
-| REQ-ASK-001 | フォームで質問できる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-001, SPEC-TOOL-004, SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, `test/acceptance/harness.spec.ts`, MAT-ASK-001 |
-| REQ-ASK-002 | 推奨と理由が見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.spec.ts`, `test/acceptance/kinds.spec.ts`, MAT-ASK-001 |
-| REQ-ASK-003 | 結果がその場で変わる | - | SPEC-FORM-001, SPEC-EXPR-001, SPEC-UI-002 | `test/acceptance/kinds.spec.ts`, MAT-ASK-001 |
-| REQ-ASK-004 | 選んだ選択肢に応じて続きを聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-003, SPEC-UI-011 | `test/acceptance/kinds.spec.ts`, MAT-ASK-002 |
-| REQ-ASK-005 | 順位を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-015 | `test/acceptance/kinds.spec.ts`, MAT-ASK-003 |
-| REQ-ASK-006 | 多くの候補から選べる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-016 | `test/acceptance/kinds.spec.ts`, MAT-ASK-004 |
-| REQ-ASK-007 | 自由な値を複数書いてもらえる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-017 | `test/acceptance/kinds.spec.ts`, MAT-ASK-005 |
-| REQ-ASK-008 | 数値の範囲を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-018 | `test/acceptance/kinds.spec.ts`, MAT-ASK-006 |
-| REQ-ASK-009 | 日付と時刻を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-019 | `test/acceptance/kinds.spec.ts`, MAT-ASK-007 |
-| REQ-ASK-010 | 階層のある候補から選ばせられる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-020 | `test/acceptance/kinds.spec.ts`, MAT-ASK-008 |
-| REQ-ANS-001 | 1回の操作で回答が届く | - | SPEC-TOOL-001, SPEC-TOOL-003, SPEC-TOOL-005, SPEC-TOOL-006, SPEC-UI-003 | `test/acceptance/chat.spec.ts`, MAT-ANS-001 |
-| REQ-ANS-003 | キャンセルしてチャットで答えられる | - | SPEC-TOOL-003, SPEC-UI-003 | `test/acceptance/chat.spec.ts`, `test/acceptance/tool.spec.ts`, MAT-ANS-002, MAT-PANEL-001 |
-| REQ-ANS-005 | 質問ごとに、値を答えずにコメントだけで返せる | - | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-012 | `test/acceptance/chat.spec.ts`, MAT-ANS-002 |
-| REQ-ANS-006 | 補足を添えられる | - | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-013 | `test/acceptance/chat.spec.ts`, MAT-ANS-002 |
-| REQ-ANS-007 | 質問ごとにコメントを添えられる | - | SPEC-TOOL-005, SPEC-TOOL-010, SPEC-UI-014 | `test/acceptance/chat.spec.ts`, MAT-ANS-002 |
-| REQ-ANS-004 | キーボードだけで回答できる | - | SPEC-UI-003, SPEC-UI-008 | `test/acceptance/kinds.spec.ts`, MAT-ANS-001 |
-| REQ-RES-001 | 回答後にフォームが残らない | - | SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, MAT-RES-001 |
-| REQ-CANCEL-001 | 止めた質問に回答が残らない | - | SPEC-TOOL-005, SPEC-TOOL-007, SPEC-UI-006, SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, `test/acceptance/tool.spec.ts`, MAT-CANCEL-001 |
-| REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.spec.ts`, `test/acceptance/tool.spec.ts`, MAT-CANCEL-001, MAT-PANEL-001 |
-| REQ-WAIT-002 | 利用者が不在の設定では待たない | - | SPEC-TOOL-003, SPEC-EXT-007 | `test/acceptance/chat.spec.ts`, MAT-WAIT-001 |
-| REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/tool.spec.ts`, MAT-WEB-001 |
-| REQ-ENV-002 | Codexのハーネスでも回答できる | - | SPEC-TOOL-001 | `test/acceptance/harness.spec.ts`, MAT-ENV-002 |
-| REQ-ENV-003 | Agentsウィンドウでも回答できる | - | SPEC-TOOL-001 | `test/acceptance/harness.spec.ts`, MAT-ENV-003 |
-| REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/startup.spec.ts`, MAT-PERF-001 |
-| REQ-SEC-001 | 回答を偽装されない | - | SPEC-UI-010 | MAT-SEC-001 |
-| REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | MAT-LOOK-001 |
-| REQ-A11Y-001 | 支援技術で使える | - | SPEC-UI-008 | MAT-LOOK-001 |
-| REQ-DIST-001 | リリースを配布する | - | SPEC-REL-001, SPEC-REL-002, SPEC-REL-003 | MAT-DIST-001 |
+| REQ-ASK-001 | フォームで質問できる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-001, SPEC-TOOL-004, SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, `test/acceptance/harness.spec.ts` |
+| REQ-ASK-002 | 推奨と理由が見える | - | SPEC-FORM-001, SPEC-UI-001 | `test/acceptance/chat.spec.ts`, `test/acceptance/kinds.spec.ts` |
+| REQ-ASK-003 | 結果がその場で変わる | - | SPEC-FORM-001, SPEC-EXPR-001, SPEC-UI-002 | `test/acceptance/kinds.spec.ts` |
+| REQ-ASK-004 | 選んだ選択肢に応じて続きを聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-003, SPEC-UI-011 | `test/acceptance/kinds.spec.ts` |
+| REQ-ASK-005 | 順位を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-015 | `test/acceptance/kinds.spec.ts` |
+| REQ-ASK-006 | 多くの候補から選べる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-016 | `test/acceptance/kinds.spec.ts` |
+| REQ-ASK-007 | 自由な値を複数書いてもらえる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-017 | `test/acceptance/kinds.spec.ts` |
+| REQ-ASK-008 | 数値の範囲を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-018 | `test/acceptance/kinds.spec.ts` |
+| REQ-ASK-009 | 日付と時刻を聞ける | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-019 | `test/acceptance/kinds.spec.ts` |
+| REQ-ASK-010 | 階層のある候補から選ばせられる | - | SPEC-FORM-001, SPEC-FORM-002, SPEC-TOOL-005, SPEC-UI-020 | `test/acceptance/kinds.spec.ts` |
+| REQ-ANS-001 | 1回の操作で回答が届く | - | SPEC-TOOL-001, SPEC-TOOL-003, SPEC-TOOL-005, SPEC-TOOL-006, SPEC-UI-003 | `test/acceptance/chat.spec.ts` |
+| REQ-ANS-003 | キャンセルしてチャットで答えられる | - | SPEC-TOOL-003, SPEC-UI-003 | `test/acceptance/chat.spec.ts`, `test/acceptance/tool.spec.ts` |
+| REQ-ANS-005 | 質問ごとに、値を答えずにコメントだけで返せる | - | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-012 | `test/acceptance/chat.spec.ts` |
+| REQ-ANS-006 | 補足を添えられる | - | SPEC-TOOL-003, SPEC-TOOL-005, SPEC-UI-013 | `test/acceptance/chat.spec.ts` |
+| REQ-ANS-007 | 質問ごとにコメントを添えられる | - | SPEC-TOOL-005, SPEC-TOOL-010, SPEC-UI-014 | `test/acceptance/chat.spec.ts` |
+| REQ-ANS-004 | キーボードだけで回答できる | - | SPEC-UI-003, SPEC-UI-008 | `test/acceptance/kinds.spec.ts` |
+| REQ-RES-001 | 回答後にフォームが残らない | - | SPEC-EXT-004 | `test/acceptance/chat.spec.ts` |
+| REQ-CANCEL-001 | 止めた質問に回答が残らない | - | SPEC-TOOL-005, SPEC-TOOL-007, SPEC-UI-006, SPEC-EXT-004 | `test/acceptance/chat.spec.ts`, `test/acceptance/tool.spec.ts` |
+| REQ-WAIT-001 | 回答待ちが分かる | - | SPEC-EXT-002 | `test/acceptance/chat.spec.ts`, `test/acceptance/tool.spec.ts` |
+| REQ-WAIT-002 | 利用者が不在の設定では待たない | - | SPEC-TOOL-003, SPEC-EXT-007 | `test/acceptance/chat.spec.ts` |
+| REQ-WEB-001 | web版でも回答できる | - | SPEC-EXT-004 | `test/acceptance/tool.spec.ts` |
+| REQ-ENV-002 | Codexのハーネスでも回答できる | - | SPEC-TOOL-001 | `test/acceptance/harness.spec.ts` |
+| REQ-ENV-003 | Agentsウィンドウでも回答できる | - | SPEC-TOOL-001 | `test/acceptance/harness.spec.ts` |
+| REQ-PERF-001 | 軽い | - | SPEC-EXT-005 | `test/acceptance/startup.spec.ts` |
+| REQ-SEC-001 | 回答を偽装されない | - | SPEC-UI-010 | `test/acceptance/desktop.spec.ts` |
+| REQ-LOOK-001 | VS Codeに馴染む | - | SPEC-UI-007, SPEC-UI-009 | `test/acceptance/desktop.spec.ts` |
+| REQ-A11Y-001 | 支援技術で使える | - | SPEC-UI-008 | `test/acceptance/desktop.spec.ts` |
+| REQ-DIST-001 | リリースを配布する | - | SPEC-REL-001, SPEC-REL-002, SPEC-REL-003 | SPEC-REL-001, SPEC-REL-002, SPEC-REL-003 |
 
 ## システム仕様
 
@@ -66,7 +66,7 @@
 | SPEC-UI-018 | 数値の範囲 | REQ-ASK-008 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-019 | 日付と時刻 | REQ-ASK-009 | - | `test/system/ui.spec.ts` |
 | SPEC-UI-020 | 木から選ぶ | REQ-ASK-010 | - | `test/system/ui.spec.ts` |
-| SPEC-UI-010 | 画面への通知の送り主 | REQ-SEC-001 | ARCH-UI-001, DES-UI-002 | `test/system/ui.spec.ts` |
+| SPEC-UI-010 | 画面への通知の送り主 | REQ-SEC-001 | ARCH-NET-001, ARCH-UI-001, DES-UI-002 | `test/system/ui.spec.ts` |
 | SPEC-EXT-002 | 待機の表示 | REQ-WAIT-001 | - | `test/system/extension.test.ts` |
 | SPEC-EXT-004 | パネルのフォーム | REQ-ASK-001, REQ-WEB-001, REQ-CANCEL-001, REQ-RES-001 | ARCH-LAYER-002, ARCH-UI-001, DES-UI-002, DES-HOST-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-007 | 利用者が不在の設定 | REQ-WAIT-002 | - | `test/system/extension.test.ts` |
@@ -84,6 +84,7 @@
 | ARCH-LAYER-002 | 画面はブラウザだけで動く | SPEC-UI-001, SPEC-EXT-004, SPEC-EXT-005 | - | `test/architecture/architecture.test.ts` |
 | ARCH-LAYER-006 | 画面が使う中核はEffectを使わない | SPEC-EXT-005, SPEC-UI-002, SPEC-EXPR-001, SPEC-TOOL-003 | DES-EXPR-002, DES-FORM-002, DES-FORM-003, DES-FORM-007 | `test/architecture/architecture.test.ts` |
 | ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | DES-TOOLS-001, DES-TOOLS-003 | `test/architecture/architecture.test.ts` |
+| ARCH-NET-001 | 通信の口を開かない | SPEC-UI-010 | - | `test/architecture/architecture.test.ts` |
 | ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001, SPEC-UI-006, SPEC-UI-010 | DES-UI-002, DES-HOST-001 | `test/system/ui.spec.ts` |
 | ARCH-REL-001 | 検出と公開の権限を分ける | SPEC-REL-001 | DES-REL-001 | `test/system/release-workflow.test.ts` |
 

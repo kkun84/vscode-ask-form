@@ -13,7 +13,7 @@ export const desktopSession = async (llm: StubModel, profile: string, log: strin
   )
   const window = await fitWindow(app, size)
   window.context().setDefaultTimeout(30_000)
-  return { window, events: lines(log), close: () => closeApp(app) }
+  return { window, events: lines(log), pid: app.process().pid, close: () => closeApp(app) }
 }
 
 const modelOffered = (window: Page): Promise<true> => {

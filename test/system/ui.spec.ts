@@ -1,5 +1,5 @@
 import { expect, test, type Frame, type Page } from "@playwright/test"
-import AxeBuilder from "../support/axe.ts"
+import { axeViolations } from "../support/axe.ts"
 import { eventSpec } from "../fixtures/event.ts"
 import { storageSpec } from "../fixtures/storage.ts"
 import { branchSpec } from "../fixtures/branches.ts"
@@ -36,12 +36,6 @@ interface OutcomeLike {
 
 const selectStorage = async (frame: Frame, name: string) => {
   await frame.getByRole("radio", { name }).check()
-}
-
-const axeViolations = async (frame: Frame): Promise<ReadonlyArray<string>> => {
-  await expect.poll(() => frame.evaluate(() => document.getAnimations().length)).toBe(0)
-  const results = await new AxeBuilder(frame).analyze()
-  return results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
 }
 
 const openWithTalk = async (page: Page): Promise<Frame> => {

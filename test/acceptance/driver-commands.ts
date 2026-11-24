@@ -4,6 +4,8 @@ import { kindsSpec, unrecommendedSpec } from "../fixtures/kinds.ts"
 
 const toolName = "ask_user_form"
 
+const themes = { light: "Default Light Modern", dark: "Default Dark Modern", contrast: "Default High Contrast" } as const
+
 const sleep = (ms: number) =>
   new Promise((resolve) => {
     setTimeout(resolve, ms)
@@ -42,7 +44,13 @@ export const registerCommands = (context: vscode.ExtensionContext, emit: (line: 
     vscode.commands.registerCommand("ask-user-form-e2e.invoke", () => invoke(eventSpec)),
     vscode.commands.registerCommand("ask-user-form-e2e.invokeKinds", () => invoke(kindsSpec)),
     vscode.commands.registerCommand("ask-user-form-e2e.invokeUnrecommended", () => invoke(unrecommendedSpec)),
-    vscode.commands.registerCommand("ask-user-form-e2e.cancel", () => source?.cancel())
+    vscode.commands.registerCommand("ask-user-form-e2e.cancel", () => source?.cancel()),
+    ...Object.entries(themes).map(([name, theme]) =>
+      vscode.commands.registerCommand(`ask-user-form-e2e.theme.${name}`, async () => {
+        await vscode.workspace.getConfiguration("workbench").update("colorTheme", theme, vscode.ConfigurationTarget.Global)
+        emit(`theme ${theme}`)
+      })
+    )
   )
   emit("commands ready")
 }

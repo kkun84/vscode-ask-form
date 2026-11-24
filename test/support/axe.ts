@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
-import type { Frame } from "@playwright/test"
+import { expect, type Frame } from "@playwright/test"
 
 interface AxeResults {
   readonly violations: ReadonlyArray<{
@@ -11,7 +11,7 @@ interface AxeResults {
 
 const source = readFile(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8")
 
-export default class AxeBuilder {
+class AxeBuilder {
   private readonly frame: Frame
 
   constructor(frame: Frame) {
@@ -26,4 +26,10 @@ export default class AxeBuilder {
       })
     )
   }
+}
+
+export const axeViolations = async (frame: Frame): Promise<ReadonlyArray<string>> => {
+  await expect.poll(() => frame.evaluate(() => document.getAnimations().length)).toBe(0)
+  const results = await new AxeBuilder(frame).analyze()
+  return results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`)
 }

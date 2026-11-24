@@ -109,6 +109,27 @@
       "ignoreTypeOnly": true,
       "message": "画面が使う中核は実行時にEffectを使わない",
       "severity": "error"
+    },
+    {
+      "id": "ARCH-NET-001",
+      "kind": "banned-import",
+      "files": ["src/**"],
+      "specifiers": [
+        "dgram",
+        "http",
+        "http2",
+        "https",
+        "net",
+        "tls",
+        "node:dgram",
+        "node:http",
+        "node:http2",
+        "node:https",
+        "node:net",
+        "node:tls"
+      ],
+      "message": "回答はVS Codeのパネルの通信だけで受け取る。通信の口を開くモジュールを使わない",
+      "severity": "error"
     }
   ]
 }
