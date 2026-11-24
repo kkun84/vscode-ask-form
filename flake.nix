@@ -126,7 +126,7 @@
         pkgs:
         builtins.mapAttrs (
           name: environment:
-          pkgs.writeShellScript "ask-form-${name}-shell" ''
+          pkgs.writeShellScript "ask-user-form-${name}-shell" ''
             export PATH=${pkgs.lib.makeBinPath environment.packages}:$PATH
             ${pkgs.lib.concatStrings (
               pkgs.lib.mapAttrsToList (
