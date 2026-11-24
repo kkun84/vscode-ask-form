@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url"
 import { readFile, readdir, writeFile } from "node:fs/promises"
 import { join, relative } from "node:path"
 
-type Level = "REQ" | "SPEC" | "ARCH" | "DES" | "MAT"
+type Level = "REQ" | "SPEC" | "ARCH" | "DES"
 
 interface Item {
   readonly id: string
@@ -10,6 +10,7 @@ interface Item {
   readonly title: string
   readonly file: string
   readonly parents: ReadonlyArray<string>
+  readonly verifiedBy: ReadonlyArray<string>
 }
 
 interface Evidence {
@@ -19,25 +20,18 @@ interface Evidence {
 }
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-const idPattern = /(?:REQ|SPEC|ARCH|DES|MAT)-[A-Z0-9]+-\d{3}/g
-const docs = [
-  "docs/spec/requirements.md",
-  "docs/spec/system.md",
-  "docs/design/architecture.md",
-  "docs/design/detailed.md",
-  "docs/test/manual-acceptance.md"
-]
+const idPattern = /(?:REQ|SPEC|ARCH|DES)-[A-Z0-9]+-\d{3}/g
+const docs = ["docs/spec/requirements.md", "docs/spec/system.md", "docs/design/architecture.md", "docs/design/detailed.md"]
 const output = "docs/traceability.md"
 
 const parentLevels: Readonly<Record<Level, ReadonlyArray<Level>>> = {
   REQ: [],
   SPEC: ["REQ"],
   ARCH: ["SPEC"],
-  DES: ["SPEC", "ARCH"],
-  MAT: ["REQ"]
+  DES: ["SPEC", "ARCH"]
 }
 
-const evidenceKinds: Readonly<Record<Exclude<Level, "MAT">, ReadonlyArray<Evidence["kind"]>>> = {
+const evidenceKinds: Readonly<Record<Level, ReadonlyArray<Evidence["kind"]>>> = {
   REQ: ["acceptance"],
   SPEC: ["system"],
   ARCH: ["architecture", "system"],
@@ -49,19 +43,21 @@ const levelOf = (id: string): Level => id.slice(0, id.indexOf("-")) as Level
 const parseDoc = async (file: string): Promise<ReadonlyArray<Item>> => {
   const lines = (await readFile(join(root, file), "utf8")).split("\n")
   const items: Array<Item> = []
-  let current: { id: string; title: string; parents: Array<string> } | undefined
+  let current: { id: string; title: string; parents: Array<string>; verifiedBy: Array<string> } | undefined
   const flush = () => {
     if (current !== undefined) {
       items.push({ ...current, level: levelOf(current.id), file })
     }
   }
   for (const line of lines) {
-    const heading = /^### ((?:REQ|SPEC|ARCH|DES|MAT)-[A-Z0-9]+-\d{3}) (.+)$/.exec(line)
+    const heading = /^### ((?:REQ|SPEC|ARCH|DES)-[A-Z0-9]+-\d{3}) (.+)$/.exec(line)
     if (heading !== null) {
       flush()
-      current = { id: heading[1] ?? "", title: heading[2] ?? "", parents: [] }
-    } else if (current !== undefined && /^(派生元|検証): /.test(line)) {
+      current = { id: heading[1] ?? "", title: heading[2] ?? "", parents: [], verifiedBy: [] }
+    } else if (current !== undefined && line.startsWith("派生元: ")) {
       current.parents.push(...(line.match(idPattern) ?? []))
+    } else if (current !== undefined && line.startsWith("検証: ")) {
+      current.verifiedBy.push(...(line.match(idPattern) ?? []))
     }
   }
   flush()
@@ -123,16 +119,23 @@ for (const item of items) {
   if (item.level === "REQ" && !items.some((other) => other.level === "SPEC" && other.parents.includes(item.id))) {
     problems.push(`${item.id}: この要求を満たすシステム仕様がありません`)
   }
-  if (item.level !== "MAT") {
-    const allowed = evidenceKinds[item.level]
-    const mine = evidence.filter((entry) => entry.id === item.id)
-    const manual = item.level === "REQ" && items.some((other) => other.level === "MAT" && other.parents.includes(item.id))
-    if (!mine.some((entry) => allowed.includes(entry.kind)) && !manual) {
-      problems.push(`${item.id}: 検証(${allowed.join("か")}${item.level === "REQ" ? "か手動受け入れ手順" : ""})がありません`)
+  const allowed = evidenceKinds[item.level]
+  const mine = evidence.filter((entry) => entry.id === item.id)
+  for (const spec of item.verifiedBy) {
+    const found = byId.get(spec)
+    if (item.level !== "REQ") {
+      problems.push(`${item.id}: 検証にIDを書けるのは要求仕様だけです`)
+    } else if (found?.level !== "SPEC" || !found.parents.includes(item.id)) {
+      problems.push(`${item.id}: 検証の ${spec} は、この要求から派生したシステム仕様ではありません`)
+    } else if (!evidence.some((entry) => entry.id === spec && entry.kind === "system")) {
+      problems.push(`${item.id}: 検証の ${spec} にシステムテストがありません`)
     }
-    for (const entry of mine.filter((candidate) => !allowed.includes(candidate.kind))) {
-      problems.push(`${item.id}: ${entry.where} は${item.level}を検証する段階のテストではありません`)
-    }
+  }
+  if (!mine.some((entry) => allowed.includes(entry.kind)) && item.verifiedBy.length === 0) {
+    problems.push(`${item.id}: 検証(${allowed.join("か")})がありません`)
+  }
+  for (const entry of mine.filter((candidate) => !allowed.includes(candidate.kind))) {
+    problems.push(`${item.id}: ${entry.where} は${item.level}を検証する段階のテストではありません`)
   }
 }
 
@@ -144,11 +147,10 @@ for (const entry of evidence) {
 
 const cell = (values: ReadonlyArray<string>) => (values.length === 0 ? "-" : values.join(", "))
 
-const verification = (item: Item): ReadonlyArray<string> => {
-  const automatic = [...new Set(evidence.filter((entry) => entry.id === item.id).map((entry) => `\`${entry.where}\``))]
-  const manual = items.filter((other) => other.level === "MAT" && other.parents.includes(item.id)).map((other) => other.id)
-  return [...automatic, ...manual]
-}
+const verification = (item: Item): ReadonlyArray<string> => [
+  ...new Set(evidence.filter((entry) => entry.id === item.id).map((entry) => `\`${entry.where}\``)),
+  ...item.verifiedBy
+]
 
 const sections: ReadonlyArray<readonly [Level, string]> = [
   ["REQ", "要求仕様"],
@@ -162,7 +164,7 @@ const table = sections
     const rows = items
       .filter((item) => item.level === level)
       .map((item) => {
-        const children = items.filter((other) => other.level !== "MAT" && other.parents.includes(item.id)).map((other) => other.id)
+        const children = items.filter((other) => other.parents.includes(item.id)).map((other) => other.id)
         return `| ${item.id} | ${item.title} | ${cell(item.parents)} | ${cell(children)} | ${cell(verification(item))} |`
       })
     return [`## ${heading}`, "", "| ID | 名前 | 派生元 | 派生先 | 検証 |", "| --- | --- | --- | --- | --- |", ...rows].join("\n")
