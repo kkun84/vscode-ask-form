@@ -7,6 +7,7 @@ export interface Running {
   readonly window: Page
   readonly events: () => Promise<ReadonlyArray<string>>
   readonly ready?: () => Promise<unknown>
+  readonly pid?: number | undefined
   readonly close: () => Promise<void>
 }
 

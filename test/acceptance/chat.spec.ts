@@ -151,11 +151,12 @@ test("REQ-ANS-006 補足を書いて送信すると、noteとしてモデルに�
   expect(result).toContain("If note is present")
 })
 
-test("REQ-ANS-003 キャンセルすると、answer_in_chatがモデルに届く", async ({ session }) => {
+test("REQ-ANS-003 キャンセルすると、answer_in_chatがモデルに届き、チャットの入力欄にフォーカスが移る", async ({ session }) => {
   const asked = await newForm(session)
   const result = await answer(session, asked, "Cancel")
   expect(result).toContain('"status":"answer_in_chat"')
   expect(result).toContain("End your turn now and wait for the user's next message")
+  await expect.poll(() => session.window.evaluate(() => document.activeElement?.closest(".interactive-input-part") !== null)).toBe(true)
 })
 
 test("REQ-CANCEL-001 待機中にチャットを停止すると、フォームのパネルが閉じ、ステータスバーの表示が消える", async ({ session }) => {
