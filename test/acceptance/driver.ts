@@ -136,13 +136,15 @@ export const activate = (context: vscode.ExtensionContext): void => {
       vscode.commands.registerCommand(`ask-user-form-e2e.${harness}`, async () => {
         await vscode.commands.executeCommand("workbench.action.chat.agentHost.downloadAgentSdk", harness)
         await vscode.commands.executeCommand(`workbench.action.chat.openNewChatSessionInPlace.agent-host-${harness}`, "sidebar")
+        log(`${harness} session opened`)
       })
     )
   }
   context.subscriptions.push(
-    vscode.commands.registerCommand("ask-user-form-e2e.copilot", () =>
-      vscode.commands.executeCommand("workbench.action.chat.openNewChatSessionInPlace.agent-host-copilotcli", "sidebar")
-    ),
+    vscode.commands.registerCommand("ask-user-form-e2e.copilot", async () => {
+      await vscode.commands.executeCommand("workbench.action.chat.openNewChatSessionInPlace.agent-host-copilotcli", "sidebar")
+      log("copilot session opened")
+    }),
     vscode.commands.registerCommand("ask-user-form-e2e.agentsWindow", () =>
       vscode.commands.executeCommand("workbench.action.openAgentsWindow")
     )

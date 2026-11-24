@@ -28,8 +28,19 @@ const modelReady = async (page: Page, harness: Harness): Promise<void> => {
   )
 }
 
+const sessionsOpened = async (session: Session, harness: Harness): Promise<number> => {
+  const text = await readFile(session.log, "utf8").catch(() => "")
+  return text.split("\n").filter((line) => line.endsWith(` ${harness.toLowerCase()} session opened`)).length
+}
+
 const openSession = async (session: Session, harness: Harness): Promise<Page> => {
+  const opened = await sessionsOpened(session, harness)
   await runCommand(session.window, `Ask User Form: New acceptance ${harness} session`)
+  await until(
+    async () => ((await sessionsOpened(session, harness)) > opened ? true : undefined),
+    `the chat view shows the new ${harness} session`,
+    120_000
+  )
   await modelReady(session.window, harness)
   return session.window
 }
