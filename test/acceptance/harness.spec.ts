@@ -28,8 +28,12 @@ const modelReady = async (page: Page, harness: Harness): Promise<void> => {
   )
 }
 
+const sessionViewReplaced = (page: Page) =>
+  page.locator(".interactive-session .chat-welcome-view").first().waitFor({ state: "visible", timeout: 60_000 })
+
 const openSession = async (session: Session, harness: Harness): Promise<Page> => {
   await runCommand(session.window, `Ask User Form: New acceptance ${harness} session`)
+  await sessionViewReplaced(session.window)
   await modelReady(session.window, harness)
   return session.window
 }
