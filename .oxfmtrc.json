@@ -4,5 +4,5 @@
   "semi": false,
   "trailingComma": "none",
   "arrowParens": "always",
-  "ignorePatterns": ["pnpm-lock.yaml", ".mutator/**", "test/system/__screenshots__/**", "docs/traceability.md"]
+  "ignorePatterns": ["pnpm-lock.yaml", ".mutator/**", ".mutator-base/**", "test/system/__screenshots__/**", "docs/traceability.md"]
 }
