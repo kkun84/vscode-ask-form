@@ -341,6 +341,8 @@ pnpm build
 
 コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。pushの前には`pnpm mutation:diff`と`pnpm mutation:findings origin/main`を実行し、検出できなかったミュータントの件数と、見直しの手順を表示します。テストが弱くなった箇所があればpushを止めます。それ以外では止めません。`origin/main`が無い環境では何もしません。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
 
+ミューテーションテストは単体テストだけで動かすので、mutatorには単体テストだけを含む`vitest.mutation.config.ts`を渡します(`mutator.config.json`の`vitestConfig`)。mutatorにはVitestのプロジェクトを選ぶ設定が無く、`vitest.config.ts`を渡すと、アーキテクチャとシステムのテストも動き、全件の実行に約2倍の時間がかかるためです。
+
 ### CI
 
 CIは、検査を次のジョブに分けて並列に動かします(`.github/workflows/verify.yml`)。全部のジョブが成功した時だけ、`check`が成功します。
