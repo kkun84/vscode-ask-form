@@ -36,7 +36,7 @@ jobs:
         run: bash scripts/mutation-diff.sh --kill-matrix "$BASE"
       - name: Judgement on a temporary repository
         if: ${{ !cancelled() }}
-        run: node scripts/timed.ts mutation vitest run --project mutation
+        run: node scripts/timed.ts mutation node_modules/.bin/vitest run --project mutation
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ !cancelled() && hashFiles('.mutator-base/*/scopes/*.json') != '' }}
         with:
