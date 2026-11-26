@@ -4,6 +4,7 @@ export interface MutantRecord {
   readonly replacement?: string
   readonly line?: number
   readonly status?: string
+  readonly statusReason?: string
   readonly killedBy: ReadonlyArray<string>
 }
 
@@ -75,6 +76,7 @@ const decodeMutant = (value: unknown): ReadonlyArray<MutantRecord> => {
       ...optional("replacement", text(value, "replacement")),
       ...optional("line", startLine(value["location"])),
       ...optional("status", text(value, "status")),
+      ...optional("statusReason", text(value, "statusReason")),
       killedBy: strings(value["killedBy"])
     }
   ]

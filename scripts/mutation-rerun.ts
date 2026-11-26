@@ -177,9 +177,14 @@ export const reviewNotRun = (output: string, where: string): Review => {
       }
 }
 
+const settled: ReadonlySet<string> = new Set(["Killed", "Timeout", "RuntimeError", "NoCoverage", "Survived"])
+
+const decidedByTests = (mutant: MutantRecord | undefined) =>
+  mutant !== undefined && settled.has(mutant.status ?? "") && mutant.statusReason?.startsWith("not infected") !== true
+
 export const vanishCandidates = (listed: MutationReport, base: MutationReport): ReadonlyArray<string> => {
   const now = mutantsById(base)
-  return [...mutantsById(listed).keys()].filter((key) => !detected.has(now.get(key)?.status ?? "")).toSorted()
+  return [...mutantsById(listed).keys()].filter((key) => !decidedByTests(now.get(key))).toSorted()
 }
 
 export const vanishedKeys = (base: MutationReport, original: MutationReport, touched: (test: string) => boolean): ReadonlyArray<string> => {

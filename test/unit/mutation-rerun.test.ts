@@ -152,15 +152,20 @@ test("DES-TOOLS-003 mutatorのテキストの出力に、範囲内で実行さ�
   })
 })
 
-test("DES-TOOLS-003 分岐点の元の設定にあって、今の設定の基準で検出されないミュータントを、元の設定で実行する相手に選ぶ", () => {
-  const listed = report(["killed", "timeout", "survived", "ignored", "gone"].map((id) => mutant(id, "Pending")))
+test("DES-TOOLS-003 分岐点の元の設定にあって、今の設定の基準ではテストで決まった状態でないミュータントを、元の設定で実行する相手に選ぶ", () => {
+  const ids = ["killed", "timeout", "error", "survived", "uncovered", "not-infected", "ignored", "compile", "gone"]
+  const listed = report(ids.map((id) => mutant(id, "Pending")))
   const base = report([
     mutant("killed", "Killed", [other]),
     mutant("timeout", "Timeout"),
+    mutant("error", "RuntimeError"),
     mutant("survived", "Survived"),
-    mutant("ignored", "Ignored")
+    mutant("uncovered", "NoCoverage"),
+    { ...mutant("not-infected", "Survived"), statusReason: "not infected: no covering test reaches it with a value it changes" },
+    mutant("ignored", "Ignored"),
+    mutant("compile", "CompileError")
   ])
-  assert.deepEqual(vanishCandidates(listed, base), ["gone", "ignored", "survived"])
+  assert.deepEqual(vanishCandidates(listed, base), ["compile", "gone", "ignored", "not-infected"])
 })
 
 test("DES-TOOLS-003 設定で外したミュータントを、変えたテストが元の設定で検出していて、今のテストが検出しなければ失敗する", () => {
