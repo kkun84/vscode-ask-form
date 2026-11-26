@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-kill_matrix=()
 skip_without_base=false
 base=""
 for arg in "$@"; do
   case "$arg" in
-    --kill-matrix) kill_matrix=(--kill-matrix) ;;
     --skip-without-base) skip_without_base=true ;;
     -*)
       echo "unknown option: $arg" >&2
@@ -16,7 +14,7 @@ for arg in "$@"; do
   esac
 done
 if [ -z "$base" ]; then
-  echo "usage: $0 [--kill-matrix] [--skip-without-base] <base-ref>" >&2
+  echo "usage: $0 [--skip-without-base] <base-ref>" >&2
   exit 2
 fi
 
@@ -33,6 +31,10 @@ fail() {
 
 root=$(git rev-parse --show-toplevel) || fail "Gitのリポジトリではない" "scripts/mutation-diff.shはGitのリポジトリの中で実行してください。"
 cd "$root"
+tracked=$(git ls-files -- .mutator .mutator-base)
+if [ -n "$tracked" ]; then
+  fail "ミューテーションテストの結果がgitで追跡されている" "$(printf '%s\n' "$tracked" | head -n 5)がgitで追跡されています。基準や結果をコミットで差し替えられないよう、git rm --cachedで追跡を外してください。"
+fi
 if ! git rev-parse --verify --quiet "${base}^{commit}" >/dev/null; then
   if [ "$skip_without_base" = true ]; then
     echo "mutation:diff: skipped because ${base} does not exist"
@@ -67,6 +69,14 @@ copy_snapshots() {
     if [ -f "$snapshot" ]; then cp "$snapshot" "$2/scopes/"; fi
   done
   if [ -f "$1/snapshot.json" ]; then cp "$1/snapshot.json" "$2/"; fi
+  local copied_snapshots=("$2"/scopes/*.json)
+  if [ -f "$2/snapshot.json" ]; then copied_snapshots+=("$2/snapshot.json"); fi
+  node -e 'const fs = require("node:fs")
+for (const file of process.argv.slice(1).filter((path) => fs.existsSync(path))) {
+  const snapshot = JSON.parse(fs.readFileSync(file, "utf8"))
+  delete snapshot.testReview
+  fs.writeFileSync(file, JSON.stringify(snapshot))
+}' "${copied_snapshots[@]}"
 }
 
 copied=()
@@ -112,7 +122,7 @@ copy_into_tree package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc
   no_baseline "分岐点の設定で、テストと対象の一覧を作れません"
 
 shopt -s nullglob
-settings=(tsconfig*.json mutator.config.json)
+settings=(tsconfig*.json mutator.config.ts mutator.config.mts mutator.config.mjs mutator.config.js mutator.config.json)
 for file in "$tree"/tsconfig*.json; do settings+=("${file#"$tree/"}"); done
 shopt -u nullglob
 copy_into_tree "${settings[@]}" "${test_setup[@]}"
@@ -151,7 +161,7 @@ echo "mutation:diff: baseline made in $(($(date +%s) - started))s"
 
 rm -rf .mutator
 copy_snapshots "$cache/$key" .mutator
-GITHUB_ACTIONS='' pnpm exec mutator --since "$merge_base" --include-test-changes "${kill_matrix[@]}" ||
+GITHUB_ACTIONS='' pnpm exec mutator --since "$merge_base" --include-test-changes --kill-matrix ||
   fail "ミューテーションテストが失敗した" "mutator --since ${merge_base}が失敗しました。上の出力を確かめてください。"
 findings=(node scripts/mutation-findings.ts "$merge_base" --base-scope "$work/base-scope.json" --scope "$work/scope.json")
 for file in "${watched[@]}"; do findings+=(--test-setup "$file"); done

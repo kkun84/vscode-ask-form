@@ -6,7 +6,7 @@ const defaultInclude = ["src/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"]
 const defaultExclude = ["**/node_modules/**", "**/*.d.ts", "**/*.{test,spec}.*", "**/__tests__/**"]
 
 const root = process.cwd()
-const settings = mutatorSettings(root)
+const settings = await mutatorSettings(root)
 const portable = (file: string) => file.split(sep).join("/")
 
 const sources = globSync([...(settings.include ?? defaultInclude)], {

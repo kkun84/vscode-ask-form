@@ -148,7 +148,7 @@ export const failure = (title: string, message: string): Review => ({
   exitCode: 1
 })
 
-const placeMutant = (report: MutationReport, key: string) => {
+export const placeMutant = (report: MutationReport, key: string) => {
   const found = [...report.files]
     .flatMap(([file, mutants]) => mutants.filter((mutant) => mutant.id === key).map((mutant) => ({ file, mutant })))
     .at(0)
@@ -205,32 +205,45 @@ const unmeasured: Annotation = {
     "mutatorが比べる基準(変更前のコミットで全件を実行した結果)を使えなかったため、テストが弱くなったかを確かめられません。基準と今とで、Node.jsの版、package.json、ロックファイル、tsconfig.json、pnpm-workspace.yaml、Vitestの設定、mutatorの設定のどれかが違います。基準はpnpm mutation:diff(scripts/mutation-diff.sh)で作ってください。そのうえで起きるなら、scripts/mutation-diff.shが基準へ写すファイルが足りません。"
 }
 
-const settings: ReadonlyArray<string> = ["mutator.config.json", "mutator.accepted.json", "vitest.mutation.config.ts"]
+const settings: ReadonlySet<string> = new Set([
+  "mutator.config.ts",
+  "mutator.config.mts",
+  "mutator.config.mjs",
+  "mutator.config.js",
+  "mutator.config.json",
+  "mutator.accepted.json",
+  "vitest.mutation.config.ts"
+])
 
-const judges: ReadonlyArray<string> = [
+const judges: ReadonlySet<string> = new Set([
   "scripts/mutation-diff.sh",
   "scripts/mutation-findings.ts",
   "scripts/mutation-recheck.ts",
   "scripts/mutation-report.ts",
+  "scripts/mutation-rerun.ts",
   "scripts/mutation-scope.ts",
   "scripts/mutation-vitest-files.ts",
   "scripts/mutation-vitest.ts",
-  "scripts/vitest-files.ts"
-]
+  "scripts/vitest-files.ts",
+  "package.json",
+  "lefthook.yml"
+])
+
+const isJudge = (file: string) => judges.has(file) || file.startsWith(".github/workflows/")
 
 const settingWarning = (file: string, testSetup: boolean) =>
   formatAnnotation({
     level: "warning",
     title: testSetup
       ? "テストの設定か準備のファイルが変わった"
-      : judges.includes(file)
-        ? "判定のスクリプトが変わった"
+      : isJudge(file)
+        ? "判定のスクリプトか呼び出し方が変わった"
         : "ミューテーションテストの設定が変わった",
     file,
     message: testSetup
       ? `${file}が変わりました。テストを集める範囲を狭めていないか、アサーションを無力化していないかを、人が確かめてください。ミューテーションテストの判定では見つけられません。`
-      : judges.includes(file)
-        ? `${file}が変わりました。テストが弱くなったかの判定を緩めていないかを、人が確かめてください。`
+      : isJudge(file)
+        ? `${file}が変わりました。テストが弱くなったかの判定を緩めたり、呼ばないようにしたりしていないかを、人が確かめてください。`
         : `${file}が変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。`
   })
 
@@ -239,8 +252,9 @@ export const reviewSettingChanges = (
   testSetupFiles: ReadonlyArray<string> = []
 ): ReadonlyArray<string> => [
   ...testSetupFiles.filter((file) => changedFiles.includes(file)).map((file) => settingWarning(file, true)),
-  ...[...settings, ...judges]
-    .filter((file) => changedFiles.includes(file) && !testSetupFiles.includes(file))
+  ...changedFiles
+    .filter((file) => (settings.has(file) || isJudge(file)) && !testSetupFiles.includes(file))
+    .toSorted()
     .map((file) => settingWarning(file, false))
 ]
 
@@ -299,68 +313,4 @@ export const reviewFindings = (report: MutationReport): Review => {
     ],
     exitCode: regressions.length === 0 ? 0 : 1
   }
-}
-
-const detected: ReadonlySet<string> = new Set(["Killed", "Timeout"])
-const undetected: ReadonlySet<string> = new Set(["Survived", "NoCoverage"])
-
-const mutantsById = (report: MutationReport): ReadonlyMap<string, MutantRecord> =>
-  new Map([...report.files.values()].flatMap((mutants) => mutants.map((mutant) => [mutant.id, mutant] as const)))
-
-export const scopeHashes = (snapshot: unknown): ReadonlyMap<string, string> => {
-  const rows = isObject(snapshot) ? snapshot["rows"] : undefined
-  return new Map(
-    (Array.isArray(rows) ? rows : []).flatMap((row: unknown) =>
-      Array.isArray(row) && typeof row[0] === "string" && typeof row[3] === "string" ? [[row[0], row[3]] as const] : []
-    )
-  )
-}
-
-export const recheckCandidates = (
-  base: MutationReport,
-  current: MutationReport,
-  baseScopes: ReadonlyMap<string, string>,
-  currentScopes: ReadonlyMap<string, string>
-): ReadonlyArray<string> => {
-  const touched = new Set(current.touchedTests)
-  const reported = new Set(current.findings.filter((finding) => finding.kind === "detectionRegression").map((finding) => finding.key))
-  const before = mutantsById(base)
-  return [...mutantsById(current).values()]
-    .filter((mutant) => {
-      const old = before.get(mutant.id)
-      const scope = baseScopes.get(mutant.id)
-      return (
-        old?.status === "Killed" &&
-        old.killedBy.some((test) => touched.has(test)) &&
-        old.killedBy.some((test) => !touched.has(test)) &&
-        detected.has(mutant.status ?? "") &&
-        !reported.has(mutant.id) &&
-        scope !== undefined &&
-        scope === currentScopes.get(mutant.id)
-      )
-    })
-    .map((mutant) => mutant.id)
-}
-
-export const reviewRechecked = (
-  base: MutationReport,
-  current: MutationReport,
-  keys: ReadonlyArray<string>,
-  reruns: ReadonlyArray<MutationReport>
-): Review => {
-  const before = mutantsById(base)
-  const results = reruns.map((rerun) => mutantsById(rerun))
-  const lines = keys
-    .filter((key) => results.some((result) => undetected.has(result.get(key)?.status ?? "")))
-    .map((key) => {
-      const { change, place } = placeMutant(current, key)
-      const killers = (before.get(key)?.killedBy ?? []).map((killer) => `「${killer}」`).join("、")
-      return formatAnnotation({
-        level: "error",
-        title: "テストが弱くなった",
-        message: `変わっていないコードのミュータント${key}${change}を、前は${killers}が検出していましたが、前の結果を使わずにもう一度実行すると、どのテストも検出しませんでした。mutatorは、前に検出したテストのどれかが変わっていなければ前の結果を使い回すので、この弱まりを見逃していました。mutator acceptで通さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。`,
-        ...place
-      })
-    })
-  return { lines, exitCode: lines.length === 0 ? 0 : 1 }
 }

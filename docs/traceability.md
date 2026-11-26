@@ -108,7 +108,7 @@
 | DES-UI-002 | メッセージの送り主の検査 | SPEC-UI-010, SPEC-EXT-004, ARCH-UI-001 | - | `test/unit/bridge.test.ts`, `test/unit/panel-bridge.test.ts` |
 | DES-HOST-001 | 回答の受け付けの状態 | SPEC-TOOL-005, SPEC-TOOL-007, SPEC-EXT-004, SPEC-UI-006, ARCH-UI-001 | - | `test/unit/app-host.test.ts` |
 | DES-TOOLS-001 | 時間の予算による終了 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/process.test.ts` |
-| DES-TOOLS-003 | ミューテーションテストの結果の判定 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/mutation-report.test.ts` |
+| DES-TOOLS-003 | ミューテーションテストの結果の判定 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/mutation-report.test.ts`, `test/unit/mutation-rerun.test.ts` |
 | DES-TOOLS-004 | ミューテーションテストの基準の作成 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/vitest-files.test.ts` |
 | DES-REL-001 | 版数と変更履歴の検査 | SPEC-REL-001, ARCH-REL-001 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |
 | DES-REL-002 | 変更履歴の項目の検査 | SPEC-REL-002 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |

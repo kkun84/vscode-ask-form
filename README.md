@@ -340,7 +340,7 @@ pnpm build
 
 画面や拡張機能、画面の文言、撮影の台本を変えたPRでは、`pnpm media`でREADMEの画像と紹介動画を撮り直してください。撮り直していないと、CIのMediaとpushの前のフックが失敗します。見た目が変わらない変更なら、PRに`no-media`ラベルを付けます。
 
-コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。pushの前には`pnpm mutation:diff`を実行し、検出できなかったミュータントと、見直しの手順を表示します。テストが弱くなった箇所があるか、比べる基準を作れない・使えない時は、pushを止めます。それ以外では止めません。`origin/main`が無い環境では何もしません。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
+コミットの前に[lefthook](https://github.com/evilmartians/lefthook)が、変更したファイルの整形と、検査と単体テストを実行します(設定は`lefthook.yml`)。pushの前には`pnpm mutation:diff`を実行し、検出できなかったミュータントと、見直しの手順を表示します。テストが弱くなった箇所があるか、比べる基準を作れない・使えない時は、pushを止めます。それ以外では止めません。`origin/main`が無い環境では何もしません。所要時間は、同じ基準が残っていれば数秒から数分、`origin/main`が進んだ時や依存を変えた時は十数分です(後述)。急ぐ時は`LEFTHOOK=0 git push`でフックを飛ばせます。CIのMutationがPRごとに同じ判定を行うので、飛ばしてもマージの前に判定されます。Linuxでは受け入れテストと`pnpm media`を`xvfb-run`の中で動かします。
 
 ミューテーションテストは単体テストだけで動かすので、mutatorには単体テストだけを含む`vitest.mutation.config.ts`を渡します(`mutator.config.json`の`vitestConfig`)。mutatorにはVitestのプロジェクトを選ぶ設定が無く、`vitest.config.ts`を渡すと、アーキテクチャとシステムのテストも動き、全件の実行に約2倍の時間がかかるためです。
 
@@ -349,11 +349,16 @@ pnpm build
 `pnpm mutation:diff`(`scripts/mutation-diff.sh`)は、前回の実行の`.mutator`を比べる基準に使いません。前回の結果は、別のブランチや別の環境の結果のことがあり、ブランチを切り替えると関係の無いpushを止めたり、`.mutator`が無いと検査を飛ばしたりするためです。毎回、次の手順で基準を作ってから判定します。
 
 1. `origin/main`と`HEAD`の共通の祖先を、一時的なworktreeに取り出す。
-2. 今の作業ツリーの`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`tsconfig*.json`、`mutator.config.json`と、Vitestの設定から辿れる設定ファイル、`setupFiles`、`globalSetup`を、worktreeに上書きで写す。mutatorは、これらとNode.jsの版が基準と同じ時だけ基準と比べるので、写さないと、`package.json`に空白を1つ足しただけで比べられなくなります。
-3. worktreeに`pnpm install --frozen-lockfile --offline --ignore-scripts`で依存を入れ、全件を実行する。`--ignore-scripts`は、`prepare`のlefthookが共有の`.git/hooks`を書き換えないためです。
-4. 作業ツリーの`.mutator`を基準の結果で置き換え、差分と変更したテストが確かめるコードのミュータントを実行して、`scripts/mutation-findings.ts`で判定する。worktreeは、終わり方によらず消します。
+2. 今の`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`を写し、`pnpm install --frozen-lockfile --offline --ignore-scripts`で依存を入れる。`--ignore-scripts`は、`prepare`のlefthookが共有の`.git/hooks`を書き換えないためです。
+3. 分岐点の元の設定で、Vitestが集めるテストファイルと、mutatorの対象のソースファイルの一覧を作る(`scripts/mutation-scope.ts`)。
+4. 今の`tsconfig*.json`、`mutator.config.*`(`.ts`、`.mts`、`.mjs`、`.js`、`.json`のどれでも)と、Vitestの設定から辿れる設定ファイル、`setupFiles`、`globalSetup`を、worktreeに上書きで写し、全件を実行する。mutatorは、これらとNode.jsの版が基準と同じ時だけ基準と比べるので、写さないと、`package.json`に空白を1つ足しただけで比べられなくなります。
+5. 作業ツリーの`.mutator`を基準の結果で置き換え、`mutator --since <共通の祖先> --include-test-changes --kill-matrix`を実行して判定する。worktreeは、終わり方によらず消します。
 
-基準の全件の実行は、キャッシュ無しで約13分かかります。そこで、作った基準の結果を`.mutator-base/`に、共通の祖先と環境のファイルの組ごとに3つまで残し、次の基準はそこから始めます。mutatorは、変わっていないコードの結果を再利用します。所要時間の目安は次のとおりです(4コアの手元で測った値)。
+`--kill-matrix`は、手元でもCIでも必ず付けます。付けると、mutatorは範囲の中の「検出した」を前の結果から使い回さず、全部のテストで実行し直します。付けないと、前に検出したテストのどれかが変わっていなければ前の結果を使うので、基準で関係の無いテストもたまたま検出したと記録されていると、本当に検出していたテストを弱めても見逃します。
+
+mutatorの`--include-test-changes`は、変えたテストが通るか直接読み込むコードのミュータントだけを選びます。モジュールの直下の正規表現のように、どのテストの実行中にも通らない所のミュータントは選ばれません。そこで、基準で`Killed`で、検出したテストに変えたか消したテストを含み、関数の中身が変わっておらず、今回実行されなかったミュータントを、`--only`と`--kill-matrix`で別に実行します(`scripts/mutation-recheck.ts`)。`Survived`か`NoCoverage`ならテストが弱くなったとして失敗にし、`Killed`と`Timeout`以外の状態も失敗にします。
+
+基準の全件の実行は、キャッシュ無しで約13分かかります。そこで、作った基準の結果を`.mutator-base/`に、共通の祖先と環境のファイルの組ごとに3つまで残し、次の基準はそこから始めます。mutatorは、変わっていないコードの結果を再利用します。残す時と使う時には、前の判定の記録(snapshotの`testReview`)を消します。残すと、mainに入った弱まりを、関係の無い変更の判定に持ち越すためです。所要時間の目安は次のとおりです(4コアの手元で測った値)。
 
 | 場合                                                                                       | 基準の作成 |
 | ------------------------------------------------------------------------------------------ | ---------- |
@@ -361,35 +366,35 @@ pnpm build
 | `origin/main`が進んだ(`src/core/hash.ts`の1行の変更で測った値)                             | 約9分      |
 | 環境のファイルを変えた(依存の更新、`package.json`の変更など)、または`.mutator-base/`が無い | 約13分     |
 
-`origin/main`が進んだ時にかかる時間は、変わったコードを使うテストが確かめるミュータントの数で決まります。
+`origin/main`が進んだ時にかかる時間は、変わったコードを使うテストが確かめるミュータントの数で決まります。キャッシュから始めた基準とキャッシュ無しで作った基準は、mutatorの再利用が正しい限り同じになるはずですが、負荷で揺れる`Timeout`などの結果は、実行のたびに違うことがあります。
 
-次の時は、テストが弱くなったかを確かめられないので失敗にします。
+次の時は失敗にします。
 
+- テストが弱くなった(`detectionRegression`か、上の別の実行で検出されなかった)。
 - 基準を作れない(worktreeや依存を用意できない、今の依存でベースの単体テストが落ちる、など)。依存の更新でテストが壊れたなら、まず`pnpm test:unit`を直してください。
 - 基準を作ったのに、mutatorが基準と比べられなかった(レポートの`comparison`が`unavailable`)。Vitestの設定から辿れないファイルを、テストが読むようにした時に起きます。`scripts/mutation-diff.sh`が写すファイルに足してください。
 - レポートの形が想定と違う。
-
 - 分岐点の設定では集めていたテストファイルが、ファイルは残っているのに、今の設定では集められない(Vitestの`include`、`exclude`、`projects`を狭めた)。改名した先を集めていれば失敗にしません。
-- 分岐点の設定ではミューテーションテストの対象だったソースファイルが、ファイルは残っているのに、今の`mutator.config.json`の`include`、`exclude`では対象外になった。
-
-mutatorは、前に検出したテストのどれかが変わっていなければ、前の「検出した」をそのまま使います。負荷の高い時に、関係の無いテストがたまたま落ちて、基準で「検出した」テストに数えられると、本当に検出していたテストを弱めても、変わっていない方のテストを理由に前の結果が使われ、見逃します。そこで、基準で検出したテストに、変えたか消したテストと、変わっていないテストの両方を含み、関数の中身が変わっておらず、今も検出したことになっているミュータントを、前の結果を使わずに`--only`で2回実行し直し(`scripts/mutation-recheck.ts`)、どちらかで検出されなければ失敗にします。テストを変えたPRでは、この実行し直しに数分かかることがあります。
-
-基準も今の設定で作るので、テストを集める範囲や対象を狭めた変更は、mutatorの比較だけでは見つかりません。そのため、分岐点の設定で集めた一覧と今の一覧を、`scripts/mutation-scope.ts`で別に作って比べます。
+- 分岐点の設定ではミューテーションテストの対象だったソースファイルが、ファイルは残っているのに、今の`mutator.config.*`の`include`、`exclude`では対象外になった。基準も今の設定で作るので、範囲を狭めた変更はmutatorの比較だけでは見つからず、`scripts/mutation-scope.ts`の一覧で比べます。
+- mutatorの設定に、実行を打ち切る`timeBudget`、`mutantsPerLine`、`shard`がある。基準の全件にPendingが残った時も失敗にします。
+- `.mutator`か`.mutator-base`がgitで追跡されている。
+- 基準のrefが無い。手元の`pnpm mutation:diff`だけは、`origin`の無いcloneでも動くよう何もしません。
 
 次の変更は、機械では見つけられないので、PRで人が確かめます。判定は、これらのファイルが変わったら警告を出します。
 
-- Vitestの設定ファイルと、そこから辿れる`setupFiles`、`globalSetup`。準備のファイルで`expect`を無力化すると、基準も同じ準備で作るので、テストが弱くなっても判定は通ります。
-- 判定のスクリプト(`scripts/mutation-*.ts`、`scripts/mutation-diff.sh`、`scripts/vitest-files.ts`)と、`package.json`の`scripts`。
+- Vitestの設定ファイルと、そこから辿れる`setupFiles`、`globalSetup`。準備のファイルで`expect`を無力化すると、基準も同じ準備で作るので、テストが弱くなっても判定は通ります。Vitestの`testNamePattern`のように、ファイルを集めたまま一部のテストを外す設定も、この警告と人の確認に頼ります。
+- 判定のスクリプト(`scripts/mutation-*.ts`、`scripts/mutation-diff.sh`、`scripts/vitest-files.ts`)と、判定の呼び出し方を決める`package.json`、`lefthook.yml`、`.github/workflows/`。
 
 判定には、次の限界があります。
 
 - 関数を書き換えて、そのテストを消した場合、書き換えた箇所のミュータントは差分の中なので、検出できなかったミュータントの警告になるだけで失敗しません。失敗にするのは、変わっていないコードのミュータントだけだからです。
+- 基準で`Timeout`か`RuntimeError`として検出していたミュータントは、検出したテストが分からないので判定の外です。
 - テストを壊す依存の更新と、テストの直しを同じPRに入れると、ベースのテストが今の依存で落ちて基準を作れず、必ず失敗します。依存の更新とテストの直しは、テストが新旧どちらの依存でも通る形にしてから分けてください。
 - テストがファイルとして読むデータ(fixtureなど)の変更は、環境として写さないので、基準との違いとしては見ません。
 
-`scripts/mutation-diff.sh`自身が働くことは、一時のgitリポジトリで、テストを消すと失敗し、変えなければ通ることなどを確かめるテスト(`test/system/mutation-diff.test.ts`、`pnpm test:mutation`)で確かめます。CIのMutationのワークフローが毎回動かすので、Dependabotがmutatorを上げたPRでも動きます。
+`scripts/mutation-diff.sh`自身が働くことは、一時のgitリポジトリで確かめます(`test/system/mutation-diff.test.ts`、`pnpm test:mutation`)。テストを消すか弱めると失敗し、変えない、関係の無い変更、テストを足すだけ、改名では通ること、選ばれないミュータント、範囲を狭める変更、実行の打ち切り、結果の追跡、mainの弱まりの持ち越し、オプションとrefの扱いを確かめます。CIのMutationのワークフローが毎回動かすので、Dependabotがmutatorを上げたPRでも動きます。
 
-`.mutator-base/`が壊れたと思う時は、消してから実行し直してください。キャッシュ無しの時と同じ結果になります。mutatorの注釈(`mutator accept`の案内を含む)は出さず、判定の結果だけを注釈にします。テストが弱くなった箇所は、`mutator accept`で記録して通してはいけないためです。
+`.mutator-base/`が壊れたと思う時は、消してから実行し直してください。mutatorの注釈(`mutator accept`の案内を含む)は出さず、判定の結果だけを注釈にします。テストが弱くなった箇所は、`mutator accept`で記録して通してはいけないためです。
 
 ### CI
 
@@ -404,7 +409,7 @@ CIは、検査を次のジョブに分けて並列に動かします(`.github/wo
 - 各ジョブは、`flake.nix`のCI用の環境(`packages`の`check`、`ui`、`acceptance`)のうち必要な物だけを、GitHub Actionsのキャッシュから復元して使います(`.github/actions/setup`)。`flake.nix`か`flake.lock`を変えると、次の実行で環境を作り直してキャッシュに保存します。
 - 開発用の環境(`nix develop`と`nix develop .#acceptance`)は、CI用の環境と同じ定義から作ります。違いは、`--headed`や`--ui`で画面を表示するためのChromiumが、開発用にだけ入ることです。テストが使うヘッドレスのChromiumは同じ物です。
 - リリースの前の検査も、同じ`verify.yml`を呼びます。
-- ミューテーションテストは、別のワークフロー(Mutation)で動かします。PRでは、ベースブランチとの共通の祖先を基準にして`scripts/mutation-diff.sh --kill-matrix`で判定します。mainへのpushでは、そのコミットを基準にして同じスクリプトを動かし、基準の結果をキャッシュに保存します。PRは、自分のPRかmainで保存した最も新しいキャッシュから基準を作り始めます。キャッシュは7日使われないと消えますが、消えても基準をキャッシュ無しで作るので、遅くなるだけで判定は変わりません。CIは判定のスクリプトを`package.json`の`scripts`を通さずに直接呼び、基準のrefが無ければ失敗にします。
+- ミューテーションテストは、別のワークフロー(Mutation)で動かします。PRでは、ベースブランチとの共通の祖先を基準にして`scripts/mutation-diff.sh`で判定します。mainへのpushでは、そのコミットを基準にして同じスクリプトを動かし、基準の結果をキャッシュに保存します。PRは、自分のPRかmainで保存した最も新しいキャッシュから基準を作り始めます。キャッシュは7日使われないと消えます。消えた時は基準をキャッシュ無しで作るので遅くなりますが、判定のしかたは変わりません(結果が揺れうる点は前述)。CIは判定のスクリプトを`package.json`の`scripts`を通さずに直接呼び、基準のrefが無ければ失敗にします。
 - 画面のテストの基準画像は、ActionsのScreenshotsを対象のブランチで手動で実行すると、CIの環境で作り直してコミットします。このコミットではCIが動かないので、PRでは続けてコミットを積むか、CIを手動で実行します。
 
 ### 実機での受け入れテスト

@@ -1,17 +1,16 @@
-import { existsSync, readFileSync } from "node:fs"
-import { resolve } from "node:path"
+import { loadConfig } from "@mizchi/mutator"
 import { createVitest, type Vitest } from "vitest/node"
 
 export interface MutatorSettings {
-  readonly vitestConfig?: string
-  readonly include?: ReadonlyArray<string>
-  readonly exclude?: ReadonlyArray<string>
+  readonly vitestConfig?: string | undefined
+  readonly include?: ReadonlyArray<string> | undefined
+  readonly exclude?: ReadonlyArray<string> | undefined
+  readonly timeBudget?: number | undefined
+  readonly mutantsPerLine?: number | undefined
+  readonly shard?: string | undefined
 }
 
-export const mutatorSettings = (root: string): MutatorSettings => {
-  const path = resolve(root, "mutator.config.json")
-  return existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as MutatorSettings) : {}
-}
+export const mutatorSettings = async (root: string): Promise<MutatorSettings> => (await loadConfig(root))?.config ?? {}
 
 export const withMutationVitest = async (settings: MutatorSettings, body: (vitest: Vitest) => string | Promise<string>): Promise<void> => {
   const vitest = await createVitest(

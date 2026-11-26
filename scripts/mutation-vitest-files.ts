@@ -5,7 +5,7 @@ import { vitestFiles } from "./vitest-files.ts"
 
 const root = process.cwd()
 
-await withMutationVitest(mutatorSettings(root), (vitest) => {
+await withMutationVitest(await mutatorSettings(root), (vitest) => {
   const files = vitestFiles(
     root,
     vitest.projects.map((project) => ({

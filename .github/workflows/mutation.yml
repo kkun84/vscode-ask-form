@@ -33,7 +33,7 @@ jobs:
       - name: Tests weakened by the change
         env:
           BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD' }}
-        run: bash scripts/mutation-diff.sh --kill-matrix "$BASE"
+        run: bash scripts/mutation-diff.sh "$BASE"
       - name: Judgement on a temporary repository
         if: ${{ !cancelled() }}
         run: node scripts/timed.ts mutation node_modules/.bin/vitest run --project mutation

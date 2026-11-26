@@ -4,12 +4,9 @@ import { test } from "vitest"
 import {
   decodeReport,
   formatAnnotation,
-  recheckCandidates,
   reviewFindings,
-  reviewRechecked,
   reviewScope,
   reviewSettingChanges,
-  scopeHashes,
   type MutationReport
 } from "../../scripts/mutation-report.ts"
 
@@ -142,28 +139,46 @@ test("DES-TOOLS-003 注釈の区切りと改行を値の中で符号化する", 
   )
 })
 
-test("DES-TOOLS-003 検査の範囲を決める設定が変わったら警告する", () => {
+test("DES-TOOLS-003 検査の範囲を決める設定が変わったら、どの形式の設定でも警告する", () => {
   assert.deepEqual(
-    reviewSettingChanges(["src/core/form.ts", "mutator.accepted.json", "vitest.mutation.config.ts", "mutator.config.json"]),
+    reviewSettingChanges([
+      "src/core/form.ts",
+      "mutator.config.ts",
+      "mutator.accepted.json",
+      "vitest.mutation.config.ts",
+      "mutator.config.json"
+    ]),
     [
-      "::warning file=mutator.config.json,title=ミューテーションテストの設定が変わった::mutator.config.jsonが変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。",
       "::warning file=mutator.accepted.json,title=ミューテーションテストの設定が変わった::mutator.accepted.jsonが変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。",
+      "::warning file=mutator.config.json,title=ミューテーションテストの設定が変わった::mutator.config.jsonが変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。",
+      "::warning file=mutator.config.ts,title=ミューテーションテストの設定が変わった::mutator.config.tsが変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。",
       "::warning file=vitest.mutation.config.ts,title=ミューテーションテストの設定が変わった::vitest.mutation.config.tsが変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。"
     ]
   )
-  assert.deepEqual(reviewSettingChanges(["src/core/form.ts", "", "docs/mutator.config.json"]), [])
+  assert.deepEqual(reviewSettingChanges(["src/core/form.ts", "", "docs/mutator.config.json", "docs/lefthook.yml"]), [])
 })
 
-test("DES-TOOLS-003 テストの設定と準備のファイル、判定のスクリプトが変わったら、人が確かめるよう警告する", () => {
+test("DES-TOOLS-003 テストの設定と準備のファイル、判定のスクリプトと呼び出し方が変わったら、人が確かめるよう警告する", () => {
   assert.deepEqual(
     reviewSettingChanges(
-      ["vitest.mutation.config.ts", "test/setup.ts", "scripts/mutation-diff.sh", "src/core/form.ts"],
+      [
+        "vitest.mutation.config.ts",
+        "test/setup.ts",
+        "scripts/mutation-diff.sh",
+        "src/core/form.ts",
+        "package.json",
+        "lefthook.yml",
+        ".github/workflows/mutation.yml"
+      ],
       ["vitest.mutation.config.ts", "test/setup.ts"]
     ),
     [
       "::warning file=vitest.mutation.config.ts,title=テストの設定か準備のファイルが変わった::vitest.mutation.config.tsが変わりました。テストを集める範囲を狭めていないか、アサーションを無力化していないかを、人が確かめてください。ミューテーションテストの判定では見つけられません。",
       "::warning file=test/setup.ts,title=テストの設定か準備のファイルが変わった::test/setup.tsが変わりました。テストを集める範囲を狭めていないか、アサーションを無力化していないかを、人が確かめてください。ミューテーションテストの判定では見つけられません。",
-      "::warning file=scripts/mutation-diff.sh,title=判定のスクリプトが変わった::scripts/mutation-diff.shが変わりました。テストが弱くなったかの判定を緩めていないかを、人が確かめてください。"
+      ...[".github/workflows/mutation.yml", "lefthook.yml", "package.json", "scripts/mutation-diff.sh"].map(
+        (file) =>
+          `::warning file=${file},title=判定のスクリプトか呼び出し方が変わった::${file}が変わりました。テストが弱くなったかの判定を緩めたり、呼ばないようにしたりしていないかを、人が確かめてください。`
+      )
     ]
   )
 })
@@ -202,68 +217,4 @@ test("DES-TOOLS-003 消したファイルと、改名した先を集めている
   ])
   assert.deepEqual(reviewScope(base, current, renames, exists), { lines: [], exitCode: 0 })
   assert.equal(reviewScope(base, scope([], ["src/core/new.ts"]), renames, exists).lines.length, 1)
-})
-
-const noChanges = { added: [], changed: [], removed: [] }
-
-const mutant = (id: string, status: string, killedBy: ReadonlyArray<string>) => ({
-  id,
-  mutatorName: "ConditionalExpression",
-  replacement: "true",
-  location: { start: { line: 7, column: 3 } },
-  status,
-  killedBy,
-  coveredBy: killedBy
-})
-
-const run = (mutants: ReadonlyArray<unknown>, testChanges: unknown = noChanges, findings: ReadonlyArray<unknown> = []) =>
-  decode({
-    schemaVersion: "2",
-    comparison: "available",
-    findings,
-    testChanges,
-    files: { "src/core/form.ts": { language: "typescript", mutants } }
-  })
-
-const weakened = "test/unit/form.test.ts#境界"
-const unrelated = "test/unit/bridge.test.ts#送り主"
-
-test("DES-TOOLS-003 前の結果を使い回して検出したことになったミュータントだけを、実行し直す相手に選ぶ", () => {
-  const killers: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = [
-    ["reused", [weakened, unrelated]],
-    ["only-changed", [weakened]],
-    ["scope-changed", [weakened, unrelated]],
-    ["reported", [weakened, unrelated]],
-    ["untouched", [unrelated]]
-  ]
-  const base = run(killers.map(([id, tests]) => mutant(id, "Killed", tests)))
-  const current = run(
-    killers.map(([id, tests]) => (id === "reported" ? mutant(id, "Survived", []) : mutant(id, "Killed", tests))),
-    { added: [], changed: [weakened], removed: [] },
-    [{ kind: "detectionRegression", key: "reported", previousKillers: [weakened, unrelated] }]
-  )
-  const scopes = new Map(killers.map(([id]) => [id, "a"]))
-  assert.deepEqual(recheckCandidates(base, current, scopes, new Map([...scopes, ["scope-changed", "b"]])), ["reused"])
-})
-
-test("DES-TOOLS-003 実行し直したどれかで検出されなければ、テストが弱くなったとして失敗する", () => {
-  const base = run([mutant("reused", "Killed", [weakened, unrelated])])
-  const current = run([mutant("reused", "Killed", [weakened, unrelated])], { added: [], changed: [weakened], removed: [] })
-  const killed = run([mutant("reused", "Killed", [unrelated])])
-  const survived = run([mutant("reused", "Survived", [])])
-  assert.deepEqual(reviewRechecked(base, current, ["reused"], [killed, killed]), { lines: [], exitCode: 0 })
-  assert.deepEqual(reviewRechecked(base, current, ["reused"], [killed, survived]), {
-    lines: [
-      `::error file=src/core/form.ts,line=7,title=テストが弱くなった::変わっていないコードのミュータントreused(ConditionalExpressionでtrueに置き換え)を、前は「${weakened}」、「${unrelated}」が検出していましたが、前の結果を使わずにもう一度実行すると、どのテストも検出しませんでした。mutatorは、前に検出したテストのどれかが変わっていなければ前の結果を使い回すので、この弱まりを見逃していました。mutator acceptで通さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。`
-    ],
-    exitCode: 1
-  })
-})
-
-test("DES-TOOLS-003 mutatorのsnapshotの行から、ミュータントごとの関数の中身のハッシュを読む", () => {
-  assert.deepEqual(
-    scopeHashes({ rows: [["3y4sxtjzpd", 0, 1, "3zpjklbzi4", "Survived", [], [], 421.1], ["broken"], "x"] }),
-    new Map([["3y4sxtjzpd", "3zpjklbzi4"]])
-  )
-  assert.deepEqual(scopeHashes({}), new Map())
 })

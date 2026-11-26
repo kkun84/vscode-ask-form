@@ -163,24 +163,26 @@
 - `detectionRegression`はGitHub Actionsの`::error`の注釈にし、ミュータントのファイルと開始行を`files`の`mutants`からidで引いて付ける。引けなければファイルを付けない。文言では、`mutator accept`で通さず、テストを戻すか足すよう案内する。
 - `newTestNoKills`は`::warning`の注釈にし、テストのidの`#`の前をファイルとして付ける。`mutationGap`は、`detectionRegression`と同じミュータントを除いて`::warning`の注釈にする。他の種類は扱わない。
 - `detectionRegression`が1件でもあれば終了コードを1、それ以外は0とする。
-- 前の結果を使い回して検出したことになったミュータントを選ぶ。基準で`Killed`で、`killedBy`に今のレポートの`testChanges`の`changed`か`removed`のテストと、それ以外のテストの両方を含み、snapshotの関数の中身のハッシュが基準と今で同じで、今も`Killed`か`Timeout`で、`detectionRegression`が出ていないもの。`scripts/mutation-recheck.ts`が、`.mutator`を退けてこれらを`--only`で2回実行し、どちらかで`Survived`か`NoCoverage`なら`::error`の注釈を出して1とする。終わったら`.mutator`を戻す。
 - 注釈の値の`%`と改行を符号化し、ファイルと題名ではさらに`:`と`,`を符号化する。
-- 変更したファイルの一覧に、検査の範囲を決める`mutator.config.json`、`mutator.accepted.json`、`vitest.mutation.config.ts`と、判定のスクリプトがあれば、ファイルごとに`::warning`の注釈を出す。渡されたテストの設定と準備のファイル(Vitestの設定ファイル、`setupFiles`、`globalSetup`)が変わった時は、アサーションを無力化していないかを人が確かめるよう`::warning`の注釈を出す。終了コードは変えない。
+- 変更したファイルの一覧に、検査の範囲を決める`mutator.config.*`(`.ts`、`.mts`、`.mjs`、`.js`、`.json`)、`mutator.accepted.json`、`vitest.mutation.config.ts`があれば、ファイルごとに`::warning`の注釈を出す。判定のスクリプト、`package.json`、`lefthook.yml`、`.github/workflows/`の下のファイルが変わった時は、判定を緩めたり呼ばないようにしたりしていないかを、人が確かめるよう`::warning`の注釈を出す。渡されたテストの設定と準備のファイル(Vitestの設定ファイル、`setupFiles`、`globalSetup`)が変わった時は、アサーションを無力化していないかを人が確かめるよう`::warning`の注釈を出す。終了コードは変えない。
 - 分岐点の一覧と今の一覧を比べ、分岐点では集めていたテストファイル、または対象だったソースファイルのうち、今も在るのに今の一覧に無いものごとに`::error`の注釈を出し、終了コードを1とする。分岐点から改名したファイルは改名した先で比べ、消したファイルは比べない。
 - `scripts/mutation-findings.ts`が`.mutator/report/mutation.json`を読み、判定の結果を標準出力に書く。ファイルが無い、JSONとして読めない時も`::error`の注釈を出して1とする。引数に比べる基準のrefを渡すと、そのrefとの差分で変わったファイルの一覧を`git diff --name-only`で得て、設定の変更も判定する。差分を取れなければ1とする。`--base-scope`と`--scope`に分岐点と今の一覧のファイルを渡すと、改名を`git diff -M --name-status`で得て一覧を比べる。`--test-setup`でテストの設定と準備のファイルを渡す。
+- `scripts/mutation-rerun.ts`の純粋な関数で、mutatorが選ばなかったミュータントを選ぶ。基準のレポートで`Killed`で、`killedBy`に今のレポートの`testChanges`の`changed`か`removed`のテストを含み、snapshotの関数の中身のハッシュが基準と今で同じで、`detectionRegression`が出ておらず、今のsnapshotで`kill matrix`の印の付いた`Killed`か`Timeout`ではないもの。
+- `scripts/mutation-recheck.ts`が、`.mutator`を退けてこれらを`--only`と`--kill-matrix`で1回実行し、終わったら`.mutator`を戻す。`Survived`か`NoCoverage`なら「テストが弱くなった」、`Killed`と`Timeout`以外の状態か結果が無ければ「結果が想定と違う」の`::error`の注釈を出し、終了コードを1とする。
+- mutatorの設定に`timeBudget`、`mutantsPerLine`、`shard`があるか、基準のsnapshotに`Pending`があれば、`::error`の注釈を出して1とする。
 
 派生元: SPEC-EXT-005, ARCH-DEPS-001
 
 ### DES-TOOLS-004 ミューテーションテストの基準の作成
 
 - `scripts/mutation-diff.sh`は、渡されたrefと`HEAD`の共通の祖先を一時的なworktreeに取り出し、そこで全件を実行した結果を、比べる基準にする。前回の実行の`.mutator`は、別のブランチや別の環境の結果のことがあるので、基準に使わない。
-- mutatorは、Node.jsの版、mutatorの設定、`package.json`、ロックファイル、`tsconfig.json`、`pnpm-workspace.yaml`、Vitestの設定ファイルと`setupFiles`と`globalSetup`の中身が基準と同じ時だけ、基準と比べる。worktreeには、今の作業ツリーのこれらのファイルを上書きで写す。Vitestのファイルは、`scripts/mutation-vitest-files.ts`が`mutator.config.json`の`vitestConfig`の設定を解決して求める。根の外と`node_modules`の中のファイルは写さない。この一覧は`scripts/vitest-files.ts`の純粋な関数で作る。
-- `scripts/mutation-scope.ts`で、Vitestが集めるテストファイルと、mutatorの`include`、`exclude`で対象になるソースファイルの一覧を作る。今の作業ツリーでは今の設定で、worktreeでは`package.json`とロックファイルだけを写して依存を入れた後、分岐点の元の設定で作り、DES-TOOLS-003で比べる。作れなければ`::error`の注釈を出して1とする。
-- worktreeの依存は`pnpm install --frozen-lockfile --offline --ignore-scripts`で入れる。`prepare`のlefthookが、worktreeと共有する`.git/hooks`を書き換えないようにするためである。
-- 基準の全件の実行は、`.mutator-base`に置いた前回の基準のスナップショットから始める。mutatorは環境が同じ時だけ、変わっていない関数の結果を再利用する。基準を作れた時だけ、`.mutator-base`を今回の基準のスナップショットで置き換える。
-- 作業ツリーの`.mutator`を基準のスナップショットで置き換え、`mutator --since <共通の祖先> --include-test-changes`を実行してから、DES-TOOLS-003の判定を行う。mutator自身の注釈は`GITHUB_ACTIONS`を空にして止め、判定の注釈だけを出す。
-- 知らないオプションには終了コード2を返す。refが無い時は、`--skip-without-base`を渡した時だけ何もせず0とする。手元の`pnpm mutation:diff`だけが渡し、CIは渡さない。
-- refが無い、共通の祖先が無い、worktreeを作れない、依存を入れられない、基準の全件の実行が失敗した、のどれでも、`::error`の注釈を出して終了コードを1とする。worktreeと一時ディレクトリは、終わり方によらず消す。
+- 知らないオプションには終了コード2を返す。refが無い時は、`--skip-without-base`を渡した時だけ何もせず0とする。手元の`pnpm mutation:diff`だけが渡し、CIは渡さない。`.mutator`か`.mutator-base`がgitで追跡されていれば、`::error`の注釈を出して1とする。
+- worktreeには、まず`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`.npmrc`を写し、`pnpm install --frozen-lockfile --offline --ignore-scripts`で依存を入れる。`prepare`のlefthookが、worktreeと共有する`.git/hooks`を書き換えないようにするためである。
+- `scripts/mutation-scope.ts`で、Vitestが集めるテストファイルと、mutatorの`include`、`exclude`で対象になるソースファイルの一覧を作る。今の作業ツリーでは今の設定で、worktreeでは依存を入れた直後に分岐点の元の設定で作り、DES-TOOLS-003で比べる。作れなければ`::error`の注釈を出して1とする。mutatorの設定は、mutatorの`loadConfig`で、`mutator.config.ts`、`.mts`、`.mjs`、`.js`、`.json`の順に探して読む。
+- 続けて、今の`tsconfig*.json`、`mutator.config.*`と、Vitestの設定ファイルと`setupFiles`と`globalSetup`を、worktreeに上書きで写す(worktreeにだけ在る物は消す)。mutatorは、Node.jsの版、mutatorの設定、`package.json`、ロックファイル、`tsconfig.json`、`pnpm-workspace.yaml`、Vitestのこれらのファイルの中身が基準と同じ時だけ、基準と比べるためである。Vitestのファイルは、`scripts/mutation-vitest-files.ts`がmutatorの`vitestConfig`の設定を解決して求める。根の外と`node_modules`の中のファイルは写さない。この一覧は`scripts/vitest-files.ts`の純粋な関数で作る。
+- 基準の全件の実行は、`.mutator-base/<共通の祖先>-<写したファイルとNode.jsの版のハッシュ>`の基準があればそこから、無ければ最も新しい基準から始める。基準を作れた時だけ、今回の基準を残し、新しい順に3つまで残す。snapshotを写す時は、前の判定の記録の`testReview`を消す。
+- 作業ツリーの`.mutator`を基準のスナップショットで置き換え、`mutator --since <共通の祖先> --include-test-changes --kill-matrix`を実行してから、DES-TOOLS-003の判定を行う。mutator自身の注釈は`GITHUB_ACTIONS`を空にして止め、判定の注釈だけを出す。
+- 共通の祖先が無い、worktreeを作れない、依存を入れられない、基準の全件の実行が失敗した、のどれでも、`::error`の注釈を出して終了コードを1とする。worktreeと一時ディレクトリは、終わり方によらず消す。
 
 派生元: SPEC-EXT-005, ARCH-DEPS-001
 
