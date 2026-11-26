@@ -7,6 +7,7 @@ export interface SnapshotRow {
 }
 
 const detected: ReadonlySet<string> = new Set(["Killed", "Timeout"])
+const rerunDetected: ReadonlySet<string> = new Set(["Killed", "Timeout", "RuntimeError", "CompileError"])
 const undetected: ReadonlySet<string> = new Set(["Survived", "NoCoverage"])
 
 const mutantsById = (report: MutationReport): ReadonlyMap<string, MutantRecord> =>
@@ -98,7 +99,7 @@ const reviewMisses = (
   const after = mutantsById(rerun)
   const lines = keys.flatMap((key) => {
     const status = after.get(key)?.status ?? "結果なし"
-    if (detected.has(status)) {
+    if (rerunDetected.has(status)) {
       return []
     }
     const { change, place } = placeMutant(placed, key)
@@ -144,21 +145,48 @@ export const reviewPending = (rows: ReadonlyMap<string, SnapshotRow>, where: str
 }
 
 const truncating = ["timeBudget", "mutantsPerLine", "shard"] as const
+const foreign = ["jestConfig", "bunConfig", "playwrightConfig"] as const
 
-export const reviewTruncation = (settings: { readonly [key in (typeof truncating)[number]]?: unknown }): Review => {
-  const found = truncating.filter((key) => settings[key] !== undefined)
-  return found.length === 0
-    ? { lines: [], exitCode: 0 }
-    : {
-        lines: [
-          formatAnnotation({
-            level: "error",
-            title: "ミューテーションテストの実行を打ち切る設定がある",
-            message: `mutatorの設定に${found.join("、")}があります。範囲内のミュータントが実行されずにPendingのまま残ると、テストが弱くなったかを確かめられないので失敗にします。設定から外してください。`
-          })
-        ],
-        exitCode: 1
-      }
+export interface CheckedSettings {
+  readonly timeBudget?: unknown
+  readonly mutantsPerLine?: unknown
+  readonly shard?: unknown
+  readonly sharedCache?: unknown
+  readonly runner?: unknown
+  readonly jestConfig?: unknown
+  readonly bunConfig?: unknown
+  readonly playwrightConfig?: unknown
+}
+
+const settingError = (title: string, message: string): ReadonlyArray<string> => [formatAnnotation({ level: "error", title, message })]
+
+export const reviewSettings = (settings: CheckedSettings): Review => {
+  const truncated = truncating.filter((key) => settings[key] !== undefined)
+  const others = [
+    ...foreign.filter((key) => settings[key] !== undefined),
+    ...(settings.runner === undefined || settings.runner === "vitest" ? [] : ["runner"])
+  ]
+  const lines = [
+    ...(truncated.length === 0
+      ? []
+      : settingError(
+          "ミューテーションテストの実行を打ち切る設定がある",
+          `mutatorの設定に${truncated.join("、")}があります。範囲内のミュータントが実行されずにPendingのまま残ると、テストが弱くなったかを確かめられないので失敗にします。設定から外してください。`
+        )),
+    ...(settings.sharedCache === undefined || settings.sharedCache === false
+      ? []
+      : settingError(
+          "ミューテーションテストの結果を共有する設定がある",
+          "mutatorの設定にsharedCacheがあります。結果を.git/mutator/に残すと、基準と今の実行が同じ置き場所を読み書きし、毎回その場で作る基準を前の結果で置き換えてしまうので失敗にします。設定から外してください。"
+        )),
+    ...(others.length === 0
+      ? []
+      : settingError(
+          "Vitest以外のテストの実行の設定がある",
+          `mutatorの設定に${others.join("、")}があります。判定は、テストとミュータントの一覧をVitestの設定(vitestConfig)で作るので、別のテストの実行を使うと、外したテストを見つけられません。runnerは"vitest"にし、${foreign.join("、")}は設定から外してください。`
+        ))
+  ]
+  return { lines, exitCode: lines.length === 0 ? 0 : 1 }
 }
 
 export const reviewNotRun = (output: string, where: string): Review => {
@@ -180,7 +208,7 @@ export const reviewNotRun = (output: string, where: string): Review => {
 const settled: ReadonlySet<string> = new Set(["Killed", "Timeout", "RuntimeError", "NoCoverage", "Survived"])
 
 const decidedByTests = (mutant: MutantRecord | undefined) =>
-  mutant !== undefined && settled.has(mutant.status ?? "") && mutant.statusReason?.startsWith("not infected") !== true
+  mutant !== undefined && settled.has(mutant.status ?? "") && mutant.statusReason?.includes("not infected") !== true
 
 export const vanishCandidates = (listed: MutationReport, base: MutationReport): ReadonlyArray<string> => {
   const now = mutantsById(base)
@@ -191,8 +219,7 @@ export const vanishedKeys = (base: MutationReport, original: MutationReport, tou
   const now = mutantsById(base)
   return [...mutantsById(original).values()]
     .filter(
-      (mutant) =>
-        mutant.status === "Killed" && mutant.killedBy.some((test) => touched(test)) && !detected.has(now.get(mutant.id)?.status ?? "")
+      (mutant) => mutant.status === "Killed" && mutant.killedBy.some((test) => touched(test)) && now.get(mutant.id)?.status !== "Killed"
     )
     .map((mutant) => mutant.id)
     .toSorted()
@@ -207,15 +234,16 @@ export const reviewVanished = (
   const now = mutantsById(base)
   const vanished = ({ key, change, killers }: Miss) => {
     const current = now.get(key)?.status
-    return `ミュータント${key}${change}は、分岐点のmutatorの設定では${killers}が検出していましたが、今の設定では${current === undefined ? "作られません" : `${current}になります`}。分岐点の設定で今のテストを実行すると、`
+    return `ミュータント${key}${change}は、分岐点の設定(mutatorの設定と、tsconfig*.jsonやVitestの設定などの環境のファイル)では${killers}が検出していましたが、今の設定では${current === undefined ? "作られません" : `${current}になります`}。分岐点の設定で今のテストを実行すると、`
   }
+  const split = "テストを弱めていないのに失敗する時は、設定の変更を、テストが読み込むソースの変更とは別のPRに分けてください。"
   return reviewMisses(
     original,
     original,
     keys,
     rerun,
     (miss) =>
-      `${vanished(miss)}どのテストも検出しません。設定でミュータントを外して、弱めたテストを隠さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。`,
-    (miss) => `${vanished(miss)}${miss.status}になりました。検出したかを確かめられないので失敗にします。`
+      `${vanished(miss)}どのテストも検出しません。設定でミュータントを外して、弱めたテストを隠さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。${split}`,
+    (miss) => `${vanished(miss)}${miss.status}になりました。検出したかを確かめられないので失敗にします。${split}`
   )
 }

@@ -5,7 +5,7 @@ import {
   reviewNotRun,
   reviewPending,
   reviewRerun,
-  reviewTruncation,
+  reviewSettings,
   reviewVanished,
   snapshotDeps,
   snapshotRows,
@@ -90,7 +90,7 @@ test("DES-TOOLS-003 mutatorが選んだ理由のテストと、差分のファ�
   assert.deepEqual(snapshotDeps(null), new Map())
 })
 
-test("DES-TOOLS-003 別に実行したミュータントが検出されなければテストが弱くなったとし、想定外の状態も失敗にする", () => {
+test("DES-TOOLS-003 別に実行したミュータントがSurvivedかNoCoverageならテストが弱くなったとし、CompileErrorとRuntimeErrorは検出に数え、それ以外の状態と結果が無い時は失敗にする", () => {
   const base = report([
     mutant("a", "Killed", [weakened]),
     mutant("b", "Killed", [weakened]),
@@ -98,15 +98,26 @@ test("DES-TOOLS-003 別に実行したミュータントが検出されなけれ
     mutant("d", "Killed", [weakened])
   ])
   const current = report([mutant("a", "Pending"), mutant("b", "Pending"), mutant("c", "Pending"), mutant("d", "Pending")], [weakened])
-  const rerun = report([mutant("a", "Killed", [other]), mutant("b", "Survived"), mutant("c", "RuntimeError"), mutant("d", "Timeout")])
-  const review = reviewRerun(base, current, ["a", "b", "c", "d", "e"], rerun)
+  const rerun = report([
+    mutant("a", "Killed", [other]),
+    mutant("b", "Survived"),
+    mutant("c", "Ignored"),
+    mutant("d", "Timeout"),
+    mutant("f", "NoCoverage"),
+    mutant("g", "Pending"),
+    mutant("h", "RuntimeError"),
+    mutant("i", "CompileError")
+  ])
+  const review = reviewRerun(base, current, ["a", "b", "c", "d", "e", "f", "g", "h", "i"], rerun)
   assert.equal(review.exitCode, 1)
   assert.deepEqual(review.lines, [
     `::error file=src/core/spec.ts,line=6,title=テストが弱くなった::変わっていないコードのミュータントb(Regexで/a/に置き換え)を、前は「${weakened}」が検出していましたが、今はどのテストも検出しません。mutatorは、変えたテストが確かめるミュータントにこれを選ばなかったので、別に実行して確かめました。mutator acceptで通さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。`,
-    `::error file=src/core/spec.ts,line=6,title=実行し直したミュータントの結果が想定と違う::前は「${weakened}」が検出していたミュータントc(Regexで/a/に置き換え)を実行し直すと、RuntimeErrorになりました。検出したかを確かめられないので失敗にします。`,
-    "::error title=実行し直したミュータントの結果が想定と違う::前はテストが検出していたミュータントeを実行し直すと、結果なしになりました。検出したかを確かめられないので失敗にします。"
+    `::error file=src/core/spec.ts,line=6,title=実行し直したミュータントの結果が想定と違う::前は「${weakened}」が検出していたミュータントc(Regexで/a/に置き換え)を実行し直すと、Ignoredになりました。検出したかを確かめられないので失敗にします。`,
+    "::error title=実行し直したミュータントの結果が想定と違う::前はテストが検出していたミュータントeを実行し直すと、結果なしになりました。検出したかを確かめられないので失敗にします。",
+    "::error title=テストが弱くなった::変わっていないコードのミュータントfを、前はテストが検出していましたが、今はどのテストも検出しません。mutatorは、変えたテストが確かめるミュータントにこれを選ばなかったので、別に実行して確かめました。mutator acceptで通さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。",
+    "::error title=実行し直したミュータントの結果が想定と違う::前はテストが検出していたミュータントgを実行し直すと、Pendingになりました。検出したかを確かめられないので失敗にします。"
   ])
-  assert.deepEqual(reviewRerun(base, current, ["a", "d"], rerun), { lines: [], exitCode: 0 })
+  assert.deepEqual(reviewRerun(base, current, ["a", "d", "h", "i"], rerun), { lines: [], exitCode: 0 })
 })
 
 test("DES-TOOLS-003 Pendingのまま残ったミュータントがあれば失敗する", () => {
@@ -132,14 +143,27 @@ test("DES-TOOLS-003 mutatorのsnapshotの行から、関数の中身のハッシ
   assert.deepEqual(snapshotRows({}), new Map())
 })
 
-test("DES-TOOLS-003 mutatorの設定に実行を打ち切る項目があれば失敗する", () => {
-  assert.deepEqual(reviewTruncation({}), { lines: [], exitCode: 0 })
-  assert.deepEqual(reviewTruncation({ timeBudget: 0, shard: "1/2" }), {
+test("DES-TOOLS-003 mutatorの設定に、実行を打ち切る項目、結果を共有する項目、Vitest以外のテストの実行の項目があれば失敗する", () => {
+  assert.deepEqual(reviewSettings({}), { lines: [], exitCode: 0 })
+  assert.deepEqual(reviewSettings({ runner: "vitest", sharedCache: false }), { lines: [], exitCode: 0 })
+  assert.deepEqual(reviewSettings({ timeBudget: 0, shard: "1/2" }), {
     lines: [
       "::error title=ミューテーションテストの実行を打ち切る設定がある::mutatorの設定にtimeBudget、shardがあります。範囲内のミュータントが実行されずにPendingのまま残ると、テストが弱くなったかを確かめられないので失敗にします。設定から外してください。"
     ],
     exitCode: 1
   })
+  const review = reviewSettings({ sharedCache: true, runner: "jest", playwrightConfig: "p.ts" })
+  assert.equal(review.exitCode, 1)
+  assert.equal(review.lines.length, 2)
+  assert.match(
+    review.lines[0] ?? "",
+    /^::error title=ミューテーションテストの結果を共有する設定がある::mutatorの設定にsharedCacheがあります。/
+  )
+  assert.match(
+    review.lines[1] ?? "",
+    /^::error title=Vitest以外のテストの実行の設定がある::mutatorの設定にplaywrightConfig、runnerがあります。/
+  )
+  assert.match(reviewSettings({ jestConfig: "j.js" }).lines[0] ?? "", /mutatorの設定にjestConfigがあります。/)
 })
 
 test("DES-TOOLS-003 mutatorのテキストの出力に、範囲内で実行されなかったミュータントの行があれば失敗する", () => {
@@ -153,7 +177,7 @@ test("DES-TOOLS-003 mutatorのテキストの出力に、範囲内で実行さ�
 })
 
 test("DES-TOOLS-003 分岐点の元の設定にあって、今の設定の基準ではテストで決まった状態でないミュータントを、元の設定で実行する相手に選ぶ", () => {
-  const ids = ["killed", "timeout", "error", "survived", "uncovered", "not-infected", "ignored", "compile", "gone"]
+  const ids = ["killed", "timeout", "error", "survived", "uncovered", "not-infected", "not-infected-later", "ignored", "compile", "gone"]
   const listed = report(ids.map((id) => mutant(id, "Pending")))
   const base = report([
     mutant("killed", "Killed", [other]),
@@ -162,14 +186,15 @@ test("DES-TOOLS-003 分岐点の元の設定にあって、今の設定の基準
     mutant("survived", "Survived"),
     mutant("uncovered", "NoCoverage"),
     { ...mutant("not-infected", "Survived"), statusReason: "not infected: no covering test reaches it with a value it changes" },
+    { ...mutant("not-infected-later", "Survived"), statusReason: "weak mutation: not infected by any covering test" },
     mutant("ignored", "Ignored"),
     mutant("compile", "CompileError")
   ])
-  assert.deepEqual(vanishCandidates(listed, base), ["compile", "gone", "ignored", "not-infected"])
+  assert.deepEqual(vanishCandidates(listed, base), ["compile", "gone", "ignored", "not-infected", "not-infected-later"])
 })
 
 test("DES-TOOLS-003 設定で外したミュータントを、変えたテストが元の設定で検出していて、今のテストが検出しなければ失敗する", () => {
-  const base = report([mutant("ignored", "Ignored"), mutant("kept", "Killed", [weakened])])
+  const base = report([mutant("ignored", "Ignored"), mutant("kept", "Killed", [weakened]), mutant("timeout", "Timeout")])
   const original = report([
     mutant("gone", "Killed", [weakened]),
     mutant("ignored", "Killed", [weakened]),
@@ -177,17 +202,18 @@ test("DES-TOOLS-003 設定で外したミュータントを、変えたテスト
     mutant("survived", "Survived"),
     mutant("kept", "Killed", [weakened]),
     mutant("unknown", "Killed", [weakened]),
-    mutant("still", "Killed", [weakened])
+    mutant("still", "Killed", [weakened]),
+    mutant("timeout", "Killed", [weakened])
   ])
   const touched = (id: string) => id === weakened
-  const keys = vanishedKeys(base, original, touched)
-  assert.deepEqual(keys, ["gone", "ignored", "still", "unknown"])
+  assert.deepEqual(vanishedKeys(base, original, touched), ["gone", "ignored", "still", "timeout", "unknown"])
+  const keys = ["gone", "ignored", "still", "unknown"]
   const rerun = report([mutant("gone", "Survived"), mutant("ignored", "NoCoverage"), mutant("still", "Killed", [weakened])])
   assert.deepEqual(reviewVanished(base, original, keys, rerun), {
     lines: [
-      `::error file=src/core/spec.ts,line=6,title=テストが弱くなった::ミュータントgone(Regexで/a/に置き換え)は、分岐点のmutatorの設定では「${weakened}」が検出していましたが、今の設定では作られません。分岐点の設定で今のテストを実行すると、どのテストも検出しません。設定でミュータントを外して、弱めたテストを隠さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。`,
-      `::error file=src/core/spec.ts,line=6,title=テストが弱くなった::ミュータントignored(Regexで/a/に置き換え)は、分岐点のmutatorの設定では「${weakened}」が検出していましたが、今の設定ではIgnoredになります。分岐点の設定で今のテストを実行すると、どのテストも検出しません。設定でミュータントを外して、弱めたテストを隠さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。`,
-      `::error file=src/core/spec.ts,line=6,title=実行し直したミュータントの結果が想定と違う::ミュータントunknown(Regexで/a/に置き換え)は、分岐点のmutatorの設定では「${weakened}」が検出していましたが、今の設定では作られません。分岐点の設定で今のテストを実行すると、結果なしになりました。検出したかを確かめられないので失敗にします。`
+      `::error file=src/core/spec.ts,line=6,title=テストが弱くなった::ミュータントgone(Regexで/a/に置き換え)は、分岐点の設定(mutatorの設定と、tsconfig*.jsonやVitestの設定などの環境のファイル)では「${weakened}」が検出していましたが、今の設定では作られません。分岐点の設定で今のテストを実行すると、どのテストも検出しません。設定でミュータントを外して、弱めたテストを隠さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。テストを弱めていないのに失敗する時は、設定の変更を、テストが読み込むソースの変更とは別のPRに分けてください。`,
+      `::error file=src/core/spec.ts,line=6,title=テストが弱くなった::ミュータントignored(Regexで/a/に置き換え)は、分岐点の設定(mutatorの設定と、tsconfig*.jsonやVitestの設定などの環境のファイル)では「${weakened}」が検出していましたが、今の設定ではIgnoredになります。分岐点の設定で今のテストを実行すると、どのテストも検出しません。設定でミュータントを外して、弱めたテストを隠さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。テストを弱めていないのに失敗する時は、設定の変更を、テストが読み込むソースの変更とは別のPRに分けてください。`,
+      `::error file=src/core/spec.ts,line=6,title=実行し直したミュータントの結果が想定と違う::ミュータントunknown(Regexで/a/に置き換え)は、分岐点の設定(mutatorの設定と、tsconfig*.jsonやVitestの設定などの環境のファイル)では「${weakened}」が検出していましたが、今の設定では作られません。分岐点の設定で今のテストを実行すると、結果なしになりました。検出したかを確かめられないので失敗にします。テストを弱めていないのに失敗する時は、設定の変更を、テストが読み込むソースの変更とは別のPRに分けてください。`
     ],
     exitCode: 1
   })

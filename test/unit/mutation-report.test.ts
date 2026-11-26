@@ -7,6 +7,7 @@ import {
   reviewFindings,
   reviewScope,
   reviewSettingChanges,
+  summarize,
   type MutationReport
 } from "../../scripts/mutation-report.ts"
 
@@ -47,8 +48,7 @@ test("DES-TOOLS-003 mutator 0.5.0の実際のレポートで、検出できな�
   assert.deepEqual(reviewFindings(fixture("mutator-0.5.0-regression.json")), {
     lines: [
       `::error file=src/core/expression.ts,line=195,title=テストが弱くなった::変わっていないコードのミュータント1bbzwgwwk8g(ConditionalExpressionでtrueに置き換え)を、前は「test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 関数を評価する」が検出していましたが、今はどのテストも検出しません。${regressionAdvice}`,
-      `::warning file=src/core/expression.ts,line=309,title=テストが検出できないミュータント::ミュータント2fspejx4v1y(ConditionalExpressionでtrueに置き換え)は、${gapAdvice}`,
-      "テストが弱くなった箇所: 1件、何も検出しない新しいテスト: 0件、テストが検出できないミュータント: 1件"
+      `::warning file=src/core/expression.ts,line=309,title=テストが検出できないミュータント::ミュータント2fspejx4v1y(ConditionalExpressionでtrueに置き換え)は、${gapAdvice}`
     ],
     exitCode: 1
   })
@@ -58,8 +58,7 @@ test("DES-TOOLS-003 mutator 0.5.0の実際のレポートで、何も検出し�
   assert.deepEqual(reviewFindings(fixture("mutator-0.5.0-new-test-no-kills.json")), {
     lines: [
       "::warning file=test/unit/expression.test.ts,title=何も検出しない新しいテスト::test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 式を評価するだけは、測ったミュータントを1つも検出しません。アサーションを確かめてください。",
-      `::warning file=src/core/expression.ts,line=70,title=テストが検出できないミュータント::ミュータント1jkiw3avhr2(Regexで/^(?:\\d\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?/に置き換え)は、${gapAdvice}`,
-      "テストが弱くなった箇所: 0件、何も検出しない新しいテスト: 1件、テストが検出できないミュータント: 1件"
+      `::warning file=src/core/expression.ts,line=70,title=テストが検出できないミュータント::ミュータント1jkiw3avhr2(Regexで/^(?:\\d\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?/に置き換え)は、${gapAdvice}`
     ],
     exitCode: 0
   })
@@ -80,8 +79,7 @@ test("DES-TOOLS-003 検出できなくなったミュータントは、検出で
   assert.deepEqual(review, {
     lines: [
       `::error file=src/core/form.ts,line=12,title=テストが弱くなった::変わっていないコードのミュータントweak(EqualityOperatorでa > bに置き換え)を、前は「test/unit/form.test.ts#境界」、「test/unit/form.test.ts#上限」が検出していましたが、今はどのテストも検出しません。${regressionAdvice}`,
-      `::warning file=src/core/form.ts,line=3,title=テストが検出できないミュータント::ミュータントother(BooleanLiteralでtrueに置き換え)は、${gapAdvice}`,
-      "テストが弱くなった箇所: 1件、何も検出しない新しいテスト: 0件、テストが検出できないミュータント: 1件"
+      `::warning file=src/core/form.ts,line=3,title=テストが検出できないミュータント::ミュータントother(BooleanLiteralでtrueに置き換え)は、${gapAdvice}`
     ],
     exitCode: 1
   })
@@ -103,7 +101,7 @@ test("DES-TOOLS-003 位置の分からないミュータントはファイルを
 
 test("DES-TOOLS-003 知らない種類の指摘は扱わずに成功する", () => {
   assert.deepEqual(reviewFindings(report([{ kind: "testNotMeasured", test: "test/unit/form.test.ts#届かない" }, { key: "no-kind" }])), {
-    lines: ["テストが弱くなった箇所: 0件、何も検出しない新しいテスト: 0件、テストが検出できないミュータント: 0件"],
+    lines: [],
     exitCode: 0
   })
 })
@@ -139,7 +137,7 @@ test("DES-TOOLS-003 注釈の区切りと改行を値の中で符号化する", 
   )
 })
 
-test("DES-TOOLS-003 検査の範囲を決める設定が変わったら、どの形式の設定でも警告する", () => {
+test("DES-TOOLS-003 検査の範囲を決める設定とTypeScriptの設定が変わったら、どの形式の設定でも警告する", () => {
   assert.deepEqual(
     reviewSettingChanges([
       "src/core/form.ts",
@@ -155,7 +153,14 @@ test("DES-TOOLS-003 検査の範囲を決める設定が変わったら、どの
       "::warning file=vitest.mutation.config.ts,title=ミューテーションテストの設定が変わった::vitest.mutation.config.tsが変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。"
     ]
   )
-  assert.deepEqual(reviewSettingChanges(["src/core/form.ts", "", "docs/mutator.config.json", "docs/lefthook.yml"]), [])
+  assert.deepEqual(
+    reviewSettingChanges(["src/core/form.ts", "", "docs/mutator.config.json", "docs/lefthook.yml", "docs/tsconfig.json"]),
+    []
+  )
+  assert.deepEqual(reviewSettingChanges(["tsconfig.browser.json", "tsconfig.json"]), [
+    "::warning file=tsconfig.browser.json,title=TypeScriptの設定が変わった::tsconfig.browser.jsonが変わりました。型の検査で外れるミュータントが変わります。外れたミュータントは分岐点の設定に戻して数え直しますが、検査する範囲が狭まっていないかを確かめてください。",
+    "::warning file=tsconfig.json,title=TypeScriptの設定が変わった::tsconfig.jsonが変わりました。型の検査で外れるミュータントが変わります。外れたミュータントは分岐点の設定に戻して数え直しますが、検査する範囲が狭まっていないかを確かめてください。"
+  ])
 })
 
 test("DES-TOOLS-003 テストの設定と準備のファイル、判定のスクリプトと呼び出し方が変わったら、人が確かめるよう警告する", () => {
@@ -220,4 +225,41 @@ test("DES-TOOLS-003 消したファイルと、改名した先を集めている
   ])
   assert.deepEqual(reviewScope(base, current, renames, exists), { lines: [], exitCode: 0 })
   assert.equal(reviewScope(base, scope([], ["src/core/new.ts"]), renames, exists).lines.length, 1)
+})
+
+test("DES-TOOLS-003 判定の全体の出力から、判定が自前で出したエラーも含めて件数を数え、最後の1行にする", () => {
+  const output = [
+    "mutation:diff: running 4 mutants",
+    "::warning file=mutator.config.json,title=ミューテーションテストの設定が変わった::mutator.config.jsonが変わりました。",
+    "::warning file=src/a.ts,line=1,title=テストが検出できないミュータント::ミュータントx",
+    "::warning file=test/a.test.ts,title=何も検出しない新しいテスト::t",
+    "::error file=src/a.ts,line=1,title=テストが弱くなった::変わっていないコードのミュータントy",
+    "::error title=実行し直したミュータントの結果が想定と違う::z",
+    "::error file=src/b.ts,title=ミューテーションテストの対象から外れた::w",
+    "テストが弱くなった箇所: 0件"
+  ].join("\n")
+  assert.deepEqual(summarize(output, true), {
+    lines: [
+      "判定の結果: 失敗 3件(うちテストが弱くなった箇所 1件)、警告 3件(うち何も検出しない新しいテスト 1件、テストが検出できないミュータント 1件、人が確かめる変更 1件)"
+    ],
+    exitCode: 1
+  })
+  assert.deepEqual(summarize("::error title=実行されなかったミュータントがある::x\n", false).exitCode, 1)
+  assert.deepEqual(summarize("mutation:diff: done\n", false), {
+    lines: [
+      "判定の結果: 失敗 0件(うちテストが弱くなった箇所 0件)、警告 0件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、人が確かめる変更 0件)"
+    ],
+    exitCode: 0
+  })
+  assert.deepEqual(summarize("", true), {
+    lines: [
+      "::error title=判定が失敗した::判定のスクリプトが、注釈を出さずに失敗しました。上の出力を確かめてください。",
+      "判定の結果: 失敗 1件(うちテストが弱くなった箇所 0件)、警告 0件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、人が確かめる変更 0件)"
+    ],
+    exitCode: 1
+  })
+  assert.equal(
+    summarize(`${formatAnnotation({ level: "error", title: "テストが弱くなった", message: "a", file: "x,y.ts" })}\n`, true).lines[0],
+    "判定の結果: 失敗 1件(うちテストが弱くなった箇所 1件)、警告 0件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、人が確かめる変更 0件)"
+  )
 })

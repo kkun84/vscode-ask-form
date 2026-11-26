@@ -163,13 +163,17 @@ export const placeMutant = (report: MutationReport, key: string) => {
   }
 }
 
+const regressionTitle = "テストが弱くなった"
+const noKillsTitle = "何も検出しない新しいテスト"
+const gapTitle = "テストが検出できないミュータント"
+
 const regression = (report: MutationReport, finding: Finding): Annotation => {
   const key = finding.key ?? ""
   const { change, place } = placeMutant(report, key)
   const killers = finding.previousKillers.length === 0 ? "テスト" : finding.previousKillers.map((killer) => `「${killer}」`).join("、")
   return {
     level: "error",
-    title: "テストが弱くなった",
+    title: regressionTitle,
     message: `変わっていないコードのミュータント${key}${change}を、前は${killers}が検出していましたが、今はどのテストも検出しません。mutator acceptで通さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。`,
     ...place
   }
@@ -184,7 +188,7 @@ const noKills = (finding: Finding): Annotation => {
   const test = finding.test ?? ""
   return {
     level: "warning",
-    title: "何も検出しない新しいテスト",
+    title: noKillsTitle,
     message: `${test}は、測ったミュータントを1つも検出しません。アサーションを確かめてください。`,
     ...testFile(test)
   }
@@ -197,7 +201,7 @@ const gap = (report: MutationReport, finding: Finding): Annotation => {
   const { change, place } = placeMutant(report, key)
   return {
     level: "warning",
-    title: "テストが検出できないミュータント",
+    title: gapTitle,
     message: `ミュータント${key}${change}は、どのテストも検出しません。テストが足りないのか、コードが要らないのかを見直してください。テストを足すときは、呼び出す側から見える振る舞いを確かめます。どんな入力でも振る舞いが変わらないミュータントだけをmutator acceptで記録します。手順は${guide}にあります。`,
     ...place
   }
@@ -227,21 +231,28 @@ const isJudge = (file: string) =>
   file.startsWith(".github/workflows/") ||
   (/^scripts\/mutation-[^/]+$/.test(file) && !/\.(test|spec)\.[^/]+$/.test(file))
 
-const settingWarning = (file: string, testSetup: boolean) =>
-  formatAnnotation({
-    level: "warning",
-    title: testSetup
-      ? "テストの設定か準備のファイルが変わった"
-      : isJudge(file)
-        ? "判定のスクリプトか呼び出し方が変わった"
-        : "ミューテーションテストの設定が変わった",
-    file,
-    message: testSetup
-      ? `${file}が変わりました。テストを集める範囲を狭めていないか、アサーションを無力化していないかを、人が確かめてください。ミューテーションテストの判定では見つけられません。`
-      : isJudge(file)
-        ? `${file}が変わりました。テストが弱くなったかの判定を緩めたり、呼ばないようにしたりしていないかを、人が確かめてください。`
+const isTsconfig = (file: string) => /^tsconfig[^/]*\.json$/.test(file)
+
+const settingTitle = (file: string, testSetup: boolean) =>
+  testSetup
+    ? "テストの設定か準備のファイルが変わった"
+    : isJudge(file)
+      ? "判定のスクリプトか呼び出し方が変わった"
+      : isTsconfig(file)
+        ? "TypeScriptの設定が変わった"
+        : "ミューテーションテストの設定が変わった"
+
+const settingMessage = (file: string, testSetup: boolean) =>
+  testSetup
+    ? `${file}が変わりました。テストを集める範囲を狭めていないか、アサーションを無力化していないかを、人が確かめてください。ミューテーションテストの判定では見つけられません。`
+    : isJudge(file)
+      ? `${file}が変わりました。テストが弱くなったかの判定を緩めたり、呼ばないようにしたりしていないかを、人が確かめてください。`
+      : isTsconfig(file)
+        ? `${file}が変わりました。型の検査で外れるミュータントが変わります。外れたミュータントは分岐点の設定に戻して数え直しますが、検査する範囲が狭まっていないかを確かめてください。`
         : `${file}が変わりました。検査する範囲が狭まっていないか、動作の変わる壊し方を記録していないかを確かめてください。`
-  })
+
+const settingWarning = (file: string, testSetup: boolean) =>
+  formatAnnotation({ level: "warning", title: settingTitle(file, testSetup), file, message: settingMessage(file, testSetup) })
 
 export const reviewSettingChanges = (
   changedFiles: ReadonlyArray<string>,
@@ -249,7 +260,7 @@ export const reviewSettingChanges = (
 ): ReadonlyArray<string> => [
   ...testSetupFiles.filter((file) => changedFiles.includes(file)).map((file) => settingWarning(file, true)),
   ...changedFiles
-    .filter((file) => (settings.has(file) || isJudge(file)) && !testSetupFiles.includes(file))
+    .filter((file) => (settings.has(file) || isJudge(file) || isTsconfig(file)) && !testSetupFiles.includes(file))
     .toSorted()
     .map((file) => settingWarning(file, false))
 ]
@@ -303,10 +314,48 @@ export const reviewFindings = (report: MutationReport): Review => {
     .filter((finding) => finding.kind === "mutationGap" && !regressedKeys.has(finding.key))
     .map((finding) => gap(report, finding))
   return {
-    lines: [
-      ...[...regressions, ...idle, ...gaps].map((annotation) => formatAnnotation(annotation)),
-      `テストが弱くなった箇所: ${regressions.length}件、何も検出しない新しいテスト: ${idle.length}件、テストが検出できないミュータント: ${gaps.length}件`
-    ],
+    lines: [...regressions, ...idle, ...gaps].map((annotation) => formatAnnotation(annotation)),
     exitCode: regressions.length === 0 ? 0 : 1
+  }
+}
+
+const annotationPattern = /^::(error|warning|notice)(?: ([^:]*))?::/
+
+const titleOf = (properties: string) =>
+  (properties.split(",").find((property) => property.startsWith("title=")) ?? "")
+    .slice("title=".length)
+    .replaceAll("%2C", ",")
+    .replaceAll("%3A", ":")
+    .replaceAll("%0A", "\n")
+    .replaceAll("%0D", "\r")
+    .replaceAll("%25", "%")
+
+const count = (list: ReadonlyArray<{ readonly title: string }>, title: string) =>
+  list.filter((annotation) => annotation.title === title).length
+
+export const summarize = (output: string, failed: boolean): Review => {
+  const annotations = output.split("\n").flatMap((line) => {
+    const found = annotationPattern.exec(line)
+    return found === null ? [] : [{ level: found[1] ?? "", title: titleOf(found[2] ?? "") }]
+  })
+  const unexplained = failed && !annotations.some((annotation) => annotation.level === "error")
+  const errors = annotations.filter((annotation) => annotation.level === "error")
+  const warnings = annotations.filter((annotation) => annotation.level === "warning")
+  const idle = count(warnings, noKillsTitle)
+  const gaps = count(warnings, gapTitle)
+  return {
+    lines: [
+      ...(unexplained
+        ? [
+            formatAnnotation({
+              level: "error",
+              title: "判定が失敗した",
+              message: "判定のスクリプトが、注釈を出さずに失敗しました。上の出力を確かめてください。"
+            })
+          ]
+        : []),
+      `判定の結果: 失敗 ${errors.length + (unexplained ? 1 : 0)}件(うちテストが弱くなった箇所 ${count(errors, regressionTitle)}件)、警告 ${warnings.length}件(うち何も検出しない新しいテスト ${idle}件、テストが検出できないミュータント ${gaps}件、人が確かめる変更 ${warnings.length - idle - gaps}件)`
+    ],
+    exitCode: failed || errors.length > 0 ? 1 : 0
   }
 }

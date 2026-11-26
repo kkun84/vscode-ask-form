@@ -1,7 +1,16 @@
 import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync } from "node:fs"
 import { parseArgs } from "node:util"
-import { decodeReport, failure, reviewFindings, reviewScope, reviewSettingChanges, type Review, type Scope } from "./mutation-report.ts"
+import {
+  decodeReport,
+  failure,
+  reviewFindings,
+  reviewScope,
+  reviewSettingChanges,
+  summarize,
+  type Review,
+  type Scope
+} from "./mutation-report.ts"
 
 const path = ".mutator/report/mutation.json"
 
@@ -41,9 +50,10 @@ const changed = (base: string): ReadonlyArray<string> | Review => {
     const mergeBase = git(["merge-base", base, "HEAD"]).trim()
     return [
       ...new Set(
-        [...git(["diff", "--name-only", mergeBase]).split("\n"), ...git(["ls-files", "--others", "--exclude-standard"]).split("\n")].filter(
-          (file) => file !== ""
-        )
+        [
+          ...git(["diff", "--no-renames", "--name-only", mergeBase]).split("\n"),
+          ...git(["ls-files", "--others", "--exclude-standard"]).split("\n")
+        ].filter((file) => file !== "")
       )
     ]
   } catch (error) {
@@ -92,5 +102,8 @@ const files = base === undefined ? [] : changed(base)
 const scope = scopeReview(base, values["base-scope"], values.scope)
 const result = "exitCode" in files ? files : review()
 const warnings = "exitCode" in files ? [] : reviewSettingChanges(files, values["test-setup"])
-process.stdout.write(`${[...warnings, ...scope.lines, ...result.lines].join("\n")}\n`)
-process.exitCode = Math.max(scope.exitCode, result.exitCode)
+const lines = [...warnings, ...scope.lines, ...result.lines]
+const exitCode = Math.max(scope.exitCode, result.exitCode)
+const summary = base === undefined ? summarize(lines.join("\n"), exitCode !== 0).lines : []
+process.stdout.write(`${[...lines, ...summary].join("\n")}\n`)
+process.exitCode = exitCode

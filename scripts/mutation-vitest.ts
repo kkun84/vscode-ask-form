@@ -8,6 +8,11 @@ export interface MutatorSettings {
   readonly timeBudget?: number | undefined
   readonly mutantsPerLine?: number | undefined
   readonly shard?: string | undefined
+  readonly sharedCache?: boolean | undefined
+  readonly runner?: string | undefined
+  readonly jestConfig?: string | undefined
+  readonly bunConfig?: string | undefined
+  readonly playwrightConfig?: string | undefined
 }
 
 export const mutatorSettings = async (root: string): Promise<MutatorSettings> => (await loadConfig(root))?.config ?? {}

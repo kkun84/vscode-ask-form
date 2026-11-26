@@ -22,6 +22,8 @@ const copied = [
   "scripts/mutation-rerun.ts",
   "scripts/mutation-run.ts",
   "scripts/mutation-scope.ts",
+  "scripts/mutation-settings.ts",
+  "scripts/mutation-summary.ts",
   "scripts/mutation-vitest-files.ts",
   "scripts/mutation-vitest.ts",
   "scripts/vitest-files.ts"
@@ -143,7 +145,7 @@ test("SPEC-EXT-005 一時のリポジトリで、テストを消すか弱める�
     await setUp(repo)
     const unchanged = await branch(repo, "unchanged", () => {})
     passes(unchanged)
-    assert.match(unchanged.output, /テストが弱くなった箇所: 0件/)
+    assert.match(unchanged.output, /判定の結果: 失敗 0件\(うちテストが弱くなった箇所 0件\)/)
     passes(await branch(repo, "unrelated", () => edit(cwd, "README.md", (text) => `${text}\nmore\n`)))
     passes(
       await branch(repo, "added", () =>
@@ -167,15 +169,17 @@ test("SPEC-EXT-005 一時のリポジトリで、テストを消すか弱める�
       ),
       /::error file=src\/names\.ts,line=1,title=テストが弱くなった::.*別に実行して確かめました/
     )
-    fails(
-      await branch(repo, "helper", () => edit(cwd, "test/support/expect.ts", (text) => text.replace('toBe("ng")', "toBeDefined()"))),
-      /::error file=src\/names\.ts,line=1,title=テストが弱くなった::.*別に実行して確かめました/
+    const helper = await branch(repo, "helper", () =>
+      edit(cwd, "test/support/expect.ts", (text) => text.replace('toBe("ng")', "toBeDefined()"))
     )
+    fails(helper, /::error file=src\/names\.ts,line=1,title=テストが弱くなった::.*別に実行して確かめました/)
+    assert.equal(helper.output.match(/判定の結果: /g)?.length, 1)
+    assert.match(helper.output, /::error [^\n]*\n[^]*判定の結果: 失敗 1件\(うちテストが弱くなった箇所 1件\)/)
   }))
 
 const excluding = (text: string) => text.replace('"runner"', '"excludedMutators":["ConditionalExpression","EqualityOperator"],"runner"')
 
-test("SPEC-EXT-005 一時のリポジトリで、テストを消して、消したテストが検出していたミュータントを設定で外すと失敗し、設定を変えるだけなら通る", () =>
+test("SPEC-EXT-005 一時のリポジトリで、テストを消して、消したテストが検出していたミュータントを設定で外すか、ヘルパーを対象に足して弱めると失敗し、設定を変えるだけなら通る", () =>
   withGitRepo("mutation-diff-", async (repo) => {
     const { cwd } = repo
     await setUp(repo)
@@ -184,14 +188,61 @@ test("SPEC-EXT-005 一時のリポジトリで、テストを消して、消し�
         await edit(cwd, "test/clamp.test.ts", (text) => text.replace(/test\("上限"[^]*?\n\}\)\n/, ""))
         await edit(cwd, "mutator.config.json", excluding)
       }),
-      /::error file=src\/clamp\.ts,line=1,title=テストが弱くなった::ミュータント\w+\(\w+で[^)]*に置き換え\)は、分岐点のmutatorの設定では「test\/clamp\.test\.ts#上限」が検出していましたが、今の設定では作られません。/
+      /::error file=src\/clamp\.ts,line=1,title=テストが弱くなった::ミュータント\w+\(\w+で[^)]*に置き換え\)は、分岐点の設定\([^)]*\)では「test\/clamp\.test\.ts#上限」が検出していましたが、今の設定では作られません。/
     )
     const settingOnly = await branch(repo, "excluded-only", () => edit(cwd, "mutator.config.json", excluding))
     passes(settingOnly)
     assert.match(settingOnly.output, /::warning file=mutator\.config\.json,title=ミューテーションテストの設定が変わった::/)
+    fails(
+      await branch(repo, "included-helper", async () => {
+        await edit(cwd, "mutator.config.json", (text) => text.replace('"src/**/*.ts"', '"src/**/*.ts","test/support/**/*.ts"'))
+        await edit(cwd, "test/support/expect.ts", (text) => text.replace('toBe("ng")', "toBeDefined()"))
+      }),
+      /::error file=src\/names\.ts,line=1,title=テストが弱くなった::.*別に実行して確かめました/
+    )
   }))
 
-test("SPEC-EXT-005 一時のリポジトリで、テストや対象を集める範囲を狭める、実行を打ち切る、結果をgitで追跡する変更は失敗する", () =>
+const unused = (text: string) => text.replace('"strict":true', '"strict":true,"noUnusedParameters":true')
+
+test("SPEC-EXT-005 一時のリポジトリで、TypeScriptの設定で型の検査から外れたミュータントのテストを消すと失敗し、設定を変えるだけか、型を狭めて実行し直しがCompileErrorになるだけなら通る", () =>
+  withGitRepo("mutation-diff-", async (repo) => {
+    const { cwd, git } = repo
+    await setUp(repo)
+    await writeFile(join(cwd, "src/zero.ts"), "export const isZero = (value: number): boolean => value === 0\n")
+    await writeFile(
+      join(cwd, "test/zero.test.ts"),
+      'import { expect, test } from "vitest"\nimport { isZero } from "../src/zero.ts"\n\ntest("0", () => {\n  expect(isZero(0)).toBe(true)\n})\n\ntest("1", () => {\n  expect(isZero(1)).toBe(false)\n})\n'
+    )
+    await writeFile(join(cwd, "src/folder.ts"), 'export const DEFAULT_FOLDER = "notes"\n')
+    await writeFile(
+      join(cwd, "test/folder.test.ts"),
+      'import { expect, test } from "vitest"\nimport { DEFAULT_FOLDER } from "../src/folder.ts"\n\ntest("既定のフォルダ", () => {\n  expect(DEFAULT_FOLDER).toBe("notes")\n})\n'
+    )
+    git("add", ".")
+    git("commit", "-qm", "zero")
+    fails(
+      await branch(repo, "tsconfig", async () => {
+        await edit(cwd, "tsconfig.json", unused)
+        await edit(cwd, "test/zero.test.ts", (text) => text.replace(/\ntest\("1"[^]*?\n\}\)\n/, ""))
+      }),
+      /::error file=src\/zero\.ts,line=1,title=テストが弱くなった::ミュータント\w+\(\w+でtrueに置き換え\)は、分岐点の設定\([^)]*\)では「test\/zero\.test\.ts#1」が検出していましたが、今の設定ではCompileErrorになります。/
+    )
+    const settingOnly = await branch(repo, "tsconfig-only", () => edit(cwd, "tsconfig.json", unused))
+    passes(settingOnly)
+    assert.match(settingOnly.output, /::warning file=tsconfig\.json,title=TypeScriptの設定が変わった::/)
+    const literal = await branch(repo, "literal", async () => {
+      await edit(cwd, "src/folder.ts", (text) => `${text}export const FOLDER: "notes" = DEFAULT_FOLDER\n`)
+      await edit(
+        cwd,
+        "test/folder.test.ts",
+        (text) => `${text}\ntest("空でない", () => {\n  expect(DEFAULT_FOLDER.length).toBeGreaterThan(0)\n})\n`
+      )
+    })
+    passes(literal)
+    assert.match(literal.output, /running 1 mutants that the changed tests detected at the base but mutator did not select/)
+  }))
+
+test("SPEC-EXT-005 一時のリポジトリで、テストや対象を集める範囲を狭める、実行を打ち切る、結果を共有する、Vitest以外で実行する、結果をgitで追跡する変更は失敗する", () =>
   withGitRepo("mutation-diff-", async (repo) => {
     const { cwd } = repo
     await setUp(repo)
@@ -218,7 +269,19 @@ test("SPEC-EXT-005 一時のリポジトリで、テストや対象を集める�
         await edit(cwd, "mutator.config.json", (text) => text.replace('"runner"', '"mutantsPerLine":1,"runner"'))
         await edit(cwd, "src/clamp.ts", (text) => text.replace("value > max ? max", "max < value ? max"))
       }),
-      /::error title=範囲内のミュータントが実行されなかった::差分の実行で、mutatorが範囲内のミュータントを実行せずに残しました\(not run: \d+ sampled out/
+      /::error title=ミューテーションテストの実行を打ち切る設定がある::mutatorの設定にmutantsPerLineがあります。/
+    )
+    fails(
+      await branch(repo, "shared-cache", () =>
+        edit(cwd, "mutator.config.json", (text) => text.replace('"runner"', '"sharedCache":true,"runner"'))
+      ),
+      /::error title=ミューテーションテストの結果を共有する設定がある::/
+    )
+    fails(
+      await branch(repo, "other-runner", () =>
+        edit(cwd, "mutator.config.json", (text) => text.replace('"runner":"vitest"', '"runner":"jest","jestConfig":"jest.config.js"'))
+      ),
+      /::error title=Vitest以外のテストの実行の設定がある::mutatorの設定にjestConfig、runnerがあります。/
     )
     fails(
       await branch(repo, "tracked", async () => {

@@ -6,12 +6,12 @@ import { vanishCandidates } from "./mutation-rerun.ts"
 import { emit, runMutator } from "./mutation-run.ts"
 import { mutatorSettings } from "./mutation-vitest.ts"
 
-const [root = "", work = ""] = process.argv.slice(2)
+const [root = "", work = "", ...changedEnvironment] = process.argv.slice(2)
 const tree = process.cwd()
 const title = "分岐点の設定でミュータントを数えられない"
 
 const review = async (): Promise<Review> => {
-  if (isDeepStrictEqual(await mutatorSettings(tree), await mutatorSettings(root))) {
+  if (changedEnvironment.length === 0 && isDeepStrictEqual(await mutatorSettings(tree), await mutatorSettings(root))) {
     return { lines: [], exitCode: 0 }
   }
   const path = join(work, "base-report.json")
@@ -30,7 +30,7 @@ const review = async (): Promise<Review> => {
   }
   const keys = vanishCandidates(listed.report, base.report)
   process.stdout.write(
-    `mutation:diff: the mutator settings changed; running ${keys.length} mutants with the base's settings that the current settings do not detect at the base\n`
+    `mutation:diff: ${changedEnvironment.length === 0 ? "the mutator settings" : `the mutator settings or environment files (${changedEnvironment.join(", ")})`} changed; running ${keys.length} mutants with the base's settings that the current settings do not detect at the base\n`
   )
   if (keys.length === 0) {
     return { lines: [], exitCode: 0 }

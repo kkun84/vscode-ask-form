@@ -76,6 +76,14 @@ git -C "$root" worktree prune
 : >"$lock"' EXIT
 trap 'exit 130' INT TERM
 
+settings_check=$(node scripts/mutation-settings.ts 2>&1) || {
+  if ! grep -q '^::error ' <<<"$settings_check"; then
+    fail "mutatorの設定を読めない" "scripts/mutation-settings.tsが失敗しました: $(tail -n 5 <<<"$settings_check")"
+  fi
+  printf '%s\n' "$settings_check"
+  exit 1
+}
+
 no_baseline() {
   local excerpt
   excerpt=$(grep -v '^[[:space:]]*$' "$work/baseline.log" | tail -n 8 | cut -c1-300 || true)
@@ -155,7 +163,19 @@ shopt -s nullglob
 settings=(tsconfig*.json mutator.config.ts mutator.config.mts mutator.config.mjs mutator.config.js mutator.config.json)
 for file in "$tree"/tsconfig*.json; do settings+=("${file#"$tree/"}"); done
 shopt -u nullglob
-copy_into_tree "${settings[@]}" "${test_setup[@]}"
+environment=()
+while IFS= read -r file; do
+  if [ -n "$file" ]; then environment+=("$file"); fi
+done < <(printf '%s\n' "${settings[@]}" "${test_setup[@]}" | sort -u)
+printf '%s\n' "${environment[@]}" >"$work/env-files"
+changed_environment=()
+for file in "${environment[@]}"; do
+  case "$file" in mutator.config.*) continue ;; esac
+  if [ -f "$file" ] && [ -f "$tree/$file" ] && cmp -s "$file" "$tree/$file"; then continue; fi
+  if [ ! -f "$file" ] && [ ! -f "$tree/$file" ]; then continue; fi
+  changed_environment+=("$file")
+done
+copy_into_tree "${environment[@]}"
 echo "mutation:diff: copied $(printf '%s\n' "${copied[@]}" | sort -u | tr '\n' ' ')"
 
 key="${merge_base}-$({
@@ -192,11 +212,15 @@ ls -1t "$cache" | tail -n +4 | while IFS= read -r old; do rm -rf "${cache:?}/$ol
 echo "mutation:diff: baseline made in $(($(date +%s) - started))s"
 
 status=0
-for name in mutator.config.ts mutator.config.mts mutator.config.mjs mutator.config.js mutator.config.json; do
-  rm -f "$tree/$name"
-  if git cat-file -e "$merge_base:$name" 2>/dev/null; then git show "$merge_base:$name" >"$tree/$name"; fi
+: >"$work/judge.log"
+for file in "${environment[@]}"; do
+  rm -f "$tree/$file"
+  if git cat-file -e "$merge_base:$file" 2>/dev/null; then
+    mkdir -p "$tree/$(dirname "$file")"
+    git show "$merge_base:$file" >"$tree/$file"
+  fi
 done
-(cd "$tree" && node "$root/scripts/mutation-original.ts" "$root" "$work") || status=1
+(cd "$tree" && node "$root/scripts/mutation-original.ts" "$root" "$work" ${changed_environment[@]+"${changed_environment[@]}"}) | tee -a "$work/judge.log" || status=1
 
 rm -rf .mutator
 copy_snapshots "$cache/$key" .mutator
@@ -205,12 +229,14 @@ GITHUB_ACTIONS='' pnpm exec mutator --since "$merge_base" --include-test-changes
   fail "ミューテーションテストが失敗した" "mutator --since ${merge_base}が失敗しました。上の出力を確かめてください。"
 not_run=$(grep -m 1 '^not run: ' "$work/diff.log" || true)
 if [ -n "$not_run" ]; then
-  echo "::error title=範囲内のミュータントが実行されなかった::$(escape_data "差分の実行で、mutatorが範囲内のミュータントを実行せずに残しました(${not_run})。テストが弱くなったかを確かめられないので失敗にします。mutatorの設定のtimeBudgetやmutantsPerLineなど、実行を減らす設定を外してください。")"
+  echo "::error title=範囲内のミュータントが実行されなかった::$(escape_data "差分の実行で、mutatorが範囲内のミュータントを実行せずに残しました(${not_run})。テストが弱くなったかを確かめられないので失敗にします。mutatorの設定のtimeBudgetやmutantsPerLineなど、実行を減らす設定を外してください。")" |
+    tee -a "$work/judge.log"
   status=1
 fi
 findings=(node scripts/mutation-findings.ts "$merge_base" --base-scope "$work/base-scope.json" --scope "$work/scope.json")
 for file in "${watched[@]}"; do findings+=(--test-setup "$file"); done
-"${findings[@]}" || status=1
-node scripts/mutation-recheck.ts "$work" "$merge_base" || status=1
+"${findings[@]}" | tee -a "$work/judge.log" || status=1
+node scripts/mutation-recheck.ts "$work" "$merge_base" | tee -a "$work/judge.log" || status=1
+node scripts/mutation-summary.ts "$work/judge.log" "$status" || status=1
 echo "mutation:diff: done in $(($(date +%s) - started))s"
 exit "$status"
