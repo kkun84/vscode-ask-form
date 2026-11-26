@@ -14,6 +14,7 @@ const copied = [
   "pnpm-workspace.yaml",
   "scripts/mutation-diff.sh",
   "scripts/mutation-findings.ts",
+  "scripts/mutation-recheck.ts",
   "scripts/mutation-report.ts",
   "scripts/mutation-scope.ts",
   "scripts/mutation-vitest-files.ts",

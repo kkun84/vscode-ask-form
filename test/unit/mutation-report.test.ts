@@ -4,9 +4,12 @@ import { test } from "vitest"
 import {
   decodeReport,
   formatAnnotation,
+  recheckCandidates,
   reviewFindings,
+  reviewRechecked,
   reviewScope,
   reviewSettingChanges,
+  scopeHashes,
   type MutationReport
 } from "../../scripts/mutation-report.ts"
 
@@ -199,4 +202,68 @@ test("DES-TOOLS-003 消したファイルと、改名した先を集めている
   ])
   assert.deepEqual(reviewScope(base, current, renames, exists), { lines: [], exitCode: 0 })
   assert.equal(reviewScope(base, scope([], ["src/core/new.ts"]), renames, exists).lines.length, 1)
+})
+
+const noChanges = { added: [], changed: [], removed: [] }
+
+const mutant = (id: string, status: string, killedBy: ReadonlyArray<string>) => ({
+  id,
+  mutatorName: "ConditionalExpression",
+  replacement: "true",
+  location: { start: { line: 7, column: 3 } },
+  status,
+  killedBy,
+  coveredBy: killedBy
+})
+
+const run = (mutants: ReadonlyArray<unknown>, testChanges: unknown = noChanges, findings: ReadonlyArray<unknown> = []) =>
+  decode({
+    schemaVersion: "2",
+    comparison: "available",
+    findings,
+    testChanges,
+    files: { "src/core/form.ts": { language: "typescript", mutants } }
+  })
+
+const weakened = "test/unit/form.test.ts#境界"
+const unrelated = "test/unit/bridge.test.ts#送り主"
+
+test("DES-TOOLS-003 前の結果を使い回して検出したことになったミュータントだけを、実行し直す相手に選ぶ", () => {
+  const killers: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = [
+    ["reused", [weakened, unrelated]],
+    ["only-changed", [weakened]],
+    ["scope-changed", [weakened, unrelated]],
+    ["reported", [weakened, unrelated]],
+    ["untouched", [unrelated]]
+  ]
+  const base = run(killers.map(([id, tests]) => mutant(id, "Killed", tests)))
+  const current = run(
+    killers.map(([id, tests]) => (id === "reported" ? mutant(id, "Survived", []) : mutant(id, "Killed", tests))),
+    { added: [], changed: [weakened], removed: [] },
+    [{ kind: "detectionRegression", key: "reported", previousKillers: [weakened, unrelated] }]
+  )
+  const scopes = new Map(killers.map(([id]) => [id, "a"]))
+  assert.deepEqual(recheckCandidates(base, current, scopes, new Map([...scopes, ["scope-changed", "b"]])), ["reused"])
+})
+
+test("DES-TOOLS-003 実行し直したどれかで検出されなければ、テストが弱くなったとして失敗する", () => {
+  const base = run([mutant("reused", "Killed", [weakened, unrelated])])
+  const current = run([mutant("reused", "Killed", [weakened, unrelated])], { added: [], changed: [weakened], removed: [] })
+  const killed = run([mutant("reused", "Killed", [unrelated])])
+  const survived = run([mutant("reused", "Survived", [])])
+  assert.deepEqual(reviewRechecked(base, current, ["reused"], [killed, killed]), { lines: [], exitCode: 0 })
+  assert.deepEqual(reviewRechecked(base, current, ["reused"], [killed, survived]), {
+    lines: [
+      `::error file=src/core/form.ts,line=7,title=テストが弱くなった::変わっていないコードのミュータントreused(ConditionalExpressionでtrueに置き換え)を、前は「${weakened}」、「${unrelated}」が検出していましたが、前の結果を使わずにもう一度実行すると、どのテストも検出しませんでした。mutatorは、前に検出したテストのどれかが変わっていなければ前の結果を使い回すので、この弱まりを見逃していました。mutator acceptで通さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。`
+    ],
+    exitCode: 1
+  })
+})
+
+test("DES-TOOLS-003 mutatorのsnapshotの行から、ミュータントごとの関数の中身のハッシュを読む", () => {
+  assert.deepEqual(
+    scopeHashes({ rows: [["3y4sxtjzpd", 0, 1, "3zpjklbzi4", "Survived", [], [], 421.1], ["broken"], "x"] }),
+    new Map([["3y4sxtjzpd", "3zpjklbzi4"]])
+  )
+  assert.deepEqual(scopeHashes({}), new Map())
 })

@@ -163,6 +163,7 @@
 - `detectionRegression`はGitHub Actionsの`::error`の注釈にし、ミュータントのファイルと開始行を`files`の`mutants`からidで引いて付ける。引けなければファイルを付けない。文言では、`mutator accept`で通さず、テストを戻すか足すよう案内する。
 - `newTestNoKills`は`::warning`の注釈にし、テストのidの`#`の前をファイルとして付ける。`mutationGap`は、`detectionRegression`と同じミュータントを除いて`::warning`の注釈にする。他の種類は扱わない。
 - `detectionRegression`が1件でもあれば終了コードを1、それ以外は0とする。
+- 前の結果を使い回して検出したことになったミュータントを選ぶ。基準で`Killed`で、`killedBy`に今のレポートの`testChanges`の`changed`か`removed`のテストと、それ以外のテストの両方を含み、snapshotの関数の中身のハッシュが基準と今で同じで、今も`Killed`か`Timeout`で、`detectionRegression`が出ていないもの。`scripts/mutation-recheck.ts`が、`.mutator`を退けてこれらを`--only`で2回実行し、どちらかで`Survived`か`NoCoverage`なら`::error`の注釈を出して1とする。終わったら`.mutator`を戻す。
 - 注釈の値の`%`と改行を符号化し、ファイルと題名ではさらに`:`と`,`を符号化する。
 - 変更したファイルの一覧に、検査の範囲を決める`mutator.config.json`、`mutator.accepted.json`、`vitest.mutation.config.ts`と、判定のスクリプトがあれば、ファイルごとに`::warning`の注釈を出す。渡されたテストの設定と準備のファイル(Vitestの設定ファイル、`setupFiles`、`globalSetup`)が変わった時は、アサーションを無力化していないかを人が確かめるよう`::warning`の注釈を出す。終了コードは変えない。
 - 分岐点の一覧と今の一覧を比べ、分岐点では集めていたテストファイル、または対象だったソースファイルのうち、今も在るのに今の一覧に無いものごとに`::error`の注釈を出し、終了コードを1とする。分岐点から改名したファイルは改名した先で比べ、消したファイルは比べない。

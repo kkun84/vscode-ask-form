@@ -3,6 +3,8 @@ export interface MutantRecord {
   readonly mutatorName?: string
   readonly replacement?: string
   readonly line?: number
+  readonly status?: string
+  readonly killedBy: ReadonlyArray<string>
 }
 
 export interface Finding {
@@ -16,6 +18,7 @@ export interface MutationReport {
   readonly comparison: "available" | "unavailable"
   readonly findings: ReadonlyArray<Finding>
   readonly files: ReadonlyMap<string, ReadonlyArray<MutantRecord>>
+  readonly touchedTests: ReadonlyArray<string>
 }
 
 export type DecodedReport = { readonly report: MutationReport } | { readonly problem: string }
@@ -53,6 +56,11 @@ const startLine = (value: unknown): number | undefined => {
   return typeof line === "number" ? line : undefined
 }
 
+const strings = (value: unknown): ReadonlyArray<string> => (Array.isArray(value) ? value.filter((item) => typeof item === "string") : [])
+
+const touchedTests = (value: unknown): ReadonlyArray<string> =>
+  isObject(value) ? [...strings(value["changed"]), ...strings(value["removed"])] : []
+
 const decodeMutant = (value: unknown): ReadonlyArray<MutantRecord> => {
   if (!isObject(value) || typeof value["id"] !== "string") {
     return []
@@ -62,7 +70,9 @@ const decodeMutant = (value: unknown): ReadonlyArray<MutantRecord> => {
       id: value["id"],
       ...optional("mutatorName", text(value, "mutatorName")),
       ...optional("replacement", text(value, "replacement")),
-      ...optional("line", startLine(value["location"]))
+      ...optional("line", startLine(value["location"])),
+      ...optional("status", text(value, "status")),
+      killedBy: strings(value["killedBy"])
     }
   ]
 }
@@ -71,13 +81,12 @@ const decodeFinding = (value: unknown): ReadonlyArray<Finding> => {
   if (!isObject(value) || typeof value["kind"] !== "string") {
     return []
   }
-  const killers = value["previousKillers"]
   return [
     {
       kind: value["kind"],
       ...optional("key", text(value, "key")),
       ...optional("test", text(value, "test")),
-      previousKillers: Array.isArray(killers) ? killers.filter((killer) => typeof killer === "string") : []
+      previousKillers: strings(value["previousKillers"])
     }
   ]
 }
@@ -111,7 +120,14 @@ export const decodeReport = (value: unknown): DecodedReport => {
   if (!isObject(files)) {
     return { problem: "filesのオブジェクトがありません。" }
   }
-  return { report: { comparison, findings: findings.flatMap((finding) => decodeFinding(finding)), files: decodeFiles(files) } }
+  return {
+    report: {
+      comparison,
+      findings: findings.flatMap((finding) => decodeFinding(finding)),
+      files: decodeFiles(files),
+      touchedTests: touchedTests(value["testChanges"])
+    }
+  }
 }
 
 const escapeData = (value: string) => value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")
@@ -194,6 +210,7 @@ const settings: ReadonlyArray<string> = ["mutator.config.json", "mutator.accepte
 const judges: ReadonlyArray<string> = [
   "scripts/mutation-diff.sh",
   "scripts/mutation-findings.ts",
+  "scripts/mutation-recheck.ts",
   "scripts/mutation-report.ts",
   "scripts/mutation-scope.ts",
   "scripts/mutation-vitest-files.ts",
@@ -282,4 +299,68 @@ export const reviewFindings = (report: MutationReport): Review => {
     ],
     exitCode: regressions.length === 0 ? 0 : 1
   }
+}
+
+const detected: ReadonlySet<string> = new Set(["Killed", "Timeout"])
+const undetected: ReadonlySet<string> = new Set(["Survived", "NoCoverage"])
+
+const mutantsById = (report: MutationReport): ReadonlyMap<string, MutantRecord> =>
+  new Map([...report.files.values()].flatMap((mutants) => mutants.map((mutant) => [mutant.id, mutant] as const)))
+
+export const scopeHashes = (snapshot: unknown): ReadonlyMap<string, string> => {
+  const rows = isObject(snapshot) ? snapshot["rows"] : undefined
+  return new Map(
+    (Array.isArray(rows) ? rows : []).flatMap((row: unknown) =>
+      Array.isArray(row) && typeof row[0] === "string" && typeof row[3] === "string" ? [[row[0], row[3]] as const] : []
+    )
+  )
+}
+
+export const recheckCandidates = (
+  base: MutationReport,
+  current: MutationReport,
+  baseScopes: ReadonlyMap<string, string>,
+  currentScopes: ReadonlyMap<string, string>
+): ReadonlyArray<string> => {
+  const touched = new Set(current.touchedTests)
+  const reported = new Set(current.findings.filter((finding) => finding.kind === "detectionRegression").map((finding) => finding.key))
+  const before = mutantsById(base)
+  return [...mutantsById(current).values()]
+    .filter((mutant) => {
+      const old = before.get(mutant.id)
+      const scope = baseScopes.get(mutant.id)
+      return (
+        old?.status === "Killed" &&
+        old.killedBy.some((test) => touched.has(test)) &&
+        old.killedBy.some((test) => !touched.has(test)) &&
+        detected.has(mutant.status ?? "") &&
+        !reported.has(mutant.id) &&
+        scope !== undefined &&
+        scope === currentScopes.get(mutant.id)
+      )
+    })
+    .map((mutant) => mutant.id)
+}
+
+export const reviewRechecked = (
+  base: MutationReport,
+  current: MutationReport,
+  keys: ReadonlyArray<string>,
+  reruns: ReadonlyArray<MutationReport>
+): Review => {
+  const before = mutantsById(base)
+  const results = reruns.map((rerun) => mutantsById(rerun))
+  const lines = keys
+    .filter((key) => results.some((result) => undetected.has(result.get(key)?.status ?? "")))
+    .map((key) => {
+      const { change, place } = placeMutant(current, key)
+      const killers = (before.get(key)?.killedBy ?? []).map((killer) => `「${killer}」`).join("、")
+      return formatAnnotation({
+        level: "error",
+        title: "テストが弱くなった",
+        message: `変わっていないコードのミュータント${key}${change}を、前は${killers}が検出していましたが、前の結果を使わずにもう一度実行すると、どのテストも検出しませんでした。mutatorは、前に検出したテストのどれかが変わっていなければ前の結果を使い回すので、この弱まりを見逃していました。mutator acceptで通さないでください。弱めたアサーションや消したテストを戻すか、同じ振る舞いを確かめるテストを足してください。`,
+        ...place
+      })
+    })
+  return { lines, exitCode: lines.length === 0 ? 0 : 1 }
 }

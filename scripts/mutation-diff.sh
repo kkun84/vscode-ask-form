@@ -139,6 +139,8 @@ fi
 (cd "$tree" && GITHUB_ACTIONS='' pnpm exec mutator --reporter json) >>"$work/baseline.log" 2>&1 ||
   no_baseline "全件のミューテーションテストが失敗しました(今の依存でベースの単体テストが落ちる、など)"
 grep -E '^[0-9]+ mutants, ' "$work/baseline.log" | sed 's/^/mutation:diff: baseline: /' || true
+cp "$tree/.mutator/report/mutation.json" "$work/base-report.json"
+cp "$tree/.mutator/snapshot.json" "$work/base-snapshot.json"
 rm -rf "${cache:?}/$key.new"
 copy_snapshots "$tree/.mutator" "$cache/$key.new"
 rm -rf "${cache:?}/$key"
@@ -155,5 +157,8 @@ findings=(node scripts/mutation-findings.ts "$merge_base" --base-scope "$work/ba
 for file in "${watched[@]}"; do findings+=(--test-setup "$file"); done
 status=0
 "${findings[@]}" || status=$?
+recheck=0
+node scripts/mutation-recheck.ts "$work" || recheck=$?
+if [ "$recheck" -ne 0 ]; then status=1; fi
 echo "mutation:diff: done in $(($(date +%s) - started))s"
 exit "$status"
