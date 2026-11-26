@@ -58,8 +58,11 @@ const startLine = (value: unknown): number | undefined => {
 
 const strings = (value: unknown): ReadonlyArray<string> => (Array.isArray(value) ? value.filter((item) => typeof item === "string") : [])
 
-const touchedTests = (value: unknown): ReadonlyArray<string> =>
+const changedTests = (value: unknown): ReadonlyArray<string> =>
   isObject(value) ? [...strings(value["changed"]), ...strings(value["removed"])] : []
+
+const selectedTests = (value: unknown): ReadonlyArray<string> =>
+  Array.isArray(value) ? value.flatMap((reason) => (isObject(reason) ? strings(reason["tests"]) : [])) : []
 
 const decodeMutant = (value: unknown): ReadonlyArray<MutantRecord> => {
   if (!isObject(value) || typeof value["id"] !== "string") {
@@ -125,7 +128,7 @@ export const decodeReport = (value: unknown): DecodedReport => {
       comparison,
       findings: findings.flatMap((finding) => decodeFinding(finding)),
       files: decodeFiles(files),
-      touchedTests: touchedTests(value["testChanges"])
+      touchedTests: [...new Set([...changedTests(value["testChanges"]), ...selectedTests(value["selectionReasons"])])]
     }
   }
 }
@@ -215,21 +218,12 @@ const settings: ReadonlySet<string> = new Set([
   "vitest.mutation.config.ts"
 ])
 
-const judges: ReadonlySet<string> = new Set([
-  "scripts/mutation-diff.sh",
-  "scripts/mutation-findings.ts",
-  "scripts/mutation-recheck.ts",
-  "scripts/mutation-report.ts",
-  "scripts/mutation-rerun.ts",
-  "scripts/mutation-scope.ts",
-  "scripts/mutation-vitest-files.ts",
-  "scripts/mutation-vitest.ts",
-  "scripts/vitest-files.ts",
-  "package.json",
-  "lefthook.yml"
-])
+const judges: ReadonlySet<string> = new Set(["scripts/vitest-files.ts", "package.json", "lefthook.yml"])
 
-const isJudge = (file: string) => judges.has(file) || file.startsWith(".github/workflows/")
+const isJudge = (file: string) =>
+  judges.has(file) ||
+  file.startsWith(".github/workflows/") ||
+  (/^scripts\/mutation-[^/]+$/.test(file) && !/\.(test|spec)\.[^/]+$/.test(file))
 
 const settingWarning = (file: string, testSetup: boolean) =>
   formatAnnotation({

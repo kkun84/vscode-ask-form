@@ -38,13 +38,18 @@ const git = (args: ReadonlyArray<string>) => execFileSync("git", args, { encodin
 
 const changed = (base: string): ReadonlyArray<string> | Review => {
   try {
-    return git(["diff", "--name-only", `${base}...HEAD`])
-      .split("\n")
-      .filter((file) => file !== "")
+    const mergeBase = git(["merge-base", base, "HEAD"]).trim()
+    return [
+      ...new Set(
+        [...git(["diff", "--name-only", mergeBase]).split("\n"), ...git(["ls-files", "--others", "--exclude-standard"]).split("\n")].filter(
+          (file) => file !== ""
+        )
+      )
+    ]
   } catch (error) {
     return failure(
       "基準のrefと比べられない",
-      `${base}...HEADの差分を取れません。refの名前と、履歴を取得しているか(CIではfetch-depth: 0)を確かめてください: ${reason(error)}`
+      `${base}との共通の祖先からの差分を取れません。refの名前と、履歴を取得しているか(CIではfetch-depth: 0)を確かめてください: ${reason(error)}`
     )
   }
 }

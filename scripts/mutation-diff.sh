@@ -45,12 +45,43 @@ fi
 merge_base=$(git merge-base "$base" HEAD) ||
   fail "基準のコミットが無い" "${base}とHEADの共通の祖先がありません。履歴を取得しているか(CIではfetch-depth: 0)を確かめてください。"
 
+lock=$(git rev-parse --path-format=absolute --git-path mutation-diff.lock)
+take_lock() { (set -o noclobber && echo "$$" >"$lock") 2>/dev/null; }
+busy() {
+  fail "mutation:diffが動いている" "同じ作業ツリーで、別のmutation:diff($1)が動いています。.mutatorと.mutator-baseを取り合うので、終わってから実行してください。"
+}
+if ! take_lock; then
+  mkdir "$lock.takeover" 2>/dev/null ||
+    busy "古いロックを取り直している所。そのプロセスが強制終了されて残ったなら、${lock}.takeoverを消してください"
+  holder=$(sed -n 1p "$lock" 2>/dev/null || true)
+  if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
+    rmdir "$lock.takeover"
+    busy "プロセス${holder}"
+  fi
+  stale=$(sed -n 2p "$lock" 2>/dev/null || true)
+  case "$stale" in
+    "${TMPDIR:-/tmp}"/mutation-base.*)
+      git worktree remove --force "$stale/tree" >/dev/null 2>&1 || true
+      rm -rf "$stale"
+      ;;
+  esac
+  git worktree prune
+  rm -f "$lock"
+  take_lock || {
+    rmdir "$lock.takeover"
+    busy "古いロックを取り直す間に始まったもの"
+  }
+  rmdir "$lock.takeover"
+fi
+
 cache="$root/.mutator-base"
 work=$(mktemp -d "${TMPDIR:-/tmp}/mutation-base.XXXXXX")
+printf '%s\n%s\n' "$$" "$work" >"$lock"
 tree="$work/tree"
 trap 'git -C "$root" worktree remove --force "$tree" >/dev/null 2>&1 || true
 rm -rf "$work"
-git -C "$root" worktree prune' EXIT
+git -C "$root" worktree prune
+rm -f "$lock"' EXIT
 trap 'exit 130' INT TERM
 
 no_baseline() {
@@ -72,11 +103,18 @@ copy_snapshots() {
   local copied_snapshots=("$2"/scopes/*.json)
   if [ -f "$2/snapshot.json" ]; then copied_snapshots+=("$2/snapshot.json"); fi
   node -e 'const fs = require("node:fs")
-for (const file of process.argv.slice(1).filter((path) => fs.existsSync(path))) {
-  const snapshot = JSON.parse(fs.readFileSync(file, "utf8"))
-  delete snapshot.testReview
-  fs.writeFileSync(file, JSON.stringify(snapshot))
-}' "${copied_snapshots[@]}"
+const escape = (text) => text.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")
+const [from, ...files] = process.argv.slice(1)
+for (const file of files.filter((path) => fs.existsSync(path))) {
+  try {
+    const snapshot = JSON.parse(fs.readFileSync(file, "utf8"))
+    delete snapshot.testReview
+    fs.writeFileSync(file, JSON.stringify(snapshot))
+  } catch (error) {
+    console.log(`::error title=ミューテーションテストのsnapshotを読めない::${escape(`${from}の${file.split("/").pop()}を読めません: ${error.message}`)}`)
+    process.exit(1)
+  }
+}' "$1" "${copied_snapshots[@]}"
 }
 
 copied=()
@@ -140,7 +178,7 @@ reused=""
 if [ -d "$cache/$key" ]; then
   reused="$key"
 elif [ -d "$cache" ]; then
-  reused=$(ls -1t "$cache" | sed -n 1p)
+  reused=$(ls -1t "$cache" | grep -v '\.new$' | sed -n 1p || true)
 fi
 if [ -n "$reused" ]; then
   copy_snapshots "$cache/$reused" "$tree/.mutator"
@@ -149,26 +187,38 @@ fi
 (cd "$tree" && GITHUB_ACTIONS='' pnpm exec mutator --reporter json) >>"$work/baseline.log" 2>&1 ||
   no_baseline "全件のミューテーションテストが失敗しました(今の依存でベースの単体テストが落ちる、など)"
 grep -E '^[0-9]+ mutants, ' "$work/baseline.log" | sed 's/^/mutation:diff: baseline: /' || true
-cp "$tree/.mutator/report/mutation.json" "$work/base-report.json"
-cp "$tree/.mutator/snapshot.json" "$work/base-snapshot.json"
+cp "$tree/.mutator/report/mutation.json" "$work/base-report.json" 2>>"$work/baseline.log" &&
+  cp "$tree/.mutator/snapshot.json" "$work/base-snapshot.json" 2>>"$work/baseline.log" ||
+  no_baseline "基準のレポートかsnapshot(.mutator/report/mutation.json、.mutator/snapshot.json)がありません"
 rm -rf "${cache:?}/$key.new"
 copy_snapshots "$tree/.mutator" "$cache/$key.new"
 rm -rf "${cache:?}/$key"
 mv "$cache/$key.new" "$cache/$key"
 touch "$cache/$key"
+ls -1 "$cache" | grep '\.new$' | while IFS= read -r old; do rm -rf "${cache:?}/$old"; done || true
 ls -1t "$cache" | tail -n +4 | while IFS= read -r old; do rm -rf "${cache:?}/$old"; done
 echo "mutation:diff: baseline made in $(($(date +%s) - started))s"
 
+status=0
+for name in mutator.config.ts mutator.config.mts mutator.config.mjs mutator.config.js mutator.config.json; do
+  rm -f "$tree/$name"
+  if git cat-file -e "$merge_base:$name" 2>/dev/null; then git show "$merge_base:$name" >"$tree/$name"; fi
+done
+(cd "$tree" && node "$root/scripts/mutation-original.ts" "$root" "$work") || status=1
+
 rm -rf .mutator
 copy_snapshots "$cache/$key" .mutator
-GITHUB_ACTIONS='' pnpm exec mutator --since "$merge_base" --include-test-changes --kill-matrix ||
+GITHUB_ACTIONS='' pnpm exec mutator --since "$merge_base" --include-test-changes --kill-matrix --reporter text --reporter json 2>&1 |
+  tee "$work/diff.log" ||
   fail "ミューテーションテストが失敗した" "mutator --since ${merge_base}が失敗しました。上の出力を確かめてください。"
+not_run=$(grep -m 1 '^not run: ' "$work/diff.log" || true)
+if [ -n "$not_run" ]; then
+  echo "::error title=範囲内のミュータントが実行されなかった::$(escape_data "差分の実行で、mutatorが範囲内のミュータントを実行せずに残しました(${not_run})。テストが弱くなったかを確かめられないので失敗にします。mutatorの設定のtimeBudgetやmutantsPerLineなど、実行を減らす設定を外してください。")"
+  status=1
+fi
 findings=(node scripts/mutation-findings.ts "$merge_base" --base-scope "$work/base-scope.json" --scope "$work/scope.json")
 for file in "${watched[@]}"; do findings+=(--test-setup "$file"); done
-status=0
-"${findings[@]}" || status=$?
-recheck=0
-node scripts/mutation-recheck.ts "$work" || recheck=$?
-if [ "$recheck" -ne 0 ]; then status=1; fi
+"${findings[@]}" || status=1
+node scripts/mutation-recheck.ts "$work" "$merge_base" || status=1
 echo "mutation:diff: done in $(($(date +%s) - started))s"
 exit "$status"

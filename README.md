@@ -352,11 +352,22 @@ pnpm build
 2. 今の`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`を写し、`pnpm install --frozen-lockfile --offline --ignore-scripts`で依存を入れる。`--ignore-scripts`は、`prepare`のlefthookが共有の`.git/hooks`を書き換えないためです。
 3. 分岐点の元の設定で、Vitestが集めるテストファイルと、mutatorの対象のソースファイルの一覧を作る(`scripts/mutation-scope.ts`)。
 4. 今の`tsconfig*.json`、`mutator.config.*`(`.ts`、`.mts`、`.mjs`、`.js`、`.json`のどれでも)と、Vitestの設定から辿れる設定ファイル、`setupFiles`、`globalSetup`を、worktreeに上書きで写し、全件を実行する。mutatorは、これらとNode.jsの版が基準と同じ時だけ基準と比べるので、写さないと、`package.json`に空白を1つ足しただけで比べられなくなります。
-5. 作業ツリーの`.mutator`を基準の結果で置き換え、`mutator --since <共通の祖先> --include-test-changes --kill-matrix`を実行して判定する。worktreeは、終わり方によらず消します。
+5. mutatorの設定が分岐点と違えば、worktreeの`mutator.config.*`を分岐点の元の設定に戻して、ミュータントを数える(`scripts/mutation-original.ts`)。後述します。
+6. 作業ツリーの`.mutator`を基準の結果で置き換え、`mutator --since <共通の祖先> --include-test-changes --kill-matrix --reporter text --reporter json`を実行して判定する。worktreeは、終わり方によらず消します。
+
+同じ作業ツリーで2つを同時に実行すると、`.mutator`と`.mutator-base`を取り合います。そこで、`.git/mutation-diff.lock`にプロセスの番号と一時ディレクトリを書き、ロックを持つプロセスが動いている間は、後から始めた方を失敗にします。強制終了で残ったロックは、そのプロセスが無ければ、残った一時ディレクトリとworktreeの登録を消してから取り直します。取り直しは`.git/mutation-diff.lock.takeover`ディレクトリを作れた1つだけが行うので、2つが同時に古いロックを見つけても、両方が動くことはありません。
 
 `--kill-matrix`は、手元でもCIでも必ず付けます。付けると、mutatorは範囲の中の「検出した」を前の結果から使い回さず、全部のテストで実行し直します。付けないと、前に検出したテストのどれかが変わっていなければ前の結果を使うので、基準で関係の無いテストもたまたま検出したと記録されていると、本当に検出していたテストを弱めても見逃します。
 
-mutatorの`--include-test-changes`は、変えたテストが通るか直接読み込むコードのミュータントだけを選びます。モジュールの直下の正規表現のように、どのテストの実行中にも通らない所のミュータントは選ばれません。そこで、基準で`Killed`で、検出したテストに変えたか消したテストを含み、関数の中身が変わっておらず、今回実行されなかったミュータントを、`--only`と`--kill-matrix`で別に実行します(`scripts/mutation-recheck.ts`)。`Survived`か`NoCoverage`ならテストが弱くなったとして失敗にし、`Killed`と`Timeout`以外の状態も失敗にします。
+mutatorの`--include-test-changes`は、変えたテストが通るか直接読み込むコードのミュータントだけを選びます。モジュールの直下の正規表現のように、どのテストの実行中にも通らない所のミュータントは選ばれません。そこで、基準で`Killed`で、検出したテストに変えたか消したテストを含み、関数の中身が変わっておらず、今回実行されなかったミュータントを、`--only`と`--kill-matrix`で別に実行します(`scripts/mutation-recheck.ts`)。変えたテストには、レポートの`testChanges`の`changed`と`removed`に加えて、mutatorが選んだ理由(`selectionReasons`)のテストと、差分にあるファイルを間接的にも読み込むテストファイルのテストを含めます。読み込む関係は、mutatorがsnapshotの`deps`に残すVitestのモジュールグラフ(基準と今の両方)で見ます。`test/support/`のようなテストのヘルパーだけを弱めた変更も、これで別に実行する相手になります。ミューテーションテストの対象のソースファイルは、関数の中身のハッシュで比べるので、ここでは差分に数えません。`Survived`か`NoCoverage`ならテストが弱くなったとして失敗にし、`Killed`と`Timeout`以外の状態も失敗にします。
+
+基準は今の`mutator.config.*`で作るので、`excludedMutators`などの設定でミュータントを外すと、基準にも今の結果にも現れず、弱めたテストを隠せます。そこで、mutatorの設定(読み込んだ結果)が分岐点と違う時は、次のように確かめます。設定の項目の名前ではなく、ミュータントの集合で比べるので、`excludedMutators`、`weakMutation`、`include`など、どの項目を変えても同じに扱います。
+
+1. worktreeで、分岐点の元の設定のミュータントを`--time-budget 0`で数える(実行はしない)。
+2. そのうち、今の設定の基準で`Killed`か`Timeout`でないもの(作られない、`Ignored`になる、など)を、元の設定で`--only`で実行する。
+3. 元の設定で`Killed`で、検出したテストに変えたか消したテストを含むものを、作業ツリーで元の設定(`--config-file`)のまま`--only`と`--kill-matrix`で実行する。今のテストが検出しなければ、テストが弱くなったとして失敗にします。検出すれば、設定の変更の警告だけにします。
+
+差分の実行と別の実行には、テキストの出力も付けます。出力に`not run:`の行(範囲内のミュータントのうち、`--mutants-per-line`や`--time-budget`で実行されなかった数)があれば失敗にします。
 
 基準の全件の実行は、キャッシュ無しで約13分かかります。そこで、作った基準の結果を`.mutator-base/`に、共通の祖先と環境のファイルの組ごとに3つまで残し、次の基準はそこから始めます。mutatorは、変わっていないコードの結果を再利用します。残す時と使う時には、前の判定の記録(snapshotの`testReview`)を消します。残すと、mainに入った弱まりを、関係の無い変更の判定に持ち越すためです。所要時間の目安は次のとおりです(4コアの手元で測った値)。
 
@@ -377,13 +388,17 @@ mutatorの`--include-test-changes`は、変えたテストが通るか直接読�
 - 分岐点の設定では集めていたテストファイルが、ファイルは残っているのに、今の設定では集められない(Vitestの`include`、`exclude`、`projects`を狭めた)。改名した先を集めていれば失敗にしません。
 - 分岐点の設定ではミューテーションテストの対象だったソースファイルが、ファイルは残っているのに、今の`mutator.config.*`の`include`、`exclude`では対象外になった。基準も今の設定で作るので、範囲を狭めた変更はmutatorの比較だけでは見つからず、`scripts/mutation-scope.ts`の一覧で比べます。
 - mutatorの設定に、実行を打ち切る`timeBudget`、`mutantsPerLine`、`shard`がある。基準の全件にPendingが残った時も失敗にします。
+- 差分の実行か別の実行で、範囲内のミュータントが実行されなかった(テキストの出力の`not run:`)。
+- 設定で外したミュータントを、分岐点の元の設定では変えたか消したテストが検出していて、元の設定で今のテストを実行すると検出しない。
+- 同じ作業ツリーで、別の`pnpm mutation:diff`が動いている。
+- `.mutator-base/`の結果やsnapshotがJSONとして読めない。どのファイルかと理由を注釈に出します。
 - `.mutator`か`.mutator-base`がgitで追跡されている。
 - 基準のrefが無い。手元の`pnpm mutation:diff`だけは、`origin`の無いcloneでも動くよう何もしません。
 
-次の変更は、機械では見つけられないので、PRで人が確かめます。判定は、これらのファイルが変わったら警告を出します。
+次の変更は、機械では見つけられないので、PRで人が確かめます。判定は、これらのファイルが変わったら警告を出します。コミットしていない変更と、gitで追跡していないファイルも含めます。
 
 - Vitestの設定ファイルと、そこから辿れる`setupFiles`、`globalSetup`。準備のファイルで`expect`を無力化すると、基準も同じ準備で作るので、テストが弱くなっても判定は通ります。Vitestの`testNamePattern`のように、ファイルを集めたまま一部のテストを外す設定も、この警告と人の確認に頼ります。
-- 判定のスクリプト(`scripts/mutation-*.ts`、`scripts/mutation-diff.sh`、`scripts/vitest-files.ts`)と、判定の呼び出し方を決める`package.json`、`lefthook.yml`、`.github/workflows/`。
+- 判定のスクリプト(`scripts/mutation-*`のうちテストを除くもの、`scripts/vitest-files.ts`)と、判定の呼び出し方を決める`package.json`、`lefthook.yml`、`.github/workflows/`。
 
 判定には、次の限界があります。
 
@@ -392,7 +407,7 @@ mutatorの`--include-test-changes`は、変えたテストが通るか直接読�
 - テストを壊す依存の更新と、テストの直しを同じPRに入れると、ベースのテストが今の依存で落ちて基準を作れず、必ず失敗します。依存の更新とテストの直しは、テストが新旧どちらの依存でも通る形にしてから分けてください。
 - テストがファイルとして読むデータ(fixtureなど)の変更は、環境として写さないので、基準との違いとしては見ません。
 
-`scripts/mutation-diff.sh`自身が働くことは、一時のgitリポジトリで確かめます(`test/system/mutation-diff.test.ts`、`pnpm test:mutation`)。テストを消すか弱めると失敗し、変えない、関係の無い変更、テストを足すだけ、改名では通ること、選ばれないミュータント、範囲を狭める変更、実行の打ち切り、結果の追跡、mainの弱まりの持ち越し、オプションとrefの扱いを確かめます。CIのMutationのワークフローが毎回動かすので、Dependabotがmutatorを上げたPRでも動きます。
+`scripts/mutation-diff.sh`自身が働くことは、一時のgitリポジトリで確かめます(`test/system/mutation-diff.test.ts`、`pnpm test:mutation`)。テストを消すか弱めると失敗し、変えない、関係の無い変更、テストを足すだけ、改名では通ること、選ばれないミュータント、テストのヘルパーだけを弱める変更、テストを消して設定でミュータントを外す変更と設定だけの変更、範囲を狭める変更、実行の打ち切り、結果の追跡、mainの弱まりの持ち越し、オプションとrefの扱い、同時の実行と強制終了で残ったロックを確かめます。CIのMutationのワークフローが毎回動かすので、Dependabotがmutatorを上げたPRでも動きます。
 
 `.mutator-base/`が壊れたと思う時は、消してから実行し直してください。mutatorの注釈(`mutator accept`の案内を含む)は出さず、判定の結果だけを注釈にします。テストが弱くなった箇所は、`mutator accept`で記録して通してはいけないためです。
 

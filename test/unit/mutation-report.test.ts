@@ -165,6 +165,9 @@ test("DES-TOOLS-003 テストの設定と準備のファイル、判定のスク
         "vitest.mutation.config.ts",
         "test/setup.ts",
         "scripts/mutation-diff.sh",
+        "scripts/mutation-new.ts",
+        "scripts/mutation-new.test.ts",
+        "scripts/mutation/nested.ts",
         "src/core/form.ts",
         "package.json",
         "lefthook.yml",
@@ -175,7 +178,7 @@ test("DES-TOOLS-003 テストの設定と準備のファイル、判定のスク
     [
       "::warning file=vitest.mutation.config.ts,title=テストの設定か準備のファイルが変わった::vitest.mutation.config.tsが変わりました。テストを集める範囲を狭めていないか、アサーションを無力化していないかを、人が確かめてください。ミューテーションテストの判定では見つけられません。",
       "::warning file=test/setup.ts,title=テストの設定か準備のファイルが変わった::test/setup.tsが変わりました。テストを集める範囲を狭めていないか、アサーションを無力化していないかを、人が確かめてください。ミューテーションテストの判定では見つけられません。",
-      ...[".github/workflows/mutation.yml", "lefthook.yml", "package.json", "scripts/mutation-diff.sh"].map(
+      ...[".github/workflows/mutation.yml", "lefthook.yml", "package.json", "scripts/mutation-diff.sh", "scripts/mutation-new.ts"].map(
         (file) =>
           `::warning file=${file},title=判定のスクリプトか呼び出し方が変わった::${file}が変わりました。テストが弱くなったかの判定を緩めたり、呼ばないようにしたりしていないかを、人が確かめてください。`
       )
