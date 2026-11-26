@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
-import { spawnSync } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
+import { once } from "node:events"
 import { existsSync } from "node:fs"
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
@@ -261,21 +262,30 @@ test("SPEC-EXT-005 知らないオプションと、基準のrefが無いこと�
     assert.match(skipped.output, /skipped because origin\/none does not exist/)
   }))
 
-test("SPEC-EXT-005 同じ作業ツリーで動いている判定があれば失敗し、強制終了で残ったロックと一時のworktreeは消して取り直す", () =>
+test("SPEC-EXT-005 同じ作業ツリーで動いている判定があれば失敗し、強制終了で残った一時のworktreeは次の判定が消す", () =>
   withGitRepo("mutation-diff-", async (repo) => {
     const { cwd, git } = repo
     await scriptOnly(repo)
     const lock = join(cwd, ".git/mutation-diff.lock")
-    await writeFile(lock, `${process.pid}\n`)
-    fails(judge(cwd), new RegExp(`::error title=mutation:diffが動いている::.*プロセス${process.pid}`))
-    assert.equal(await readFile(lock, "utf8"), `${process.pid}\n`)
+    const holder = spawn(
+      "perl",
+      ["-MFcntl=:flock", "-e", 'open(my $f, ">>", $ARGV[0]) or die; flock($f, LOCK_EX) or die; $| = 1; print "locked\\n"; sleep 60', lock],
+      { stdio: ["ignore", "pipe", "inherit"] }
+    )
+    try {
+      await once(holder.stdout, "data")
+      await writeFile(lock, `${holder.pid}\n`)
+      fails(judge(cwd), new RegExp(`::error title=mutation:diffが動いている::.*プロセス${holder.pid}`))
+    } finally {
+      const exited = once(holder, "exit")
+      holder.kill("SIGKILL")
+      await exited
+    }
     const left = await mkdtemp(join(process.env["TMPDIR"] ?? "/tmp", "mutation-base."))
     git("worktree", "add", "--detach", "--quiet", join(left, "tree"), "main")
-    const dead = spawnSync("true").pid
-    await writeFile(lock, `${dead}\n${left}\n`)
-    const taken = judge(cwd)
-    assert.doesNotMatch(taken.output, /mutation:diffが動いている/)
-    assert.equal(existsSync(lock), false)
+    await writeFile(lock, `${spawnSync("true").pid}\n${left}\n`)
+    assert.doesNotMatch(judge(cwd).output, /mutation:diffが動いている/)
+    assert.equal(await readFile(lock, "utf8"), "")
     assert.equal(existsSync(left), false)
     assert.doesNotMatch(git("worktree", "list"), /mutation-base\./)
   }))

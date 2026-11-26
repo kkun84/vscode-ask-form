@@ -56,7 +56,7 @@ const git = (args: ReadonlyArray<string>) =>
 
 const helpers = (): ReadonlyArray<string> => {
   const mutated = new Set([...sources(join(work, "scope.json")), ...sources(join(work, "base-scope.json"))])
-  return [...git(["diff", "--name-only", mergeBase]), ...git(["ls-files", "--others", "--exclude-standard"])].filter(
+  return [...git(["diff", "--no-renames", "--name-only", mergeBase]), ...git(["ls-files", "--others", "--exclude-standard"])].filter(
     (file) => !mutated.has(file)
   )
 }

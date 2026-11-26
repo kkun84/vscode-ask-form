@@ -46,33 +46,25 @@ merge_base=$(git merge-base "$base" HEAD) ||
   fail "基準のコミットが無い" "${base}とHEADの共通の祖先がありません。履歴を取得しているか(CIではfetch-depth: 0)を確かめてください。"
 
 lock=$(git rev-parse --path-format=absolute --git-path mutation-diff.lock)
-take_lock() { (set -o noclobber && echo "$$" >"$lock") 2>/dev/null; }
-busy() {
-  fail "mutation:diffが動いている" "同じ作業ツリーで、別のmutation:diff($1)が動いています。.mutatorと.mutator-baseを取り合うので、終わってから実行してください。"
-}
-if ! take_lock; then
-  mkdir "$lock.takeover" 2>/dev/null ||
-    busy "古いロックを取り直している所。そのプロセスが強制終了されて残ったなら、${lock}.takeoverを消してください"
-  holder=$(sed -n 1p "$lock" 2>/dev/null || true)
-  if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
-    rmdir "$lock.takeover"
-    busy "プロセス${holder}"
-  fi
-  stale=$(sed -n 2p "$lock" 2>/dev/null || true)
-  case "$stale" in
-    "${TMPDIR:-/tmp}"/mutation-base.*)
-      git worktree remove --force "$stale/tree" >/dev/null 2>&1 || true
-      rm -rf "$stale"
-      ;;
-  esac
-  git worktree prune
-  rm -f "$lock"
-  take_lock || {
-    rmdir "$lock.takeover"
-    busy "古いロックを取り直す間に始まったもの"
-  }
-  rmdir "$lock.takeover"
+exec 9>>"$lock"
+if command -v flock >/dev/null 2>&1; then
+  locked() { flock -n 9; }
+else
+  locked() { perl -MFcntl=:flock -e 'open(my $f, ">&=", 9) or exit 2; flock($f, LOCK_EX | LOCK_NB) or exit 1'; }
 fi
+if ! locked; then
+  holder=$(head -n 1 "$lock" 2>/dev/null || true)
+  fail "mutation:diffが動いている" "同じ作業ツリーで、別のmutation:diff(プロセス${holder:-不明}か、それが起動したプロセス)が動いています。.mutatorと.mutator-baseを取り合うので、終わってから実行してください。"
+fi
+left=$(sed -n 2p "$lock")
+echo "$$" >"$lock"
+case "$left" in
+  */mutation-base.*)
+    git worktree remove --force "$left/tree" >/dev/null 2>&1 || true
+    rm -rf "$left"
+    git worktree prune
+    ;;
+esac
 
 cache="$root/.mutator-base"
 work=$(mktemp -d "${TMPDIR:-/tmp}/mutation-base.XXXXXX")
@@ -81,7 +73,7 @@ tree="$work/tree"
 trap 'git -C "$root" worktree remove --force "$tree" >/dev/null 2>&1 || true
 rm -rf "$work"
 git -C "$root" worktree prune
-rm -f "$lock"' EXIT
+: >"$lock"' EXIT
 trap 'exit 130' INT TERM
 
 no_baseline() {
