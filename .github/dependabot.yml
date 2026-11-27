@@ -8,7 +8,7 @@ updates:
       time: "06:00"
       timezone: Asia/Tokyo
     cooldown:
-      default-days: 3
+      default-days: 7
     open-pull-requests-limit: 10
     ignore:
       - dependency-name: "@playwright/test"
@@ -32,7 +32,7 @@ updates:
       time: "06:00"
       timezone: Asia/Tokyo
     cooldown:
-      default-days: 3
+      default-days: 7
     groups:
       github-actions:
         patterns: ["*"]
@@ -45,4 +45,4 @@ updates:
       time: "06:00"
       timezone: Asia/Tokyo
     cooldown:
-      default-days: 3
+      default-days: 7
