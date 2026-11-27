@@ -146,17 +146,18 @@ test("SPEC-EXT-005 一時のリポジトリで、テストを消すか弱める�
     const unchanged = await branch(repo, "unchanged", () => {})
     passes(unchanged)
     assert.match(unchanged.output, /判定の結果: 失敗 0件\(うちテストが弱くなった箇所 0件\)/)
+    assert.doesNotMatch(unchanged.output, /title=テストを消した/)
     passes(await branch(repo, "unrelated", () => edit(cwd, "README.md", (text) => `${text}\nmore\n`)))
-    passes(
-      await branch(repo, "added", () =>
-        edit(cwd, "test/twice.test.ts", (text) => `${text}\ntest("0の2倍", () => {\n  expect(twice(0)).toBe(0)\n})\n`)
-      )
+    const added = await branch(repo, "added", () =>
+      edit(cwd, "test/twice.test.ts", (text) => `${text}\ntest("0の2倍", () => {\n  expect(twice(0)).toBe(0)\n})\n`)
     )
-    passes(
-      await branch(repo, "renamed", () => {
-        repo.git("mv", "test/clamp.test.ts", "test/limits.test.ts")
-      })
-    )
+    passes(added)
+    assert.doesNotMatch(added.output, /title=テストを消した/)
+    const moved = await branch(repo, "renamed", () => {
+      repo.git("mv", "test/clamp.test.ts", "test/limits.test.ts")
+    })
+    passes(moved)
+    assert.doesNotMatch(moved.output, /title=テストを消した|title=テストの題が変わった/)
     fails(
       await branch(repo, "removed", () => edit(cwd, "test/clamp.test.ts", (text) => text.replace(/test\("上限"[^]*?\n\}\)\n/, ""))),
       /::error file=src\/clamp\.ts,line=1,title=テストが弱くなった::/
@@ -175,6 +176,33 @@ test("SPEC-EXT-005 一時のリポジトリで、テストを消すか弱める�
     fails(helper, /::error file=src\/names\.ts,line=1,title=テストが弱くなった::.*別に実行して確かめました/)
     assert.equal(helper.output.match(/判定の結果: /g)?.length, 1)
     assert.match(helper.output, /::error [^\n]*\n[^]*判定の結果: 失敗 1件\(うちテストが弱くなった箇所 1件\)/)
+  }))
+
+test("SPEC-EXT-005 一時のリポジトリで、他のテストも検出しているテストを消すと警告を出して通り、題を変えるだけなら題の変更と分かる警告にする", () =>
+  withGitRepo("mutation-diff-", async (repo) => {
+    const { cwd, git } = repo
+    await setUp(repo)
+    await edit(cwd, "test/twice.test.ts", (text) => `${text}\ntest("2倍をもう一度", () => {\n  expect(twice(3)).toBe(6)\n})\n`)
+    git("commit", "-qam", "duplicate")
+    const removed = await branch(repo, "removed-duplicate", () =>
+      edit(cwd, "test/twice.test.ts", (text) => text.replace(/\ntest\("2倍をもう一度"[^]*?\n\}\)\n/, ""))
+    )
+    passes(removed)
+    assert.match(
+      removed.output,
+      /::warning file=test\/twice\.test\.ts,title=テストを消した::test\/twice\.test\.ts#2倍をもう一度を消しました。.*意図した削除かを、人が確かめてください。/
+    )
+    assert.match(removed.output, /判定の結果: 失敗 0件\(うちテストが弱くなった箇所 0件\)、警告 \d+件\(.*消したテスト 1件/)
+    const retitled = await branch(repo, "retitled", () =>
+      edit(cwd, "test/twice.test.ts", (text) => text.replace('"2倍をもう一度"', '"3の2倍"'))
+    )
+    passes(retitled)
+    assert.match(
+      retitled.output,
+      /::warning file=test\/twice\.test\.ts,title=テストの題が変わったか、テストを消した::.*「test\/twice\.test\.ts#3の2倍」が増えました。題を変えただけなら問題ありません。/
+    )
+    assert.doesNotMatch(retitled.output, /title=テストを消した::/)
+    assert.match(retitled.output, /消したテスト 0件/)
   }))
 
 const excluding = (text: string) => text.replace('"runner"', '"excludedMutators":["ConditionalExpression","EqualityOperator"],"runner"')
@@ -275,13 +303,13 @@ test("SPEC-EXT-005 一時のリポジトリで、テストや対象を集める�
       await branch(repo, "shared-cache", () =>
         edit(cwd, "mutator.config.json", (text) => text.replace('"runner"', '"sharedCache":true,"runner"'))
       ),
-      /::error title=ミューテーションテストの結果を共有する設定がある::/
+      /::error title=ミューテーションテストの結果を共有する設定がある::[^]*\n判定の結果: 失敗 1件\(うちテストが弱くなった箇所 0件\)/
     )
     fails(
       await branch(repo, "other-runner", () =>
         edit(cwd, "mutator.config.json", (text) => text.replace('"runner":"vitest"', '"runner":"jest","jestConfig":"jest.config.js"'))
       ),
-      /::error title=Vitest以外のテストの実行の設定がある::mutatorの設定にjestConfig、runnerがあります。/
+      /::error title=Vitest以外のテストの実行の設定がある::mutatorの設定にjestConfig、runnerがあります。[^]*\n判定の結果: 失敗 1件/
     )
     fails(
       await branch(repo, "tracked", async () => {
@@ -310,7 +338,9 @@ const scriptOnly = async ({ cwd, git }: GitRepo) => {
   git("commit", "-qm", "a")
   git("branch", "-M", "main")
   await mkdir(join(cwd, "scripts"))
-  await copyFile(join(root, "scripts/mutation-diff.sh"), join(cwd, "scripts/mutation-diff.sh"))
+  for (const file of ["mutation-diff.sh", "mutation-summary.ts", "mutation-report.ts", "mutation-run.ts"]) {
+    await copyFile(join(root, "scripts", file), join(cwd, "scripts", file))
+  }
 }
 
 test("SPEC-EXT-005 知らないオプションと、基準のrefが無いことを扱う", () =>
@@ -319,7 +349,7 @@ test("SPEC-EXT-005 知らないオプションと、基準のrefが無いこと�
     await scriptOnly(repo)
     assert.equal(judge(cwd, "--fast", "main").status, 2)
     assert.equal(judge(cwd, "--skip-without-base").status, 2)
-    fails(judge(cwd, "origin/none"), /::error title=基準のrefが無い::/)
+    fails(judge(cwd, "origin/none"), /::error title=基準のrefが無い::[^\n]*\n判定の結果: 失敗 1件\(うちテストが弱くなった箇所 0件\)/)
     const skipped = judge(cwd, "--skip-without-base", "origin/none")
     passes(skipped)
     assert.match(skipped.output, /skipped because origin\/none does not exist/)
@@ -338,7 +368,7 @@ test("SPEC-EXT-005 同じ作業ツリーで動いている判定があれば失�
     try {
       await once(holder.stdout, "data")
       await writeFile(lock, `${holder.pid}\n`)
-      fails(judge(cwd), new RegExp(`::error title=mutation:diffが動いている::.*プロセス${holder.pid}`))
+      fails(judge(cwd), new RegExp(`::error title=mutation%3Adiffが動いている::.*プロセス${holder.pid}.*\\n判定の結果: 失敗 1件\\(`))
     } finally {
       const exited = once(holder, "exit")
       holder.kill("SIGKILL")
@@ -347,7 +377,7 @@ test("SPEC-EXT-005 同じ作業ツリーで動いている判定があれば失�
     const left = await mkdtemp(join(process.env["TMPDIR"] ?? "/tmp", "mutation-base."))
     git("worktree", "add", "--detach", "--quiet", join(left, "tree"), "main")
     await writeFile(lock, `${spawnSync("true").pid}\n${left}\n`)
-    assert.doesNotMatch(judge(cwd).output, /mutation:diffが動いている/)
+    assert.doesNotMatch(judge(cwd).output, /mutation%3Adiffが動いている/)
     assert.equal(await readFile(lock, "utf8"), "")
     assert.equal(existsSync(left), false)
     assert.doesNotMatch(git("worktree", "list"), /mutation-base\./)

@@ -24,9 +24,25 @@ escape_data() {
   printf '%s' "${text//$'\n'/%0A}"
 }
 
-fail() {
-  echo "::error title=$1::$(escape_data "$2")"
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+work=""
+
+finish_failed() {
+  {
+    if [ -n "$work" ] && [ -f "$work/judge.log" ]; then cat "$work/judge.log"; fi
+    printf '%s\n' "$@"
+  } | node "$here/mutation-summary.ts" - 1 || true
   exit 1
+}
+
+fail() {
+  local line
+  local title
+  title=$(escape_data "$1")
+  title=${title//:/%3A}
+  line="::error title=${title//,/%2C}::$(escape_data "$2")"
+  echo "$line"
+  finish_failed "$line"
 }
 
 root=$(git rev-parse --show-toplevel) || fail "Gitのリポジトリではない" "scripts/mutation-diff.shはGitのリポジトリの中で実行してください。"
@@ -81,7 +97,7 @@ settings_check=$(node scripts/mutation-settings.ts 2>&1) || {
     fail "mutatorの設定を読めない" "scripts/mutation-settings.tsが失敗しました: $(tail -n 5 <<<"$settings_check")"
   fi
   printf '%s\n' "$settings_check"
-  exit 1
+  finish_failed "$settings_check"
 }
 
 no_baseline() {

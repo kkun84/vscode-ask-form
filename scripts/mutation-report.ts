@@ -20,6 +20,8 @@ export interface MutationReport {
   readonly findings: ReadonlyArray<Finding>
   readonly files: ReadonlyMap<string, ReadonlyArray<MutantRecord>>
   readonly touchedTests: ReadonlyArray<string>
+  readonly addedTests: ReadonlyArray<string>
+  readonly removedTests: ReadonlyArray<string>
 }
 
 export type DecodedReport = { readonly report: MutationReport } | { readonly problem: string }
@@ -61,6 +63,8 @@ const strings = (value: unknown): ReadonlyArray<string> => (Array.isArray(value)
 
 const changedTests = (value: unknown): ReadonlyArray<string> =>
   isObject(value) ? [...strings(value["changed"]), ...strings(value["removed"])] : []
+
+const listedTests = (value: unknown, field: string): ReadonlyArray<string> => (isObject(value) ? strings(value[field]) : [])
 
 const selectedTests = (value: unknown): ReadonlyArray<string> =>
   Array.isArray(value) ? value.flatMap((reason) => (isObject(reason) ? strings(reason["tests"]) : [])) : []
@@ -130,7 +134,9 @@ export const decodeReport = (value: unknown): DecodedReport => {
       comparison,
       findings: findings.flatMap((finding) => decodeFinding(finding)),
       files: decodeFiles(files),
-      touchedTests: [...new Set([...changedTests(value["testChanges"]), ...selectedTests(value["selectionReasons"])])]
+      touchedTests: [...new Set([...changedTests(value["testChanges"]), ...selectedTests(value["selectionReasons"])])],
+      addedTests: listedTests(value["testChanges"], "added"),
+      removedTests: listedTests(value["testChanges"], "removed")
     }
   }
 }
@@ -192,6 +198,53 @@ const noKills = (finding: Finding): Annotation => {
     message: `${test}は、測ったミュータントを1つも検出しません。アサーションを確かめてください。`,
     ...testFile(test)
   }
+}
+
+const removedTitle = "テストを消した"
+const retitledTitle = "テストの題が変わったか、テストを消した"
+
+const splitTest = (test: string) => {
+  const at = test.indexOf("#")
+  return at <= 0 ? { file: "", name: test } : { file: test.slice(0, at), name: test.slice(at + 1) }
+}
+
+const quote = (tests: ReadonlyArray<string>) => tests.map((test) => `「${test}」`).join("、")
+
+const removedTest = (test: string, newcomers: ReadonlyArray<string>): Annotation =>
+  newcomers.length === 0
+    ? {
+        level: "warning",
+        title: removedTitle,
+        message: `${test}を消しました。消したテストが検出していたミュータントは、他のテストも検出しているので、失敗にはしません。意図した削除かを、人が確かめてください。`,
+        ...testFile(test)
+      }
+    : {
+        level: "warning",
+        title: retitledTitle,
+        message: `${test}が無くなり、同じファイルに${quote(newcomers)}が増えました。題を変えただけなら問題ありません。消したのなら、検出していたミュータントは他のテストも検出しているので失敗にはしませんが、意図した削除かを、人が確かめてください。`,
+        ...testFile(test)
+      }
+
+const removedTests = (report: MutationReport, renames: ReadonlyMap<string, string>): ReadonlyArray<Annotation> => {
+  const added = new Set(report.addedTests)
+  const killers = new Set(
+    report.findings.filter((finding) => finding.kind === "detectionRegression").flatMap((finding) => finding.previousKillers)
+  )
+  const movedTo = (test: string) => {
+    const { file, name } = splitTest(test)
+    return file === "" ? "" : `${renames.get(file) ?? file}#${name}`
+  }
+  const moved = new Set(report.removedTests.map((test) => movedTo(test)).filter((test) => added.has(test)))
+  return report.removedTests
+    .filter((test) => !moved.has(movedTo(test)) && !killers.has(test))
+    .map((test) => {
+      const { file } = splitTest(test)
+      const place = renames.get(file) ?? file
+      return removedTest(
+        test,
+        report.addedTests.filter((other) => file !== "" && !moved.has(other) && splitTest(other).file === place)
+      )
+    })
 }
 
 const guide = "node_modules/@mizchi/mutator/skills/mutation-test-loop/SKILL.md"
@@ -302,7 +355,7 @@ export const reviewScope = (
   return { lines: [...tests, ...sources], exitCode: tests.length + sources.length === 0 ? 0 : 1 }
 }
 
-export const reviewFindings = (report: MutationReport): Review => {
+export const reviewFindings = (report: MutationReport, renames: ReadonlyMap<string, string> = new Map()): Review => {
   if (report.comparison === "unavailable") {
     return { lines: [formatAnnotation(unmeasured)], exitCode: 1 }
   }
@@ -314,7 +367,7 @@ export const reviewFindings = (report: MutationReport): Review => {
     .filter((finding) => finding.kind === "mutationGap" && !regressedKeys.has(finding.key))
     .map((finding) => gap(report, finding))
   return {
-    lines: [...regressions, ...idle, ...gaps].map((annotation) => formatAnnotation(annotation)),
+    lines: [...regressions, ...idle, ...gaps, ...removedTests(report, renames)].map((annotation) => formatAnnotation(annotation)),
     exitCode: regressions.length === 0 ? 0 : 1
   }
 }
@@ -343,6 +396,7 @@ export const summarize = (output: string, failed: boolean): Review => {
   const warnings = annotations.filter((annotation) => annotation.level === "warning")
   const idle = count(warnings, noKillsTitle)
   const gaps = count(warnings, gapTitle)
+  const removed = count(warnings, removedTitle)
   return {
     lines: [
       ...(unexplained
@@ -354,7 +408,7 @@ export const summarize = (output: string, failed: boolean): Review => {
             })
           ]
         : []),
-      `判定の結果: 失敗 ${errors.length + (unexplained ? 1 : 0)}件(うちテストが弱くなった箇所 ${count(errors, regressionTitle)}件)、警告 ${warnings.length}件(うち何も検出しない新しいテスト ${idle}件、テストが検出できないミュータント ${gaps}件、人が確かめる変更 ${warnings.length - idle - gaps}件)`
+      `判定の結果: 失敗 ${errors.length + (unexplained ? 1 : 0)}件(うちテストが弱くなった箇所 ${count(errors, regressionTitle)}件)、警告 ${warnings.length}件(うち何も検出しない新しいテスト ${idle}件、テストが検出できないミュータント ${gaps}件、消したテスト ${removed}件、人が確かめる変更 ${warnings.length - idle - gaps - removed}件)`
     ],
     exitCode: failed || errors.length > 0 ? 1 : 0
   }

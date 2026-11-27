@@ -240,26 +240,69 @@ test("DES-TOOLS-003 判定の全体の出力から、判定が自前で出した
   ].join("\n")
   assert.deepEqual(summarize(output, true), {
     lines: [
-      "判定の結果: 失敗 3件(うちテストが弱くなった箇所 1件)、警告 3件(うち何も検出しない新しいテスト 1件、テストが検出できないミュータント 1件、人が確かめる変更 1件)"
+      "判定の結果: 失敗 3件(うちテストが弱くなった箇所 1件)、警告 3件(うち何も検出しない新しいテスト 1件、テストが検出できないミュータント 1件、消したテスト 0件、人が確かめる変更 1件)"
     ],
     exitCode: 1
   })
   assert.deepEqual(summarize("::error title=実行されなかったミュータントがある::x\n", false).exitCode, 1)
   assert.deepEqual(summarize("mutation:diff: done\n", false), {
     lines: [
-      "判定の結果: 失敗 0件(うちテストが弱くなった箇所 0件)、警告 0件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、人が確かめる変更 0件)"
+      "判定の結果: 失敗 0件(うちテストが弱くなった箇所 0件)、警告 0件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、消したテスト 0件、人が確かめる変更 0件)"
     ],
     exitCode: 0
   })
   assert.deepEqual(summarize("", true), {
     lines: [
       "::error title=判定が失敗した::判定のスクリプトが、注釈を出さずに失敗しました。上の出力を確かめてください。",
-      "判定の結果: 失敗 1件(うちテストが弱くなった箇所 0件)、警告 0件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、人が確かめる変更 0件)"
+      "判定の結果: 失敗 1件(うちテストが弱くなった箇所 0件)、警告 0件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、消したテスト 0件、人が確かめる変更 0件)"
     ],
     exitCode: 1
   })
   assert.equal(
     summarize(`${formatAnnotation({ level: "error", title: "テストが弱くなった", message: "a", file: "x,y.ts" })}\n`, true).lines[0],
-    "判定の結果: 失敗 1件(うちテストが弱くなった箇所 1件)、警告 0件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、人が確かめる変更 0件)"
+    "判定の結果: 失敗 1件(うちテストが弱くなった箇所 1件)、警告 0件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、消したテスト 0件、人が確かめる変更 0件)"
   )
+})
+
+test("DES-TOOLS-003 消したテストを1件ずつ警告にし、終了コードは変えず、集計で数える", () => {
+  const review = reviewFindings(
+    decode({
+      schemaVersion: "2",
+      comparison: "available",
+      findings: [{ kind: "detectionRegression", key: "weak", previousKillers: ["test/unit/form.test.ts#上限"] }],
+      testChanges: {
+        added: ["test/unit/limits.test.ts#下限", "test/unit/name.test.ts#新しい題"],
+        changed: [],
+        removed: [
+          "test/unit/form.test.ts#上限",
+          "test/unit/form.test.ts#重複",
+          "test/unit/clamp.test.ts#下限",
+          "test/unit/name.test.ts#古い題"
+        ]
+      },
+      files
+    }),
+    new Map([["test/unit/clamp.test.ts", "test/unit/limits.test.ts"]])
+  )
+  assert.equal(review.exitCode, 1)
+  assert.deepEqual(review.lines.slice(1), [
+    "::warning file=test/unit/form.test.ts,title=テストを消した::test/unit/form.test.ts#重複を消しました。消したテストが検出していたミュータントは、他のテストも検出しているので、失敗にはしません。意図した削除かを、人が確かめてください。",
+    "::warning file=test/unit/name.test.ts,title=テストの題が変わったか、テストを消した::test/unit/name.test.ts#古い題が無くなり、同じファイルに「test/unit/name.test.ts#新しい題」が増えました。題を変えただけなら問題ありません。消したのなら、検出していたミュータントは他のテストも検出しているので失敗にはしませんが、意図した削除かを、人が確かめてください。"
+  ])
+  const removedOnly = reviewFindings(
+    decode({
+      schemaVersion: "2",
+      comparison: "available",
+      findings: [],
+      testChanges: { added: [], changed: [], removed: ["test/unit/form.test.ts#重複"] },
+      files
+    })
+  )
+  assert.equal(removedOnly.exitCode, 0)
+  assert.deepEqual(summarize(removedOnly.lines.join("\n"), false), {
+    lines: [
+      "判定の結果: 失敗 0件(うちテストが弱くなった箇所 0件)、警告 1件(うち何も検出しない新しいテスト 0件、テストが検出できないミュータント 0件、消したテスト 1件、人が確かめる変更 0件)"
+    ],
+    exitCode: 0
+  })
 })

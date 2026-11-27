@@ -26,7 +26,7 @@ const read = (): Review | string => {
   }
 }
 
-const review = (): Review => {
+const review = (base: string | undefined): Review => {
   const content = read()
   if (typeof content !== "string") {
     return content
@@ -40,7 +40,7 @@ const review = (): Review => {
   const decoded = decodeReport(value)
   return "problem" in decoded
     ? failure("ミューテーションテストの結果の形が違う", `${path}は想定したmutatorのレポートではありません: ${decoded.problem}`)
-    : reviewFindings(decoded.report)
+    : reviewFindings(decoded.report, base === undefined ? new Map() : renames(base))
 }
 
 const git = (args: ReadonlyArray<string>) => execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
@@ -100,7 +100,7 @@ const { values, positionals } = parseArgs({
 const base = positionals[0]
 const files = base === undefined ? [] : changed(base)
 const scope = scopeReview(base, values["base-scope"], values.scope)
-const result = "exitCode" in files ? files : review()
+const result = "exitCode" in files ? files : review(base)
 const warnings = "exitCode" in files ? [] : reviewSettingChanges(files, values["test-setup"])
 const lines = [...warnings, ...scope.lines, ...result.lines]
 const exitCode = Math.max(scope.exitCode, result.exitCode)
