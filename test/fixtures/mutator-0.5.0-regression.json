@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "2",
+  "comparison": "available",
+  "findings": [
+    {
+      "kind": "mutationGap",
+      "severity": "warning",
+      "key": "1bbzwgwwk8g",
+      "gap": "notDetected",
+      "message": "Review this undetected mutant; strengthen a test or record why it is equivalent."
+    },
+    {
+      "kind": "mutationGap",
+      "severity": "warning",
+      "key": "2fspejx4v1y",
+      "gap": "notInfected",
+      "message": "Review this undetected mutant; strengthen a test or record why it is equivalent."
+    },
+    {
+      "kind": "detectionRegression",
+      "severity": "warning",
+      "key": "1bbzwgwwk8g",
+      "status": "Survived",
+      "previousKillers": ["test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 関数を評価する"],
+      "message": "Previously detected in unchanged code, now undetected: review the changed tests and their dependencies."
+    }
+  ],
+  "testChanges": {
+    "added": [],
+    "changed": ["test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 関数を評価する"],
+    "removed": []
+  },
+  "thresholds": {
+    "high": 80,
+    "low": 60
+  },
+  "projectRoot": ".",
+  "framework": {
+    "name": "mutator",
+    "version": "0.5.0"
+  },
+  "files": {
+    "src/core/expression.ts": {
+      "language": "typescript",
+      "mutants": [
+        {
+          "id": "1bbzwgwwk8g",
+          "mutatorName": "ConditionalExpression",
+          "replacement": "true",
+          "location": {
+            "start": {
+              "line": 195,
+              "column": 41
+            },
+            "end": {
+              "line": 195,
+              "column": 60
+            }
+          },
+          "status": "Survived",
+          "killedBy": [],
+          "coveredBy": [
+            "test/unit/expression.test.ts#DES-EXPR-001 字句と構文 > DES-EXPR-001 文字列、真偽値、関数呼び出しを解析する",
+            "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 桁あふれの数値リテラルは単独でも式の中でも評価できない"
+          ]
+        },
+        {
+          "id": "2fspejx4v1y",
+          "mutatorName": "ConditionalExpression",
+          "replacement": "true",
+          "location": {
+            "start": {
+              "line": 309,
+              "column": 14
+            },
+            "end": {
+              "line": 309,
+              "column": 19
+            }
+          },
+          "status": "Survived",
+          "killedBy": [],
+          "coveredBy": ["test/unit/expression.test.ts#DES-EXPR-001 字句と構文 > DES-EXPR-001 演算子の優先順位どおりに解析する"],
+          "statusReason": "not infected: no covering test reaches it with a value it changes"
+        }
+      ]
+    }
+  },
+  "testFiles": {}
+}

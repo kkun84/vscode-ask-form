@@ -19,7 +19,7 @@ defaults:
 jobs:
   mutation:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,19 +27,18 @@ jobs:
       - uses: ./.github/actions/setup
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .mutator
-          key: mutator-${{ github.sha }}
-          restore-keys: mutator-
-      - name: Mutation testing of the change
-        if: github.event_name == 'pull_request'
-        run: |
-          pnpm exec mutator --since "origin/${GITHUB_BASE_REF}" --include-test-changes --kill-matrix --time-budget 1200 --reporter text --reporter json
-          pnpm mutation:findings "origin/${GITHUB_BASE_REF}"
-      - name: Mutation testing of everything
-        if: github.event_name == 'push'
-        run: pnpm exec mutator --time-budget 1200 --reporter text --reporter json
+          path: .mutator-base
+          key: mutation-base-${{ runner.os }}-${{ github.sha }}
+          restore-keys: mutation-base-${{ runner.os }}-
+      - name: Tests weakened by the change
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD' }}
+        run: bash scripts/mutation-diff.sh "$BASE"
+      - name: Judgement on a temporary repository
+        if: ${{ !cancelled() }}
+        run: node scripts/timed.ts mutation node_modules/.bin/vitest run --project mutation
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: github.event_name == 'push'
+        if: ${{ !cancelled() && hashFiles('.mutator-base/*/scopes/*.json') != '' }}
         with:
-          path: .mutator
-          key: mutator-${{ github.sha }}
+          path: .mutator-base
+          key: mutation-base-${{ runner.os }}-${{ github.sha }}

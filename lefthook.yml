@@ -17,7 +17,7 @@ pre-push:
     - name: mutation
       only:
         - run: git rev-parse --verify --quiet origin/main
-      run: pnpm -s mutation:diff && pnpm -s mutation:findings origin/main
+      run: pnpm -s mutation:diff
     - name: media
       only:
         - run: git rev-parse --verify --quiet origin/main

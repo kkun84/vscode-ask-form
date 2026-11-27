@@ -42,8 +42,9 @@
     "package": "pnpm -s build && cd out/extension && vsce package --no-dependencies --out ../..",
     "check-env": "node scripts/check-env.ts",
     "mutation": "mutator",
-    "mutation:diff": "mutator --since origin/main --include-test-changes",
-    "mutation:findings": "node scripts/mutation-findings.ts"
+    "mutation:diff": "bash scripts/mutation-diff.sh --skip-without-base origin/main",
+    "mutation:findings": "node scripts/mutation-findings.ts",
+    "test:mutation": "node scripts/timed.ts mutation vitest run --project mutation"
   },
   "dependencies": {
     "@ui-sdk/core": "0.1.0-beta.13",

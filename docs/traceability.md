@@ -70,7 +70,7 @@
 | SPEC-EXT-002 | 待機の表示 | REQ-WAIT-001 | - | `test/system/extension.test.ts` |
 | SPEC-EXT-004 | パネルのフォーム | REQ-ASK-001, REQ-WEB-001, REQ-CANCEL-001, REQ-RES-001 | ARCH-LAYER-002, ARCH-UI-001, DES-UI-002, DES-HOST-001 | `test/system/extension.test.ts` |
 | SPEC-EXT-007 | 利用者が不在の設定 | REQ-WAIT-002 | - | `test/system/extension.test.ts` |
-| SPEC-EXT-005 | 起動・サイズ・検査の予算 | REQ-PERF-001 | ARCH-LAYER-002, ARCH-LAYER-006, ARCH-DEPS-001, DES-TOOLS-001, DES-TOOLS-003 | `test/system/extension.test.ts`, `test/system/process.test.ts` |
+| SPEC-EXT-005 | 起動・サイズ・検査の予算 | REQ-PERF-001 | ARCH-LAYER-002, ARCH-LAYER-006, ARCH-DEPS-001, DES-TOOLS-001, DES-TOOLS-003, DES-TOOLS-004 | `test/system/extension.test.ts`, `test/system/mutation-diff.test.ts`, `test/system/process.test.ts` |
 | SPEC-REL-001 | 配布前の検査と公開 | REQ-DIST-001 | ARCH-REL-001, DES-REL-001 | `test/system/release-check.test.ts`, `test/system/release-prepare.test.ts`, `test/system/release-workflow.test.ts` |
 | SPEC-REL-002 | 変更履歴の項目の検査 | REQ-DIST-001 | DES-REL-002 | `test/system/changelog-check.test.ts` |
 | SPEC-REL-003 | 画像と紹介動画の撮り直しの検査 | REQ-DIST-001 | DES-REL-003 | `test/system/media-check.test.ts` |
@@ -83,7 +83,7 @@
 | ARCH-LAYER-001 | 中核は純粋 | SPEC-FORM-001, SPEC-FORM-002, SPEC-EXPR-001, SPEC-TOOL-006 | DES-SPEC-001, DES-FORM-004, DES-FORM-008 | `test/architecture/architecture.test.ts` |
 | ARCH-LAYER-002 | 画面はブラウザだけで動く | SPEC-UI-001, SPEC-EXT-004, SPEC-EXT-005 | - | `test/architecture/architecture.test.ts` |
 | ARCH-LAYER-006 | 画面が使う中核はEffectを使わない | SPEC-EXT-005, SPEC-UI-002, SPEC-EXPR-001, SPEC-TOOL-003 | DES-EXPR-002, DES-FORM-002, DES-FORM-003, DES-FORM-007 | `test/architecture/architecture.test.ts` |
-| ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | DES-TOOLS-001, DES-TOOLS-003 | `test/architecture/architecture.test.ts` |
+| ARCH-DEPS-001 | 配布物の依存は限られる | SPEC-EXT-005 | DES-TOOLS-001, DES-TOOLS-003, DES-TOOLS-004 | `test/architecture/architecture.test.ts` |
 | ARCH-NET-001 | 通信の口を開かない | SPEC-UI-010 | - | `test/architecture/architecture.test.ts` |
 | ARCH-UI-001 | 画面の通信は1種類 | SPEC-EXT-004, SPEC-UI-001, SPEC-UI-006, SPEC-UI-010 | DES-UI-002, DES-HOST-001 | `test/system/ui.spec.ts` |
 | ARCH-REL-001 | 検出と公開の権限を分ける | SPEC-REL-001 | DES-REL-001 | `test/system/release-workflow.test.ts` |
@@ -108,7 +108,8 @@
 | DES-UI-002 | メッセージの送り主の検査 | SPEC-UI-010, SPEC-EXT-004, ARCH-UI-001 | - | `test/unit/bridge.test.ts`, `test/unit/panel-bridge.test.ts` |
 | DES-HOST-001 | 回答の受け付けの状態 | SPEC-TOOL-005, SPEC-TOOL-007, SPEC-EXT-004, SPEC-UI-006, ARCH-UI-001 | - | `test/unit/app-host.test.ts` |
 | DES-TOOLS-001 | 時間の予算による終了 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/process.test.ts` |
-| DES-TOOLS-003 | ミューテーションテストの結果の判定 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/mutation-report.test.ts` |
+| DES-TOOLS-003 | ミューテーションテストの結果の判定 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/mutation-report.test.ts`, `test/unit/mutation-rerun.test.ts` |
+| DES-TOOLS-004 | ミューテーションテストの基準の作成 | SPEC-EXT-005, ARCH-DEPS-001 | - | `test/unit/vitest-files.test.ts` |
 | DES-REL-001 | 版数と変更履歴の検査 | SPEC-REL-001, ARCH-REL-001 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |
 | DES-REL-002 | 変更履歴の項目の検査 | SPEC-REL-002 | - | `test/unit/release-check.test.ts`, `test/unit/release-workflow.test.ts` |
 | DES-REL-003 | 画像と紹介動画の撮り直しの検査 | SPEC-REL-003 | - | `test/unit/media-rules.test.ts` |

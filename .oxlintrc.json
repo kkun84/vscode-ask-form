@@ -32,7 +32,7 @@
       }
     ]
   },
-  "ignorePatterns": ["dist", ".mutator", "test/system/__screenshots__"],
+  "ignorePatterns": ["dist", ".mutator", ".mutator-base", "test/system/__screenshots__"],
   "overrides": [
     {
       "files": ["test/**", "scripts/**"],

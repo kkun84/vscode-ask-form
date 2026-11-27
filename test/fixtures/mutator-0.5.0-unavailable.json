@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "2",
+  "comparison": "unavailable",
+  "findings": [],
+  "thresholds": {
+    "high": 80,
+    "low": 60
+  },
+  "projectRoot": ".",
+  "framework": {
+    "name": "mutator",
+    "version": "0.5.0"
+  },
+  "files": {},
+  "testFiles": {}
+}

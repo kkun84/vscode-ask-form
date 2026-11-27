@@ -14,7 +14,7 @@
     "src/ui/styles.css",
     "test/acceptance/driver.ts"
   ],
-  "ignorePatterns": ["dist/**", "out/**", ".mutator/**"],
+  "ignorePatterns": ["dist/**", "out/**", ".mutator/**", ".mutator-base/**"],
   "ignoreDependencies": ["@effect/tsgo", "@effect/language-service"],
   "rulePacks": ["architecture.rules.json"],
   "duplicates": {

@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "2",
+  "comparison": "available",
+  "findings": [
+    {
+      "kind": "mutationGap",
+      "severity": "warning",
+      "key": "1jkiw3avhr2",
+      "gap": "notDetected",
+      "message": "Review this undetected mutant; strengthen a test or record why it is equivalent."
+    },
+    {
+      "kind": "newTestNoKills",
+      "severity": "warning",
+      "test": "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 式を評価するだけ",
+      "measured": 2,
+      "message": "New test detects none of the measured mutants; review its assertions and the enabled mutation rules."
+    },
+    {
+      "kind": "testNotMeasured",
+      "severity": "info",
+      "test": "test/unit/vitest-files.test.ts#DES-TOOLS-004 Vitestの設定ファイルとsetupFilesとglobalSetupを、根からの相対の位置で重ねずに並べる",
+      "reason": "notReached",
+      "message": "Detection power is not established by this run; check the selected code, mutation rules and incomplete work."
+    }
+  ],
+  "testChanges": {
+    "added": [
+      "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 maxは最も大きい値を返す",
+      "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 式を評価するだけ"
+    ],
+    "changed": [],
+    "removed": []
+  },
+  "thresholds": {
+    "high": 80,
+    "low": 60
+  },
+  "projectRoot": ".",
+  "framework": {
+    "name": "mutator",
+    "version": "0.5.0"
+  },
+  "files": {
+    "src/core/expression.ts": {
+      "language": "typescript",
+      "mutants": [
+        {
+          "id": "1jkiw3avhr2",
+          "mutatorName": "Regex",
+          "replacement": "/^(?:\\d\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?/",
+          "location": {
+            "start": {
+              "line": 70,
+              "column": 14
+            },
+            "end": {
+              "line": 70,
+              "column": 53
+            }
+          },
+          "status": "Survived",
+          "killedBy": [],
+          "coveredBy": [
+            "test/unit/form.test.ts#DES-SPEC-001 設計図の読み取り > DES-SPEC-001 正しい設計図を読み取る",
+            "test/unit/form.test.ts#DES-SPEC-001 設計図の読み取り > DES-SPEC-001 重複したidを指摘する",
+            "test/unit/form.test.ts#DES-SPEC-001 設計図の読み取り > DES-SPEC-001 計算式の誤りと参照の誤りを指摘する",
+            "test/unit/form.test.ts#DES-SPEC-001 文字数の目安と上限 > DES-SPEC-001 計算結果のlabelは目安の2倍の120文字まで読み取り、それを超えると誤りにする",
+            "test/unit/form.test.ts#DES-SPEC-001 文字数の目安と上限 > DES-SPEC-001 id、選択肢のvalue、default、計算式、単位の上限は広げない",
+            "test/unit/form.test.ts#DES-SPEC-002 正規化と鍵 > DES-SPEC-002 キーの順序に関係なく同じ鍵になる",
+            "test/unit/form.test.ts#DES-SPEC-002 正規化と鍵 > DES-SPEC-002 内容が違えば鍵も違い、鍵は16桁の16進数",
+            "test/unit/form.test.ts#DES-FORM-001 初期値 > DES-FORM-001 defaultを初期値とし、ないときは文字を空、複数選択を空にし、単一選択と数値は未回答にする",
+            "test/unit/form.test.ts#DES-FORM-002 計算結果の順序 > DES-FORM-002 書かれた順に評価し、前の結果を後で使う",
+            "test/unit/form.test.ts#DES-FORM-002 計算結果の順序 > DES-FORM-002 複数選択は選んだ数として、評価できない結果はnullとして扱う",
+            "test/unit/form.test.ts#DES-FORM-003 差分 > DES-FORM-003 異なる項目を設計図の順で返し、複数選択の順序は無視する",
+            "test/unit/form.test.ts#DES-FORM-003 差分 > DES-FORM-003 回答では推奨から変えた項目を changedByUser にする",
+            "test/unit/form.test.ts#DES-FORM-004 値の検査 > DES-FORM-004 正しい値を受け付ける",
+            "test/unit/form.test.ts#DES-FORM-004 値の検査 > DES-FORM-004 種類、範囲、選択肢に合わない値を指摘する",
+            "test/unit/branch.test.ts#DES-FORM-006 有効な項目と値 > DES-FORM-006 隠れた項目は計算式で未定義になる",
+            "test/unit/form-edge-cases.test.ts#DES-FORM-003 NULを含む複数選択の変更を検出し、並び順だけの違いは無視する",
+            "test/unit/form-edge-cases.test.ts#DES-SPEC-001 複数選択のdefaultに重複した値があれば拒否する",
+            "test/unit/form-edge-cases.test.ts#DES-FORM-004 複数選択の回答に重複した値があれば拒否する",
+            "test/unit/form-edge-cases.test.ts#DES-FORM-002 重複のない複数選択は空の配列も受け付け、表示する選択数で計算する",
+            "test/unit/form-edge-cases.test.ts#DES-FORM-002 __proto__の計算結果を保持し、後続の式とJSONにも残す(42)",
+            "test/unit/form-edge-cases.test.ts#DES-FORM-002 __proto__の計算結果を保持し、後続の式とJSONにも残す(1 / 0)",
+            "test/unit/form-edge-cases.test.ts#DES-FORM-002 桁あふれの数値リテラルとそれを参照する計算結果はnullにする",
+            "test/unit/form-edge-cases.test.ts#DES-SPEC-001 予約語と一致しないidは計算式から参照できる",
+            "test/unit/expression.test.ts#DES-EXPR-001 字句と構文 > DES-EXPR-001 演算子の優先順位どおりに解析する",
+            "test/unit/expression.test.ts#DES-EXPR-001 字句と構文 > DES-EXPR-001 文字列、真偽値、関数呼び出しを解析する",
+            "test/unit/expression.test.ts#DES-EXPR-001 字句と構文 > DES-EXPR-001 参照している名前を列挙する",
+            "test/unit/expression.test.ts#DES-EXPR-001 字句と構文 > DES-EXPR-001 誤りを位置つきで返す",
+            "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 値の表を参照して評価する",
+            "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 関数を評価する",
+            "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 maxは最も大きい値を返す",
+            "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 評価できないものは未定義にする",
+            "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 桁あふれの数値リテラルは単独でも式の中でも評価できない",
+            "test/unit/expression.test.ts#DES-EXPR-002 評価 > DES-EXPR-002 論理演算は短絡評価する"
+          ]
+        }
+      ]
+    }
+  },
+  "testFiles": {}
+}
